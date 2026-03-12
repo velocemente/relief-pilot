@@ -1333,6 +1333,22 @@ body {
   color: var(--sys-yellow);
 }
 
+/* ── Flights screen: Add New Flight button ── */
+.flights-add-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--tint); color: #fff; border: none;
+  border-radius: var(--r-md); padding: 0 var(--sp4);
+  height: 36px; min-height: 36px;
+  font-family: var(--font); font-size: var(--type-body-sm); font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: opacity 0.1s;
+  /* Position: right edge stops 60px before the centered title */
+  margin-right: 60px;
+  flex-shrink: 0;
+}
+.flights-add-btn:active { opacity: 0.75; }
+.flights-add-btn svg { stroke: #fff; }
+
 ::-webkit-scrollbar { width: 0; }
 
 /* ═══════════════════════════════════════════════════════
@@ -1488,12 +1504,13 @@ body {
      SCREEN: SAVED FLIGHTS
      ══════════════════════════════════════════════════════ -->
 <div class="screen is-root" id="screen-flights">
-  <div class="nav-bar">
-    <!-- + New Flight (left) -->
-    <button class="icon-btn" onclick="goToImport()" aria-label="New flight">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <div class="nav-bar" style="padding-top:calc(var(--sat) + 12px);min-height:calc(var(--sat) + 56px)">
+    <!-- Add New Flight button — right edge 60px left of centered title -->
+    <button class="flights-add-btn" onclick="goToImport()" aria-label="Add new flight">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0">
         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
+      Add New Flight
     </button>
     <!-- Centered title -->
     <span class="nav-title">Flights</span>
