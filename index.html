@@ -9,9 +9,6 @@
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0C0C0E" media="(prefers-color-scheme: dark)">
 <title>Relief Pilot</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-<link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
 
 <!--
   DESIGN PRINCIPLES APPLIED
@@ -110,6 +107,15 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);   /* AppShadow.sm */
   --shadow-md: 0 4px 8px rgba(0,0,0,0.30);   /* AppShadow.md */
   --shadow-lg: 0 12px 20px rgba(0,0,0,0.35);  /* AppShadow.lg */
+  /* ── Typography Tokens (AppType alignment) ── */
+  --type-h1: 34px;       /* Page titles */
+  --type-h2: 28px;       /* Section headings */
+  --type-h3: 22px;       /* Sub-section headings */
+  --type-body-lg: 20px;  /* Prominent body */
+  --type-body: 17px;     /* Standard body */
+  --type-body-sm: 15px;  /* Supporting body */
+  --type-caption: 13px;  /* Metadata, labels */
+  --type-overline: 11px; /* Minimum size — badges, micro text */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -550,7 +556,7 @@ body {
   padding: var(--sp2) 0 var(--sp1);
   background: none; border: none; cursor: pointer;
   color: var(--label3);
-  font-size: 10px; font-family: var(--font);
+  font-size: var(--type-overline); font-family: var(--font);
   position: relative;
   transition: color 0.15s;
   min-height: 48px;
@@ -619,7 +625,7 @@ body {
 .settings-version-footer {
   text-align: center;
   padding: var(--sp4) var(--sp4) var(--sp2);
-  font-size: 13px; font-family: var(--font-mono); color: var(--label3);
+  font-size: var(--type-caption); font-family: var(--font-mono); color: var(--label3);
 }
 /* fcir-toggle-row on the right — no auto margin in this layout */
 #screen-flight .fcir-toggle-row {
@@ -671,7 +677,7 @@ body {
   box-shadow: var(--shadow-sm);
 }
 .subcard-header {
-  font-size: 11px; font-weight: 700; color: var(--label3);
+  font-size: var(--type-overline); font-weight: 700; color: var(--label3);
   text-transform: uppercase; letter-spacing: 0.06em;
   padding: var(--sp3) var(--sp4) var(--sp2);
 }
@@ -697,7 +703,7 @@ body {
   background: var(--fill4); color: var(--label);
   border: 0.5px solid var(--sep); border-radius: var(--r-sm);
   padding: var(--sp2) var(--sp3);
-  font-family: var(--font); font-size: 14px; line-height: 1.5;
+  font-family: var(--font); font-size: var(--type-body-sm); line-height: 1.5;
   outline: none; -webkit-appearance: none;
   -apple-pencil-interaction: auto; touch-action: none;
 }
@@ -733,20 +739,20 @@ body {
   gap: var(--sp3);
 }
 .enroute-label {
-  font-size: 14px; color: var(--label2); min-width: 96px; flex-shrink: 0;
+  font-size: var(--type-body-sm); color: var(--label2); min-width: 96px; flex-shrink: 0;
 }
 .enroute-value {
   font-family: var(--font-mono); font-size: 15px; color: var(--label); font-weight: 600;
 }
 .enroute-value.dim { color: var(--label3); font-weight: 400; }
 .enroute-sub {
-  font-size: 12px; color: var(--label3); margin-left: auto;
+  font-size: var(--type-overline); color: var(--label3); margin-left: auto;
   font-family: var(--font-mono);
 }
 /* ── Flight header block ── */
 .flt-id {
   font-family: var(--font-display);
-  font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
+  font-size: var(--type-h2); font-weight: 700; letter-spacing: -0.02em;
   color: var(--label); line-height: 1.15; display: block;
 }
 .flt-date {
@@ -776,7 +782,7 @@ body {
 .flt-header-left { display: flex; flex-direction: column; }
 /* ── ETOPS header block ── */
 .etops-block {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
   color: var(--tint); letter-spacing: 0.04em;
   margin-bottom: var(--sp3); margin-top: 4px;
   display: flex; flex-direction: column; gap: 1px;
@@ -796,10 +802,10 @@ body {
 }
 /* 10% larger font variant — used for STAB and fuel sections */
 .data-table-lg .data-label {
-  font-size: 16.5px;
+  font-size: var(--type-body);
 }
 .data-table-lg .data-value {
-  font-size: 16.5px;
+  font-size: var(--type-body);
 }
 .data-row {
   display: flex; align-items: baseline; gap: var(--sp3);
@@ -879,7 +885,7 @@ body {
   background: var(--sys-yellow-bg);
   border-radius: var(--r-sm);
   padding: var(--sp2) var(--sp4);
-  font-size: 14px; font-weight: 600; color: var(--sys-yellow);
+  font-size: var(--type-body-sm); font-weight: 600; color: var(--sys-yellow);
   display: flex; align-items: center; gap: var(--sp2);
   margin-top: var(--sp3);
 }
@@ -908,9 +914,9 @@ body {
 }
 .apt-card-titles { flex: 1; }
 .apt-card-icao { font-size: 17px; font-weight: 600; }
-.apt-card-role { font-size: 12px; color: var(--label2); text-transform: uppercase; letter-spacing: 0.06em; }
+.apt-card-role { font-size: var(--type-overline); color: var(--label2); text-transform: uppercase; letter-spacing: 0.06em; }
 .apt-badge {
-  font-size: 12px; font-weight: 600; padding: 3px 10px;
+  font-size: var(--type-overline); font-weight: 600; padding: 3px 10px;
   border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em;
 }
 .apt-badge.g { background: var(--sys-green-bg);  color: var(--sys-green); }
@@ -950,7 +956,7 @@ body {
   background: var(--fill4); color: var(--label);
   border: 0.5px solid var(--sep); border-radius: var(--r-sm);
   padding: var(--sp2) var(--sp3);
-  font-family: var(--font-mono); font-size: 12px;
+  font-family: var(--font-mono); font-size: var(--type-caption);
   outline: none; line-height: 1.5;
 }
 /* Curfew row inside airport card */
@@ -964,11 +970,11 @@ body {
 }
 .apt-curfew-row:active { background: var(--sys-bg3); }
 .apt-curfew-label {
-  font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+  font-size: var(--type-overline); font-weight: 600; letter-spacing: 0.04em;
   flex-shrink: 0;
 }
 .apt-curfew-delta {
-  flex: 1; font-size: 12px; color: var(--label2);
+  flex: 1; font-size: var(--type-overline); color: var(--label2);
   font-family: var(--font-mono); text-align: right;
   padding-right: var(--sp2);
 }
@@ -992,7 +998,7 @@ body {
   line-height: 1.3; flex: 1; padding-right: var(--sp3);
 }
 .altroute-mora {
-  font-size: 11px; font-family: var(--font-mono); color: var(--label3);
+  font-size: var(--type-overline); font-family: var(--font-mono); color: var(--label3);
   margin-bottom: var(--sp2);
 }
 .altroute-ta {
@@ -1000,7 +1006,7 @@ body {
   background: var(--fill4); color: var(--label);
   border: 0.5px solid var(--sep); border-radius: var(--r-sm);
   padding: var(--sp2) var(--sp3);
-  font-family: var(--font-mono); font-size: 12px;
+  font-family: var(--font-mono); font-size: var(--type-caption);
   outline: none; line-height: 1.6; resize: vertical;
   min-height: 120px;
 }
@@ -1012,7 +1018,7 @@ body {
   padding: var(--sp4); margin-bottom: var(--sp3);
 }
 .etp-section-title {
-  font-size: 11px; font-weight: 700; color: var(--label3);
+  font-size: var(--type-overline); font-weight: 700; color: var(--label3);
   text-transform: uppercase; letter-spacing: 0.07em;
   margin-bottom: var(--sp2);
 }
@@ -1022,12 +1028,12 @@ body {
 }
 .etp-section .etp-point-row:first-of-type { border-top: none; }
 .etp-point-label {
-  font-size: 11px; font-weight: 700; color: var(--tint);
+  font-size: var(--type-overline); font-weight: 700; color: var(--tint);
   text-transform: uppercase; letter-spacing: 0.05em;
   min-width: 38px; flex-shrink: 0;
 }
 .etp-point-coord {
-  font-family: var(--font-mono); font-size: 13px;
+  font-family: var(--font-mono); font-size: var(--type-caption);
   color: var(--label); flex: 1; letter-spacing: 0.01em;
 }
 .etp-copy-btn {
@@ -1040,7 +1046,7 @@ body {
 }
 .etp-copy-btn:active { background: var(--fill3); color: var(--label); }
 .apt-eta-tag {
-  font-family: var(--font-mono); font-size: 12px;
+  font-family: var(--font-mono); font-size: var(--type-overline);
   color: var(--label2); white-space: nowrap;
 }
 .apt-eta-block {
@@ -1048,7 +1054,7 @@ body {
   margin-left: auto; gap: 1px;
 }
 .apt-wx-window {
-  font-family: var(--font-mono); font-size: 10px;
+  font-family: var(--font-mono); font-size: var(--type-overline);
   color: var(--label3); white-space: nowrap;
 }
 
@@ -1074,7 +1080,7 @@ body {
   text-transform: uppercase; letter-spacing: 0.06em;
 }
 .edit-input {
-  font-family: var(--font-mono); font-size: 24px; font-weight: 500;
+  font-family: var(--font-mono); font-size: var(--type-h3); font-weight: 500;
   color: var(--label); background: var(--fill4);
   border: 1px solid var(--border-interactive); border-radius: var(--r-md);
   padding: var(--sp3) var(--sp4); outline: none;
@@ -1137,7 +1143,7 @@ body {
   color: var(--label); min-width: 52px;
 }
 .oei-rwy-proc {
-  font-family: var(--font-mono); font-size: 14px; color: var(--label2);
+  font-family: var(--font-mono); font-size: var(--type-body-sm); color: var(--label2);
   flex: 1; text-align: right; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1161,7 +1167,7 @@ body {
   display: flex; flex-direction: column; gap: var(--sp2);
 }
 .oei-proc-line {
-  font-family: var(--font-mono); font-size: 14px; color: var(--label2);
+  font-family: var(--font-mono); font-size: var(--type-body-sm); color: var(--label2);
   line-height: 1.5; white-space: pre-wrap; word-break: break-word;
 }
 .oei-proc-line.co-chart-label {
@@ -1175,7 +1181,7 @@ body {
   background: var(--fill4); color: var(--label);
   border: 0.5px solid var(--sep); border-radius: var(--r-md);
   padding: var(--sp3) var(--sp4); margin-top: var(--sp2);
-  font-family: var(--font-mono); font-size: 14px; line-height: 1.6;
+  font-family: var(--font-mono); font-size: var(--type-body-sm); line-height: 1.6;
   outline: none; -webkit-appearance: none;
   -apple-pencil-interaction: auto;
   touch-action: none;
@@ -1186,7 +1192,7 @@ body {
 
 #screen-ofpview { background: var(--sys-bg2); } /* kept for any legacy refs */
 .ofp-raw {
-  font-family: var(--font-mono); font-size: 11px;
+  font-family: var(--font-mono); font-size: var(--type-caption);
   color: var(--label2); line-height: 1.75;
   white-space: pre-wrap; word-break: break-all;
   padding: var(--sp4)
@@ -1216,6 +1222,117 @@ body {
 /* ═══════════════════════════════════════════════════════
    SCROLLBAR
    ═══════════════════════════════════════════════════════ */
+
+/* ── DDG individual item rows ── */
+.ddg-item-row {
+  display: flex; align-items: flex-start; gap: var(--sp2);
+  padding: var(--sp2) 0;
+  border-bottom: 0.5px solid var(--sep);
+  font-size: var(--type-body-sm); color: var(--label); line-height: 1.5;
+}
+.ddg-item-row:last-child { border-bottom: none; }
+.ddg-item-code {
+  font-family: var(--font-mono); font-weight: 600;
+  color: var(--tint); white-space: nowrap; flex-shrink: 0;
+  min-width: 70px; font-size: var(--type-body-sm);
+}
+.ddg-item-desc {
+  flex: 1; color: var(--label2); font-size: var(--type-body-sm);
+}
+.ddg-list { margin-top: var(--sp2); }
+
+/* ── Compact ATIS + Parking row (single line) ── */
+.compact-atis-row {
+  display: flex; align-items: center; gap: var(--sp3);
+  min-height: 44px; padding: var(--sp1) 0;
+}
+.compact-atis-label {
+  font-size: var(--type-overline); font-weight: 700; color: var(--label3);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  min-width: 32px; flex-shrink: 0;
+}
+.compact-atis-box {
+  width: 42px; height: 42px; border-radius: var(--r-md);
+  border: 1.5px solid var(--border-interactive);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: var(--type-body-lg); font-weight: 700;
+  color: var(--tint); cursor: pointer; flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  background: transparent;
+}
+.compact-atis-box:active { background: var(--tint-bg); border-color: var(--tint); }
+.compact-atis-box:empty::after { content: '—'; color: var(--label3); font-weight: 400; }
+.compact-atis-notes {
+  flex: 1; min-width: 0; height: 42px; max-height: 42px; resize: none;
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp3);
+  font-family: var(--font); font-size: var(--type-body-sm); line-height: 1.5;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto; touch-action: none;
+}
+.compact-atis-notes:focus { border-color: var(--tint); }
+.compact-atis-notes::placeholder { color: var(--label3); }
+
+.compact-parking-row {
+  display: flex; align-items: center; gap: var(--sp3);
+  min-height: 44px; padding: var(--sp1) 0;
+  border-top: 0.5px solid var(--sep);
+}
+.compact-parking-box {
+  flex: 1; min-width: 0; height: 42px; max-height: 42px; resize: none;
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp3);
+  font-family: var(--font-mono); font-size: var(--type-body-sm); line-height: 1.5;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto; touch-action: none;
+}
+.compact-parking-box:focus { border-color: var(--tint); }
+.compact-parking-box::placeholder { color: var(--label3); }
+
+/* ── Enroute split layout: times left, scratchpad right ── */
+.enroute-split {
+  display: flex; gap: var(--sp3); min-height: 200px;
+}
+.enroute-times-col {
+  flex: 1; min-width: 0;
+}
+.enroute-scratch-col {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+}
+.enroute-scratchpad {
+  flex: 1; width: 100%; min-height: 180px; resize: none;
+  background: var(--fill4); color: var(--label);
+  border: 1px solid var(--border-interactive); border-radius: var(--r-md);
+  padding: var(--sp3);
+  font-family: var(--font); font-size: var(--type-body-sm); line-height: 1.6;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto;
+  touch-action: none;
+  pointer-events: auto;
+}
+.enroute-scratchpad:focus { border-color: var(--tint); background: var(--sys-bg2); }
+.enroute-scratchpad::placeholder { color: var(--label3); }
+.enroute-scratch-label {
+  font-size: var(--type-overline); font-weight: 700; color: var(--label3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: var(--sp2);
+}
+
+/* ── FCIR narrative subcard (appears on all phases) ── */
+.fcir-subcard {
+  background: rgba(255, 159, 10, 0.08);
+  border: 1px solid rgba(255, 159, 10, 0.25);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-bottom: var(--sp4);
+}
+.fcir-subcard .subcard-header {
+  color: var(--sys-yellow);
+}
+
 ::-webkit-scrollbar { width: 0; }
 
 /* ═══════════════════════════════════════════════════════
@@ -1499,7 +1616,7 @@ body {
     <div class="scroll-view no-padding" id="ofpViewerContainer">
       <!-- Populated by switchFlightTab('ofp') -->
     </div>
-    <div style="position:absolute;top:8px;right:var(--sp4);font-size:12px;color:var(--label3);font-family:var(--font-mono);pointer-events:none" id="ofpPageCounter"></div>
+    <div style="position:absolute;top:8px;right:var(--sp4);font-size:13px;color:var(--label3);font-family:var(--font-mono);pointer-events:none" id="ofpPageCounter"></div>
   </div>
 
   <!-- ALTERNATES -->
@@ -1710,7 +1827,7 @@ function loadOFPPanel() {
 
   if (pdfArrayBuffer) {
     _pdfDocProxy = null;
-    container.innerHTML = '<div style="color:var(--label2);text-align:center;padding:32px;font-size:14px">Loading PDF…</div>';
+    container.innerHTML = '<div style="color:var(--label2);text-align:center;padding:32px;font-size:15px">Loading PDF…</div>';
     loadPdfJs().then(() => {
       pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise.then(pdf => {
         _pdfDocProxy = pdf;
@@ -1812,6 +1929,7 @@ const S = {
   atisLetter:'',      // ATIS identifier letter, e.g. "K"
   atisNotes:'',       // free-text ATIS notes
   parkingNotes:'',    // parking / gate free-text
+  enrouteScratch:'',  // enroute scratchpad (drawing + text)
 
   // ── Arrival fuel (parsed + carried-over) ──
   alt1Fuel:'',        // ALT1 fuel from OFP fuel summary
@@ -1931,7 +2049,7 @@ function renderFlightList() {
       <div class="cell-group">
         <div class="cell${isFCIR ? ' flight-cell-fcir' : ''}" role="button" tabindex="0" aria-label="Load flight ${f.fltNum||''}">
           <div class="cell-content">
-            <div class="cell-title" style="font-weight:700; font-size:18px; font-family:var(--font-mono); letter-spacing:0.02em">${esc(f.fltNum||'—')}</div>
+            <div class="cell-title" style="font-weight:700; font-size:17px; font-family:var(--font-mono); letter-spacing:0.02em">${esc(f.fltNum||'—')}</div>
             <div class="cell-subtitle">${esc(f.date||'')}  ·  Saved ${saved}${isFCIR ? '  ·  <span style="color:var(--sys-yellow);font-weight:600">FCIR/ASAP</span>' : ''}</div>
           </div>
           <button class="flight-del-btn" onclick="event.stopPropagation();deleteFlight('${f.id}')" aria-label="Delete ${f.fltNum}">
@@ -2652,6 +2770,7 @@ function parseOFP() {
     atisLetter:    S.atisLetter    || '',
     atisNotes:     S.atisNotes     || '',
     parkingNotes:  S.parkingNotes  || '',
+    enrouteScratch: S.enrouteScratch || '',
     oeiVal:    S.oeiVal    || '',
     stabTrim:  S.stabTrim  || '',
     gaFuel:    S.gaFuel    || '',
@@ -2786,6 +2905,24 @@ function setPhase(phase) {
 }
 
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
+
+// ── ATIS + Parking compact rows (used in preflight + descent) ──
+function renderAtisParking(idSuffix) {
+  let h = '';
+  // ATIS: label + letter box (empty by default) + notes textarea
+  h += `<div class="compact-atis-row">`;
+  h += `<span class="compact-atis-label">ATIS</span>`;
+  h += `<div class="compact-atis-box" onclick="openEdit('atisLetter')" onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('atisLetter')}" role="button" aria-label="ATIS letter">${esc(S.atisLetter || '')}</div>`;
+  h += `<textarea class="compact-atis-notes" id="atisNotesPad${idSuffix}" placeholder="ATIS notes…" aria-label="ATIS notes"></textarea>`;
+  h += `</div>`;
+  // Parking: label + text box
+  h += `<div class="compact-parking-row">`;
+  h += `<span class="compact-atis-label">PARK</span>`;
+  h += `<textarea class="compact-parking-box" id="parkingPad${idSuffix}" placeholder="Gate / stand…" aria-label="Parking"></textarea>`;
+  h += `</div>`;
+  return h;
+}
+
 function renderPreflightPhase() {
   // TOGW → block fuel color
   let bClass = '';
@@ -2796,11 +2933,12 @@ function renderPreflightPhase() {
 
   let h = '';
 
-  // ── "Departure" subcard (OEI + STAB) ──
+  // ── "Departure" subcard (ATIS + Parking + OEI + STAB) ──
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">Departure</div>`;
   h += `<div class="subcard-body">`;
-  h += `<div class="data-table data-table-lg">`;
+  h += renderAtisParking('Pre');
+  h += `<div class="data-table data-table-lg" style="margin-top:var(--sp2)">`;
 
   if (S.oeiData && S.oeiData.length) {
     const sel = S.oeiData.find(d => d.rwy === S.oeiSelectedRwy);
@@ -2814,7 +2952,7 @@ function renderPreflightPhase() {
                    + `<span style="color:var(--label2);font-size:13px;margin-left:8px">SPECIAL ▾</span>`;
       } else {
         oeiDisplay = `<span style="color:var(--tint);font-weight:700">${esc(sel.rwy)}</span>`
-                   + `<span style="color:var(--label2);font-size:14px;margin-left:8px">${esc(sel.efp)}</span>`;
+                   + `<span style="color:var(--label2);font-size:15px;margin-left:8px">${esc(sel.efp)}</span>`;
       }
     } else {
       oeiDisplay = `<span style="color:var(--label3)">Tap to select runway…</span>`;
@@ -2830,7 +2968,7 @@ function renderPreflightPhase() {
     }
     if (sel && sel.coChart) {
       h += `<div style="padding:2px var(--sp4) var(--sp3)">`;
-      h += `<div style="font-size:12px;color:var(--label3);margin-bottom:4px">Company chart notes / procedure:</div>`;
+      h += `<div style="font-size:13px;color:var(--label3);margin-bottom:4px">Company chart notes / procedure:</div>`;
       h += `<textarea class="oei-cochart-pad" id="oeiCoChartPad" placeholder="Enter or write special procedure…" aria-label="Co-chart procedure notes">${esc(sel.coChartNote||'')}</textarea>`;
       h += `</div>`;
     }
@@ -2854,6 +2992,8 @@ function renderPreflightPhase() {
   h += `</div>`;
   h += `</div></div>`; // subcard-body + subcard
 
+  // ── FCIR (shown on all phases when active) ──
+  h += renderFcirSubcard();
   // ── NOTES (common to all phases — DDG, Overflights, Curfews, Perishables, Notes) ──
   h += renderNotesSection();
   return h;
@@ -2924,6 +3064,8 @@ function renderEnroutePhase() {
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">Enroute</div>`;
   h += `<div class="subcard-body">`;
+  h += `<div class="enroute-split">`;
+  h += `<div class="enroute-times-col">`;
 
   // OFF time entry
   h += `<div class="data-table data-table-lg">`;
@@ -2970,10 +3112,18 @@ function renderEnroutePhase() {
       h += `</div></div>`;
     }
   } else {
-    h += `<div style="padding:var(--sp3) 0;font-size:14px;color:var(--label3)">Enter OFF time to calculate enroute events.</div>`;
+    h += `<div style="padding:var(--sp3) 0;font-size:15px;color:var(--label3)">Enter OFF time to calculate enroute events.</div>`;
   }
 
+  h += `</div>`; // enroute-times-col
+  // ── Scratchpad column ──
+  h += `<div class="enroute-scratch-col">`;
+  h += `<div class="enroute-scratch-label">Scratchpad</div>`;
+  h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Enroute scratchpad"></textarea>`;
+  h += `</div>`; // enroute-scratch-col
+  h += `</div>`; // enroute-split
   h += `</div></div>`; // subcard-body + subcard
+  h += renderFcirSubcard();
   return h;
 }
 
@@ -2985,19 +3135,7 @@ function renderDescentPhase() {
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">Arrival</div>`;
   h += `<div class="subcard-body">`;
-
-  // ATIS row: letter box + free-text notes pad
-  h += `<div class="atis-row">`;
-  h += `<div class="atis-letter-box" onclick="openEdit('atisLetter')" onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('atisLetter')}" role="button" aria-label="ATIS letter" title="ATIS">${esc(S.atisLetter || 'ATIS')}</div>`;
-  h += `<textarea class="atis-notes-pad" id="atisNotesPad" placeholder="ATIS notes…" aria-label="ATIS notes"></textarea>`;
-  h += `</div>`;
-
-  // Parking row
-  h += `<div class="parking-row">`;
-  h += `<span class="parking-label">Parking</span>`;
-  h += `<textarea class="parking-pad" id="parkingPad" placeholder="Gate / stand…" aria-label="Parking"></textarea>`;
-  h += `</div>`;
-
+  h += renderAtisParking('Desc');
   h += `</div></div>`; // subcard-body + subcard
 
   // ── Arrival Fuel subcard ──
@@ -3012,6 +3150,7 @@ function renderDescentPhase() {
   h += `</div>`;
   h += `</div></div>`; // subcard-body + subcard
 
+  h += renderFcirSubcard();
   return h;
 }
 
@@ -3031,14 +3170,25 @@ function renderNotesSection() {
 
   h += `<span class="notes-sub-header">DDG</span>`;
   const rawMel = (S.melItems || '').trim();
-  const filteredMel = rawMel && rawMel !== 'None listed'
+  const ddgItems = rawMel && rawMel !== 'None listed'
     ? rawMel.split(/\s*(?=\d{2}-\d{2}-\d{2})/)
              .filter(item => item.trim() && !item.trim().startsWith('25-'))
-             .join(' ').trim()
-    : '';
-  h += filteredMel
-    ? `<span class="notes-sub-body">${esc(filteredMel)}</span>`
-    : `<span class="notes-sub-body notes-sub-empty">—</span>`;
+    : [];
+  if (ddgItems.length) {
+    h += `<div class="ddg-list">`;
+    ddgItems.forEach(item => {
+      const trimmed = item.trim();
+      const codeMatch = trimmed.match(/^(\d{2}-\d{2}-\d{2})\s+(.*)/);
+      if (codeMatch) {
+        h += `<div class="ddg-item-row"><span class="ddg-item-code">${esc(codeMatch[1])}</span><span class="ddg-item-desc">${esc(codeMatch[2])}</span></div>`;
+      } else {
+        h += `<div class="ddg-item-row"><span class="ddg-item-desc">${esc(trimmed)}</span></div>`;
+      }
+    });
+    h += `</div>`;
+  } else {
+    h += `<span class="notes-sub-body notes-sub-empty">—</span>`;
+  }
 
   if (S.overflightPerms && S.overflightPerms.trim()) {
     h += `<span class="notes-sub-header">OVERFLIGHTS</span>`;
@@ -3065,15 +3215,23 @@ function renderNotesSection() {
   h += `<span class="notes-sub-header">Notes</span>`;
   h += `<textarea class="notes-pad" id="notesPad" placeholder="Tap or write with Apple Pencil…" aria-label="Free-text notes"></textarea>`;
 
-  if (_fcirActive) {
-    h += `<div class="notes-sub-header-row">`;
-    h += `<span class="notes-sub-header" style="margin-bottom:0">FCIR/ASAP Narrative</span>`;
-    h += `<button class="icon-btn" style="width:32px;height:32px;flex-shrink:0" onclick="copyFcirNarrative()" aria-label="Copy FCIR narrative" title="Copy to clipboard">`;
-    h += `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
-    h += `</button></div>`;
-    h += `<textarea class="notes-pad fcir-narrative-pad" id="fcirNarrativePad" placeholder="Describe events for FCIR/ASAP report…" aria-label="FCIR/ASAP narrative"></textarea>`;
-  }
+  return h;
+}
 
+// ── FCIR/ASAP Narrative subcard (shown on ALL phases when active) ──
+function renderFcirSubcard() {
+  if (!_fcirActive) return '';
+  let h = '';
+  h += `<div class="fcir-subcard">`;
+  h += `<div class="subcard-header" style="display:flex;align-items:center;justify-content:space-between">`;
+  h += `<span>FCIR / ASAP Narrative</span>`;
+  h += `<button class="icon-btn" style="width:28px;height:28px;flex-shrink:0" onclick="copyFcirNarrative()" aria-label="Copy FCIR narrative" title="Copy to clipboard">`;
+  h += `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+  h += `</button>`;
+  h += `</div>`;
+  h += `<div class="subcard-body">`;
+  h += `<textarea class="notes-pad fcir-narrative-pad" id="fcirNarrativePad" placeholder="Describe events for FCIR/ASAP report…" aria-label="FCIR/ASAP narrative" style="margin-top:0"></textarea>`;
+  h += `</div></div>`;
   return h;
 }
 
@@ -3096,15 +3254,24 @@ function wireNotePads() {
       if (sel) { sel.coChartNote = coChartPad.value; saveFlight(); }
     });
   }
-  const atisNotesPad = document.getElementById('atisNotesPad');
-  if (atisNotesPad) {
-    atisNotesPad.value = S.atisNotes || '';
-    atisNotesPad.addEventListener('input', () => { S.atisNotes = atisNotesPad.value; saveFlight(); });
-  }
-  const parkingPad = document.getElementById('parkingPad');
-  if (parkingPad) {
-    parkingPad.value = S.parkingNotes || '';
-    parkingPad.addEventListener('input', () => { S.parkingNotes = parkingPad.value; saveFlight(); });
+  // Wire all ATIS + Parking instances (preflight + descent share state)
+  ['Pre','Desc',''].forEach(suffix => {
+    const atisPad = document.getElementById('atisNotesPad' + suffix);
+    if (atisPad) {
+      atisPad.value = S.atisNotes || '';
+      atisPad.addEventListener('input', () => { S.atisNotes = atisPad.value; saveFlight(); });
+    }
+    const parkPad = document.getElementById('parkingPad' + suffix);
+    if (parkPad) {
+      parkPad.value = S.parkingNotes || '';
+      parkPad.addEventListener('input', () => { S.parkingNotes = parkPad.value; saveFlight(); });
+    }
+  });
+  // Wire enroute scratchpad
+  const enrScratch = document.getElementById('enrouteScratchPad');
+  if (enrScratch) {
+    enrScratch.value = S.enrouteScratch || '';
+    enrScratch.addEventListener('input', () => { S.enrouteScratch = enrScratch.value; saveFlight(); });
   }
 }
 
@@ -3482,7 +3649,7 @@ function showCurfewDetail(icao) {
   const inp = document.getElementById('editInput');
   inp.value = cf.detail;
   inp.readOnly = true;
-  inp.style.cssText = 'font-family:var(--font-mono);font-size:12px;height:auto;min-height:120px;color:'+col+';background:transparent;border:none;resize:none;outline:none;padding:0;width:100%';
+  inp.style.cssText = 'font-family:var(--font-mono);font-size:13px;height:auto;min-height:120px;color:'+col+';background:transparent;border:none;resize:none;outline:none;padding:0;width:100%';
   // Swap confirm button to "Done" only
   const overlay = document.getElementById('editOverlay');
   overlay.classList.add('open');
@@ -4469,7 +4636,7 @@ function loadPdfJs() {
   <div class="scroll-view">
 
     <!-- VERSION BADGE -->
-    <div style="text-align:center;padding:var(--sp3) var(--sp4) 0;font-family:var(--font-mono);font-size:12px;color:var(--label3)" id="helpVersionInline"></div>
+    <div style="text-align:center;padding:var(--sp3) var(--sp4) 0;font-family:var(--font-mono);font-size:13px;color:var(--label3)" id="helpVersionInline"></div>
 
     <!-- DISCLAIMER -->
     <div class="section">
@@ -4488,9 +4655,9 @@ function loadPdfJs() {
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
           <p style="margin:0 0 8px;font-size:15px;color:var(--label)">Tap <strong>＋</strong> on the Flights screen to open the import screen. Three methods are supported:</p>
-          <p style="margin:0 0 6px;font-size:14px;color:var(--label2)"><strong>① PDF File:</strong> Tap the drop zone or drag an OFP PDF onto it. The app extracts and parses text using PDF.js.</p>
-          <p style="margin:0 0 6px;font-size:14px;color:var(--label2)"><strong>② iOS Share:</strong> In Files or Mail, open the OFP PDF → tap Share ↑ → select <em>Relief Pilot</em>. Add Relief Pilot to your Home Screen first to enable this method.</p>
-          <p style="margin:0;font-size:14px;color:var(--label2)"><strong>③ Paste Text:</strong> Copy OFP text from any source and paste it into the text area at the bottom of the import screen, then tap Parse.</p>
+          <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>① PDF File:</strong> Tap the drop zone or drag an OFP PDF onto it. The app extracts and parses text using PDF.js.</p>
+          <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>② iOS Share:</strong> In Files or Mail, open the OFP PDF → tap Share ↑ → select <em>Relief Pilot</em>. Add Relief Pilot to your Home Screen first to enable this method.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>③ Paste Text:</strong> Copy OFP text from any source and paste it into the text area at the bottom of the import screen, then tap Parse.</p>
         </div>
       </div>
     </div>
@@ -4500,26 +4667,26 @@ function loadPdfJs() {
       <div class="section-header">Flight Screen — Tabs</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 12px;font-size:14px;color:var(--label2)">After a flight is loaded, four tabs appear at the bottom of the screen. The <strong>FCIR/ASAP</strong> toggle is always visible in the top navigation bar.</p>
+          <p style="margin:0 0 12px;font-size:15px;color:var(--label2)">After a flight is loaded, four tabs appear at the bottom of the screen. The <strong>FCIR/ASAP</strong> toggle is always visible in the top navigation bar.</p>
 
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M21 16l-9-4V4a2 2 0 00-4 0v8L3 16l1 2 7-2v3l-2 1v2l3-1 3 1v-2l-2-1v-3l7 2 1-2z"/></svg>
-            <div><p style="margin:0 0 2px;font-size:14px;font-weight:600;color:var(--label)">Briefing</p><p style="margin:0;font-size:13px;color:var(--label2)">The crew briefing note. Displays flight header, OUT/ETA, OEI, STAB, fuel figures, and a NOTES section containing airport status, DDG, overflights, curfews, perishables alert, and the free-text Notes pad. Editable fields are shown in <span style="color:var(--tint)">tint colour with a dotted underline</span>.</p></div>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Briefing</p><p style="margin:0;font-size:13px;color:var(--label2)">The crew briefing note. Displays flight header, OUT/ETA, OEI, STAB, fuel figures, and a NOTES section containing airport status, DDG, overflights, curfews, perishables alert, and the free-text Notes pad. Editable fields are shown in <span style="color:var(--tint)">tint colour with a dotted underline</span>.</p></div>
           </div>
 
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="10" y="14" width="4" height="7" rx="0.5"/><path d="M9 14h6V9l1.5-1H7.5L9 9v5z"/><rect x="7" y="6" width="10" height="3" rx="1"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="5" y1="21" x2="19" y2="21"/></svg>
-            <div><p style="margin:0 0 2px;font-size:14px;font-weight:600;color:var(--label)">Airports</p><p style="margin:0;font-size:13px;color:var(--label2)">Full airport cards for every airport on the release — origin, destination, all alternates, and CFS alternates. Weather and NOTAMs are auto-populated from the OFP. Each card shows the WX evaluation window, a colour-coded status badge, and a curfew row where applicable.</p></div>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Airports</p><p style="margin:0;font-size:13px;color:var(--label2)">Full airport cards for every airport on the release — origin, destination, all alternates, and CFS alternates. Weather and NOTAMs are auto-populated from the OFP. Each card shows the WX evaluation window, a colour-coded status badge, and a curfew row where applicable.</p></div>
           </div>
 
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-            <div><p style="margin:0 0 2px;font-size:14px;font-weight:600;color:var(--label)">OFP</p><p style="margin:0;font-size:13px;color:var(--label2)">The original OFP rendered page-by-page from the imported PDF. Falls back to raw text if no PDF was imported. Use for quick reference without leaving the app.</p></div>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">OFP</p><p style="margin:0;font-size:13px;color:var(--label2)">The original OFP rendered page-by-page from the imported PDF. Falls back to raw text if no PDF was imported. Use for quick reference without leaving the app.</p></div>
           </div>
 
           <div style="display:flex;align-items:flex-start;gap:12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><line x1="6" y1="8" x2="12" y2="16"/><line x1="18" y1="8" x2="12" y2="16"/><line x1="6" y1="8" x2="6" y2="11"/><line x1="18" y1="8" x2="18" y2="11"/></svg>
-            <div><p style="margin:0 0 2px;font-size:14px;font-weight:600;color:var(--label)">Alternates</p><p style="margin:0;font-size:13px;color:var(--label2)">Alternate routes parsed from the OFP (e.g. Destination Primary, Initial Alternate). Routes are editable and can each be copied to clipboard individually.</p></div>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Alternates</p><p style="margin:0;font-size:13px;color:var(--label2)">Alternate routes parsed from the OFP (e.g. Destination Primary, Initial Alternate). Routes are editable and can each be copied to clipboard individually.</p></div>
           </div>
         </div>
       </div>
@@ -4532,31 +4699,31 @@ function loadPdfJs() {
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Flight Header</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>Flight ID</strong> (e.g. GTI500/15): Carrier + flight number + "/" + release date day. Turns <span style="color:var(--sys-yellow)">yellow</span> when FCIR/ASAP is active.</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>Date</strong>: Date of the release (day month year). Editable.</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>OUT / ETA</strong>: Scheduled off time from the OFP, used as the OUT baseline. Editing OUT automatically recalculates all downstream ETAs — destination and all alternates.</p>
-          <p style="margin:0 0 14px;font-size:14px;color:var(--label2)"><strong>ETOPS block</strong> (ETOPS flights only): Displayed in tint colour at the right of the header. Shows the ETOPS authorisation (e.g. <em>ETOPS 60/180</em>) and the elapsed time to ETOPS airspace entry (<em>ETOPS ENTRY 06:12</em>), both parsed automatically from the OFP.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Flight ID</strong> (e.g. GTI500/15): Carrier + flight number + "/" + release date day. Turns <span style="color:var(--sys-yellow)">yellow</span> when FCIR/ASAP is active.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Date</strong>: Date of the release (day month year). Editable.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OUT / ETA</strong>: Scheduled off time from the OFP, used as the OUT baseline. Editing OUT automatically recalculates all downstream ETAs — destination and all alternates.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>ETOPS block</strong> (ETOPS flights only): Displayed in tint colour at the right of the header. Shows the ETOPS authorisation (e.g. <em>ETOPS 60/180</em>) and the elapsed time to ETOPS airspace entry (<em>ETOPS ENTRY 06:12</em>), both parsed automatically from the OFP.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">OEI &amp; STAB</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>OEI</strong>: One Engine Inoperative takeoff procedure. When a TLR is present, select the departure runway from the picker to display the applicable EFP. Runways marked SPECIAL show the full procedure text; runways marked SEE CO CHART open a notepad for crew entry. Editable as a free-text field when no TLR is present.</p>
-          <p style="margin:0 0 14px;font-size:14px;color:var(--label2)"><strong>STAB</strong>: Stabilizer trim setting (e.g. 4.5/UP). Always crew-entered.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OEI</strong>: One Engine Inoperative takeoff procedure. When a TLR is present, select the departure runway from the picker to display the applicable EFP. Runways marked SPECIAL show the full procedure text; runways marked SEE CO CHART open a notepad for crew entry. Editable as a free-text field when no TLR is present.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>STAB</strong>: Stabilizer trim setting (e.g. 4.5/UP). Always crew-entered.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Fuel</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>Block</strong>: Total fuel onboard at departure (OFP BLOCK field). Colour-coded by TOGW margin: <span style="color:var(--sys-green)">green</span> &gt;1,000 · <span style="color:var(--sys-yellow)">yellow</span> 500–1,000 · <span style="color:var(--sys-red)">red</span> &lt;500 lbs/kgs from structural limit.</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>MIN</strong>: Minimum fuel required for dispatch (MINF field).</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>FRES</strong>: Final reserve fuel.</p>
-          <p style="margin:0 0 14px;font-size:14px;color:var(--label2)"><strong>GA</strong>: Go-around fuel. Always crew-entered.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Block</strong>: Total fuel onboard at departure (OFP BLOCK field). Colour-coded by TOGW margin: <span style="color:var(--sys-green)">green</span> &gt;1,000 · <span style="color:var(--sys-yellow)">yellow</span> 500–1,000 · <span style="color:var(--sys-red)">red</span> &lt;500 lbs/kgs from structural limit.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>MIN</strong>: Minimum fuel required for dispatch (MINF field).</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FRES</strong>: Final reserve fuel.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>GA</strong>: Go-around fuel. Always crew-entered.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">NOTES Section</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>Airport status</strong>: Colour-coded status row for every airport on the release — origin, destination, all alternates, and CFS alternates. Each row shows ETA and a status dot evaluated against weather and NOTAMs within the arrival window:</p>
-          <p style="margin:0 0 3px;font-size:14px"><span style="color:var(--sys-green)">●</span> <strong>Green</strong> — no issues detected</p>
-          <p style="margin:0 0 3px;font-size:14px"><span style="color:var(--sys-yellow)">●</span> <strong>Yellow</strong> — advisory: possible concern, review recommended</p>
-          <p style="margin:0 0 8px;font-size:14px"><span style="color:var(--sys-red)">●</span> <strong>Red</strong> — possible conflict with minimums or runway/navaid status</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>DDG</strong>: MEL/CDL items parsed from the OFP. Cabin/fuselage (25-series) items are filtered out.</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>Overflights</strong>: Permit numbers parsed from the release. Only shown when present.</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>Curfews</strong>: Airports with a curfew or closure window within 90 minutes of ETA (or already inside one) are listed here in <span style="color:var(--sys-yellow)">yellow</span> or <span style="color:var(--sys-red)">red</span>. Parsed from Company NOTAMs. Only shown when applicable.</p>
-          <p style="margin:0 0 5px;font-size:14px;color:var(--label2)"><strong>Perishables</strong>: A banner reading PERISHABLES — SEE SP appears when the OFP indicates perishable cargo. Only shown when applicable.</p>
-          <p style="margin:0;font-size:14px;color:var(--label2)"><strong>Notes</strong>: Free-text notepad. Accepts keyboard input and Apple Pencil Scribble. Saved automatically per flight.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Airport status</strong>: Colour-coded status row for every airport on the release — origin, destination, all alternates, and CFS alternates. Each row shows ETA and a status dot evaluated against weather and NOTAMs within the arrival window:</p>
+          <p style="margin:0 0 3px;font-size:15px"><span style="color:var(--sys-green)">●</span> <strong>Green</strong> — no issues detected</p>
+          <p style="margin:0 0 3px;font-size:15px"><span style="color:var(--sys-yellow)">●</span> <strong>Yellow</strong> — advisory: possible concern, review recommended</p>
+          <p style="margin:0 0 8px;font-size:15px"><span style="color:var(--sys-red)">●</span> <strong>Red</strong> — possible conflict with minimums or runway/navaid status</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>DDG</strong>: MEL/CDL items parsed from the OFP. Cabin/fuselage (25-series) items are filtered out.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Overflights</strong>: Permit numbers parsed from the release. Only shown when present.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Curfews</strong>: Airports with a curfew or closure window within 90 minutes of ETA (or already inside one) are listed here in <span style="color:var(--sys-yellow)">yellow</span> or <span style="color:var(--sys-red)">red</span>. Parsed from Company NOTAMs. Only shown when applicable.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Perishables</strong>: A banner reading PERISHABLES — SEE SP appears when the OFP indicates perishable cargo. Only shown when applicable.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Notes</strong>: Free-text notepad. Accepts keyboard input and Apple Pencil Scribble. Saved automatically per flight.</p>
         </div>
       </div>
     </div>
@@ -4566,10 +4733,10 @@ function loadPdfJs() {
       <div class="section-header">Airports Tab — Detail</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:14px;color:var(--label2)">Each airport card shows the role (ORIG, DEST, DEST ALT, EN ROUTE ALT, TKOF ALT, CFS ALT), ETA, and a colour-coded status badge from combined weather and NOTAM evaluation.</p>
-          <p style="margin:0 0 8px;font-size:14px;color:var(--label2)"><strong>WX Window</strong>: For standard alternates, the evaluation window is ETA ±1 hour. For CFS alternates, the window is the exact <em>WX WINDOW</em> published in the OFP Critical Fuel Scenario table — reflecting the actual diversion window calculated by dispatch.</p>
-          <p style="margin:0 0 8px;font-size:14px;color:var(--label2)"><strong>Weather &amp; NOTAMs</strong>: Auto-populated from the OFP weather pages. Tap any card to review or supplement with additional data. Changes are saved to the flight record.</p>
-          <p style="margin:0;font-size:14px;color:var(--label2)"><strong>Curfew row</strong>: When Company NOTAMs contain a curfew or closure window, a tappable row appears on the card. It shows the window times and how close the ETA falls, colour-coded by proximity.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each airport card shows the role (ORIG, DEST, DEST ALT, EN ROUTE ALT, TKOF ALT, CFS ALT), ETA, and a colour-coded status badge from combined weather and NOTAM evaluation.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>WX Window</strong>: For standard alternates, the evaluation window is ETA ±1 hour. For CFS alternates, the window is the exact <em>WX WINDOW</em> published in the OFP Critical Fuel Scenario table — reflecting the actual diversion window calculated by dispatch.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather &amp; NOTAMs</strong>: Auto-populated from the OFP weather pages. Tap any card to review or supplement with additional data. Changes are saved to the flight record.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Curfew row</strong>: When Company NOTAMs contain a curfew or closure window, a tappable row appears on the card. It shows the window times and how close the ETA falls, colour-coded by proximity.</p>
         </div>
       </div>
     </div>
@@ -4579,9 +4746,9 @@ function loadPdfJs() {
       <div class="section-header">ETOPS &amp; Critical Fuel Scenario</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:14px;color:var(--label2)">On ETOPS flights, the OFP contains a <strong>Critical Fuel Scenario (CFS)</strong> section listing ETOPS alternate airports with ETP pairs and WX windows. These airports are automatically added alongside standard alternates and receive full airport cards with weather and NOTAM evaluation.</p>
-          <p style="margin:0 0 8px;font-size:14px;color:var(--label2)">Each CFS airport uses its OFP-published WX WINDOW rather than a computed ETA ±1 hour window. Return and continue (GO) airport roles are identified per ETP scenario.</p>
-          <p style="margin:0;font-size:14px;color:var(--label2)">The ETOPS authorisation (e.g. <em>ETOPS 60/180</em>) and ETOPS ENTRY elapsed time are parsed from the OFP and displayed in the Briefing tab flight header, right-aligned in tint colour.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">On ETOPS flights, the OFP contains a <strong>Critical Fuel Scenario (CFS)</strong> section listing ETOPS alternate airports with ETP pairs and WX windows. These airports are automatically added alongside standard alternates and receive full airport cards with weather and NOTAM evaluation.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each CFS airport uses its OFP-published WX WINDOW rather than a computed ETA ±1 hour window. Return and continue (GO) airport roles are identified per ETP scenario.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">The ETOPS authorisation (e.g. <em>ETOPS 60/180</em>) and ETOPS ENTRY elapsed time are parsed from the OFP and displayed in the Briefing tab flight header, right-aligned in tint colour.</p>
         </div>
       </div>
     </div>
@@ -4591,8 +4758,8 @@ function loadPdfJs() {
       <div class="section-header">Editing Values</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:14px;color:var(--label2)">Any value displayed in <span style="color:var(--tint);text-decoration:underline dotted">tinted dotted-underline text</span> is editable. Tap it to open an edit popover. Editing <strong>OUT</strong> recalculates all downstream ETAs automatically. Other editable fields include: date, OEI, STAB, GA fuel, fuel figures, and the Notes pad.</p>
-          <p style="margin:0;font-size:14px;color:var(--label2)">Airport weather and NOTAM fields on each airport card are also editable — tap anywhere in the card body to open the edit view for that airport.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Any value displayed in <span style="color:var(--tint);text-decoration:underline dotted">tinted dotted-underline text</span> is editable. Tap it to open an edit popover. Editing <strong>OUT</strong> recalculates all downstream ETAs automatically. Other editable fields include: date, OEI, STAB, GA fuel, fuel figures, and the Notes pad.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">Airport weather and NOTAM fields on each airport card are also editable — tap anywhere in the card body to open the edit view for that airport.</p>
         </div>
       </div>
     </div>
@@ -4602,10 +4769,10 @@ function loadPdfJs() {
       <div class="section-header">FCIR / ASAP Toggle</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:14px;color:var(--label2)">The <strong>FCIR/ASAP</strong> toggle sits in the navigation bar at the top of the flight screen. When active, the flight ID in the Briefing tab turns <span style="color:var(--sys-yellow);font-weight:600">yellow</span>, and the flight row in the Saved Flights list stays highlighted in yellow across sessions until the toggle is turned off.</p>
-          <p style="margin:0 0 8px;font-size:14px;color:var(--label2)">Activating the toggle reveals a dedicated <strong>FCIR/ASAP Narrative</strong> notepad below the standard Notes field. Use it to record event details (description, times, observations). Tap the copy icon next to the narrative header to copy its contents to clipboard for pasting into your reporting system.</p>
-          <p style="margin:0 0 8px;font-size:14px;color:var(--sys-red);font-weight:600">⚠ Do not delete this flight entry until the FCIR/ASAP report has been submitted. The flight cannot be deleted while the toggle is ON.</p>
-          <p style="margin:0;font-size:14px;color:var(--label2)">To allow deletion: open the flight, turn off the FCIR/ASAP toggle, then return to Saved Flights.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">The <strong>FCIR/ASAP</strong> toggle sits in the navigation bar at the top of the flight screen. When active, the flight ID in the Briefing tab turns <span style="color:var(--sys-yellow);font-weight:600">yellow</span>, and the flight row in the Saved Flights list stays highlighted in yellow across sessions until the toggle is turned off.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Activating the toggle reveals a dedicated <strong>FCIR/ASAP Narrative</strong> notepad below the standard Notes field. Use it to record event details (description, times, observations). Tap the copy icon next to the narrative header to copy its contents to clipboard for pasting into your reporting system.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--sys-red);font-weight:600">⚠ Do not delete this flight entry until the FCIR/ASAP report has been submitted. The flight cannot be deleted while the toggle is ON.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">To allow deletion: open the flight, turn off the FCIR/ASAP toggle, then return to Saved Flights.</p>
         </div>
       </div>
     </div>
@@ -4613,23 +4780,5 @@ function loadPdfJs() {
   </div>
 </div>
 
-
-<script>
-// ═══════════════════════════════════════════════════════
-//  PWA Service Worker Registration
-//  Enables offline-first caching of the entire app shell
-// ═══════════════════════════════════════════════════════
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => {
-        console.log('[Relief Pilot SW] Registered, scope:', reg.scope);
-        // Check for updates every 30 minutes
-        setInterval(() => reg.update(), 30 * 60 * 1000);
-      })
-      .catch(err => console.warn('[Relief Pilot SW] Registration failed:', err));
-  });
-}
-</script>
 </body>
 </html>
