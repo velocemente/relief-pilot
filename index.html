@@ -1958,6 +1958,45 @@ let pdfArrayBuffer = null;   // ArrayBuffer of original PDF — slice a fresh Ui
 let _pdfDocProxy  = null;    // active PDFDocumentProxy — nulled before each new load (M3)
 
 // Recalculate DEST ETA and all alt ETAs from current outZ
+// ── IMPORTANT: New flight = clean slate. No data carries between flights. ──
+// resetStateForNewFlight() wipes every field so the previous flight's
+// crew-entered values (ATIS, parking, notes, STAB, GA, FCIR, scratchpad)
+// never bleed into a new import.
+function resetStateForNewFlight() {
+  Object.assign(S, {
+    fltNum:'', date:'',
+    outZ:'', etaDest:'',
+    origIcao:'', destIcao:'',
+    altData:[],
+    oeiVal:'', stabTrim:'', gaFuel:'',
+    oeiData:[], oeiSelectedRwy:'',
+    blockFuel:'', minfFuel:'', fresFuel:'',
+    melItems:'', overflightPerms:'',
+    altRoutes:[], acftType:'', togwActual:0, togwLimit:0,
+    hasPerishables:false,
+    destEtaOffsetMins:null, tripMinutes:null,
+    userNotes:'', fcirNarrative:'', fcirAsap:false,
+    etopsEntry:'', etopsSpec:'', etpPoints:[],
+    activePhase:'preflight',
+    offZ:'', porWpt:'', porOffsetMins:null, etopsEntryMins:null,
+    atisLetter:'', atisNotes:'', parkingNotes:'',
+    enrouteScratch:'',
+    alt1Fuel:'', destRemf:'',
+  });
+  airportData = {};
+  pdfRawText = '';
+  pdfArrayBuffer = null;
+  _pdfDocProxy = null;
+  _fcirActive = false;
+  window._flightDateISO = '';
+  clearOFPPanel();
+  // Reset FCIR toggle UI
+  const tog = document.getElementById('fcirToggle');
+  if (tog) tog.checked = false;
+  const lbl = document.getElementById('fcirLabel');
+  if (lbl) lbl.classList.remove('active');
+}
+
 function recalcAllETAs() {
   if (!S.outZ || S.outZ.length !== 4) return;
   const baseMin = parseInt(S.outZ.slice(0,2))*60 + parseInt(S.outZ.slice(2,4));
@@ -2100,6 +2139,7 @@ dz.addEventListener('drop', async e => {
 });
 
 async function processPDF(file) {
+  resetStateForNewFlight();
   showToast('info', `Loading ${file.name}…`);
   try {
     await loadPdfJs();
@@ -2172,6 +2212,7 @@ async function processPDF(file) {
 function importManual() {
   const txt = document.getElementById('manualText').value.trim();
   if (!txt) { showToast('err', 'Please paste OFP text first.'); return; }
+  resetStateForNewFlight();
   pdfRawText = txt;
   pdfArrayBuffer = null;  // no PDF binary available for manual paste
   parseOFP();
@@ -2781,19 +2822,19 @@ function parseOFP() {
     porOffsetMins,
     alt1Fuel,
     destRemf,
-    // preserve crew-entered phase/enroute/descent fields across re-imports
-    activePhase:   S.activePhase   || 'preflight',
-    offZ:          S.offZ          || '',
-    atisLetter:    S.atisLetter    || '',
-    atisNotes:     S.atisNotes     || '',
-    parkingNotes:  S.parkingNotes  || '',
-    enrouteScratch: S.enrouteScratch || '',
-    oeiVal:    S.oeiVal    || '',
-    stabTrim:  S.stabTrim  || '',
-    gaFuel:    S.gaFuel    || '',
-    userNotes: S.userNotes || '',
-    fcirAsap:  S.fcirAsap  || false,
-    fcirNarrative: S.fcirNarrative || '',
+    // All crew-entered fields start clean — resetStateForNewFlight() already cleared S
+    activePhase:   'preflight',
+    offZ:          '',
+    atisLetter:    '',
+    atisNotes:     '',
+    parkingNotes:  '',
+    enrouteScratch: '',
+    oeiVal:    '',
+    stabTrim:  '',
+    gaFuel:    '',
+    userNotes: '',
+    fcirAsap:  false,
+    fcirNarrative: '',
   });
   window._flightDateISO = flightDateObj ? flightDateObj.toISOString().slice(0,10) : '';
 
