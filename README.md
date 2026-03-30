@@ -24,43 +24,6 @@ Relief Pilot is a progressive web app (PWA) that parses Atlas Air / Polar Air Ca
 - **Dark Mode** — Full iOS semantic color token support (light/dark/auto)
 - **Offline** — Service worker caches app shell; fully functional without network after first load
 
----
-
-## Deployment
-
-### GitHub Pages (automatic)
-
-1. Push to `main` — the `.github/workflows/deploy.yml` workflow runs automatically
-2. In repo **Settings → Pages**, set source to **GitHub Actions**
-3. App is live at `https://<org>.github.io/<repo>/`
-
-### Netlify / Cloudflare Pages
-
-Deploy the repo root directly. The `_headers` file configures correct MIME types, cache headers, and security headers.
-
-### iOS PWA Installation
-
-1. Open the deployed URL in **Safari** on iPad or iPhone
-2. Tap **Share → Add to Home Screen**
-3. App installs as a standalone PWA with full offline support
-
-### Required files at repo root
-
-```
-index.html          ← single-file app (all HTML/CSS/JS)
-sw.js               ← service worker
-manifest.json       ← PWA manifest
-_headers            ← Netlify/Cloudflare Pages headers
-icons/
-  icon-192.png      ← PWA icon (192×192)
-  icon-512.png      ← PWA icon (512×512)
-.github/
-  workflows/
-    deploy.yml      ← GitHub Actions → GitHub Pages
-```
-
----
-
 ## Changelog
 
 ### v1.9.0 — Enroute, DDG/TLR, ATIS/Parking isolation, TOGW fix
