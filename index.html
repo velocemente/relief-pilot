@@ -1236,9 +1236,23 @@ body {
   color: var(--tint); white-space: nowrap; flex-shrink: 0;
   min-width: 70px; font-size: var(--type-body-sm);
 }
+.ddg-item-body {
+  flex: 1; display: flex; flex-direction: column; gap: 3px;
+}
 .ddg-item-desc {
   flex: 1; color: var(--label2); font-size: var(--type-body-sm);
 }
+/* TLR badge — shown beneath the description */
+.ddg-tlr-badge {
+  display: inline-block;
+  font-size: var(--type-overline); font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em; border-radius: 4px;
+  padding: 2px 6px; align-self: flex-start;
+}
+.ddg-tlr-badge.tkoff  { color: var(--sys-yellow); background: var(--sys-yellow-bg); }
+.ddg-tlr-badge.land   { color: var(--tint);       background: var(--tint-bg); }
+.ddg-tlr-badge.both   { color: var(--sys-orange);  background: rgba(255,107,0,0.10); }
 .ddg-list { margin-top: var(--sp2); }
 
 /* ── Compact ATIS + Parking row (single line) ── */
@@ -1696,7 +1710,7 @@ body {
 // ═══════════════════════════════════════════════════════
 //  VERSION
 // ═══════════════════════════════════════════════════════
-const APP_VERSION = '1.9.0-dev';
+const APP_VERSION = '1.9.0';
 
 // ═══════════════════════════════════════════════════════
 //  THEME — follows system, or manual override
@@ -1922,7 +1936,11 @@ const S = {
   //   coChartNote: crew-entered text for "SEE CO CHART" runways (SPECIAL + no proc)
   oeiData:[], oeiSelectedRwy:'',
   blockFuel:'', minfFuel:'', fresFuel:'',
-  melItems:'', overflightPerms:'',
+  // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
+  //   code: ATA number string e.g. "36-12-02-01"
+  //   desc: full description string (may be multi-line joined)
+  //   tlr:  ''|'takeoff'|'landing'|'both'  — TLR Remarks cross-reference
+  ddgItems:[], melItems:'', overflightPerms:'',
   altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
   acftType:'', togwActual:0, togwLimit:0,
   hasPerishables:false,
@@ -1940,12 +1958,18 @@ const S = {
   offZ:'',            // actual OFF time entered by crew (HHMM Z)
   porWpt:'',          // POR waypoint parsed from OFP, e.g. "N60W040"
   porOffsetMins:null, // OFP elapsed minutes ORIG→POR (HH.MM converted)
+  porMinf:'',         // Minimum fuel required at POR (col2 of MINF line on RDA OFPs)
   etopsEntryMins:null,// OFP elapsed minutes to ETOPS entry  (HH.MM converted)
 
-  // ── Descent / Arrival ──
-  atisLetter:'',      // ATIS identifier letter, e.g. "K"
-  atisNotes:'',       // free-text ATIS notes
-  parkingNotes:'',    // parking / gate free-text
+  // ── Preflight / Departure ATIS + Parking (independent of Descent) ──
+  preAtisLetter:'',   // Departure ATIS identifier letter, e.g. "K"
+  preAtisNotes:'',    // Departure ATIS free-text notes
+  preParkingNotes:'', // Departure gate / stand free-text
+
+  // ── Descent / Arrival ATIS + Parking (independent of Preflight) ──
+  descAtisLetter:'',  // Arrival ATIS identifier letter, e.g. "K"
+  descAtisNotes:'',   // Arrival ATIS free-text notes
+  descParkingNotes:'',// Arrival gate / stand free-text
   enrouteScratch:'',  // enroute scratchpad (drawing + text)
 
   // ── Arrival fuel (parsed + carried-over) ──
@@ -1971,15 +1995,16 @@ function resetStateForNewFlight() {
     oeiVal:'', stabTrim:'', gaFuel:'',
     oeiData:[], oeiSelectedRwy:'',
     blockFuel:'', minfFuel:'', fresFuel:'',
-    melItems:'', overflightPerms:'',
+    ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', togwActual:0, togwLimit:0,
     hasPerishables:false,
     destEtaOffsetMins:null, tripMinutes:null,
     userNotes:'', fcirNarrative:'', fcirAsap:false,
     etopsEntry:'', etopsSpec:'', etpPoints:[],
     activePhase:'preflight',
-    offZ:'', porWpt:'', porOffsetMins:null, etopsEntryMins:null,
-    atisLetter:'', atisNotes:'', parkingNotes:'',
+    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null,
+    preAtisLetter:'', preAtisNotes:'', preParkingNotes:'',
+    descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
     enrouteScratch:'',
     alt1Fuel:'', destRemf:'',
   });
@@ -2012,6 +2037,34 @@ function recalcAllETAs() {
   S.altData.forEach(a => {
     if (a.ofpOffsetMins !== null) {
       a.currentEta = addMin(baseMin, a.ofpOffsetMins);
+    }
+  });
+}
+
+// Recalculate IN time and alternate ETAs from the actual OFF (wheels-up) time.
+// Uses tripMinutes (OFP ETE) for DEST, and ofpOffsetMins adjusted for taxi time
+// for alternates. This keeps IN time accurate once airborne.
+// offZ is actual wheels-off; tripMinutes is OFP planned flight time (no taxi).
+function recalcAllETAsFromOff(offZval) {
+  if (!offZval || offZval.length !== 4) return;
+  const baseMin = parseInt(offZval.slice(0,2))*60 + parseInt(offZval.slice(2,4));
+  const addMin  = (base, off) => {
+    const t = (base + off + 1440*4) % 1440;
+    return String(Math.floor(t/60)).padStart(2,'0') + String(t%60).padStart(2,'0');
+  };
+  // DEST: offZ + tripMinutes = actual IN estimate
+  if (S.tripMinutes !== null) {
+    S.etaDest = addMin(baseMin, S.tripMinutes);
+  }
+  // Alternates: offZ + (ofpOffsetMins − taxiApprox)
+  // ofpOffsetMins was computed as altETA − origOFF (includes taxi), so for
+  // airborne recalc we subtract the OFP taxi time: destEtaOffsetMins − tripMinutes
+  const taxiMins = (S.destEtaOffsetMins !== null && S.tripMinutes !== null)
+    ? S.destEtaOffsetMins - S.tripMinutes
+    : 0;
+  S.altData.forEach(a => {
+    if (a.ofpOffsetMins !== null) {
+      a.currentEta = addMin(baseMin, Math.max(0, a.ofpOffsetMins - taxiMins));
     }
   });
 }
@@ -2055,6 +2108,9 @@ function clearOFPPanel() {
 }
 
 function loadFlight(entry) {
+  // Always start from a clean slate — prevents any residual state from a
+  // previously viewed flight bleeding into the loaded one.
+  resetStateForNewFlight();
   // Restore state from saved entry
   Object.assign(S, entry.state || {});
   pdfRawText = entry.raw || '';
@@ -2377,6 +2433,16 @@ function parseOFP() {
   const remfM    = t.match(/^REMF\s+(\d{5,7})/m);
   const destRemf = remfM ? String(parseInt(remfM[1])) : '';
 
+  // ── POR MINF (minimum fuel required at the Point of Redispatch) ──
+  // RDA OFPs have a two-column MINF line:
+  //   MINF  087301  11.39  ....  030679  04.36  083572  11.04
+  //         ↑ full trip MINF   ↑ POR MINF (post-POR segment)
+  // The POR MINF is the minimum fuel the aircraft must have ON BOARD at the POR
+  // to continue to the destination under the redispatch plan.
+  // Non-RDA OFPs have only a single MINF column — porMinf will be '' in that case.
+  const porMinfM = t.match(/^MINF\s+\d{5,7}\s+[\d.]+\s+\.+\s+(\d{5,7})/m);
+  const porMinf  = porMinfM ? String(parseInt(porMinfM[1])) : '';
+
 
   // Format: ORIG VHHH/HKG HONG KONG INTL Q N22185E113549 0510Z
   const origLine = parseAptLine('ORIG');
@@ -2549,16 +2615,121 @@ function parseOFP() {
   const frM = t.match(/FRES\n(\d{5,7})/)  || t.match(/FRES\s+(\d{5,7})/i);
 
   // ── TOGW
+  // Weight Limit Codes (from OFP footer):
+  //   S = Structural    P = Performance
+  //   L = MTOW based on LDW + trip fuel    I = By Dispatcher
+  // All four must be handled — the old regex [SP] missed L and I,
+  // causing togwLimit = 0 and suppressing color on L-limited flights (e.g. light cargo).
   let togwActual = 0, togwLimit = 0;
-  const twM = t.match(/TOGW\s*\n?(\d{5,7})\s*\.+\s*[SP](\d{5,7})/);
+  const twM = t.match(/TOGW\s*\n?(\d{5,7})\s*\.+\s*[SPLI](\d{5,7})/);
   if (twM) { togwActual = parseInt(twM[1]); togwLimit = parseInt(twM[2]); }
 
   // ── Perishables
   const perishM = t.match(/PERISHABLE[^\n]*O\/B[^\n]*YES/i) || t.match(/O\/B[^\n]*PERISHABLE[^\n]*YES/i);
 
-  // ── MEL / DDG
-  const melM = t.match(/MEL\/CDL\s*([\s\S]*?)(?:Flight Release|_{10})/i);
-  const melItems = melM ? melM[1].replace(/\s+/g,' ').trim().substring(0,300) : '';
+  // ── MEL / DDG — structured parse
+  // Format in OFP:
+  //   MEL/CDL
+  //   25-00-01                          ← ATA code line: digits connected by hyphens
+  //    NON-ESSENTIAL EQUIP AND FURNISHINGS (NEF)   ← description (indented)
+  //    OPTIONAL SECOND DESC LINE        ← additional desc lines (indented)
+  //   33-41-01                          ← next item
+  //    WING ILLUMINATION LIGHTS
+  //   ____...                           ← block ends at underline rule
+  //
+  // TLR cross-reference (inside TAKEOFF AND LANDING REPORT block):
+  //   /// TAKEOFF DATA ///
+  //   RMKS 36-12-02-01 ONE VLV INOP     ← ATA code in Takeoff RMKS
+  //   /// LANDING DATA ///
+  //   RMKS 36-12-02-01 ONE VLV INOP     ← ATA code in Landing RMKS
+  //   RMKS NONE  or  RMKS NADP2 ...     ← non-DDG remarks (no ATA pattern)
+
+  // 1. Extract MEL/CDL block
+  const melBlock = (() => {
+    const m = t.match(/MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i);
+    return m ? m[1] : '';
+  })();
+
+  // 2. Parse structured DDG items from MEL block
+  // ATA code pattern: one or more groups of digits separated by hyphens, e.g. 25-00-01, 36-12-02-01
+  const ATA_RE = /^(\d{2}-[\d-]+[A-Z]?)\s*$/;
+  const ddgItems = [];
+  if (melBlock) {
+    const lines = melBlock.split(/\r?\n/);
+    let curCode = null, curDescLines = [];
+    const flush = () => {
+      if (curCode) {
+        const desc = curDescLines.map(l => l.trim()).filter(Boolean).join(' ');
+        ddgItems.push({ code: curCode, desc, tlr: '' });
+      }
+      curCode = null; curDescLines = [];
+    };
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (ATA_RE.test(trimmed)) {
+        // New ATA code — flush previous item
+        flush();
+        curCode = trimmed;
+      } else if (curCode) {
+        // Description / continuation line for current item
+        curDescLines.push(trimmed);
+      }
+    }
+    flush(); // flush last item
+    // Deduplicate: same code+desc appearing more than once (release copies repeat)
+    const seen = new Set();
+    const deduped = [];
+    for (const item of ddgItems) {
+      const key = item.code + '|' + item.desc;
+      if (!seen.has(key)) { seen.add(key); deduped.push(item); }
+    }
+    ddgItems.length = 0; ddgItems.push(...deduped);
+  }
+
+  // 3. Cross-reference TLR RMKS
+  // Scan the TLR block for RMKS lines in Takeoff vs Landing sections
+  (function crossRefTlrRmks(raw) {
+    const tlrStart = raw.search(/TAKEOFF AND LANDING REPORT/);
+    if (tlrStart === -1) return;
+    const tlrBlock = raw.slice(tlrStart);
+
+    // Find section boundaries
+    const tkOffIdx  = tlrBlock.search(/\/\/\/ TAKEOFF DATA \/\/\//);
+    const landIdx   = tlrBlock.search(/\/\/\/ LANDING DATA \/\/\//);
+    const endIdx    = tlrBlock.search(/^END TAKEOFF AND LANDING REPORT/m);
+
+    // Extract per-section RMKS content
+    const tkOffSection = tkOffIdx !== -1
+      ? tlrBlock.slice(tkOffIdx, landIdx !== -1 ? landIdx : (endIdx !== -1 ? endIdx : tlrBlock.length))
+      : '';
+    const landSection = landIdx !== -1
+      ? tlrBlock.slice(landIdx, endIdx !== -1 ? endIdx : tlrBlock.length)
+      : '';
+
+    // Collect all ATA codes mentioned in RMKS lines per section
+    const rmksAtaRe = /^RMKS\s+([\d][\d-]+[A-Z]?)\b/mg;
+    const tkOffAtas = new Set();
+    const landAtas  = new Set();
+
+    let m;
+    while ((m = rmksAtaRe.exec(tkOffSection)) !== null) tkOffAtas.add(m[1]);
+    rmksAtaRe.lastIndex = 0;
+    while ((m = rmksAtaRe.exec(landSection))  !== null) landAtas.add(m[1]);
+
+    // Apply TLR flag to each DDG item
+    for (const item of ddgItems) {
+      const inTkOff = tkOffAtas.has(item.code);
+      const inLand  = landAtas.has(item.code);
+      if (inTkOff && inLand) item.tlr = 'both';
+      else if (inTkOff)      item.tlr = 'takeoff';
+      else if (inLand)       item.tlr = 'landing';
+      else                   item.tlr = '';
+    }
+  })(t);
+
+  // Legacy flat string (kept for backward-compat with older saved flights)
+  const melItems = ddgItems.map(i => i.code + ' ' + i.desc).join(' | ').substring(0, 600);
 
   // ── Overflight permits
   const permM = t.match(/Overflight[/]?Landing Permits?\s*([\s\S]*?)(?:AWY WPT|_{10})/i);
@@ -2807,7 +2978,7 @@ function parseOFP() {
     minfFuel:  fuelK(miM?.[1]),
     fresFuel:  fuelK(frM?.[1]),
     togwActual, togwLimit,
-    melItems, overflightPerms: perms,
+    ddgItems, melItems, overflightPerms: perms,
     altRoutes,
     oeiData,
     oeiSelectedRwy: oeiData.length ? (S.oeiSelectedRwy || '') : '',
@@ -2820,14 +2991,18 @@ function parseOFP() {
     etopsEntryMins,
     porWpt,
     porOffsetMins,
+    porMinf,
     alt1Fuel,
     destRemf,
     // All crew-entered fields start clean — resetStateForNewFlight() already cleared S
     activePhase:   'preflight',
     offZ:          '',
-    atisLetter:    '',
-    atisNotes:     '',
-    parkingNotes:  '',
+    preAtisLetter:    '',
+    preAtisNotes:     '',
+    preParkingNotes:  '',
+    descAtisLetter:   '',
+    descAtisNotes:    '',
+    descParkingNotes: '',
     enrouteScratch: '',
     oeiVal:    '',
     stabTrim:  '',
@@ -2965,12 +3140,16 @@ function setPhase(phase) {
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
 
 // ── ATIS + Parking compact rows (used in preflight + descent) ──
+// idSuffix 'Pre' → preflight/departure fields; 'Desc' → descent/arrival fields
 function renderAtisParking(idSuffix) {
+  const isPre = idSuffix === 'Pre';
+  const atisLetterField = isPre ? 'preAtisLetter' : 'descAtisLetter';
+  const atisLetterVal   = isPre ? (S.preAtisLetter || '') : (S.descAtisLetter || '');
   let h = '';
   // ATIS: label + letter box (empty by default) + notes textarea
   h += `<div class="compact-atis-row">`;
   h += `<span class="compact-atis-label">ATIS</span>`;
-  h += `<div class="compact-atis-box" onclick="openEdit('atisLetter')" onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('atisLetter')}" role="button" aria-label="ATIS letter">${esc(S.atisLetter || '')}</div>`;
+  h += `<div class="compact-atis-box" onclick="openEdit('${atisLetterField}')" onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('${atisLetterField}')}" role="button" aria-label="ATIS letter">${esc(atisLetterVal)}</div>`;
   h += `<textarea class="compact-atis-notes" id="atisNotesPad${idSuffix}" placeholder="ATIS notes…" aria-label="ATIS notes"></textarea>`;
   h += `</div>`;
   // Parking: label + text box
@@ -3131,7 +3310,7 @@ function renderEnroutePhase() {
   h += `</div>`;
 
   if (hasOff) {
-    // E.ENT
+    // ── E.ENT (ETOPS entry — only on ETOPS flights) ──
     if (eentZ) {
       h += `<div class="enroute-row">`;
       h += `<span class="enroute-label">E.ENT</span>`;
@@ -3140,17 +3319,24 @@ function renderEnroutePhase() {
       h += `</div>`;
     }
 
-    // POR
-    if (porZ && S.porWpt) {
+    // ── RDA + POR (only on RDA/redispatch flights) ──
+    // Order: RDA first (single time, 2 hrs before POR), then POR (time + MINF)
+    if (rdaZ && porZ && S.porWpt) {
+      // RDA — single point in time, NOT a window
       h += `<div class="enroute-row">`;
-      h += `<span class="enroute-label">POR</span>`;
-      h += `<span class="enroute-value">${esc(S.porWpt)}  ${porZ}Z</span>`;
+      h += `<span class="enroute-label">RDA</span>`;
+      h += `<span class="enroute-value">${rdaZ}Z</span>`;
       h += `</div>`;
 
-      // RDA window
-      h += `<div class="enroute-row">`;
-      h += `<span class="enroute-label">RDA WINDOW</span>`;
-      h += `<span class="enroute-value">${rdaZ}Z – ${porZ}Z</span>`;
+      // POR — waypoint, time, and minimum fuel required at that point
+      h += `<div class="enroute-row" style="align-items:flex-start;padding-top:10px;padding-bottom:10px">`;
+      h += `<span class="enroute-label" style="padding-top:1px">POR</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value">${esc(S.porWpt)}  ${porZ}Z</span>`;
+      if (S.porMinf) {
+        h += `<span style="font-size:13px;font-family:var(--font-mono);color:var(--label2)">MINF&nbsp;${esc(S.porMinf)}</span>`;
+      }
+      h += `</div>`;
       h += `</div>`;
     }
 
@@ -3227,21 +3413,45 @@ function renderNotesSection() {
   }
 
   h += `<span class="notes-sub-header">DDG</span>`;
-  const rawMel = (S.melItems || '').trim();
-  const ddgItems = rawMel && rawMel !== 'None listed'
-    ? rawMel.split(/\s*(?=\d{2}-\d{2}-\d{2})/)
-             .filter(item => item.trim() && !item.trim().startsWith('25-'))
-    : [];
-  if (ddgItems.length) {
+
+  // Resolve DDG items — prefer structured ddgItems (new), fall back to legacy melItems string
+  // Filter out 25-series (cabin/fuselage NEF items) per company policy
+  let resolvedDdg = [];
+  if (S.ddgItems && S.ddgItems.length) {
+    resolvedDdg = S.ddgItems.filter(item => !item.code.startsWith('25-'));
+  } else {
+    // Legacy: parse flat melItems string for backwards compat with older saved flights
+    const rawMel = (S.melItems || '').trim();
+    if (rawMel && rawMel !== 'None listed') {
+      rawMel.split(/\s*(?=\d{2}-\d{2}-\d{2})/)
+        .filter(item => item.trim() && !item.trim().startsWith('25-'))
+        .forEach(item => {
+          const codeMatch = item.trim().match(/^(\d{2}-[\d-]+[A-Z]?)\s+(.*)/s);
+          if (codeMatch) resolvedDdg.push({ code: codeMatch[1], desc: codeMatch[2].trim(), tlr: '' });
+          else resolvedDdg.push({ code: '', desc: item.trim(), tlr: '' });
+        });
+    }
+  }
+
+  if (resolvedDdg.length) {
     h += `<div class="ddg-list">`;
-    ddgItems.forEach(item => {
-      const trimmed = item.trim();
-      const codeMatch = trimmed.match(/^(\d{2}-\d{2}-\d{2})\s+(.*)/);
-      if (codeMatch) {
-        h += `<div class="ddg-item-row"><span class="ddg-item-code">${esc(codeMatch[1])}</span><span class="ddg-item-desc">${esc(codeMatch[2])}</span></div>`;
-      } else {
-        h += `<div class="ddg-item-row"><span class="ddg-item-desc">${esc(trimmed)}</span></div>`;
+    resolvedDdg.forEach(item => {
+      // TLR annotation badge
+      let tlrBadge = '';
+      if (item.tlr === 'takeoff') {
+        tlrBadge = `<span class="ddg-tlr-badge tkoff">*TLR Takeoff</span>`;
+      } else if (item.tlr === 'landing') {
+        tlrBadge = `<span class="ddg-tlr-badge land">*TLR Landing</span>`;
+      } else if (item.tlr === 'both') {
+        tlrBadge = `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
       }
+      h += `<div class="ddg-item-row">`;
+      if (item.code) h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
+      h += `<div class="ddg-item-body">`;
+      h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
+      if (tlrBadge) h += tlrBadge;
+      h += `</div>`;
+      h += `</div>`;
     });
     h += `</div>`;
   } else {
@@ -3312,19 +3522,27 @@ function wireNotePads() {
       if (sel) { sel.coChartNote = coChartPad.value; saveFlight(); }
     });
   }
-  // Wire all ATIS + Parking instances (preflight + descent share state)
-  ['Pre','Desc',''].forEach(suffix => {
-    const atisPad = document.getElementById('atisNotesPad' + suffix);
-    if (atisPad) {
-      atisPad.value = S.atisNotes || '';
-      atisPad.addEventListener('input', () => { S.atisNotes = atisPad.value; saveFlight(); });
-    }
-    const parkPad = document.getElementById('parkingPad' + suffix);
-    if (parkPad) {
-      parkPad.value = S.parkingNotes || '';
-      parkPad.addEventListener('input', () => { S.parkingNotes = parkPad.value; saveFlight(); });
-    }
-  });
+  // Wire ATIS + Parking — each phase is a separate, independent instance
+  const atisPadPre = document.getElementById('atisNotesPadPre');
+  if (atisPadPre) {
+    atisPadPre.value = S.preAtisNotes || '';
+    atisPadPre.addEventListener('input', () => { S.preAtisNotes = atisPadPre.value; saveFlight(); });
+  }
+  const parkPadPre = document.getElementById('parkingPadPre');
+  if (parkPadPre) {
+    parkPadPre.value = S.preParkingNotes || '';
+    parkPadPre.addEventListener('input', () => { S.preParkingNotes = parkPadPre.value; saveFlight(); });
+  }
+  const atisPadDesc = document.getElementById('atisNotesPadDesc');
+  if (atisPadDesc) {
+    atisPadDesc.value = S.descAtisNotes || '';
+    atisPadDesc.addEventListener('input', () => { S.descAtisNotes = atisPadDesc.value; saveFlight(); });
+  }
+  const parkPadDesc = document.getElementById('parkingPadDesc');
+  if (parkPadDesc) {
+    parkPadDesc.value = S.descParkingNotes || '';
+    parkPadDesc.addEventListener('input', () => { S.descParkingNotes = parkPadDesc.value; saveFlight(); });
+  }
   // Wire enroute scratchpad
   const enrScratch = document.getElementById('enrouteScratchPad');
   if (enrScratch) {
@@ -3523,6 +3741,8 @@ const FIELD_LABELS = {
   fresFuel:'FRES (×1000)', gaFuel:'GA Fuel (×1000)',
   offZ:'OFF Time (HHMM Z)',
   atisLetter:'ATIS Letter (single letter)',
+  preAtisLetter:'Departure ATIS Letter',
+  descAtisLetter:'Arrival ATIS Letter',
   destRemf:'REMF at Destination', alt1Fuel:'ALT 1 Fuel',
 };
 const NUM_FIELDS = new Set(['outZ','etaDest','offZ','destRemf','alt1Fuel']);
@@ -3556,9 +3776,16 @@ function confirmEdit() {
   }
   S[_editField] = val;
 
-  // Editing outZ cascades DEST ETA + ALL alt ETAs
+  // Editing outZ cascades DEST ETA + ALL alt ETAs (planned push time)
   if (_editField === 'outZ' && val.length === 4) {
     recalcAllETAs();
+  }
+
+  // Editing offZ (actual wheels-off) recalculates IN time using OFP ETE (tripMinutes).
+  // offZ + tripMinutes = actual estimated IN time at destination.
+  // All alternate ETAs also recalculate from offZ + their ofpOffsetMins offset.
+  if (_editField === 'offZ' && val.length === 4) {
+    recalcAllETAsFromOff(val);
   }
 
   cancelEdit();

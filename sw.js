@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════
 //  Relief Pilot — Service Worker (Offline-First)
-//  Version: 1.9.0-dev
+//  Version: 1.9.0
 //  Strategy: Cache-first for app shell, stale-while-revalidate for CDN
 // ═══════════════════════════════════════════════════════
 'use strict';
 
-const CACHE_NAME = 'rp-v1.9.0-dev';
+const CACHE_NAME = 'rp-v1.9.0';
 const PDFJS_VERSION = '3.11.174';
 
 const APP_SHELL = [
