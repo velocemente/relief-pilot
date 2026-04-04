@@ -1438,8 +1438,8 @@ body {
           <path d="M8 27l5-1.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="home-app-name">Relief Pilot</div>
-      <div class="home-tagline">OFP briefing notes for relief and augmented crew</div>
+      <div class="home-app-name">PilotBrief</div>
+      <div class="home-tagline">Relief Pilot Your flight assistant</div>
     </div>
 
     <div style="padding: 0 var(--sp4); display:flex; flex-direction:column; gap: var(--sp3); max-width:400px">
@@ -1462,7 +1462,7 @@ body {
   <div class="nav-bar">
     <button class="nav-back" onclick="pop()" aria-label="Go back">
       <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
-      Relief Pilot
+      PilotBrief
     </button>
     <span class="nav-title">Import OFP</span>
   </div>
@@ -1484,7 +1484,7 @@ body {
           <div class="dz-sub">Or drag and drop an OFP PDF here</div>
         </div>
       </div>
-      <div class="section-footer">Supported: Atlas Air, Polar Air OFP format</div>
+      <div class="section-footer">Supported: Atlas Air OFP format</div>
     </div>
 
     <div class="section">
@@ -2052,7 +2052,7 @@ function recalcAllETAsFromOff(offZval) {
     const t = (base + off + 1440*4) % 1440;
     return String(Math.floor(t/60)).padStart(2,'0') + String(t%60).padStart(2,'0');
   };
-  // DEST: offZ + tripMinutes = actual IN estimate
+  // DEST: offZ + tripMinutes + 10Minutes = actual IN estimate
   if (S.tripMinutes !== null) {
     S.etaDest = addMin(baseMin, S.tripMinutes);
   }
@@ -2976,7 +2976,7 @@ function parseOFP() {
     altData, acftType,
     blockFuel: fuelK(bM?.[1]),
     minfFuel:  fuelK(miM?.[1]),
-    fresFuel:  fuelK(frM?.[1]),
+    remfFuel:  fuelK(remfM?.[1]),
     togwActual, togwLimit,
     ddgItems, melItems, overflightPerms: perms,
     altRoutes,
@@ -3217,15 +3217,14 @@ function renderPreflightPhase() {
   h += `</div>`; // data-table
   h += `</div></div>`; // subcard-body + subcard
 
-  // ── "OFP Fuel" subcard (Block / MIN / FRES / GA) ──
+  // ── "OFP Fuel" subcard (Block / MIN / REMF) ──
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">OFP Fuel</div>`;
   h += `<div class="subcard-body">`;
   h += `<div class="data-table data-table-lg">`;
   h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${bClass}">${ev('blockFuel', S.blockFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value">${ev('minfFuel', S.minfFuel||'___')}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">FRES</span><span class="data-value">${ev('fresFuel', S.fresFuel||'___')}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">GA</span><span class="data-value">${ev('gaFuel', S.gaFuel||'___')}</span></div>`;
+  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${ev('remfMFuel', S.remfMFuel||'___')}</span></div>`;
   h += `</div>`;
   h += `</div></div>`; // subcard-body + subcard
 
@@ -3393,10 +3392,17 @@ function renderDescentPhase() {
   h += `<div class="data-row"><span class="data-label">GA</span><span class="data-value">${ev('gaFuel', S.gaFuel||'___')}</span></div>`;
   h += `</div>`;
   h += `</div></div>`; // subcard-body + subcard
-
+  // ── Scratchpad column ──
+  h += `<div class="enroute-scratch-col">`;
+  h += `<div class="enroute-scratch-label">Scratchpad</div>`;
+  h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Enroute scratchpad"></textarea>`;
+  h += `</div>`; // enroute-scratch-col
+  h += `</div>`; // enroute-split
+  h += `</div></div>`; // subcard-body + subcard
   h += renderFcirSubcard();
   return h;
 }
+  
 
 // ── NOTES SECTION (shared across all phases) ──────────────────────────────
 function renderNotesSection() {
@@ -4175,16 +4181,19 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
       break; // report once per airport
     }
 
-    // ILS / navaid (no window check — treat as advisory whenever present)
-    if (/ILS.*(?:U\/S|UNREL|OTS)/.test(n) || /(?:GP|GS|LOC).*(?:U\/S|UNREL|OTS)/.test(n)) {
-      issues.push({level:'yellow', text:'⚠ ILS / GS U/S'}); worst = bump(worst,'yellow');
+    // ILS / navaid (window check)
+    if (/ILS.*(?:U\/S|UNREL|OTS)/.test(n) || /(?:GP|GS|LOC).*(?:U\/S|UNREL|OTS)/.test(n)) continue;
+    if (!w || nwOverlap(w, etaMin)) {
+      issues.push({level:'yellow', text:'⚠ Approach Issue'}); worst = bump(worst,'yellow');
     }
-    if (/(?:VOR|NDB|DME|RNAV).*(?:U\/S|UNREL|OTS)/.test(n)) {
+    if (/(?:VOR|NDB|DME|RNAV).*(?:U\/S|UNREL|OTS)/.test(n)) continue;
+    if (!w || nwOverlap(w, etaMin)) {
       issues.push({level:'yellow', text:'⚠ Navaid U/S'}); worst = bump(worst,'yellow');
     }
 
-    // Taxiway closures (advisory — no timestamp check needed)
-    if (/TWY.*CLSD/.test(n) && !rwyMatched.size) {
+    // Taxiway closures (advisory — timestamp check needed)
+    if (/TWY.*CLSD/.test(n) && !rwyMatched.size) continue;
+    if (!w || nwOverlap(w, etaMin)){
       issues.push({level:'yellow', text:'ℹ Taxiway closure'}); worst = bump(worst,'yellow');
     }
 
@@ -4230,11 +4239,6 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
     const relevantWx = extractEtaWindow(weatherText, etaMin, wxWindowOverride);
     const wx = relevantWx.toUpperCase();
 
-    // Tornado (always red)
-    if (/\+FC\b/.test(wx)) {
-      issues.push({level:'red', text:'🔴 Tornado (+FC)'}); worst = 'red';
-    }
-
     // ── Prevailing ceiling and visibility — combined into one status row ─────
     // Per requirement: Operational/Instruments/Below triggers show both VIS and CIG.
     // Determine worst category from ceiling and vis independently, report the worst.
@@ -4256,7 +4260,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
       let prefix, level;
       if      (worstCat === 1) { prefix = '⚠ Operational';  level = 'yellow'; }
       else if (worstCat === 2) { prefix = '🔴 Instruments';  level = 'red';    }
-      else                     { prefix = '🔴 Below mins';   level = 'red';    }
+      else                     { prefix = '🔴 Low';   level = 'red';    }
 
       issues.push({level, text:`${prefix} — ${parts}`});
       worst = bump(worst, level);
@@ -4273,7 +4277,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
       } else if (ft >= 1200) {
         rvrLevel = 'red'; rvrClass = 'r'; rvrPrefix = '🔴 Instruments';
       } else {
-        rvrLevel = 'red'; rvrClass = 'r'; rvrPrefix = '🔴 Below mins';
+        rvrLevel = 'red'; rvrClass = 'r'; rvrPrefix = '🔴 Low';
       }
       if (rvrLevel) {
         issues.push({level:rvrLevel, text:`${rvrPrefix} — RVR <span class="wx-val ${rvrClass}">${label}</span>`});
@@ -4297,25 +4301,34 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
     }
 
     // PROB40 — treat as prevailing per FOM
-    if (/PROB40/.test(wx)) {
-      issues.push({level:'yellow', text:'⚠ PROB40 — treat as prevailing'}); worst = bump(worst,'yellow');
+    const tc = pGCeil(wx, 'PROB40');
+    const tv = pGVis(wx,  'PROB40');   // { sm, label } | null
+    if (tc !== null && tc < 1000) {
+      const cls = tc < 600 ? 'r' : 'r';
+      issues.push({level:'red', text:`🔴 PROB40 CIG <span class="wx-val ${cls}">${tc}ft</span>`}); worst = 'red';
+    } else if (tc !== null && tc < 3000) {
+      issues.push({level:'yellow', text:`⚠ PROB30 CIG <span class="wx-val y">${tc}ft</span>`}); worst = bump(worst,'yellow');
     }
+    if (tv !== null && tv.sm < 3) {
+      issues.push({level:'red', text:`🔴 PROB40 VIS <span class="wx-val r">${tv.label}</span>`}); worst = 'red';
+    } else if (tv !== null && tv.sm < 5) {
+      issues.push({level:'yellow', text:`⚠ PROB40 VIS <span class="wx-val y">${tv.label}</span>`}); worst = bump(worst,'yellow');
+    if (/PROB40/.test(wx));
+      {
+      
     // PROB30 + significant weather — advisory
     if (/PROB30/.test(wx) && /TS|FZRA|\+SN|\+RA/.test(wx)) {
-      issues.push({level:'yellow', text:'⚠ PROB30 + significant wx'}); worst = bump(worst,'yellow');
+      issues.push({level:'yellow', text:'⚠ PROB30 SIG WX'}); worst = bump(worst,'yellow');
     }
 
     if (/\bTS\b|\bTSRA\b/.test(wx)) {
-      issues.push({level:'yellow', text:'⚠ Thunderstorm in forecast'}); worst = bump(worst,'yellow');
+      issues.push({level:'yellow', text:'⚠ TSRA'}); worst = bump(worst,'yellow');
     }
     if (/FZRA|FZDZ/.test(wx)) {
-      issues.push({level:'yellow', text:'⚠ Freezing precip'}); worst = bump(worst,'yellow');
+      issues.push({level:'yellow', text:'⚠ FZ PRECIP'}); worst = bump(worst,'yellow');
     }
     if (/WS\d{3}\/|LLWS|WINDSHEAR/.test(wx)) {
-      issues.push({level:'yellow', text:'⚠ Windshear'}); worst = bump(worst,'yellow');
-    }
-    if (/\bFG\b|\bFZFG\b/.test(wx)) {
-      issues.push({level:'yellow', text:'⚠ Fog'}); worst = bump(worst,'yellow');
+      issues.push({level:'red', text:'⚠ Windshear'}); worst = bump(worst,'yellow');
     }
 
     // If no issues found, weather is Open
