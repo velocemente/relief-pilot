@@ -1,7 +1,7 @@
 {
   "name": "PilotBrief",
   "short_name": "PilotBrief",
-  "description": "PilotBrief - Your flight planning assistant",
+  "description": "PilotBrief - Your flight assistant",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
