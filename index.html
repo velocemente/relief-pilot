@@ -3387,9 +3387,7 @@ function renderPreflightPhase() {
   h += `<div class="data-table data-table-lg">`;
   h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${bClass}">${ev('blockFuel', S.blockFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value">${ev('minfFuel', S.minfFuel||'___')}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">FRES</span><span class="data-value">${ev('fresFuel', S.fresFuel||'___')}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">GA</span><span class="data-value">${ev('gaFuel', S.gaFuel||'___')}</span></div>`;
-  h += `</div>`;
+  h += `<div class="data-row"><span class="data-label">FRES</span><span class="data-value">${ev('remfMFuel', S.remfMFuel||'___')}</span></div>`;
   h += `</div></div>`; // subcard-body + subcard
 
   // ── FCIR (shown on all phases when active) ──
