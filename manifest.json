@@ -1,7 +1,7 @@
 {
   "name": "Relief Pilot",
   "short_name": "Relief Pilot",
-  "description": "OFP briefing notes for relief and augmented crew",
+  "description": "OFP briefing notes for relief and augmented crew. Includes NOTAM and weather interpretation engines.",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
