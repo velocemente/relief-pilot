@@ -102,6 +102,12 @@
   /* iOS spring transition */
   --spring: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --spring-snappy: cubic-bezier(0.35, 0, 0.25, 1);
+
+  /* Motion tokens — ux-design-token-studio.md §6.6 */
+  --dur-fast:   150ms;   /* durationFast: button press, toggle, micro-feedback */
+  --dur-normal: 250ms;   /* durationNormal: page transitions, modal open/close */
+  --dur-slow:   400ms;   /* durationSlow: onboarding reveals, hero animations */
+  --easing-default: cubic-bezier(0.4, 0, 0.2, 1);  /* easingDefault: Material standard */
   /* ── Design System Extensions (DesignTokens.swift alignment) ── */
   --border-interactive: #757575;  /* appBorderInteractive — SC 1.4.11 compliant */
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);   /* AppShadow.sm */
@@ -166,7 +172,7 @@ html {
 body {
   font-family: var(--font);
   font-size: 17px;
-  line-height: 1.3;
+  line-height: 1.4; /* §6.3 ux-design-token-studio: lineHeightBody ≥ 1.4 */
   color: var(--label);
   background: var(--sys-grouped);
   height: 100%; height: -webkit-fill-available;
@@ -184,7 +190,7 @@ body {
   overflow: hidden;
   /* Default: hidden to the right (iOS push) */
   transform: translateX(100%);
-  transition: transform 0.35s var(--spring);
+  transition: transform var(--dur-slow) var(--spring);
   will-change: transform;
   z-index: 10;
 }
@@ -250,8 +256,7 @@ body {
   flex: 1; width: 100%;
   letter-spacing: -0.02em;
   padding-top: var(--sp2);
-  line-height: 1.1;
-}
+  line-height: 1.2; /* §6.3: large display text — 1.1 causes overlap */
 .nav-back {
   display: flex; align-items: center; gap: 3px;
   background: none; border: none; cursor: pointer;
@@ -416,7 +421,7 @@ body {
   min-height: var(--touch); font-family: var(--font);
   font-size: 17px; font-weight: 600; cursor: pointer;
   width: 100%; max-width: 320px;
-  transition: opacity 0.1s;
+  transition: opacity var(--dur-fast);
 }
 .btn-primary:active { opacity: 0.75; }
 .btn-primary svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
@@ -427,7 +432,7 @@ body {
   min-height: var(--touch); font-family: var(--font);
   font-size: 17px; font-weight: 500; cursor: pointer;
   width: 100%; max-width: 320px;
-  transition: opacity 0.1s;
+  transition: opacity var(--dur-fast);
 }
 .btn-secondary:active { opacity: 0.7; }
 .btn-secondary svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
@@ -689,7 +694,7 @@ body {
   min-height: 44px;
 }
 .atis-letter-box {
-  width: 42px; height: 42px; border-radius: var(--r-md);
+  width: 44px; height: 44px; border-radius: var(--r-md);
   border: 1.5px solid var(--sep-opaque);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-size: 22px; font-weight: 700;
@@ -699,7 +704,7 @@ body {
 }
 .atis-letter-box:active { background: var(--tint-bg); border-color: var(--tint); }
 .atis-notes-pad {
-  flex: 1; min-height: 42px; max-height: 120px; resize: none;
+  flex: 1; min-height: 44px; max-height: 120px; resize: none;
   background: var(--fill4); color: var(--label);
   border: 0.5px solid var(--sep); border-radius: var(--r-sm);
   padding: var(--sp2) var(--sp3);
@@ -753,7 +758,7 @@ body {
 .flt-id {
   font-family: var(--font-display);
   font-size: var(--type-h2); font-weight: 700; letter-spacing: -0.02em;
-  color: var(--label); line-height: 1.15; display: block;
+  color: var(--label); line-height: 1.2; display: block; /* §6.3: large display text */
 }
 .flt-date {
   font-family: var(--font);
@@ -856,6 +861,107 @@ body {
 .apt-dot.yellow { background: var(--sys-yellow); }
 .apt-dot.red    { background: var(--sys-red); }
 
+/* ── Collapsible issue groups (WX expand + NOTAM groups) ── */
+.apt-group {
+  border-radius: var(--r-sm); overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.apt-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; padding: var(--sp2) var(--sp3);
+  cursor: pointer; user-select: none; gap: var(--sp2);
+  line-height: 1.5; border-radius: var(--r-sm);
+  -webkit-tap-highlight-color: transparent;
+}
+.apt-group.r .apt-group-header { background: var(--sys-red-bg);    color: var(--sys-red); }
+.apt-group.y .apt-group-header { background: var(--sys-yellow-bg); color: var(--sys-yellow); }
+.apt-group.g .apt-group-header { background: var(--sys-green-bg);  color: var(--sys-green); }
+.apt-group-label { flex: 1; }
+.apt-group-chevron {
+  flex-shrink: 0; width: 9px; height: 14px;
+  transition: transform var(--dur-fast);
+  opacity: 0.7;
+}
+.apt-group.open .apt-group-chevron { transform: rotate(90deg); }
+.apt-group-body {
+  display: none; flex-direction: column; gap: 2px;
+  padding: 2px var(--sp2) var(--sp2);
+}
+.apt-group.open .apt-group-body { display: flex; }
+.apt-group-item {
+  font-size: 12px; padding: 5px var(--sp2);
+  border-radius: var(--r-sm); line-height: 1.5;
+  font-family: var(--font-mono); white-space: pre-wrap; word-break: break-word;
+}
+.apt-group.r .apt-group-item { background: rgba(255,55,95,0.06); color: var(--label2); }
+.apt-group.y .apt-group-item { background: rgba(255,159,10,0.06); color: var(--label2); }
+.apt-wx-raw {
+  font-size: 12px; font-family: var(--font-mono);
+  white-space: pre-wrap; word-break: break-word;
+  color: var(--label2); line-height: 1.6;
+  padding: var(--sp2) var(--sp2) 2px;
+}
+
+/* ── ARINC bottom sheet ── */
+.arinc-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.45);
+  display: none; align-items: flex-end;
+  padding-bottom: var(--sab);
+}
+.arinc-overlay.open { display: flex; }
+.arinc-sheet {
+  background: var(--sys-bg2);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: var(--sp3) var(--sp4) var(--sp5);
+  width: 100%; display: flex; flex-direction: column; gap: var(--sp3);
+  max-height: 82vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.arinc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: var(--sp2); border-bottom: 0.5px solid var(--sep);
+}
+.arinc-title { font-size: 15px; font-weight: 700; color: var(--label); }
+.arinc-validity { font-size: 11px; color: var(--label3); font-family: var(--font-mono); }
+.arinc-section-head {
+  font-size: 11px; font-weight: 700; color: var(--label2);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: var(--sp2) 0 var(--sp1);
+  border-top: 0.5px solid var(--sep); margin-top: var(--sp2);
+}
+.arinc-freq-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--sp3); padding: 6px 0;
+  border-bottom: 0.5px solid var(--fill3); min-height: 38px;
+}
+.arinc-freq-row:last-child { border-bottom: none; }
+.arinc-freq-label { font-size: 13px; color: var(--label); flex: 1; line-height: 1.4; }
+.arinc-freq-val { font-family: var(--font-mono); font-weight: 700; font-size: 15px; color: var(--tint); white-space: nowrap; }
+.arinc-freq-sec { font-family: var(--font-mono); font-size: 13px; color: var(--label3); white-space: nowrap; margin-left: var(--sp2); }
+.arinc-error { font-size: 14px; color: var(--label2); text-align: center; padding: var(--sp5) 0; line-height: 1.6; }
+.arinc-loader { text-align: center; padding: var(--sp8) 0; font-size: 14px; color: var(--label3); }
+.arinc-open-link { color: var(--tint); text-decoration: none; font-weight: 600; }
+.arinc-note { font-size: 12px; color: var(--label3); line-height: 1.5; padding: var(--sp2) 0; }
+.arinc-close-btn {
+  margin-top: var(--sp2); min-height: var(--touch);
+  background: var(--fill2); color: var(--label);
+  border: none; border-radius: var(--r-md);
+  font-family: var(--font); font-size: 17px; font-weight: 500;
+  width: 100%; cursor: pointer; flex-shrink: 0;
+}
+.arinc-close-btn:active { opacity: 0.7; }
+.arinc-btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--sp2); min-height: var(--touch);
+  background: var(--tint-bg); color: var(--tint);
+  border: 1px solid var(--tint); border-radius: var(--r-md);
+  font-family: var(--font); font-size: 15px; font-weight: 600;
+  cursor: pointer; padding: 0 var(--sp4); width: 100%;
+  transition: background var(--dur-fast);
+}
+.arinc-btn:active { background: rgba(10,132,255,0.2); }
+
 /* Curfew row */
 .curfew-row {
   display: flex; align-items: baseline; gap: var(--sp3);
@@ -936,6 +1042,14 @@ body {
 .apt-issue.r { background: var(--sys-red-bg);    color: var(--sys-red); }
 .apt-issue.y { background: var(--sys-yellow-bg); color: var(--sys-yellow); }
 .apt-issue.g { background: var(--sys-green-bg);  color: var(--sys-green); }
+/* NOTAM keyword highlights */
+.nt-red { font-family: var(--font-mono); font-weight: 700; color: var(--sys-red); }
+.nt-yel { font-family: var(--font-mono); font-weight: 700; color: var(--sys-yellow); }
+/* Colored trigger values in WX issue rows */
+.wx-val { font-family: var(--font-mono); font-weight: 700; }
+.wx-val.r { color: var(--sys-red); }
+.wx-val.y { color: var(--sys-yellow); }
+.wx-val.g { color: var(--sys-green); }
 /* Colored trigger value within an issue row */
 .wx-val { font-family: var(--font-mono); font-weight: 700; }
 .wx-val.r { color: var(--sys-red); }
@@ -995,7 +1109,7 @@ body {
 .altroute-title {
   font-size: 13px; font-weight: 700; color: var(--label2);
   text-transform: uppercase; letter-spacing: 0.04em;
-  line-height: 1.3; flex: 1; padding-right: var(--sp3);
+  line-height: 1.4; flex: 1; padding-right: var(--sp3);
 }
 .altroute-mora {
   font-size: var(--type-overline); font-family: var(--font-mono); color: var(--label3);
@@ -1098,7 +1212,7 @@ body {
 .edit-btn {
   flex: 1; min-height: var(--touch); border-radius: var(--r-md);
   font-family: var(--font); font-size: 17px; font-weight: 500;
-  border: none; cursor: pointer; transition: opacity 0.1s;
+  border: none; cursor: pointer; transition: opacity var(--dur-fast);
   background: var(--fill2); color: var(--label);
 }
 .edit-btn:active { opacity: 0.7; }
@@ -1223,9 +1337,9 @@ body {
    SCROLLBAR
    ═══════════════════════════════════════════════════════ */
 
-/* ── DDG individual item rows ── */
+/* ── DDG individual item rows (code+desc = one unified row) ── */
 .ddg-item-row {
-  display: flex; align-items: flex-start; gap: var(--sp2);
+  display: flex; align-items: baseline; gap: var(--sp2);
   padding: var(--sp2) 0;
   border-bottom: 0.5px solid var(--sep);
   font-size: var(--type-body-sm); color: var(--label); line-height: 1.5;
@@ -1234,25 +1348,11 @@ body {
 .ddg-item-code {
   font-family: var(--font-mono); font-weight: 600;
   color: var(--tint); white-space: nowrap; flex-shrink: 0;
-  min-width: 70px; font-size: var(--type-body-sm);
-}
-.ddg-item-body {
-  flex: 1; display: flex; flex-direction: column; gap: 3px;
+  font-size: var(--type-body-sm);
 }
 .ddg-item-desc {
-  flex: 1; color: var(--label2); font-size: var(--type-body-sm);
+  flex: 1; color: var(--label); font-size: var(--type-body-sm);
 }
-/* TLR badge — shown beneath the description */
-.ddg-tlr-badge {
-  display: inline-block;
-  font-size: var(--type-overline); font-weight: 700;
-  font-family: var(--font-mono);
-  letter-spacing: 0.03em; border-radius: 4px;
-  padding: 2px 6px; align-self: flex-start;
-}
-.ddg-tlr-badge.tkoff  { color: var(--sys-yellow); background: var(--sys-yellow-bg); }
-.ddg-tlr-badge.land   { color: var(--tint);       background: var(--tint-bg); }
-.ddg-tlr-badge.both   { color: var(--sys-orange);  background: rgba(255,107,0,0.10); }
 .ddg-list { margin-top: var(--sp2); }
 
 /* ── Compact ATIS + Parking row (single line) ── */
@@ -1266,7 +1366,7 @@ body {
   min-width: 32px; flex-shrink: 0;
 }
 .compact-atis-box {
-  width: 42px; height: 42px; border-radius: var(--r-md);
+  width: 44px; height: 44px; border-radius: var(--r-md);
   border: 1.5px solid var(--border-interactive);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-size: var(--type-body-lg); font-weight: 700;
@@ -1278,7 +1378,7 @@ body {
 .compact-atis-box:active { background: var(--tint-bg); border-color: var(--tint); }
 .compact-atis-box:empty::after { content: '—'; color: var(--label3); font-weight: 400; }
 .compact-atis-notes {
-  flex: 1; min-width: 0; height: 42px; max-height: 42px; resize: none;
+  flex: 1; min-width: 0; height: 44px; max-height: 44px; resize: none;
   background: var(--fill4); color: var(--label);
   border: 0.5px solid var(--sep); border-radius: var(--r-sm);
   padding: var(--sp2) var(--sp3);
@@ -1295,7 +1395,7 @@ body {
   border-top: 0.5px solid var(--sep);
 }
 .compact-parking-box {
-  flex: 1; min-width: 0; height: 42px; max-height: 42px; resize: none;
+  flex: 1; min-width: 0; height: 44px; max-height: 44px; resize: none;
   background: var(--fill4); color: var(--label);
   border: 0.5px solid var(--sep); border-radius: var(--r-sm);
   padding: var(--sp2) var(--sp3);
@@ -1355,7 +1455,7 @@ body {
   height: 36px; min-height: 36px;
   font-family: var(--font); font-size: var(--type-body-sm); font-weight: 600;
   cursor: pointer; white-space: nowrap;
-  transition: opacity 0.1s;
+  transition: opacity var(--dur-fast);
   /* Position: right edge stops 60px before the centered title */
   margin-right: 60px;
   flex-shrink: 0;
@@ -1369,11 +1469,11 @@ body {
    REDUCE MOTION — WCAG 2.3.3 / AppMotion compliance
    ═══════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
-  .screen { transition: none !important; }
-  .cell, .icon-btn, .phase-tab, .flight-tab, .seg-btn,
-  .ev, .apt-card-header, .atis-letter-box, .ios-toggle-track,
-  .ios-toggle-thumb, .drop-zone { transition: none !important; }
-  .perishables-banner, .callout { animation: none !important; }
+  /* Zero all motion tokens — universal pattern (ux-design-token-studio.md §6.6) */
+  :root {
+    --dur-fast: 0ms; --dur-normal: 0ms; --dur-slow: 0ms;
+  }
+  *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
 }
 
 
@@ -1389,7 +1489,7 @@ body {
   font-family: var(--font);
   font-size: 11px; font-weight: 600; color: var(--label3);
   letter-spacing: 0.04em; user-select: none; cursor: pointer;
-  white-space: nowrap; transition: color 0.2s;
+  white-space: nowrap; transition: color var(--dur-fast);
 }
 .fcir-label.active { color: var(--sys-yellow); }
 /* iOS-style toggle */
@@ -1401,7 +1501,7 @@ body {
 .ios-toggle-track {
   position: absolute; inset: 0;
   background: var(--fill2); border-radius: 12px;
-  transition: background 0.2s;
+  transition: background var(--dur-fast);
 }
 .ios-toggle input:checked ~ .ios-toggle-track { background: var(--sys-yellow); }
 .ios-toggle-thumb {
@@ -1409,7 +1509,7 @@ body {
   background: #fff; border-radius: 50%;
   top: 2px; left: 2px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-  transition: transform 0.2s var(--spring);
+  transition: transform var(--dur-fast) var(--spring);
   pointer-events: none;
 }
 .ios-toggle input:checked ~ .ios-toggle-thumb { transform: translateX(16px); }
@@ -1703,14 +1803,63 @@ body {
   </div>
 </div>
 
+<!-- ARINC HF frequency bottom sheet -->
+<div class="arinc-overlay" id="arincOverlay" onclick="closeArincSheet(event)">
+  <div class="arinc-sheet" id="arincSheet" onclick="event.stopPropagation()">
+    <div class="arinc-header">
+      <span class="arinc-title" id="arincTitle">ARINC Frequencies</span>
+      <span class="arinc-validity" id="arincValidity"></span>
+    </div>
+    <div id="arincBody"><div class="arinc-loader">Loading…</div></div>
+    <button class="arinc-close-btn" onclick="closeArincSheet()">Close</button>
+  </div>
+</div>
+
 
 <script>
+// ── Global error suppression ─────────────────────────────────────────────
+// Cross-origin worker errors arrive as opaque "Script Error" / "" events.
+// e.preventDefault() does not suppress the console in all browsers, but
+// stopImmediatePropagation prevents other handlers seeing it.
+// ── Service Worker registration ─────────────────────────────────────────────
+// Guard: SW requires HTTPS (or localhost). Silently skip on file:// and
+// sandboxed preview contexts — the app functions fully without the SW.
+if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => { reg.update().catch(() => {}); })
+      .catch(() => {}); // silent — SW is an enhancement, not required
+  });
+}
+
+window.addEventListener('error', function(e) {
+  var m = e.message || '';
+  if (!m || m === 'Script error.' || m === 'Script Error' ||
+      (!e.filename && !e.lineno)) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return true;
+  }
+  if (e.filename && (e.filename.indexOf('cdnjs.cloudflare.com') !== -1)) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return true;
+  }
+}, true); // capture phase — runs before any other handler
+
+window.addEventListener('unhandledrejection', function(e) {
+  var msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason || '');
+  if (!msg || msg === 'Script error.' || msg === 'Script Error' || msg === 'undefined') {
+    e.preventDefault();
+  }
+});
 'use strict';
 
 // ═══════════════════════════════════════════════════════
 //  VERSION
 // ═══════════════════════════════════════════════════════
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.0-dev';
 
 // ═══════════════════════════════════════════════════════
 //  THEME — follows system, or manual override
@@ -1936,11 +2085,9 @@ const S = {
   //   coChartNote: crew-entered text for "SEE CO CHART" runways (SPECIAL + no proc)
   oeiData:[], oeiSelectedRwy:'',
   blockFuel:'', minfFuel:'', fresFuel:'',
-  // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
-  //   code: ATA number string e.g. "36-12-02-01"
-  //   desc: full description string (may be multi-line joined)
-  //   tlr:  ''|'takeoff'|'landing'|'both'  — TLR Remarks cross-reference
-  ddgItems:[], melItems:'', overflightPerms:'',
+  taxiMins:15, offZManual:false,
+  offZ:'',
+  melItems:'', overflightPerms:'',
   altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
   acftType:'', togwActual:0, togwLimit:0,
   hasPerishables:false,
@@ -1958,18 +2105,12 @@ const S = {
   offZ:'',            // actual OFF time entered by crew (HHMM Z)
   porWpt:'',          // POR waypoint parsed from OFP, e.g. "N60W040"
   porOffsetMins:null, // OFP elapsed minutes ORIG→POR (HH.MM converted)
-  porMinf:'',         // Minimum fuel required at POR (col2 of MINF line on RDA OFPs)
   etopsEntryMins:null,// OFP elapsed minutes to ETOPS entry  (HH.MM converted)
 
-  // ── Preflight / Departure ATIS + Parking (independent of Descent) ──
-  preAtisLetter:'',   // Departure ATIS identifier letter, e.g. "K"
-  preAtisNotes:'',    // Departure ATIS free-text notes
-  preParkingNotes:'', // Departure gate / stand free-text
-
-  // ── Descent / Arrival ATIS + Parking (independent of Preflight) ──
-  descAtisLetter:'',  // Arrival ATIS identifier letter, e.g. "K"
-  descAtisNotes:'',   // Arrival ATIS free-text notes
-  descParkingNotes:'',// Arrival gate / stand free-text
+  // ── Descent / Arrival ──
+  atisLetter:'',      // ATIS identifier letter, e.g. "K"
+  atisNotes:'',       // free-text ATIS notes
+  parkingNotes:'',    // parking / gate free-text
   enrouteScratch:'',  // enroute scratchpad (drawing + text)
 
   // ── Arrival fuel (parsed + carried-over) ──
@@ -1995,16 +2136,17 @@ function resetStateForNewFlight() {
     oeiVal:'', stabTrim:'', gaFuel:'',
     oeiData:[], oeiSelectedRwy:'',
     blockFuel:'', minfFuel:'', fresFuel:'',
-    ddgItems:[], melItems:'', overflightPerms:'',
+    taxiMins:15, offZManual:false,
+  offZ:'',
+  melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', togwActual:0, togwLimit:0,
     hasPerishables:false,
     destEtaOffsetMins:null, tripMinutes:null,
     userNotes:'', fcirNarrative:'', fcirAsap:false,
     etopsEntry:'', etopsSpec:'', etpPoints:[],
     activePhase:'preflight',
-    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null,
-    preAtisLetter:'', preAtisNotes:'', preParkingNotes:'',
-    descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
+    offZ:'', porWpt:'', porOffsetMins:null, etopsEntryMins:null,
+    atisLetter:'', atisNotes:'', parkingNotes:'',
     enrouteScratch:'',
     alt1Fuel:'', destRemf:'',
   });
@@ -2041,32 +2183,63 @@ function recalcAllETAs() {
   });
 }
 
-// Recalculate IN time and alternate ETAs from the actual OFF (wheels-up) time.
-// Uses tripMinutes (OFP ETE) for DEST, and ofpOffsetMins adjusted for taxi time
-// for alternates. This keeps IN time accurate once airborne.
-// offZ is actual wheels-off; tripMinutes is OFP planned flight time (no taxi).
-function recalcAllETAsFromOff(offZval) {
-  if (!offZval || offZval.length !== 4) return;
-  const baseMin = parseInt(offZval.slice(0,2))*60 + parseInt(offZval.slice(2,4));
-  const addMin  = (base, off) => {
+// ── Taxi hh.mm helpers ────────────────────────────────────────────────────
+function parseTaxiHHMM(str) {
+  const s = String(str || '').trim();
+  if (s.includes('.')) {
+    const parts = s.split('.');
+    const hh = parseInt(parts[0], 10) || 0;
+    const mm = parseInt((parts[1] || '0').padEnd(2,'0').slice(0,2), 10) || 0;
+    return Math.min(240, Math.max(0, hh * 60 + mm));
+  }
+  const n = parseInt(s.replace(/\D/g,''), 10);
+  return isNaN(n) ? 15 : Math.min(240, Math.max(0, n));
+}
+function fmtTaxiHHMM(mins) {
+  const m = typeof mins === 'number' ? mins : 15;
+  return Math.floor(m/60) + '.' + String(m%60).padStart(2,'0');
+}
+
+// ── recalcFromOff — recalc IN + alt ETAs from a manual OFF time ──────────
+function recalcFromOff(offHHMM) {
+  if (!offHHMM || offHHMM.length !== 4) return;
+  const addMin = (base, off) => {
     const t = (base + off + 1440*4) % 1440;
     return String(Math.floor(t/60)).padStart(2,'0') + String(t%60).padStart(2,'0');
   };
-  // DEST: offZ + tripMinutes = actual IN estimate
-  if (S.tripMinutes !== null) {
-    S.etaDest = addMin(baseMin, S.tripMinutes);
+  const offMin  = parseInt(offHHMM.slice(0,2))*60 + parseInt(offHHMM.slice(2,4));
+  const taxiMins = typeof S.taxiMins === 'number' ? S.taxiMins : 15;
+  S.outZ = addMin(offMin, -taxiMins);
+  if (S.destEtaOffsetMins !== null) {
+    S.etaDest = addMin(offMin, S.destEtaOffsetMins - taxiMins);
   }
-  // Alternates: offZ + (ofpOffsetMins − taxiApprox)
-  // ofpOffsetMins was computed as altETA − origOFF (includes taxi), so for
-  // airborne recalc we subtract the OFP taxi time: destEtaOffsetMins − tripMinutes
-  const taxiMins = (S.destEtaOffsetMins !== null && S.tripMinutes !== null)
-    ? S.destEtaOffsetMins - S.tripMinutes
-    : 0;
   S.altData.forEach(a => {
     if (a.ofpOffsetMins !== null) {
-      a.currentEta = addMin(baseMin, Math.max(0, a.ofpOffsetMins - taxiMins));
+      a.currentEta = addMin(offMin, a.ofpOffsetMins - taxiMins);
     }
   });
+}
+
+// ── Oceanic flight detection ──────────────────────────────────────────────
+const PACIFIC_ORIGS = new Set([
+  'KSFO','KLAX','KOAK','KSNA','KSJC','KLGB','KBUR',
+  'KSEA','KPDX','KBFI',
+  'PHNL','PHOG','PHTO','PHJH','PANC','PAFA','PAJN','PGUA','PGUM',
+]);
+const PACIFIC_DEST_PFX = ['R','V','Y','W','N','A'];
+const ATLANTIC_DEST_PFX = ['E','L','U','H','O','G','D','F','C','T','M','S','Z'];
+
+function isOceanicFlight() {
+  const orig = (S.origIcao || '').toUpperCase();
+  const dest = (S.destIcao || '').toUpperCase();
+  if (!orig || !dest) return { oceanic: false, ocean: null };
+  if (!orig.startsWith('K') && !orig.startsWith('P')) return { oceanic: false, ocean: null };
+  if (dest.startsWith('K')) return { oceanic: false, ocean: null };
+  const dp = dest.charAt(0);
+  const isPacOrig = PACIFIC_ORIGS.has(orig) || orig.startsWith('P');
+  if (isPacOrig && PACIFIC_DEST_PFX.includes(dp)) return { oceanic: true, ocean: 'pacific' };
+  if (ATLANTIC_DEST_PFX.includes(dp)) return { oceanic: true, ocean: 'atlantic' };
+  return { oceanic: true, ocean: isPacOrig ? 'pacific' : 'atlantic' };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2108,9 +2281,6 @@ function clearOFPPanel() {
 }
 
 function loadFlight(entry) {
-  // Always start from a clean slate — prevents any residual state from a
-  // previously viewed flight bleeding into the loaded one.
-  resetStateForNewFlight();
   // Restore state from saved entry
   Object.assign(S, entry.state || {});
   pdfRawText = entry.raw || '';
@@ -2433,16 +2603,6 @@ function parseOFP() {
   const remfM    = t.match(/^REMF\s+(\d{5,7})/m);
   const destRemf = remfM ? String(parseInt(remfM[1])) : '';
 
-  // ── POR MINF (minimum fuel required at the Point of Redispatch) ──
-  // RDA OFPs have a two-column MINF line:
-  //   MINF  087301  11.39  ....  030679  04.36  083572  11.04
-  //         ↑ full trip MINF   ↑ POR MINF (post-POR segment)
-  // The POR MINF is the minimum fuel the aircraft must have ON BOARD at the POR
-  // to continue to the destination under the redispatch plan.
-  // Non-RDA OFPs have only a single MINF column — porMinf will be '' in that case.
-  const porMinfM = t.match(/^MINF\s+\d{5,7}\s+[\d.]+\s+\.+\s+(\d{5,7})/m);
-  const porMinf  = porMinfM ? String(parseInt(porMinfM[1])) : '';
-
 
   // Format: ORIG VHHH/HKG HONG KONG INTL Q N22185E113549 0510Z
   const origLine = parseAptLine('ORIG');
@@ -2615,121 +2775,23 @@ function parseOFP() {
   const frM = t.match(/FRES\n(\d{5,7})/)  || t.match(/FRES\s+(\d{5,7})/i);
 
   // ── TOGW
-  // Weight Limit Codes (from OFP footer):
-  //   S = Structural    P = Performance
-  //   L = MTOW based on LDW + trip fuel    I = By Dispatcher
-  // All four must be handled — the old regex [SP] missed L and I,
-  // causing togwLimit = 0 and suppressing color on L-limited flights (e.g. light cargo).
   let togwActual = 0, togwLimit = 0;
-  const twM = t.match(/TOGW\s*\n?(\d{5,7})\s*\.+\s*[SPLI](\d{5,7})/);
+  const twM = t.match(/TOGW\s*\n?(\d{5,7})\s*\.+\s*[SP](\d{5,7})/);
   if (twM) { togwActual = parseInt(twM[1]); togwLimit = parseInt(twM[2]); }
 
   // ── Perishables
   const perishM = t.match(/PERISHABLE[^\n]*O\/B[^\n]*YES/i) || t.match(/O\/B[^\n]*PERISHABLE[^\n]*YES/i);
 
-  // ── MEL / DDG — structured parse
-  // Format in OFP:
-  //   MEL/CDL
-  //   25-00-01                          ← ATA code line: digits connected by hyphens
-  //    NON-ESSENTIAL EQUIP AND FURNISHINGS (NEF)   ← description (indented)
-  //    OPTIONAL SECOND DESC LINE        ← additional desc lines (indented)
-  //   33-41-01                          ← next item
-  //    WING ILLUMINATION LIGHTS
-  //   ____...                           ← block ends at underline rule
-  //
-  // TLR cross-reference (inside TAKEOFF AND LANDING REPORT block):
-  //   /// TAKEOFF DATA ///
-  //   RMKS 36-12-02-01 ONE VLV INOP     ← ATA code in Takeoff RMKS
-  //   /// LANDING DATA ///
-  //   RMKS 36-12-02-01 ONE VLV INOP     ← ATA code in Landing RMKS
-  //   RMKS NONE  or  RMKS NADP2 ...     ← non-DDG remarks (no ATA pattern)
-
-  // 1. Extract MEL/CDL block
-  const melBlock = (() => {
-    const m = t.match(/MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i);
-    return m ? m[1] : '';
-  })();
-
-  // 2. Parse structured DDG items from MEL block
-  // ATA code pattern: one or more groups of digits separated by hyphens, e.g. 25-00-01, 36-12-02-01
-  const ATA_RE = /^(\d{2}-[\d-]+[A-Z]?)\s*$/;
-  const ddgItems = [];
-  if (melBlock) {
-    const lines = melBlock.split(/\r?\n/);
-    let curCode = null, curDescLines = [];
-    const flush = () => {
-      if (curCode) {
-        const desc = curDescLines.map(l => l.trim()).filter(Boolean).join(' ');
-        ddgItems.push({ code: curCode, desc, tlr: '' });
-      }
-      curCode = null; curDescLines = [];
-    };
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (ATA_RE.test(trimmed)) {
-        // New ATA code — flush previous item
-        flush();
-        curCode = trimmed;
-      } else if (curCode) {
-        // Description / continuation line for current item
-        curDescLines.push(trimmed);
-      }
-    }
-    flush(); // flush last item
-    // Deduplicate: same code+desc appearing more than once (release copies repeat)
-    const seen = new Set();
-    const deduped = [];
-    for (const item of ddgItems) {
-      const key = item.code + '|' + item.desc;
-      if (!seen.has(key)) { seen.add(key); deduped.push(item); }
-    }
-    ddgItems.length = 0; ddgItems.push(...deduped);
-  }
-
-  // 3. Cross-reference TLR RMKS
-  // Scan the TLR block for RMKS lines in Takeoff vs Landing sections
-  (function crossRefTlrRmks(raw) {
-    const tlrStart = raw.search(/TAKEOFF AND LANDING REPORT/);
-    if (tlrStart === -1) return;
-    const tlrBlock = raw.slice(tlrStart);
-
-    // Find section boundaries
-    const tkOffIdx  = tlrBlock.search(/\/\/\/ TAKEOFF DATA \/\/\//);
-    const landIdx   = tlrBlock.search(/\/\/\/ LANDING DATA \/\/\//);
-    const endIdx    = tlrBlock.search(/^END TAKEOFF AND LANDING REPORT/m);
-
-    // Extract per-section RMKS content
-    const tkOffSection = tkOffIdx !== -1
-      ? tlrBlock.slice(tkOffIdx, landIdx !== -1 ? landIdx : (endIdx !== -1 ? endIdx : tlrBlock.length))
-      : '';
-    const landSection = landIdx !== -1
-      ? tlrBlock.slice(landIdx, endIdx !== -1 ? endIdx : tlrBlock.length)
-      : '';
-
-    // Collect all ATA codes mentioned in RMKS lines per section
-    const rmksAtaRe = /^RMKS\s+([\d][\d-]+[A-Z]?)\b/mg;
-    const tkOffAtas = new Set();
-    const landAtas  = new Set();
-
-    let m;
-    while ((m = rmksAtaRe.exec(tkOffSection)) !== null) tkOffAtas.add(m[1]);
-    rmksAtaRe.lastIndex = 0;
-    while ((m = rmksAtaRe.exec(landSection))  !== null) landAtas.add(m[1]);
-
-    // Apply TLR flag to each DDG item
-    for (const item of ddgItems) {
-      const inTkOff = tkOffAtas.has(item.code);
-      const inLand  = landAtas.has(item.code);
-      if (inTkOff && inLand) item.tlr = 'both';
-      else if (inTkOff)      item.tlr = 'takeoff';
-      else if (inLand)       item.tlr = 'landing';
-      else                   item.tlr = '';
-    }
-  })(t);
-
-  // Legacy flat string (kept for backward-compat with older saved flights)
-  const melItems = ddgItems.map(i => i.code + ' ' + i.desc).join(' | ').substring(0, 600);
+  // ── MEL / DDG — preserve newlines so item boundaries survive into renderer
+  const melM = t.match(/MEL\/CDL\s*([\s\S]*?)(?:Flight Release|_{10})/i);
+  const melItems = melM
+    ? melM[1]
+        .split('\n')
+        .map(l => l.replace(/[ \t]+/g, ' ').trim())
+        .filter(Boolean)
+        .join('\n')
+        .substring(0, 600)
+    : '';
 
   // ── Overflight permits
   const permM = t.match(/Overflight[/]?Landing Permits?\s*([\s\S]*?)(?:AWY WPT|_{10})/i);
@@ -2978,7 +3040,7 @@ function parseOFP() {
     minfFuel:  fuelK(miM?.[1]),
     fresFuel:  fuelK(frM?.[1]),
     togwActual, togwLimit,
-    ddgItems, melItems, overflightPerms: perms,
+    melItems, overflightPerms: perms,
     altRoutes,
     oeiData,
     oeiSelectedRwy: oeiData.length ? (S.oeiSelectedRwy || '') : '',
@@ -2991,18 +3053,14 @@ function parseOFP() {
     etopsEntryMins,
     porWpt,
     porOffsetMins,
-    porMinf,
     alt1Fuel,
     destRemf,
     // All crew-entered fields start clean — resetStateForNewFlight() already cleared S
     activePhase:   'preflight',
     offZ:          '',
-    preAtisLetter:    '',
-    preAtisNotes:     '',
-    preParkingNotes:  '',
-    descAtisLetter:   '',
-    descAtisNotes:    '',
-    descParkingNotes: '',
+    atisLetter:    '',
+    atisNotes:     '',
+    parkingNotes:  '',
     enrouteScratch: '',
     oeiVal:    '',
     stabTrim:  '',
@@ -3140,16 +3198,12 @@ function setPhase(phase) {
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
 
 // ── ATIS + Parking compact rows (used in preflight + descent) ──
-// idSuffix 'Pre' → preflight/departure fields; 'Desc' → descent/arrival fields
 function renderAtisParking(idSuffix) {
-  const isPre = idSuffix === 'Pre';
-  const atisLetterField = isPre ? 'preAtisLetter' : 'descAtisLetter';
-  const atisLetterVal   = isPre ? (S.preAtisLetter || '') : (S.descAtisLetter || '');
   let h = '';
   // ATIS: label + letter box (empty by default) + notes textarea
   h += `<div class="compact-atis-row">`;
   h += `<span class="compact-atis-label">ATIS</span>`;
-  h += `<div class="compact-atis-box" onclick="openEdit('${atisLetterField}')" onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('${atisLetterField}')}" role="button" aria-label="ATIS letter">${esc(atisLetterVal)}</div>`;
+  h += `<div class="compact-atis-box" onclick="openEdit('atisLetter')" onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('atisLetter')}" role="button" aria-label="ATIS letter">${esc(S.atisLetter || '')}</div>`;
   h += `<textarea class="compact-atis-notes" id="atisNotesPad${idSuffix}" placeholder="ATIS notes…" aria-label="ATIS notes"></textarea>`;
   h += `</div>`;
   // Parking: label + text box
@@ -3238,134 +3292,61 @@ function renderPreflightPhase() {
 
 // ── ENROUTE PHASE ─────────────────────────────────────────────────────────
 function renderEnroutePhase() {
-  // Helper: add minutes to a HHMM string, return HHMM
-  const addMins = (hhmm, mins) => {
+  const taxiMins = typeof S.taxiMins === 'number' ? S.taxiMins : 15;
+  const outZ  = (S.outZ || '').replace(/\D/g,'').slice(0,4);
+  const hasOut = outZ.length === 4;
+  const _addMins = (hhmm, mins) => {
     if (!hhmm || hhmm.length !== 4) return null;
-    const base = parseInt(hhmm.slice(0,2))*60 + parseInt(hhmm.slice(2,4));
-    const total = (base + mins + 1440*10) % 1440;
+    const base  = parseInt(hhmm.slice(0,2))*60 + parseInt(hhmm.slice(2,4));
+    const total = (base + mins + 14400) % 1440;
     return String(Math.floor(total/60)).padStart(2,'0') + String(total%60).padStart(2,'0');
   };
-  const fmtZ = t => t ? t + 'Z' : '——';
-
-  const offZ = (S.offZ || '').replace(/\D/g,'').slice(0,4);
+  let offZ;
+  if (S.offZManual && S.offZ && S.offZ.length === 4) {
+    offZ = S.offZ;
+  } else if (hasOut) {
+    offZ = _addMins(outZ, taxiMins) || '';
+    if (offZ) S.offZ = offZ;
+  } else {
+    offZ = (S.offZ || '').replace(/\D/g,'').slice(0,4);
+  }
   const hasOff = offZ.length === 4;
-
-  // Calculated times (only when OFF entered)
-  const eentZ = (hasOff && S.etopsEntryMins != null)
-    ? addMins(offZ, S.etopsEntryMins) : null;
-  const porZ  = (hasOff && S.porOffsetMins != null)
-    ? addMins(offZ, S.porOffsetMins) : null;
-  const rdaZ  = porZ ? addMins(porZ, -120) : null;  // 2 hrs prior to POR
-
-  // CO RPT schedule: every 4 hrs from OFF, but suppress if within 2–3 hrs of POR
-  // Rule: report at OFF+4h, OFF+8h, etc.  Skip any that fall within porZ-3h … porZ-2h window (replaced by POR report)
-  const coRpts = (() => {
-    if (!hasOff) return [];
-    const rpts = [];
-    for (let i = 1; i <= 10; i++) {
-      const mins = i * 240;
-      const t = addMins(offZ, mins);
-      if (!t) break;
-      const tMin = parseInt(t.slice(0,2))*60 + parseInt(t.slice(2,4));
-      // Check overlap with POR window (2–3 hrs before POR)
-      if (porZ) {
-        const pMin = parseInt(porZ.slice(0,2))*60 + parseInt(porZ.slice(2,4));
-        const overlap2 = ((pMin - 120 - tMin + 1440) % 1440);
-        const overlap3 = ((pMin - 180 - tMin + 1440) % 1440);
-        // suppressed if this report falls in the [POR-3h, POR-2h] window
-        // i.e. it's AFTER POR-3h and AT-OR-BEFORE POR-2h
-        const afterMinus3 = overlap3 >= 1440 - 30 || overlap3 <= 30; // within 30 min of boundary
-        const afterMinus3b = ((tMin - (pMin - 180) + 1440) % 1440) <= 60;
-        const beforeMinus2 = ((pMin - 120 - tMin + 1440) % 1440) >= 0 &&
-                             ((pMin - 120 - tMin + 1440) % 1440) <= 1440 - 1;
-        // Simpler: suppress if (tMin is within [porMin-180, porMin-120] window
-        const diff = (tMin - (pMin - 180) + 1440) % 1440;
-        if (diff >= 0 && diff <= 60) {
-          rpts.push({ t, suppressed: true, reason: 'overlaps POR window' });
-          continue;
-        }
-      }
-      // Stop generating past ETA dest
-      if (S.etaDest && S.etaDest.length === 4) {
-        const etaMin = parseInt(S.etaDest.slice(0,2))*60 + parseInt(S.etaDest.slice(2,4));
-        const diff = (parseInt(t.slice(0,2))*60 + parseInt(t.slice(2,4)) - parseInt(offZ.slice(0,2))*60 - parseInt(offZ.slice(2,4)) + 1440) % 1440;
-        const ete  = (etaMin - parseInt(offZ.slice(0,2))*60 - parseInt(offZ.slice(2,4)) + 1440) % 1440;
-        if (diff > ete + 30) break;
-      }
-      rpts.push({ t, suppressed: false });
-    }
-    return rpts;
-  })();
-
   let h = '';
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">Enroute</div>`;
   h += `<div class="subcard-body">`;
-  h += `<div class="enroute-split">`;
-  h += `<div class="enroute-times-col">`;
-
-  // OFF time entry
   h += `<div class="data-table data-table-lg">`;
-  h += `<div class="data-row"><span class="data-label">OFF</span><span class="data-value">${ev('offZ', offZ ? offZ+'Z' : '____Z')}</span></div>`;
+  // TAXI row — hh.mm format
+  h += `<div class="data-row" style="cursor:pointer" onclick="openEdit('taxiMins')" aria-label="Edit taxi time">`;
+  h += `<span class="data-label">TAXI</span>`;
+  h += `<span class="data-value" style="color:var(--label2)">${esc(fmtTaxiHHMM(taxiMins))}</span>`;
   h += `</div>`;
-
-  if (hasOff) {
-    // ── E.ENT (ETOPS entry — only on ETOPS flights) ──
-    if (eentZ) {
-      h += `<div class="enroute-row">`;
-      h += `<span class="enroute-label">E.ENT</span>`;
-      h += `<span class="enroute-value">${eentZ}Z</span>`;
-      if (S.etopsEntry) h += `<span class="enroute-sub">+${esc(S.etopsEntry)}</span>`;
-      h += `</div>`;
-    }
-
-    // ── RDA + POR (only on RDA/redispatch flights) ──
-    // Order: RDA first (single time, 2 hrs before POR), then POR (time + MINF)
-    if (rdaZ && porZ && S.porWpt) {
-      // RDA — single point in time, NOT a window
-      h += `<div class="enroute-row">`;
-      h += `<span class="enroute-label">RDA</span>`;
-      h += `<span class="enroute-value">${rdaZ}Z</span>`;
-      h += `</div>`;
-
-      // POR — waypoint, time, and minimum fuel required at that point
-      h += `<div class="enroute-row" style="align-items:flex-start;padding-top:10px;padding-bottom:10px">`;
-      h += `<span class="enroute-label" style="padding-top:1px">POR</span>`;
-      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
-      h += `<span class="enroute-value">${esc(S.porWpt)}  ${porZ}Z</span>`;
-      if (S.porMinf) {
-        h += `<span style="font-size:13px;font-family:var(--font-mono);color:var(--label2)">MINF&nbsp;${esc(S.porMinf)}</span>`;
-      }
-      h += `</div>`;
-      h += `</div>`;
-    }
-
-    // CO RPT schedule
-    if (coRpts.length) {
-      h += `<div class="enroute-row" style="align-items:flex-start;padding-top:var(--sp2);padding-bottom:var(--sp2)">`;
-      h += `<span class="enroute-label" style="padding-top:2px">CO RPT</span>`;
-      h += `<div style="display:flex;flex-direction:column;gap:3px">`;
-      coRpts.forEach((r, i) => {
-        if (r.suppressed) {
-          h += `<span class="enroute-value dim" style="text-decoration:line-through">${r.t}Z</span>`;
-          h += `<span style="font-size:11px;color:var(--label3);margin-left:2px">POR report covers this window</span>`;
-        } else {
-          h += `<span class="enroute-value">${r.t}Z</span>`;
-        }
-      });
-      h += `</div></div>`;
-    }
-  } else {
-    h += `<div style="padding:var(--sp3) 0;font-size:15px;color:var(--label3)">Enter OFF time to calculate enroute events.</div>`;
+  // OFF row — editable; tint when manual
+  const offDisplay = hasOff ? offZ + 'Z' : '____Z';
+  const offStyle   = S.offZManual ? 'color:var(--tint);font-weight:700' : '';
+  h += `<div class="data-row">`;
+  h += `<span class="data-label">OFF</span>`;
+  h += `<span class="data-value" style="${offStyle}" role="button" tabindex="0"
+      onclick="openEdit('offZ')"
+      onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('offZ')}"
+      aria-label="Edit OFF time">${offDisplay}</span>`;
+  if (S.offZManual) {
+    h += `<span style="font-size:11px;color:var(--label3);margin-left:6px;align-self:center">`;
+    h += `<span role="button" style="color:var(--tint);cursor:pointer" onclick="clearOffManual()" aria-label="Reset to computed OFF">↺ reset</span>`;
+    h += `</span>`;
   }
-
-  h += `</div>`; // enroute-times-col
-  // ── Scratchpad column ──
-  h += `<div class="enroute-scratch-col">`;
-  h += `<div class="enroute-scratch-label">Scratchpad</div>`;
-  h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Enroute scratchpad"></textarea>`;
-  h += `</div>`; // enroute-scratch-col
-  h += `</div>`; // enroute-split
+  h += `</div>`;
+  h += `</div>`; // data-table
+  // ARINC button for oceanic flights
+  const oc = isOceanicFlight();
+  if (oc.oceanic) {
+    const oceanLabel = oc.ocean === 'pacific' ? 'Pacific' : 'Atlantic';
+    h += `<div style="padding:var(--sp3) 0 0">`;
+    h += `<button class="arinc-btn" onclick="openArincSheet()" aria-label="ARINC ${oceanLabel} frequencies">`;
+    h += `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="6.5"/><path d="M1 7.5h13M7.5 1C5.5 3 4.5 5.1 4.5 7.5s1 4.5 3 6.5M7.5 1c2 2 3 4.1 3 6.5s-1 4.5-3 6.5"/></svg>`;
+    h += ` ARINC — ${oceanLabel} Frequencies`;
+    h += `</button></div>`;
+  }
   h += `</div></div>`; // subcard-body + subcard
   h += renderFcirSubcard();
   return h;
@@ -3413,45 +3394,29 @@ function renderNotesSection() {
   }
 
   h += `<span class="notes-sub-header">DDG</span>`;
-
-  // Resolve DDG items — prefer structured ddgItems (new), fall back to legacy melItems string
-  // Filter out 25-series (cabin/fuselage NEF items) per company policy
-  let resolvedDdg = [];
-  if (S.ddgItems && S.ddgItems.length) {
-    resolvedDdg = S.ddgItems.filter(item => !item.code.startsWith('25-'));
-  } else {
-    // Legacy: parse flat melItems string for backwards compat with older saved flights
-    const rawMel = (S.melItems || '').trim();
-    if (rawMel && rawMel !== 'None listed') {
-      rawMel.split(/\s*(?=\d{2}-\d{2}-\d{2})/)
-        .filter(item => item.trim() && !item.trim().startsWith('25-'))
-        .forEach(item => {
-          const codeMatch = item.trim().match(/^(\d{2}-[\d-]+[A-Z]?)\s+(.*)/s);
-          if (codeMatch) resolvedDdg.push({ code: codeMatch[1], desc: codeMatch[2].trim(), tlr: '' });
-          else resolvedDdg.push({ code: '', desc: item.trim(), tlr: '' });
-        });
-    }
+  const rawMel = (S.melItems || '').trim();
+  // DDG code: 2–5 alphanumeric groups separated by hyphens
+  const DDG_CODE = /^([\w]+-[\w]+(?:-[\w]+){0,3})(?:\s+(.*))?$/;
+  let rawLines = rawMel ? rawMel.split('\n') : [];
+  // Legacy single-line storage: split on code boundary
+  if (rawLines.length === 1 && rawMel.length > 0) {
+    rawLines = rawMel.split(/(?=\b[\w]+-[\w]+(?:-[\w]+){0,3}\s)/).map(s => s.trim()).filter(Boolean);
   }
-
-  if (resolvedDdg.length) {
+  const ddgItems = rawLines.map(l => l.trim())
+    .filter(l => l && l !== 'None listed')
+    .filter(l => !l.match(/^25-/)); // full-item filter: 25-series cabin items
+  if (ddgItems.length) {
     h += `<div class="ddg-list">`;
-    resolvedDdg.forEach(item => {
-      // TLR annotation badge
-      let tlrBadge = '';
-      if (item.tlr === 'takeoff') {
-        tlrBadge = `<span class="ddg-tlr-badge tkoff">*TLR Takeoff</span>`;
-      } else if (item.tlr === 'landing') {
-        tlrBadge = `<span class="ddg-tlr-badge land">*TLR Landing</span>`;
-      } else if (item.tlr === 'both') {
-        tlrBadge = `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
+    ddgItems.forEach(item => {
+      const m = item.match(DDG_CODE);
+      if (m) {
+        const desc = (m[2] || '').trim();
+        h += `<div class="ddg-item-row"><span class="ddg-item-code">${esc(m[1])}</span>`;
+        if (desc) h += `<span class="ddg-item-desc">${esc(desc)}</span>`;
+        h += `</div>`;
+      } else {
+        h += `<div class="ddg-item-row"><span class="ddg-item-desc">${esc(item)}</span></div>`;
       }
-      h += `<div class="ddg-item-row">`;
-      if (item.code) h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
-      h += `<div class="ddg-item-body">`;
-      h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
-      if (tlrBadge) h += tlrBadge;
-      h += `</div>`;
-      h += `</div>`;
     });
     h += `</div>`;
   } else {
@@ -3522,27 +3487,19 @@ function wireNotePads() {
       if (sel) { sel.coChartNote = coChartPad.value; saveFlight(); }
     });
   }
-  // Wire ATIS + Parking — each phase is a separate, independent instance
-  const atisPadPre = document.getElementById('atisNotesPadPre');
-  if (atisPadPre) {
-    atisPadPre.value = S.preAtisNotes || '';
-    atisPadPre.addEventListener('input', () => { S.preAtisNotes = atisPadPre.value; saveFlight(); });
-  }
-  const parkPadPre = document.getElementById('parkingPadPre');
-  if (parkPadPre) {
-    parkPadPre.value = S.preParkingNotes || '';
-    parkPadPre.addEventListener('input', () => { S.preParkingNotes = parkPadPre.value; saveFlight(); });
-  }
-  const atisPadDesc = document.getElementById('atisNotesPadDesc');
-  if (atisPadDesc) {
-    atisPadDesc.value = S.descAtisNotes || '';
-    atisPadDesc.addEventListener('input', () => { S.descAtisNotes = atisPadDesc.value; saveFlight(); });
-  }
-  const parkPadDesc = document.getElementById('parkingPadDesc');
-  if (parkPadDesc) {
-    parkPadDesc.value = S.descParkingNotes || '';
-    parkPadDesc.addEventListener('input', () => { S.descParkingNotes = parkPadDesc.value; saveFlight(); });
-  }
+  // Wire all ATIS + Parking instances (preflight + descent share state)
+  ['Pre','Desc',''].forEach(suffix => {
+    const atisPad = document.getElementById('atisNotesPad' + suffix);
+    if (atisPad) {
+      atisPad.value = S.atisNotes || '';
+      atisPad.addEventListener('input', () => { S.atisNotes = atisPad.value; saveFlight(); });
+    }
+    const parkPad = document.getElementById('parkingPad' + suffix);
+    if (parkPad) {
+      parkPad.value = S.parkingNotes || '';
+      parkPad.addEventListener('input', () => { S.parkingNotes = parkPad.value; saveFlight(); });
+    }
+  });
   // Wire enroute scratchpad
   const enrScratch = document.getElementById('enrouteScratchPad');
   if (enrScratch) {
@@ -3569,48 +3526,211 @@ function buildAptStatusLines() {
   const lines = [];
   const orig = (S.origIcao||'').toUpperCase();
   const dest = (S.destIcao||'').toUpperCase();
-
-  // Build ordered list: ORIG first (no ETA), DEST second, then alternates
   const order = [];
   if (orig) order.push({icao:orig, role:'ORIG', eta:null});
   if (dest) order.push({icao:dest, role:'DEST', eta:S.etaDest});
   (S.altData||[]).forEach(a => {
-    if (a.icao !== orig && a.icao !== dest) {
+    if (a.icao !== orig && a.icao !== dest)
       order.push({icao:a.icao, role:a.role, eta:a.currentEta, wxWindow:a.wxWindow||null});
-    }
   });
-
   order.forEach(apt => {
-    const data = airportData[apt.icao] || {notams:'',weather:''};
+    const data   = airportData[apt.icao] || {notams:'',weather:''};
     const status = evalAirport(apt.icao, apt.eta, data.notams, data.weather, apt.wxWindow);
     if (status.color === 'unknown') return;
-    const cls = {green:'green',yellow:'yellow',red:'red'}[status.color]||'';
-
-    const redTags=[], yelTags=[];
+    const cls = status.color;
+    // Determine trigger categories: WX and/or NOTAM
+    let hasWx = false, hasNotam = false;
+    const WX_RE = /Open|Operational|Below mins|TEMPO|PROB|Thunderstorm|Freezing|Windshear|Fog|Tornado|CIG\s|VIS\s|RVR\s/i;
     status.issues.forEach(i => {
-      const tag = issueTag(i.text);
-      if (i.level==='red') redTags.push(tag); else if(i.level==='yellow') yelTags.push(tag);
+      if (i.level === 'green') return;
+      if (WX_RE.test(i.text.replace(/<[^>]+>/g,''))) hasWx = true;
+      else hasNotam = true;
     });
-    const uR=[...new Set(redTags)], uY=[...new Set(yelTags)];
-
-    let reason = '';
-    if (uR.length) reason += `<span style="color:var(--sys-red);font-weight:600">${uR.join('/')}</span>`;
-    if (uY.length) reason += (reason?' ':'') + `<span style="color:var(--sys-yellow);font-weight:600">${uY.join('/')}</span>`;
-
-    const label = status.color === 'green'
-      ? `<span class="apt-dot ${cls}"></span> <span>${apt.icao}</span>`
-      : `<span class="apt-dot ${cls}"></span> <span>${apt.icao}</span><span style="color:var(--label3);margin:0 4px">·</span>${reason}`;
-    lines.push(label);
+    let tagStr = '';
+    if (status.color !== 'green') {
+      const tagColor = status.color === 'red' ? 'var(--sys-red)' : 'var(--sys-yellow)';
+      const tags = [];
+      if (hasWx)    tags.push('WX');
+      if (hasNotam) tags.push('NOTAM');
+      if (tags.length)
+        tagStr = `<span style="color:var(--label3);margin:0 4px">·</span>`
+               + `<span style="color:${tagColor};font-weight:600;font-family:var(--font-mono);font-size:12px">${tags.join(' ')}</span>`;
+    }
+    lines.push(`<span class="apt-dot ${cls}"></span> <span>${apt.icao}</span>${tagStr}`);
   });
   return lines;
 }
 
-function issueTag(txt) {
-  txt = txt.replace(/^[🔴⚠✓ℹ🟢🟡⚪]+\s*/,'');
-  if (/CURFEW|NOISE/i.test(txt)) return 'CURFEW';
-  if (/CEILING|VIS|CAVOK|TEMPO|BECMG|PROB|TS\b|FZRA|FOG|WX|WIND|PRECIP/i.test(txt)) return 'WX';
-  if (/CLSD|U\/S|ILS|NAVAID|TWY|RWY|VOLCANIC/i.test(txt)) return 'NOTAM';
-  return txt.substring(0,18);
+// ── Collapsible group helpers ─────────────────────────────────────────────
+const _CHEV = `<svg class="apt-group-chevron" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l6.5 6L1 13"/></svg>`;
+function _togGroup(el) { el.closest('.apt-group').classList.toggle('open'); }
+
+function renderIssuesList(icao, status, weatherText) {
+  if (!status || !status.issues || !status.issues.length)
+    return `<div class="apt-issue g">✓ No data</div>`;
+  let h = '';
+  const WX_RE = /Open|Operational|Below mins|TEMPO|PROB\d|Thunderstorm|Freezing|Windshear|Fog|Tornado|CIG\s|VIS\s|RVR\s/i;
+  const wxIssues  = status.issues.filter(i => WX_RE.test(i.text.replace(/<[^>]+>/g,'')));
+  const ntmIssues = status.issues.filter(i => !WX_RE.test(i.text.replace(/<[^>]+>/g,'')) && i.level !== 'green');
+  const greenItems= status.issues.filter(i => i.level === 'green' && !WX_RE.test(i.text.replace(/<[^>]+>/g,'')));
+
+  // 1. Weather
+  if (wxIssues.length) {
+    const wxCls  = wxIssues.some(i=>i.level==='red') ? 'r' : 'y';
+    const wxPrim = wxIssues[0].text;
+    const wxExtra= wxIssues.slice(1);
+    const hasExtra = wxExtra.length > 0 || (weatherText && weatherText.trim());
+    if (hasExtra) {
+      h += `<div class="apt-group ${wxCls}" id="wxg-${icao}">`;
+      h += `<div class="apt-group-header" onclick="_togGroup(this)" role="button">`;
+      h += `<span class="apt-group-label">${wxPrim}</span>${_CHEV}`;
+      h += `</div><div class="apt-group-body">`;
+      wxExtra.forEach(i => { h += `<div class="apt-issue ${i.level.charAt(0)}" style="font-size:12px">${i.text}</div>`; });
+      if (weatherText && weatherText.trim())
+        h += `<pre class="apt-wx-raw">${esc(weatherText.trim())}</pre>`;
+      h += `</div></div>`;
+    } else {
+      h += `<div class="apt-issue ${wxCls}">${wxPrim}</div>`;
+    }
+  } else if (status.color === 'green' || !ntmIssues.length) {
+    h += `<div class="apt-issue g">✓ WX — Open</div>`;
+  }
+
+  // 2. NOTAMs — cross-slot runway grouping first
+  if (ntmIssues.length) {
+    const rwyBucket = new Map();
+    const nonRwy = [];
+    ntmIssues.forEach(i => {
+      const plain = i.text.replace(/<[^>]+>/g,'');
+      const rm = plain.match(/RWY\s+(\d{2}[LCRB]?(?:\/\d{2}[LCRB]?)?)/i);
+      if (rm) {
+        const rwy = rm[1].toUpperCase();
+        if (!rwyBucket.has(rwy)) rwyBucket.set(rwy, []);
+        rwyBucket.get(rwy).push(i);
+      } else { nonRwy.push(i); }
+    });
+    const singleRwy = [];
+    rwyBucket.forEach((rwyItems, rwy) => {
+      if (rwyItems.length === 1) { singleRwy.push(rwyItems[0]); return; }
+      const rc = rwyItems.some(i=>i.level==='red') ? 'r' : 'y';
+      h += `<div class="apt-group ${rc}" id="rwg-${icao}-${rwy.replace(/[^A-Z0-9]/g,'_')}">`;
+      h += `<div class="apt-group-header" onclick="_togGroup(this)" role="button">`;
+      h += `<span class="apt-group-label"><span class="nt-${rc==='r'?'red':'yel'}">RWY ${esc(rwy)}</span>`;
+      h += ` <span style="opacity:0.65;font-size:12px">(${rwyItems.length})</span></span>${_CHEV}`;
+      h += `</div><div class="apt-group-body">`;
+      rwyItems.forEach(i => { h += `<div class="apt-group-item">${i.text}</div>`; });
+      h += `</div></div>`;
+    });
+    // Remaining by slot
+    const remaining = [...nonRwy, ...singleRwy];
+    if (remaining.length) {
+      const bySlot = new Map();
+      remaining.forEach(i => {
+        const key = i.slot ?? 99;
+        if (!bySlot.has(key)) bySlot.set(key, []);
+        bySlot.get(key).push(i);
+      });
+      const aptRole = (getAllAirports().find(a=>a.icao===icao)||{}).role||'DEST';
+      const SN_ORIG = {1:'Runway/Airport Closure',2:'Taxiway Restriction',3:'SID Change',4:'Approach Change',5:'Alt MA Change',6:'Active-Period NOTAMs',7:'Other NOTAMs'};
+      const SN_DEST = {1:'Runway/Airport Closure',2:'Approach U/S',3:'Approach Change',4:'Alt MA Change',5:'STAR Change',6:'Taxiway Restriction',7:'Active-Period NOTAMs',8:'Other NOTAMs'};
+      const SN = aptRole==='ORIG' ? SN_ORIG : SN_DEST;
+      [...bySlot.keys()].sort((a,b)=>a-b).forEach(slot => {
+        const items = bySlot.get(slot);
+        const sc = items.some(i=>i.level==='red') ? 'r' : 'y';
+        const cat = SN[slot]||'Other NOTAMs';
+        if (items.length === 1) {
+          h += `<div class="apt-issue ${sc}">${items[0].text}</div>`;
+        } else {
+          h += `<div class="apt-group ${sc}" id="ntg-${icao}-${slot}">`;
+          h += `<div class="apt-group-header" onclick="_togGroup(this)" role="button">`;
+          h += `<span class="apt-group-label"><span class="nt-${sc==='r'?'red':'yel'}">${esc(cat)}</span>`;
+          h += ` <span style="opacity:0.65;font-size:12px">(${items.length})</span></span>${_CHEV}`;
+          h += `</div><div class="apt-group-body">`;
+          items.forEach(i => { h += `<div class="apt-group-item">${i.text}</div>`; });
+          h += `</div></div>`;
+        }
+      });
+    }
+  }
+  if (greenItems.length && !ntmIssues.length)
+    h += `<div class="apt-issue g">${greenItems[0].text}</div>`;
+  return h || `<div class="apt-issue g">✓ No issues at ETA window</div>`;
+}
+
+// ── ARINC HF frequency sheet ──────────────────────────────────────────────
+function openArincSheet() {
+  const oc = isOceanicFlight();
+  if (!oc.oceanic) return;
+  const overlay = document.getElementById('arincOverlay');
+  const body    = document.getElementById('arincBody');
+  const title   = document.getElementById('arincTitle');
+  const validity= document.getElementById('arincValidity');
+  title.textContent = `ARINC — ${oc.ocean === 'pacific' ? 'Pacific' : 'Atlantic'} Frequencies`;
+  validity.textContent = '';
+  body.innerHTML = '<div class="arinc-loader">Fetching frequencies…</div>';
+  overlay.classList.add('open');
+  const url = oc.ocean === 'pacific'
+    ? 'https://radio.arinc.net/pacific/'
+    : 'https://radio.arinc.net/atlantic/';
+  fetch(url, { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+    .then(html => {
+      const parsed = _parseArincHtml(html);
+      validity.textContent = parsed.validity || '';
+      body.innerHTML = _renderArincBody(parsed, url);
+    })
+    .catch(() => {
+      body.innerHTML = `<div class="arinc-error">Live frequencies require an internet connection.<br><br>
+        <a class="arinc-open-link" href="${url}" target="_blank" rel="noopener">Open radio.arinc.net in Safari ↗</a></div>`;
+    });
+}
+function closeArincSheet(e) {
+  if (e && e.target !== document.getElementById('arincOverlay')) return;
+  document.getElementById('arincOverlay').classList.remove('open');
+}
+function _parseArincHtml(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const result = { validity: '', sections: [], notes: [] };
+  const firstTh = doc.querySelector('table th');
+  if (firstTh) { const vm = firstTh.textContent.match(/Valid\s+from\s+(.+)/i); if (vm) result.validity = 'Valid ' + vm[1].trim(); }
+  let cur = null;
+  doc.querySelectorAll('table tr').forEach(row => {
+    const cells = [...row.querySelectorAll('td,th')].map(c => c.textContent.replace(/\s+/g,' ').trim()).filter(Boolean);
+    if (!cells.length) return;
+    const first = cells[0];
+    if (/Primary|Secondary|Air Traffic/i.test(first) && cells.length > 2) return;
+    if (first.startsWith('*') || /^For more/i.test(first)) { result.notes.push(first); return; }
+    const hasFreq = cells.some(c => /\d{3,5}(\s*kHz)?/i.test(c) || /^\d{6}$/.test(c) || /\d+\.\d+\s*MHz/i.test(c));
+    const isBold  = !!row.querySelector('b,strong');
+    if (!hasFreq || isBold) {
+      if (first.length > 0 && first.length < 80) { cur = {title: first, rows:[]}; result.sections.push(cur); }
+      return;
+    }
+    if (!cur) { cur = {title:'', rows:[]}; result.sections.push(cur); }
+    const freqs = cells.slice(1).filter(c => /\d{3,5}/i.test(c) || /^\d{6}$/.test(c));
+    if (freqs.length) cur.rows.push({label: first, primary: freqs[0]||'', secondary: freqs[1]||'', tertiary: freqs[2]||''});
+  });
+  result.sections = result.sections.filter(s => s.rows.length > 0);
+  return result;
+}
+function _renderArincBody(parsed, url) {
+  if (!parsed.sections.length)
+    return `<div class="arinc-error">Could not parse data. <a class="arinc-open-link" href="${esc(url)}" target="_blank">Open radio.arinc.net ↗</a></div>`;
+  let h = '';
+  parsed.sections.forEach(sec => {
+    if (sec.title) h += `<div class="arinc-section-head">${esc(sec.title)}</div>`;
+    sec.rows.forEach(row => {
+      h += `<div class="arinc-freq-row">`;
+      h += `<span class="arinc-freq-label">${esc(row.label)}</span><span>`;
+      h += `<span class="arinc-freq-val">${esc(row.primary)}</span>`;
+      if (row.secondary) h += `<span class="arinc-freq-sec"> / ${esc(row.secondary)}</span>`;
+      if (row.tertiary)  h += `<span class="arinc-freq-sec"> / ${esc(row.tertiary)}</span>`;
+      h += `</span></div>`;
+    });
+  });
+  parsed.notes.forEach(n => { h += `<div class="arinc-note">${esc(n)}</div>`; });
+  h += `<div class="arinc-note" style="text-align:right"><a class="arinc-open-link" href="${esc(url)}" target="_blank" style="font-size:12px">radio.arinc.net ↗</a></div>`;
+  return h;
 }
 
 // ── Curfew evaluation engine ─────────────────────────────────────────────
@@ -3739,21 +3859,27 @@ const FIELD_LABELS = {
   oeiVal:'OEI', stabTrim:'Stab Trim', fltNum:'Flight Number', date:'Date',
   blockFuel:'Block Fuel (×1000)', minfFuel:'MIN Fuel (×1000)',
   fresFuel:'FRES (×1000)', gaFuel:'GA Fuel (×1000)',
-  offZ:'OFF Time (HHMM Z)',
+  offZ:'OFF Time (HHMM Z) — recalculates IN & WX windows',
+  taxiMins:'Taxi Time (hh.mm  e.g. 0.15 = 15 min)',
   atisLetter:'ATIS Letter (single letter)',
-  preAtisLetter:'Departure ATIS Letter',
-  descAtisLetter:'Arrival ATIS Letter',
+  depAtisLetter:'Departure ATIS Letter', arrAtisLetter:'Arrival ATIS Letter',
   destRemf:'REMF at Destination', alt1Fuel:'ALT 1 Fuel',
 };
-const NUM_FIELDS = new Set(['outZ','etaDest','offZ','destRemf','alt1Fuel']);
+const NUM_FIELDS = new Set(['outZ','etaDest','offZ','taxiMins','destRemf','alt1Fuel']);
 let _editField = null;
 
 function openEdit(field) {
   _editField = field;
   const inp = document.getElementById('editInput');
-  inp.value = (S[field]||'').replace(/Z$/,'');
-  inp.inputMode = NUM_FIELDS.has(field) ? 'numeric' : 'text';
-  inp.autocapitalize = NUM_FIELDS.has(field) ? 'off' : 'characters';
+  if (field === 'taxiMins') {
+    inp.value = fmtTaxiHHMM(typeof S.taxiMins === 'number' ? S.taxiMins : 15);
+    inp.inputMode = 'decimal';
+    inp.autocapitalize = 'off';
+  } else {
+    inp.value = (S[field]||'').replace(/Z$/,'');
+    inp.inputMode = NUM_FIELDS.has(field) ? 'numeric' : 'text';
+    inp.autocapitalize = NUM_FIELDS.has(field) ? 'off' : 'characters';
+  }
   document.getElementById('editLabel').textContent = FIELD_LABELS[field] || field;
   document.getElementById('editOverlay').classList.add('open');
   setTimeout(() => { inp.focus(); inp.select(); }, 60);
@@ -3761,33 +3887,40 @@ function openEdit(field) {
 
 function confirmEdit() {
   if (!_editField) return;
-  // Curfew detail read-only modal — just close and reset input styling
   if (_editField === '__curfew__') {
     const inp = document.getElementById('editInput');
-    inp.readOnly = false;
-    inp.style.cssText = '';
+    inp.readOnly = false; inp.style.cssText = '';
     _editField = null;
     document.getElementById('editOverlay').classList.remove('open');
     return;
   }
   let val = document.getElementById('editInput').value.trim();
-  if (NUM_FIELDS.has(_editField)) {
+  if (_editField === 'taxiMins') {
+    S.taxiMins = parseTaxiHHMM(val);
+    S.offZManual = false;
+  } else if (_editField === 'offZ') {
     val = val.replace(/\D/g,'').slice(0,4);
+    S.offZ = val;
+    S.offZManual = val.length === 4;
+    if (S.offZManual) recalcFromOff(val);
+  } else if (NUM_FIELDS.has(_editField)) {
+    val = val.replace(/\D/g,'').slice(0,4);
+    S[_editField] = val;
+  } else {
+    S[_editField] = val;
   }
-  S[_editField] = val;
-
-  // Editing outZ cascades DEST ETA + ALL alt ETAs (planned push time)
   if (_editField === 'outZ' && val.length === 4) {
     recalcAllETAs();
+    if (!S.offZManual) S.offZ = '';
   }
-
-  // Editing offZ (actual wheels-off) recalculates IN time using OFP ETE (tripMinutes).
-  // offZ + tripMinutes = actual estimated IN time at destination.
-  // All alternate ETAs also recalculate from offZ + their ofpOffsetMins offset.
-  if (_editField === 'offZ' && val.length === 4) {
-    recalcAllETAsFromOff(val);
+  if (_editField === 'depAtisLetter') {
+    const box = document.getElementById('atisLetterBoxPre');
+    if (box) box.textContent = val;
   }
-
+  if (_editField === 'arrAtisLetter') {
+    const box = document.getElementById('atisLetterBoxDesc');
+    if (box) box.textContent = val;
+  }
   cancelEdit();
   renderNote();
   saveFlight();
@@ -3797,6 +3930,11 @@ function cancelEdit(e) {
   if (e && e.target !== document.getElementById('editOverlay')) return;
   document.getElementById('editOverlay').classList.remove('open');
   _editField = null;
+}
+
+function clearOffManual() {
+  S.offZManual = false; S.offZ = '';
+  renderNote(); saveFlight();
 }
 
 document.getElementById('editInput').addEventListener('keydown', e => {
@@ -3890,7 +4028,7 @@ function buildAirportCards() {
         <svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true" style="transform:rotate(90deg)"><path d="M1 1l6.5 6L1 13"/></svg>
       </div>
       <div class="apt-issues-list" id="api-${apt.icao}">
-        ${status.issues.map(i=>`<div class="apt-issue ${i.level.charAt(0)}">${i.text}</div>`).join('')||`<div class="apt-issue g">✓ No issues at ETA window</div>`}
+        ${renderIssuesList(apt.icao, status, data.weather)}
       </div>
       ${hasCurfew ? `
       <div class="apt-curfew-row" onclick="showCurfewDetail('${apt.icao}')" role="button" aria-label="Curfew detail for ${apt.icao}" style="border-top:0.5px solid var(--sep)">
@@ -3968,7 +4106,7 @@ function refreshAptCard(icao) {
   const badge = card.querySelector('.apt-badge');
   badge.className = `apt-badge ${sc}`; badge.textContent = sl;
   const issues = document.getElementById(`api-${icao}`);
-  if (issues) issues.innerHTML = status.issues.map(i=>`<div class="apt-issue ${i.level.charAt(0)}">${i.text}</div>`).join('')||`<div class="apt-issue g">✓ No issues at ETA window</div>`;
+  if (issues) issues.innerHTML = renderIssuesList(icao, status, (airportData[icao]||{}).weather||'');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -4116,7 +4254,11 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
   // ── NOTAM evaluation — per-NOTAM timestamp matching ───────────────────
   if (hN) {
     const n = notamText.toUpperCase();
-    const notams = _splitNotams(notamText);   // array of individual NOTAM strings
+    const notams = _splitNotams(notamText).filter(nm => {
+      // OBST/CRANE NOTAMs excluded from airport status (raw NOTAM paste only)
+      const nu = nm.toUpperCase();
+      return !/\bOBST\b|\bCRANE\b|\bOBSTACLE\b/.test(nu);
+    });
 
     // Helper: get window for first notam matching keyRe, or null
     const wFor = (keyRe) => {
@@ -4792,13 +4934,14 @@ function copyNote() {
 //  INIT
 // ═══════════════════════════════════════════════════════
 renderNote();
-// Stamp version badges
+// ── Stamp version badges ──────────────────────────────────────────────────────
 (function() {
   const vTxt = 'Relief Pilot v' + APP_VERSION;
   ['helpVersionInline','settingsVersionBadge'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = vTxt;
   });
+
 })();
 renderFlightList();
 if (new URLSearchParams(location.search).has('shared')) push('screen-import');
@@ -4806,40 +4949,57 @@ if (new URLSearchParams(location.search).has('shared')) push('screen-import');
 
 <script>
 // ── pdf.js lazy loader ────────────────────────────────────────────────────
-// pdf.js is only needed when importing a PDF. Loading it at startup fires a
-// cross-origin script-load error in sandboxed/offline contexts. Instead we
-// inject the <script> tag on first use and resolve a promise when ready.
-const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-let _pdfjsReady = null;  // Promise<void> | null
+// IMPORTANT: This loader uses pdf.js WITHOUT a Worker thread.
+// Why: A cross-origin CDN Worker throws "Script Error" (CORS-opaqued) on
+// every internal error — these cannot be caught or suppressed from JS.
+// Solution: load BOTH pdf.min.js and pdf.worker.min.js as regular <script>
+// tags (same-origin evaluation context), then wire them together via a
+// MessageChannel so pdf.js uses its own WorkerMessageHandler running on
+// the main thread. Zero Worker objects = zero cross-origin worker errors.
+const PDFJS_CDN    = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+let _pdfjsReady = null;
 
 function loadPdfJs() {
   if (_pdfjsReady) return _pdfjsReady;
   _pdfjsReady = new Promise((resolve, reject) => {
-    if (typeof pdfjsLib !== 'undefined') { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = PDFJS_CDN;
-    // crossorigin="anonymous" is required so that errors thrown inside the CDN
-    // script are reported with full detail instead of being CORS-sanitised to the
-    // opaque "Script Error" string by the browser Same-Origin Policy.
-    s.crossOrigin = 'anonymous';
-    s.onload = () => {
-      if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-      }
-      resolve();
+    if (typeof pdfjsLib !== 'undefined' && _pdfjsConfigured) { resolve(); return; }
+
+    // Step 1: load pdf.worker.min.js first (exposes PDFWorker / WorkerMessageHandler)
+    const sw = document.createElement('script');
+    sw.src = PDFJS_WORKER_CDN;
+    sw.crossOrigin = 'anonymous';
+    sw.onerror = () => { _pdfjsReady = null; reject(new Error('pdf.js worker failed to load')); };
+    sw.onload = () => {
+      // Step 2: load the main pdf.min.js
+      const sm = document.createElement('script');
+      sm.src = PDFJS_CDN;
+      sm.crossOrigin = 'anonymous';
+      sm.onerror = () => { _pdfjsReady = null; reject(new Error('pdf.js failed to load')); };
+      sm.onload = () => {
+        if (typeof pdfjsLib === 'undefined') {
+          _pdfjsReady = null;
+          reject(new Error('pdf.js did not initialise'));
+          return;
+        }
+        // Configure: empty workerSrc prevents pdf.js from creating its own Worker.
+        // pdfjsLib.PDFJS.disableWorker = true is the 2.x API to run on main thread.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+        try { if (pdfjsLib.PDFJS) pdfjsLib.PDFJS.disableWorker = true; } catch(_) {}
+        // Suppress font/TT warnings on all loggers
+        try { pdfjsLib.GlobalWorkerOptions.verbosity = 0; } catch(_) {}
+        try { pdfjsLib.verbosity = 0; } catch(_) {}
+        try { if (pdfjsLib.PDFJS) pdfjsLib.PDFJS.verbosity = 0; } catch(_) {}
+        _pdfjsConfigured = true;
+        resolve();
+      };
+      document.head.appendChild(sm);
     };
-    s.onerror = () => {
-      // Reset so the user can retry after a network failure without
-      // force-quitting the app. Without this, the cached rejection
-      // permanently blocks every subsequent loadPdfJs() call.
-      _pdfjsReady = null;
-      reject(new Error('Could not load pdf.js — check your internet connection'));
-    };
-    document.head.appendChild(s);
+    document.head.appendChild(sw);
   });
   return _pdfjsReady;
 }
+let _pdfjsConfigured = false;
 </script>
 
 <!-- Global toast (visible on any screen) -->
