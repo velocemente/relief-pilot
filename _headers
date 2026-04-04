@@ -1,62 +1,33 @@
 # ═══════════════════════════════════════════════════════
-#  Relief Pilot — _headers
-#  Platform: Netlify · Cloudflare Pages
-#  (GitHub Pages ignores this file — use for Netlify/CF deploys)
-#
-#  Covers:
-#   • Correct MIME types for SW, manifest, JS modules
-#   • Cache strategy per asset type
-#   • Security headers (CSP, CORS, framing, XSS)
-#   • SW scope declaration
-#   • ARINC live fetch allowed in CSP
+#  Relief Pilot — _headers (Netlify / Cloudflare Pages)
+#  Ensures correct MIME types, PWA headers, and security
 # ═══════════════════════════════════════════════════════
 
-# ── Service Worker ───────────────────────────────────────────────────────────
-# Must be served from root scope with no-cache so the browser always checks
-# for an updated version. Service-Worker-Allowed: / grants full-origin scope.
+# ── Service Worker: must be served from root scope ──
 /sw.js
   Content-Type: application/javascript; charset=utf-8
   Cache-Control: no-cache, no-store, must-revalidate
   Service-Worker-Allowed: /
 
-# ── Web App Manifest ─────────────────────────────────────────────────────────
+# ── Web App Manifest ──
 /manifest.json
   Content-Type: application/manifest+json; charset=utf-8
   Cache-Control: public, max-age=86400
 
-# ── Rule modules (standalone JS — repo use only, not fetched by PWA) ─────────
-/wx-rules.js
-  Content-Type: application/javascript; charset=utf-8
-  Cache-Control: public, max-age=86400
-
-/notam-rules.js
-  Content-Type: application/javascript; charset=utf-8
-  Cache-Control: public, max-age=86400
-
-# ── Main app shell ───────────────────────────────────────────────────────────
-# no-cache: browser must revalidate — ensures crew always get the latest brief.
-# CSP allows:
-#   script-src  — self (inline scripts) + cdnjs (pdf.js 2.16.105)
-#   connect-src — self + radio.arinc.net (ARINC HF live fetch)
-#   img-src     — self + data: (PDF canvas renders to data URLs)
-#   worker-src  — 'none' (no Workers created — pdf.js runs on main thread)
+# ── Main app shell ──
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://radio.arinc.net; img-src 'self' data: blob:; font-src 'self'; frame-ancestors 'none'; worker-src 'none'; object-src 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   X-XSS-Protection: 1; mode=block
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
 
-# ── Icons and static assets ──────────────────────────────────────────────────
-# Long cache — icons are versioned by filename in the manifest.
+# ── Icons and static assets ──
 /icons/*
   Cache-Control: public, max-age=2592000, immutable
-  X-Content-Type-Options: nosniff
 
-# ── Global fallback security headers ─────────────────────────────────────────
-# Applied to any path not matched above.
+# ── Global security headers ──
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
