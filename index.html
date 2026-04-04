@@ -2775,6 +2775,7 @@ function parseOFP() {
   const bM  = t.match(/BLOCK\n(\d{5,7})/) || t.match(/BLOCK\s+(\d{5,7})/i);
   const miM = t.match(/MINF\n(\d{5,7})/)  || t.match(/MINF\s+(\d{5,7})/i);
   const frM = t.match(/FRES\n(\d{5,7})/)  || t.match(/FRES\s+(\d{5,7})/i);
+  const remfM = t.match(/REMF\n(\d{5,7})/)  || t.match(/REMF\s+(\d{5,7})/i);
 
   // ── TOGW
   // Weight Limit Codes (from OFP footer):
@@ -3138,7 +3139,7 @@ function parseOFP() {
     altData, acftType,
     blockFuel: fuelK(bM?.[1]),
     minfFuel:  fuelK(miM?.[1]),
-    fresFuel:  fuelK(frM?.[1]),
+    remfFuel:  fuelK(remfM?.[1])
     togwActual, togwLimit,
     ddgItems, melItems, overflightPerms: perms,
     altRoutes,
@@ -3380,14 +3381,14 @@ function renderPreflightPhase() {
   h += `</div>`; // data-table
   h += `</div></div>`; // subcard-body + subcard
 
-  // ── "OFP Fuel" subcard (Block / MIN / FRES / GA) ──
+  // ── "OFP Fuel" subcard (Block / MIN / REMF) ──
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">OFP Fuel</div>`;
   h += `<div class="subcard-body">`;
   h += `<div class="data-table data-table-lg">`;
   h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${bClass}">${ev('blockFuel', S.blockFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value">${ev('minfFuel', S.minfFuel||'___')}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">FRES</span><span class="data-value">${ev('remfMFuel', S.remfMFuel||'___')}</span></div>`;
+  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${ev('remfMFuel', S.remfMFuel||'___')}</span></div>`;
   h += `</div></div>`; // subcard-body + subcard
 
   // ── FCIR (shown on all phases when active) ──
@@ -4479,19 +4480,23 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
       break; // report once per airport
     }
 
-    // ILS / navaid (no window check — treat as advisory whenever present)
+    // ILS / navaid (window check — treat as advisory whenever present)
     if (/ILS.*(?:U\/S|UNREL|OTS)/.test(n) || /(?:GP|GS|LOC).*(?:U\/S|UNREL|OTS)/.test(n)) {
-      const srcNm = notams.find(nm => /ILS.*(?:U\/S|UNREL|OTS)|(?:GP|GS|LOC).*(?:U\/S|UNREL|OTS)/.test(nm.toUpperCase())) || '';
-      issues.push({level:'yellow', text:'⚠ ILS / GS U/S', src:srcNm}); worst = bump(worst,'yellow');
+      const srcNm = notams.find(nm => /ILS.*(?:U\/S|UNREL|OTS)|(?:GP|GS|LOC).*(?:U\/S|UNREL|OTS)/.test(nm.toUpperCase())) || '' continue;
+      if (!w || nwOverlap(w, etaMin)) {
+      issues.push({level:'yellow', text:'⚠ Approach', src:srcNm}); worst = bump(worst,'yellow');
     }
+      
     if (/(?:VOR|NDB|DME|RNAV).*(?:U\/S|UNREL|OTS)/.test(n)) {
-      const srcNm = notams.find(nm => /(?:VOR|NDB|DME|RNAV).*(?:U\/S|UNREL|OTS)/.test(nm.toUpperCase())) || '';
-      issues.push({level:'yellow', text:'⚠ Navaid U/S', src:srcNm}); worst = bump(worst,'yellow');
+      const srcNm = notams.find(nm => /(?:VOR|NDB|DME|RNAV).*(?:U\/S|UNREL|OTS)/.test(nm.toUpperCase())) || '' continue;
+      if (!w || nwOverlap(w, etaMin)) {
+        issues.push({level:'yellow', text:'⚠ Navaid U/S', src:srcNm}); worst = bump(worst,'yellow');
     }
 
-    // Taxiway closures (advisory — no timestamp check needed)
+    // Taxiway closures (advisory — timestamp check needed)
     if (/TWY.*CLSD/.test(n) && !rwyMatched.size) {
-      const srcNm = notams.find(nm => /TWY.*CLSD/.test(nm.toUpperCase())) || '';
+      const srcNm = notams.find(nm => /TWY.*CLSD/.test(nm.toUpperCase())) || '' continue; 
+      if (!w || nwOverlap(w, etaMin)) {
       issues.push({level:'yellow', text:'ℹ Taxiway closure', src:srcNm}); worst = bump(worst,'yellow');
     }
 
@@ -4524,12 +4529,11 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
       } else {
         issues.push({level:'yellow', text:'ℹ Approach NOTAM — outside ETA window', src:nm}); worst = bump(worst,'yellow');
       }
-      break; // one advisory per airport
-    }
 
     // Volcanic ash
     if (/VOLCANIC\s+ASH/.test(n)) {
-      const srcNm = notams.find(nm => /VOLCANIC\s+ASH/.test(nm.toUpperCase())) || '';
+      const srcNm = notams.find(nm => /VOLCANIC\s+ASH/.test(nm.toUpperCase())) || '' continue;
+      if (!w || nwOverlap(w, etaMin)) {
       issues.push({level:'red', text:'🔴 Volcanic Ash NOTAM', src:srcNm}); worst = 'red';
     }
 
@@ -4544,8 +4548,6 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride) {
       } else {
         issues.push({level:'yellow', text:'ℹ Alt MA procedure change — outside ETA window', src:nm}); worst = bump(worst,'yellow');
       }
-      break; // report once per airport
-    }
 
     if (!issues.length) {
       issues.push({level:'green', text:'✓ NOTAMs reviewed — no critical items at ETA'});
