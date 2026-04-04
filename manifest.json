@@ -1,7 +1,7 @@
 {
-  "name": "PilotBrief",
-  "short_name": "PilotBrief",
-  "description": "PilotBrief - Your flight assistant",
+  "name": "Relief Pilot",
+  "short_name": "Relief Pilot",
+  "description": "OFP briefing notes for relief and augmented crew",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
