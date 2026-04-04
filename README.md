@@ -1,10 +1,10 @@
-# Relief Pilot
+# PilotBrief
 
-**OFP briefing notes for relief and augmented crew.**
+**PilotBrief - Your flight planning assistant**
 
-Relief Pilot is a progressive web app (PWA) that parses Atlas Air / Polar Air Cargo Operational Flight Plans and presents a structured, interactive briefing note. Designed to run offline on iPad after installation from Safari.
+PilotBrief is a progressive web app (PWA) that parses Atlas Air / Polar Air Cargo Operational Flight Plans and presents a structured, interactive briefing note. Designed to run offline on iPad after installation from Safari.
 
-> ⚠️ **Disclaimer:** Relief Pilot is NOT certified aviation software. It is an informational tool only. All data must be independently verified against the official OFP and dispatch release. Do not use as a sole reference for any operational decision.
+> ⚠️ **Disclaimer:** PilotBrief is NOT certified aviation software. It is an informational tool only. All data must be independently verified against the official OFP and dispatch release. Do not use as a sole reference for any operational decision.
 
 ---
 
