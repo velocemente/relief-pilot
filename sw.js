@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-//  Relief Pilot — Service Worker (Offline-First)
+//  PilotBrief — Service Worker (Offline-First)
 //  Version: 1.9.0
 //  Strategy: Cache-first for app shell, stale-while-revalidate for CDN
 // ═══════════════════════════════════════════════════════
