@@ -102,6 +102,13 @@
   /* iOS spring transition */
   --spring: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --spring-snappy: cubic-bezier(0.35, 0, 0.25, 1);
+  /* ── Brand Identity Tokens ── */
+  --brand-navy:          #002D62;   /* PilotBrief primary navy */
+  --brand-navy-hi:       #003a7a;   /* lighter shade for gradients */
+  --brand-gold:          #B59410;   /* PilotBrief accent gold */
+  --brand-gold-hi:       #d4ab12;   /* brighter gold (dark mode) */
+  --brand-compass:       #BDCBDC;   /* compass tick accent */
+  --brand-navy-adaptive: #002D62;   /* adaptive: overridden in dark mode */
   /* ── Design System Extensions (DesignTokens.swift alignment) ── */
   --border-interactive: #757575;  /* appBorderInteractive — SC 1.4.11 compliant */
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);   /* AppShadow.sm */
@@ -145,12 +152,14 @@
     --sys-green-bg:     rgba(48,209,88,0.15);
     --sys-yellow-bg:    rgba(255,159,10,0.12); /* appWarning bg */
     --sys-red-bg:       rgba(255,55,95,0.15); /* appDestructive bg */
+    --brand-navy-adaptive: #6ea8e8; /* legible on dark bg — desaturated blue */
+    --brand-gold:          #d4ab12; /* slightly brighter gold for dark mode */
   }
 }
 
 /* Override theme if manually set */
-html[data-theme="light"] { color-scheme: light; }
-html[data-theme="dark"]  { color-scheme: dark;  }
+html[data-theme="light"] { color-scheme: light; --brand-navy-adaptive: #002D62; }
+html[data-theme="dark"]  { color-scheme: dark;  --brand-navy-adaptive: #6ea8e8; --brand-gold: #d4ab12; }
 
 /* ═══════════════════════════════════════════════════════
    RESET & BASE
@@ -213,12 +222,14 @@ body {
    ═══════════════════════════════════════════════════════ */
 .nav-bar {
   display: flex; align-items: flex-end;
+  /* max() guarantees minimum clearance even when Safari reports sat/sal as 0
+     in Slide Over → full-landscape transitions (prevents chrome overlap) */
   padding:
-    calc(var(--sat) + 4px)
-    calc(var(--sar) + var(--sp4))
+    max(calc(var(--sat) + 4px), 10px)
+    max(calc(var(--sar) + var(--sp4)), 20px)
     var(--sp3)
-    calc(var(--sal) + var(--sp4));
-  min-height: calc(var(--sat) + 44px);
+    max(calc(var(--sal) + var(--sp4)), 20px);
+  min-height: max(calc(var(--sat) + 44px), 52px);
   background: var(--sys-bg2);
   border-bottom: 0.5px solid var(--sep);
   flex-shrink: 0;
@@ -391,17 +402,17 @@ body {
   display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp2);
 }
 .home-icon {
-  width: 64px; height: 64px; border-radius: 14px;
-  background: linear-gradient(145deg, #1c77f2, #0055cc);
+  width: 88px; height: 88px; border-radius: 20px;
+  background: linear-gradient(145deg, var(--brand-navy-hi), var(--brand-navy));
   display: flex; align-items: center; justify-content: center;
   margin-bottom: var(--sp3);
-  box-shadow: 0 4px 16px rgba(0,90,200,0.28);
+  box-shadow: 0 6px 22px rgba(0,45,98,0.40);
 }
 .home-icon svg { width: 36px; height: 36px; }
 .home-app-name {
   font-family: var(--font-display);
   font-size: 34px; font-weight: 700; letter-spacing: -0.03em;
-  color: var(--label);
+  color: var(--brand-navy-adaptive);
 }
 .home-tagline {
   font-size: 15px; color: var(--label2); line-height: 1.5;
@@ -631,6 +642,12 @@ body {
 #screen-flight .fcir-toggle-row {
   margin-left: 0;
   padding-right: var(--sp2);
+}
+/* Slide Over → full-landscape: extra top clearance so < Flights stays clear
+   of iPad multitasking controls during the window expansion transition */
+#flightNavBar {
+  padding-top: max(calc(var(--sat) + 8px), 14px);
+  min-height: max(calc(var(--sat) + 52px), 60px);
 }
 /* Briefing panel: sticky header + scrolling body */
 .briefing-outer {
@@ -1479,10 +1496,14 @@ body {
   <div class="scroll-view" style="padding-top:0">
     <div class="home-hero">
       <div class="home-icon">
-        <!-- Airplane SVG icon -->
-        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M6 20l4-1.5 2 4 3-1-1-5 10-4a3 3 0 00-4-4l-10 4-5-1-1 3 4 2-2 3.5z" fill="white" stroke="white" stroke-width="0.5" stroke-linejoin="round"/>
-          <path d="M8 27l5-1.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <!-- Brand compass icon: navy bg, white airplane, gold wing, subtle compass ticks -->
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:56px;height:56px">
+          <!-- Compass cardinal ticks -->
+          <path d="M50 6V14M50 86V94M6 50H14M86 50H94" stroke="rgba(255,255,255,0.22)" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Gold checkmark / wing sweep -->
+          <path d="M14 63 L36 85 L90 26" stroke="#B59410" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- White airplane silhouette -->
+          <path d="M50 16 L54 34 L83 44 L83 53 L54 49 L50 67 L54 75 L46 75 L50 67 L46 49 L17 53 L17 44 L46 34 L50 16Z" fill="white"/>
         </svg>
       </div>
       <div class="home-app-name">PilotBrief</div>
@@ -1573,8 +1594,17 @@ body {
       </svg>
       Add New Flight
     </button>
-    <!-- Centered title -->
-    <span class="nav-title">Flights</span>
+    <!-- Brand mark — horizontal lockup replacing plain text title -->
+    <span class="nav-title" style="position:absolute;left:50%;transform:translateX(-50%);bottom:var(--sp3)">
+      <svg width="130" height="28" viewBox="0 0 300 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PilotBrief">
+        <!-- Gold wing sweep -->
+        <path d="M20 55 L45 80 L95 30" stroke="#B59410" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Navy airplane (light mode) / white airplane (dark mode via currentColor) -->
+        <path d="M55 15 L60 35 L90 45 L90 55 L60 50 L55 70 L60 80 L50 80 L55 70 L50 50 L20 55 L20 45 L50 35 L55 15Z" fill="currentColor"/>
+        <!-- Wordmark -->
+        <text x="108" y="66" fill="currentColor" style="font:700 34px -apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;letter-spacing:-1px">PilotBrief</text>
+      </svg>
+    </span>
     <!-- Settings gear (right) -->
     <button class="icon-btn" onclick="push('screen-settings')" aria-label="Settings" style="margin-left:auto">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -1625,9 +1655,11 @@ body {
   <!-- ── Flight tab bar ── -->
   <div class="flight-tab-bar" id="flightTabBar">
     <button class="flight-tab active" id="ftab-note"       onclick="switchFlightTab('note')"       aria-label="Briefing note">
-      <!-- Airplane -->
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 16l-9-4V4a2 2 0 00-4 0v8L3 16l1 2 7-2v3l-2 1v2l3-1 3 1v-2l-2-1v-3l7 2 1-2z"/>
+      <!-- Brand compass icon: ring + airplane silhouette, monochromatic for tab state -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5" stroke-width="1.4"/>
+        <path d="M12 4.5 L12 6M12 18 L12 19.5M4.5 12 L6 12M18 12 L19.5 12" stroke-width="1.1" opacity="0.55"/>
+        <path d="M12 6.5 L12.75 9.5 L16.8 11.2 L16.8 12.8 L12.75 11.8 L12 14.8 L12.75 16.2 L11.25 16.2 L12 14.8 L11.25 11.8 L7.2 12.8 L7.2 11.2 L11.25 9.5 L12 6.5Z" fill="currentColor" stroke="none"/>
       </svg>
       <span>Briefing</span>
     </button>
