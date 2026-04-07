@@ -253,6 +253,45 @@ body {
   white-space: nowrap;
   letter-spacing: -0.01em;
 }
+/* Brand title: compass icon + screen label, replaces plain .nav-title on all secondary screens */
+.nav-brand-title {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  /* Must match nav-bar's own padding-bottom so the brand mark baseline
+     sits on the same horizontal line as the flex items inside the bar */
+  padding-bottom: var(--sp3);
+  gap: 7px;
+  white-space: nowrap; pointer-events: none;
+}
+.nav-brand-title .nb-icon {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  background: linear-gradient(145deg, var(--brand-navy-hi), var(--brand-navy));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,45,98,0.30);
+}
+.nav-brand-title .nb-icon svg { width: 15px; height: 15px; }
+.nav-brand-title .nb-label {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 600;
+  color: var(--label);
+  letter-spacing: -0.01em;
+}
+/* Help icon button — 44×44, styled like icon-btn but gold accent on flight screen */
+.help-btn {
+  width: var(--touch); height: var(--touch);
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--tint); border-radius: var(--r-sm);
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.help-btn:active { background: var(--fill); }
+.help-btn svg { width: 22px; height: 22px; }
 .nav-large-title {
   font-family: var(--font-display);
   font-size: 34px;
@@ -649,8 +688,55 @@ body {
   padding-top: max(calc(var(--sat) + 8px), 14px);
   min-height: max(calc(var(--sat) + 52px), 60px);
 }
-/* Briefing panel: sticky header + scrolling body */
-.briefing-outer {
+/* Slide Over / narrow window: two-row flight nav bar
+   Row 1 — brand icon centred (full width)
+   Row 2 — ‹ Flights left, FCIR/ASAP right                     */
+@media (max-width: 400px) {
+  #flightNavBar {
+    flex-wrap: wrap;
+    align-content: flex-start;
+    min-height: max(calc(var(--sat) + 96px), 104px);
+    padding-left:  max(calc(var(--sal) + var(--sp3)), 12px);
+    padding-right: max(calc(var(--sar) + var(--sp3)), 12px);
+    padding-bottom: 0;
+    row-gap: 0;
+  }
+
+  /* Brand: escape absolute positioning, become full-width first row */
+  #flightNavBar .nav-brand-title {
+    position: static;
+    width: 100%;
+    order: -1;
+    justify-content: center;
+    align-items: center;
+    min-height: 44px;
+    padding-bottom: 0;
+    padding-top: max(calc(var(--sat) + 2px), 6px);
+  }
+
+  /* Back button: left of second row */
+  #flightNavBar .nav-back {
+    order: 1;
+    align-self: center;
+    padding-bottom: 0;
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  /* Right cluster: right of second row */
+  #flightNavRight {
+    order: 1;
+    margin-left: auto;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  /* Tighten FCIR label text in narrow mode */
+  #flightNavBar .fcir-label {
+    font-size: 11px;
+    letter-spacing: 0.01em;
+  }
+}
   flex: 1; display: flex; flex-direction: column; overflow: hidden;
 }
 .briefing-sticky-header {
@@ -1317,6 +1403,7 @@ body {
 .ddg-tlr-badge.tkoff  { color: var(--sys-yellow); background: var(--sys-yellow-bg); }
 .ddg-tlr-badge.land   { color: var(--tint);       background: var(--tint-bg); }
 .ddg-tlr-badge.both   { color: var(--sys-orange);  background: rgba(255,107,0,0.10); }
+.ddg-tlr-badge.cdl    { color: var(--sys-green);   background: var(--sys-green-bg); }
 .ddg-list { margin-top: var(--sp2); }
 
 /* ── Compact ATIS + Parking row (single line) ── */
@@ -1360,6 +1447,8 @@ body {
 }
 .compact-parking-box {
   flex: 1; min-width: 0; height: 42px; max-height: 42px; resize: none;
+  /* offset = ATIS letter box (42px) + gap (var(--sp3)) — aligns left edge with ATIS notes textarea */
+  margin-left: calc(42px + var(--sp3));
   background: var(--fill4); color: var(--label);
   border: 0.5px solid var(--sep); border-radius: var(--r-sm);
   padding: var(--sp2) var(--sp3);
@@ -1434,7 +1523,7 @@ body {
    ═══════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   .screen { transition: none !important; }
-  .cell, .icon-btn, .phase-tab, .flight-tab, .seg-btn,
+  .cell, .icon-btn, .help-btn, .phase-tab, .flight-tab, .seg-btn,
   .ev, .apt-card-header, .atis-letter-box, .ios-toggle-track,
   .ios-toggle-thumb, .drop-zone { transition: none !important; }
   .perishables-banner, .callout { animation: none !important; }
@@ -1532,7 +1621,16 @@ body {
       <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
       PilotBrief
     </button>
-    <span class="nav-title">Import OFP</span>
+    <span class="nav-brand-title" aria-label="PilotBrief — Import OFP">
+      <span class="nb-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label">Import OFP</span>
+    </span>
   </div>
   <div class="scroll-view">
     <div class="section">
@@ -1594,16 +1692,16 @@ body {
       </svg>
       Add New Flight
     </button>
-    <!-- Brand mark — horizontal lockup replacing plain text title -->
-    <span class="nav-title" style="position:absolute;left:50%;transform:translateX(-50%);bottom:var(--sp3)">
-      <svg width="130" height="28" viewBox="0 0 300 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PilotBrief">
-        <!-- Gold wing sweep -->
-        <path d="M20 55 L45 80 L95 30" stroke="#B59410" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-        <!-- Navy airplane (light mode) / white airplane (dark mode via currentColor) -->
-        <path d="M55 15 L60 35 L90 45 L90 55 L60 50 L55 70 L60 80 L50 80 L55 70 L50 50 L20 55 L20 45 L50 35 L55 15Z" fill="currentColor"/>
-        <!-- Wordmark -->
-        <text x="108" y="66" fill="currentColor" style="font:700 34px -apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;letter-spacing:-1px">PilotBrief</text>
-      </svg>
+    <!-- Brand mark — centered, consistent with all screens -->
+    <span class="nav-brand-title" aria-label="PilotBrief">
+      <span class="nb-icon" style="width:28px;height:28px;border-radius:7px">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:18px">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label" style="font-size:20px;letter-spacing:-0.03em">PilotBrief</span>
     </span>
     <!-- Settings gear (right) -->
     <button class="icon-btn" onclick="push('screen-settings')" aria-label="Settings" style="margin-left:auto">
@@ -1641,14 +1739,34 @@ body {
       <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
       Flights
     </button>
-    <div style="flex:1"></div>
-    <div class="fcir-toggle-row">
-      <span class="fcir-label" id="fcirLabel" onclick="document.getElementById('fcirToggle').click()">FCIR/ASAP</span>
-      <label class="ios-toggle" aria-label="FCIR or ASAP mode">
-        <input type="checkbox" id="fcirToggle" onchange="toggleFCIR(this.checked)">
-        <span class="ios-toggle-track"></span>
-        <span class="ios-toggle-thumb"></span>
-      </label>
+    <!-- Centered brand mark -->
+    <span class="nav-brand-title" aria-hidden="true">
+      <span class="nb-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label">PilotBrief</span>
+    </span>
+    <!-- Right cluster: Help → FCIR -->
+    <div id="flightNavRight" style="display:flex;align-items:center;gap:0;margin-left:auto">
+      <button class="help-btn" onclick="push('screen-help')" aria-label="Help and instructions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9.5"/>
+          <path d="M12 17v-4.5M9.5 9.5a2.5 2.5 0 115 0c0 1.5-2.5 2-2.5 3.5"/>
+          <circle cx="12" cy="19" r="0.5" fill="currentColor"/>
+        </svg>
+      </button>
+      <div class="fcir-toggle-row">
+        <span class="fcir-label" id="fcirLabel" onclick="document.getElementById('fcirToggle').click()">FCIR/ASAP</span>
+        <label class="ios-toggle" aria-label="FCIR or ASAP mode">
+          <input type="checkbox" id="fcirToggle" onchange="toggleFCIR(this.checked)">
+          <span class="ios-toggle-track"></span>
+          <span class="ios-toggle-thumb"></span>
+        </label>
+      </div>
     </div>
   </div>
 
@@ -1779,6 +1897,15 @@ body {
     <div class="oei-sheet-title">Select Departure Runway</div>
     <div id="oeiRwyList"><!-- populated by openOeiPicker() --></div>
     <button class="oei-cancel-btn" onclick="closeOeiPicker()">Cancel</button>
+  </div>
+</div>
+
+<!-- Descent airport picker — same sheet pattern as OEI -->
+<div class="oei-overlay" id="descentAptOverlay" onclick="closeDescentAptPicker(event)">
+  <div class="oei-sheet" onclick="event.stopPropagation()">
+    <div class="oei-sheet-title">Select Airport</div>
+    <div id="descentAptList"><!-- populated by openDescentAptPicker() --></div>
+    <button class="oei-cancel-btn" onclick="closeDescentAptPicker()">Cancel</button>
   </div>
 </div>
 
@@ -4390,10 +4517,10 @@ const NM = {
   AD_CLSD:    /\bAD\s+CLSD\b|\bAIRPORT\s+CLSD\b/,
   // RWY_CLSD: match explicit RWY N CLSD or RWY ALL CLSD.
   // Also catches "RWY 06L/24R CLSD" and "RWY 06L CLSD EXC..." patterns.
-  RWY_CLSD:   /\bRWY\s+(?:ALL\s+CLSD|\d{2}[LCRB]?(?:\s*(?:\/|AND)\s*\d{2}[LCRB]?)?\s+CLSD)\b/,
-  RWY_ID:     /RWY\s+(\d{2}[LCRB]?(?:\s*(?:\/|AND)\s*\d{2}[LCRB]?)?)/,
+  RWY_CLSD:   /\bRWY\s+(?:ALL\s+CLSD|\d{1,2}[LCRB]?(?:\s*(?:\/|AND)\s*\d{1,2}[LCRB]?)?\s+CLSD)\b/,
+  RWY_ID:     /RW(?:Y)?\s*(\d{1,2}[LCRB]?(?:\s*(?:\/|AND)\s*\d{1,2}[LCRB]?)?)/,
   // RWY_ID_ALL: extract ALL runway identifiers from a NOTAM (for grouping)
-  RWY_ID_ALL: /RWY\s+(\d{2}[LCRB]?)/gi,
+  RWY_ID_ALL: /RW(?:Y)?\s*(\d{1,2}[LCRB]?)/gi,
 
   TWY_CLSD:   /\bTWY\s+[A-Z0-9]+(?:\s*[,\/]\s*[A-Z0-9]+)*\s+CLSD\b/,
   TWY_RESTR:  /\bTWY\s+[A-Z0-9]+(?:\s*[,\/]\s*[A-Z0-9]+)*.*?(?:RESTR|RESTRICTED|WIDTH\s+LTD|WS\s+LTD|WINGSPAN|ACFT\s+SPAN|SPAN\s+LTD|MAX\s+WS|WS\s+\d+M|WINGSP)/i,
@@ -4402,10 +4529,16 @@ const NM = {
   TWY_TYPE:   /(?:B7[0-9]{2}|A3[0-9]{2}|B[0-9]{3}[A-Z]?|A[0-9]{3}[A-Z]?)\b/g,
 
   // ── ORIG slots ──
-  SID:        /\bSID\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
+  SID:        /\bSID\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
   SID_NAME:   /\bSID\s+([A-Z]+\d[A-Z]?\b)/,
 
-  // ── DEST/ALT slots ──
+  // TKOF_MIN: Takeoff minimums / ODP (Obstacle Departure Procedure) changes.
+  // These affect departure climb gradients and non-standard takeoff criteria per RWY.
+  // Signals: "TAKEOFF MINIMUMS", "MINIMUM CLIMB OF xxx FT PER NM", "OBST DEP PROC", "ODP".
+  // Runway extracted from first RWY xx[LCR] group in the NOTAM text.
+  TKOF_MIN:   /\bTAKEOFF\s+MINIMUMS?\b|\bOBST(?:ACLE)?\s+DEP(?:ARTURE)?\s+PROC(?:EDURE)?|\bMINIMUM\s+CLIMB\s+OF\s+\d+\s+FT\s+PER\s+NM|\bCLIMB\s+GRADIENT\b/i,
+  // Captures the climb rate when present (e.g. "460 FT PER NM") for label
+  TKOF_MIN_RATE: /(\d+)\s*FT\s+PER\s+NM/i,
 
   // ── Tier 1: Precision approach / guidance equipment ─────────────────────
   // GS_US: Glide slope / glide path specifically unserviceable (ILS degrades to LOC-only)
@@ -4455,7 +4588,7 @@ const NM = {
   // ── Tier 6: Runway lighting — affects all-weather operations ─────────────
   // HIRL/MIRL unserviceable — high/medium intensity runway edge lights
   // Operationally: may restrict operations to RVR limits where lighting is required
-  RWY_LGTS_US:/\b(?:HIRL|MIRL|LIRL|REIL|HIL|MIL|RUNWAY\s+EDGE\s+LIGHTS?|RUNWAY\s+LIGHTS?)\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/i,
+  RWY_LGTS_US:/\b(?:HIRL|MIRL|LIRL|REIL|HIL|MIL|RUNWAY\s+EDGE\s+LIGHTS?|RUNWAY\s+LIGHTS?|LEAD\s*OFF\s+LGT?S?|TKOF\s+HOLD\s+LGT?S?)\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/i,
 
   // RCLL_US: Runway centerline lights — required for Cat II/III and low-visibility ops
   RCLL_US:    /\b(?:RCLL?|RCLM|RUNWAY\s+(?:CENTERLINE|CENTRE\s+LINE)\s+LIGHTS?|CL\s+LIGHTS?)\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/i,
@@ -4473,9 +4606,9 @@ const NM = {
 
   // APCH_NAME: extract approach type + runway — extended to handle Atlas "ILS Z RWY 07" patterns
   // Group 1 = approach type/designator, Group 2 = runway
-  APCH_NAME:  /(?:(ILS\s*[A-Z]?|LOC|RNAV(?:\s*\([A-Z]+\))?\s*[A-Z]?|RNP\s*[A-Z]?|VOR(?:\/DME)?|NDB|LDA|GLS|GBAS))\s+(?:RWY\s+)?(\d{2}[LCRB]?)/i,
+  APCH_NAME:  /(?:(ILS\s*[A-Z]?|LOC|RNAV(?:\s*\([A-Z]+\))?\s*[A-Z]?|RNP\s*[A-Z]?|VOR(?:\/DME)?|NDB|LDA|GLS|GBAS))\s+(?:RWY\s+)?(\d{1,2}[LCRB]?)/i,
   // APCH_RWY: extract just the runway number from an approach NOTAM (for grouping)
-  APCH_RWY:   /(?:ILS|LOC|GLS|RNAV|RNP|VOR|NDB|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|APPROACH|IAP).*?RWY\s+(\d{2}[LCRB]?)/i,
+  APCH_RWY:   /(?:ILS|LOC|GLS|RNAV|RNP|VOR|NDB|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|APPROACH|IAP).*?RWY\s+(\d{1,2}[LCRB]?)/i,
 
   // APCH_TYPE_NA: a specific approach type (not the full ILS) is not available
   APCH_TYPE_NA: /(?:LOC\s+ONLY|BACKCOURSE.*(?:NA|NOT\s+AVBL|OTS)|VOR\s+APCH.*(?:NA|NOT\s+AVBL)|NDB\s+APCH.*(?:NA|NOT\s+AVBL)|CAT\s+I\s+ONLY|PRECISION\s+APCH.*(?:NA|NOT\s+AVBL))/i,
@@ -4588,8 +4721,10 @@ function _twyApplies(notamText, acftType) {
  */
 function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   const isOrig = role === 'ORIG';
-  const activeSlotBase = isOrig ? 6 : 7; // "active during period" catch-all slot
-  const otherSlot      = isOrig ? 7 : 8; // "all other" catch-all slot
+  // Zero-pad single-digit runway designators: '6L' → '06L', '9' → '09'
+  const _pad2 = s => s ? s.replace(/^(\d)([LCRB]?)$/, '0$1$2').toUpperCase() : s;
+  const activeSlotBase = isOrig ? 7 : 7; // "active during period" catch-all slot
+  const otherSlot      = isOrig ? 8 : 8; // "all other" catch-all slot
 
   // ── AD Closed — always RED, always slot 1 ──────────────────────────────
   if (NM.AD_CLSD.test(nu)) {
@@ -4599,7 +4734,7 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   // ── Closed Runways (slot 1 both roles) ───────────────────────────────
   if (NM.RWY_CLSD.test(nu)) {
     const rm = nu.match(NM.RWY_ID);
-    const rwy = rm ? rm[1].replace(/\s+/g,'') : null;
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 1, level: 'red', label: `RWY ${rwy || 'CLSD'} CLSD`, keyRe: NM.CLSD_WORDS, rwy };
   }
 
@@ -4610,65 +4745,89 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
   // ──────── ORIGIN-specific slots ──────────────────────────────────────
   if (isOrig) {
-    // Slot 2 — Closed / wingspan-restricted taxiways
+    // Slot 1 — Closed runways / airport / volcanic (handled above, shared)
+
+    // Slot 2 — Takeoff minimums / ODP (NON-STANDARD DEPARTURE CRITERIA)
+    // Highest priority after closures: affects departure climb capability.
+    // Shown at the top of the ORIG airport card.
+    if (NM.TKOF_MIN.test(nu)) {
+      const rm   = nu.match(NM.RWY_ID);
+      const rwy  = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      const rateM = nu.match(NM.TKOF_MIN_RATE);
+      const rate  = rateM ? ` ${rateM[1]}FT/NM` : '';
+      const lbl   = `TKOF MIN${rwy ? ' RWY ' + rwy : ''}${rate}`;
+      return { slot: 2, level: 'yellow', label: lbl, keyRe: NM.RESTR_WORDS, rwy };
+    }
+
+    // Slot 3 — Closed / wingspan-restricted taxiways
     if (NM.TWY_CLSD.test(nu) || (NM.TWY_RESTR.test(nu) && _twyApplies(notamRaw, acftType))) {
       const tm = nu.match(NM.TWY_ID);
       const twy = tm ? tm[1] : 'TWY';
       const isClosed = NM.CLSD_WORDS.test(nu);
       return {
-        slot: 2,
+        slot: 3,
         level: isClosed ? 'red' : 'yellow',
         label: `TWY ${twy} ${isClosed ? 'CLSD' : 'RESTR'}`,
         keyRe: isClosed ? NM.CLSD_WORDS : NM.RESTR_WORDS,
       };
     }
 
-    // Slot 3 — SID changes
+    // Slot 4 — SID changes
     if (NM.SID.test(nu)) {
       const sm = nu.match(NM.SID_NAME);
       const sid = sm ? sm[1] : 'SID';
       const isUS = NM.US_WORDS.test(nu);
-      return { slot: 3, level: isUS ? 'red' : 'yellow', label: `SID ${sid} CHANGE`, keyRe: isUS ? NM.US_WORDS : NM.RESTR_WORDS };
+      return { slot: 4, level: isUS ? 'red' : 'yellow', label: `SID ${sid} CHANGE`, keyRe: isUS ? NM.US_WORDS : NM.RESTR_WORDS };
     }
 
-    // Slot 4 — Approach changes (includes Cat II/III N/A and IAP minimums raises)
+    // Slot 5 — Approach changes (includes Cat II/III N/A and IAP minimums raises)
     if (NM.CAT_II_NA.test(nu)) {
       const am = nu.match(NM.APCH_NAME);
-      const rwy = am ? am[2] : null;
-      const apch = am ? `${am[1].trim()} RWY ${am[2]}` : 'APCH';
-      return { slot: 4, level: 'red', label: `${apch} CAT II/III N/A`, keyRe: NM.CAT_II_NA, rwy };
+      const rwy = am ? _pad2(am[2]) : null;
+      const apch = am ? `${am[1].trim()} RWY ${_pad2(am[2])}` : 'APCH';
+      return { slot: 5, level: 'red', label: `${apch} CAT II/III N/A`, keyRe: NM.CAT_II_NA, rwy };
     }
     if (NM.GS_US.test(nu)) {
       const rm = nu.match(NM.APCH_RWY);
-      const rwy = rm ? rm[1] : null;
+      const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
       const rwylabel = rwy ? ` RWY ${rwy}` : '';
-      return { slot: 4, level: 'red', label: `ILS GS U/S${rwylabel} (LOC ONLY)`, keyRe: NM.US_WORDS, rwy };
+      return { slot: 5, level: 'red', label: `ILS GS U/S${rwylabel} (LOC ONLY)`, keyRe: NM.US_WORDS, rwy };
     }
     if (NM.APCH_CHG.test(nu) || NM.APCH_MIN.test(nu) || NM.IAP_CHG.test(nu)) {
       const am = nu.match(NM.APCH_NAME);
-      const rwy = am ? am[2] : null;
-      const apch = am ? `${am[1].trim()} RWY ${am[2]}` : 'APCH';
-      return { slot: 4, level: 'yellow', label: `${apch} CHANGE`, keyRe: NM.RESTR_WORDS, rwy };
+      const rwy = am ? _pad2(am[2]) : null;
+      const apch = am ? `${am[1].trim()} RWY ${_pad2(am[2])}` : 'APCH';
+      return { slot: 5, level: 'yellow', label: `${apch} CHANGE`, keyRe: NM.RESTR_WORDS, rwy };
     }
     if (NM.APCH_TYPE_NA.test(nu)) {
       const rm = nu.match(NM.APCH_RWY);
-      const rwy = rm ? rm[1] : null;
-      return { slot: 4, level: 'yellow', label: `APCH TYPE CHG${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
+      const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      return { slot: 5, level: 'yellow', label: `APCH TYPE CHG${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
+    }
+    if (NM.DME_US.test(nu)) {
+      const rm = nu.match(NM.APCH_RWY) || nu.match(NM.RWY_ID);
+      const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      return { slot: 5, level: 'yellow', label: `ILS DME U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
+    }
+    if (NM.PAPI_US.test(nu)) {
+      const rm = nu.match(NM.RWY_ID);
+      const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      return { slot: 5, level: 'yellow', label: `PAPI/VASI U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
     }
     if (NM.ALT_MINS_CHG.test(nu)) {
       const rm = nu.match(NM.APCH_RWY);
-      const rwy = rm ? rm[1] : null;
-      return { slot: 4, level: 'yellow', label: `ALT MINS CHG${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
+      const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      return { slot: 5, level: 'yellow', label: `ALT MINS CHG${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
     }
 
-    // Slot 5 — Alternate missed approach
+    // Slot 6 — Alternate missed approach
     if (NM.ALT_MA.test(nu)) {
-      const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i) || nu.match(NM.APCH_RWY);
-      const rwy = rm ? rm[1] : null;
-      return { slot: 5, level: 'yellow', label: `ALT MA PROC CHANGE${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
+      const rm = nu.match(NM.RWY_ID) || nu.match(NM.APCH_RWY);
+      const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      return { slot: 6, level: 'yellow', label: `ALT MA PROC CHANGE${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
     }
 
-    // Slot 6 — Active during departure period / slot 7 — all others
+    // Slot 7 (active) / Slot 8 (other) — catch-all
     return { slot: active ? activeSlotBase : otherSlot, level: 'yellow', label: null, keyRe: null };
   }
 
@@ -4680,37 +4839,37 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   // Slot 2a — CAT II/III NOT AVBL → RED
   if (NM.CAT_II_NA.test(nu)) {
     const am = nu.match(NM.APCH_NAME);
-    const rwy = am ? am[2] : null;
-    const apch = am ? `${am[1].trim()} RWY ${am[2]}` : 'APCH';
+    const rwy = am ? _pad2(am[2]) : null;
+    const apch = am ? `${am[1].trim()} RWY ${_pad2(am[2])}` : 'APCH';
     return { slot: 2, level: 'red', label: `${apch} CAT II/III N/A`, keyRe: NM.CAT_II_NA, rwy };
   }
 
   // Slot 2b — Glide slope specifically U/S (ILS → LOC-only)
   if (NM.GS_US.test(nu)) {
-    const rm = nu.match(NM.APCH_RWY) || nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.APCH_RWY) || nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 2, level: 'red', label: `ILS GS U/S${rwy ? ' RWY ' + rwy : ''} (LOC ONLY)`, keyRe: NM.US_WORDS, rwy };
   }
 
   // Slot 2c — Localizer (full word) U/S
   if (NM.LOC_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 2, level: 'red', label: `LOC U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
   }
 
   // Slot 2d — Full approach system U/S (ILS/LOC/RNAV/VOR/NDB/GLS)
   if (NM.APCH_US.test(nu)) {
     const am = nu.match(NM.APCH_NAME);
-    const rwy = am ? am[2] : null;
-    const apch = am ? `${am[1].trim()} RWY ${am[2]}` : 'APCH';
+    const rwy = am ? _pad2(am[2]) : null;
+    const apch = am ? `${am[1].trim()} RWY ${_pad2(am[2])}` : 'APCH';
     return { slot: 2, level: 'red', label: `${apch} U/S`, keyRe: NM.US_WORDS, rwy };
   }
 
   // Slot 2e — DME U/S — RED for approach DME, YELLOW for en-route DME
   if (NM.DME_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     const isApchDme = /ILS\s+DME|APCH\s+DME|APPROACH\s+DME/i.test(nu);
     return { slot: 2, level: isApchDme ? 'red' : 'yellow', label: `DME U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
   }
@@ -4725,29 +4884,29 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   // Slot 3 — Approach procedure / minimums changes (IAP_CHG covers Atlas OFP format)
   if (NM.APCH_CHG.test(nu) || NM.APCH_MIN.test(nu) || NM.IAP_CHG.test(nu)) {
     const am = nu.match(NM.APCH_NAME);
-    const rwy = am ? am[2] : null;
-    const apch = am ? `${am[1].trim()} RWY ${am[2]}` : 'APCH';
+    const rwy = am ? _pad2(am[2]) : null;
+    const apch = am ? `${am[1].trim()} RWY ${_pad2(am[2])}` : 'APCH';
     return { slot: 3, level: 'yellow', label: `${apch} PROC CHANGE`, keyRe: NM.RESTR_WORDS, rwy };
   }
 
   // Slot 3b — Approach type degraded (LOC only, CAT I only, precision N/A)
   if (NM.APCH_TYPE_NA.test(nu)) {
     const rm = nu.match(NM.APCH_RWY);
-    const rwy = rm ? rm[1] : null;
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 3, level: 'yellow', label: `APCH TYPE CHG${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
   }
 
   // Slot 3c — Alternate minimums changed
   if (NM.ALT_MINS_CHG.test(nu)) {
     const rm = nu.match(NM.APCH_RWY);
-    const rwy = rm ? rm[1] : null;
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 3, level: 'yellow', label: `ALT MINS CHG${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
   }
 
   // Slot 3d — Marker beacons U/S (OM/MM/LOM) — DA awareness cue lost
   if (NM.MARKER_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     const isOM = /\b(?:OUTER\s+MARKER|LOM|OM)\b/i.test(nu);
     const lbl = isOM ? `OM/LOM U/S${rwy ? ' RWY ' + rwy : ''}` : `MARKER U/S${rwy ? ' RWY ' + rwy : ''}`;
     return { slot: 3, level: 'yellow', label: lbl, keyRe: NM.US_WORDS, rwy };
@@ -4771,58 +4930,65 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   // RED: primary ALS (ALSF-1/2, MALSR, SSALR) — large minima increase
   // YELLOW: supplemental (MALS, REIL, ODALS) — minor impact
   if (NM.ALS_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     const isPrimary = /ALSF|MALSR|SSALR|SSALF/i.test(nu);
     return { slot: 3, level: isPrimary ? 'red' : 'yellow', label: `ALS U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
   }
 
   // Slot 3h — PAPI/VASI U/S — visual glide path reference lost
   if (NM.PAPI_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 3, level: 'yellow', label: `PAPI/VASI U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
   }
 
   // Slot 3i — REIL U/S — runway end identifier lights
   if (NM.REIL_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 3, level: 'yellow', label: `REIL U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
   }
 
   // Slot 3j — Runway centerline lights U/S — Cat II/III and low-vis ops requirement
   if (NM.RCLL_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 3, level: 'yellow', label: `RCLL U/S${rwy ? ' RWY ' + rwy : ''} (CAT II/III IMPACT)`, keyRe: NM.US_WORDS, rwy };
   }
 
   // Slot 3k — Touchdown zone lights U/S — Cat II/III requirement
   if (NM.TDZ_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 3, level: 'yellow', label: `TDZ LGTS U/S${rwy ? ' RWY ' + rwy : ''} (CAT II/III IMPACT)`, keyRe: NM.US_WORDS, rwy };
   }
 
-  // Slot 3l — HIRL/MIRL runway edge lights U/S
+  // Slot 3l — runway edge / operational lights U/S
   if (NM.RWY_LGTS_US.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
-    return { slot: 3, level: 'yellow', label: `RWY LGTS U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    // Extract the specific light system for a more informative label
+    let lgtsType = 'RWY LGTS';
+    if (/\bHIRL\b/i.test(nu))            lgtsType = 'HIRL';
+    else if (/\bMIRL\b/i.test(nu))       lgtsType = 'MIRL';
+    else if (/\bLIRL\b/i.test(nu))       lgtsType = 'LIRL';
+    else if (/LEAD\s*OFF/i.test(nu))     lgtsType = 'LEAD OFF LGT';
+    else if (/TKOF\s+HOLD/i.test(nu))    lgtsType = 'TKOF HOLD LGT';
+    return { slot: 3, level: 'yellow', label: `${lgtsType} U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
   }
 
   // Slot 3m — Displaced threshold — affects LDA and approach minima
   if (NM.DSPLCD_THR.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 3, level: 'yellow', label: `DSPLCD THR${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
   }
 
   // ── DEST / ALT SLOT 4: Alternate missed approach ──────────────────────────
   if (NM.ALT_MA.test(nu)) {
-    const rm = nu.match(/RWY\s+(\d{2}[LCRB]?)/i) || nu.match(NM.APCH_RWY);
-    const rwy = rm ? rm[1] : null;
+    const rm = nu.match(NM.RWY_ID) || nu.match(NM.APCH_RWY);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
     return { slot: 4, level: 'yellow', label: `ALT MA PROC CHANGE${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
   }
 
@@ -4917,8 +5083,11 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   for (const notamRaw of notams) {
     const nu = notamRaw.toUpperCase();
 
-    // ── Obstacle filter: skip pure obstacle NOTAMs (no approach keyword) ──
-    const hasApchKeyword = /\b(?:ILS|LOC|GLS|RNAV|RNP|NDB|VOR|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|IAP|APCH|PROC|RWY|SID|STAR|CAT\s+I{1,3})\b/i.test(notamRaw);
+    // ── Obstacle filter: skip pure obstacle NOTAMs (no approach/departure keyword) ──
+    // ODP/Takeoff Minimums NOTAMs often contain "OBST" in the title but are operationally
+    // critical — always pass them through regardless of other keywords.
+    const hasTkofKeyword = /\bTAKEOFF\s+MINIMUMS?\b|\bOBST(?:ACLE)?\s+DEP(?:ARTURE)?\s+PROC|\bODP\b|\bMINIMUM\s+CLIMB\b|\bMIN\s+CLIMB\b|\bCLIMB\s+GRADIENT\b/i.test(notamRaw);
+    const hasApchKeyword = hasTkofKeyword || /\b(?:ILS|LOC|GLS|RNAV|RNP|NDB|VOR|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|IAP|APCH|PROC|RWY|SID|STAR|CAT\s+I{1,3})\b/i.test(notamRaw);
     if (/\bOBST\b|\bCRANE\b|\bOBSTACLE\b/.test(nu) && !hasApchKeyword) continue;
 
     // ── Aircraft applicability filter ─────────────────────────────────────
@@ -5011,8 +5180,8 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   // Items within each group are sorted alphabetically by rowLabel.
   //
   const RUNWAY_SLOTS_DEST = new Set([1, 2, 3, 4]);
-  const RUNWAY_SLOTS_ORIG = new Set([1, 4, 5]);
-  const TWY_SLOTS         = new Set([2, 6]); // taxiway slots (ORIG=2, DEST=6)
+  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 5, 6]); // slot 2=TKOF_MIN, 5=approach, 6=ALT_MA
+  const TWY_SLOTS         = new Set([3, 6]); // taxiway slots: ORIG=3, DEST=6
   const runwaySlots = isOrig ? RUNWAY_SLOTS_ORIG : RUNWAY_SLOTS_DEST;
 
   const rwyGroups = new Map();
@@ -5088,7 +5257,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
 // ═══════════════════════════════════════════════════════
 //  VERSION
 // ═══════════════════════════════════════════════════════
-const APP_VERSION = '1.9.0-r3';
+const APP_VERSION = '1.9.5';
 
 // ═══════════════════════════════════════════════════════
 //  THEME — follows system, or manual override
@@ -5313,7 +5482,7 @@ const S = {
   //   proc:        full special proc string, or '' for simple EFPs
   //   coChartNote: crew-entered text for "SEE CO CHART" runways (SPECIAL + no proc)
   oeiData:[], oeiSelectedRwy:'',
-  blockFuel:'', minfFuel:'', fresFuel:'',
+  blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
   // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
   //   code: ATA number string e.g. "36-12-02-01"
   //   desc: full description string (may be multi-line joined)
@@ -5322,6 +5491,12 @@ const S = {
   altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
   acftType:'', togwActual:0, togwLimit:0,
   hasPerishables:false,
+  hasTemperatureControl:false, // v1.9.5 — temperature control required for cargo
+  hasVzfwCkLimit:false,        // v1.9.5 — MTOW limited by VZFW/CK constraints (RED alert)
+  slotTime:null,               // v1.9.5 — wheels-up slot time window (HHMM Z)
+  catIiIiiApproaches:null,     // v1.9.5 — CAT II/III authorized approaches map { [ICAO]: string }
+  addlFfAdj:null,              // additional fuel flow adjustment from CDL/MEL (e.g. "+2.22")
+  descentAirport:'',           // ICAO selected in descent Airport section (defaults to destIcao)
   destEtaOffsetMins:null, // minutes from OFP OFF time to DEST ETA (authoritative, from OFP header lines)
   tripMinutes:null,        // flight-only trip time from TRIP field (kept for reference)
   userNotes:'',
@@ -5372,10 +5547,13 @@ function resetStateForNewFlight() {
     altData:[],
     oeiVal:'', stabTrim:'', gaFuel:'',
     oeiData:[], oeiSelectedRwy:'',
-    blockFuel:'', minfFuel:'', fresFuel:'',
+    blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', togwActual:0, togwLimit:0,
     hasPerishables:false,
+    hasTemperatureControl:false, hasVzfwCkLimit:false,
+    slotTime:null, catIiIiiApproaches:null, addlFfAdj:null,
+    descentAirport:'',
     destEtaOffsetMins:null, tripMinutes:null,
     userNotes:'', fcirNarrative:'', fcirAsap:false,
     etopsEntry:'', etopsSpec:'', etpPoints:[],
@@ -5782,6 +5960,7 @@ const PATTERNS = {
   BLOCK_FUEL: /(?:^BLOCK\n(\d{5,7})|BLOCK\s+(\d{5,7}))/im,
   MINF_FUEL:  /(?:^MINF\n(\d{5,7})|MINF\s+(\d{5,7}))/im,
   FRES_FUEL:  /(?:^FRES\n(\d{5,7})|FRES\s+(\d{5,7}))/im,
+  BALLAST_FUEL: /^BALLAST\s+(\d{3,7})/im,
 
   // ALT1 fuel: "ALT1 (004016 00.23 0092)" or "ALT1 004016 00.23 0092"
   ALT1_FUEL:    /^ALT1\s+\(?\s*(\d{5,7})/m,
@@ -5803,14 +5982,33 @@ const PATTERNS = {
   // Perishables on board
   PERISHABLE:   /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES/i,
 
+  // Temperature control required (v1.9.5)
+  TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES/i,
+
+  // VZFW/CK weight limit RED alert (v1.9.5)
+  VZFW_CK_LIMIT: /\*MTOW\s+LTD\s+BY\s+VZFW\/CK\s+LIMITS\*/i,
+
+  // Wheels-up slot time window (v1.9.5) — three OFP formats:
+  //   Window:     "WHEELS UP MUST BE BETWEEN 0737Z AND 0807Z DUE TO ANC SLOT TIME"
+  //   Not before: "WHEELS UP NOT BEFORE 0737Z"
+  //   Before:     "WHEELS UP BEFORE 0807Z" / "WHEELS UP MUST BE BEFORE 0807Z"
+  SLOT_TIME_WINDOW:     /WHEELS\s+UP\s+MUST\s+BE\s+BETWEEN\s+(\d{4}Z?)\s+AND\s+(\d{4}Z?)/i,
+  SLOT_TIME_NOT_BEFORE: /WHEELS\s+UP\s+NOT\s+BEFORE\s+(\d{4}Z?)/i,
+  SLOT_TIME_BEFORE:     /WHEELS\s+UP\s+(?:MUST\s+BE\s+)?BEFORE\s+(\d{4}Z?)/i,
+
   // MEL/DDG block anchor — block ends at underline or "Flight Release"
   MEL_BLOCK:    /MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i,
 
-  // ATA code in MEL/CDL block: digits-and-hyphens on their own line
-  ATA_CODE:     /^(\d{2}-[\d-]+[A-Z]?)\s*$/,
+  // ATA code in MEL/CDL block: digits-and-hyphens on their own line.
+  // CDL items are prefixed with "C" (e.g. C27-51-02).
+  ATA_CODE:     /^(C?\d{2}-[\d-]+[A-Z]?)\s*$/,
 
-  // TLR RMKS: ATA code at start of a RMKS line
-  TLR_RMKS_ATA: /^RMKS\s+([\d][\d-]+[A-Z]?)\b/mg,
+  // TLR RMKS: ATA/CDL code at start of a RMKS line (CDL items also appear in TLR RMKS)
+  TLR_RMKS_ATA: /^RMKS\s+(C?[\d][\d-]+[A-Z]?)\b/mg,
+
+  // Additional fuel flow adjustment (CDL/MEL penalty): "*ADDL FF ADJ +2.22*"
+  // Captures the signed value e.g. "+2.22" or "-1.50"
+  ADDL_FF_ADJ:  /\*ADDL\s+FF\s+ADJ\s+([+\-]\d+\.?\d*)\*/i,
 
   // Overflight permits block
   OVERFLIGHT:   /Overflight[/]?Landing Permits?\s*([\s\S]*?)(?:AWY WPT|_{10})/i,
@@ -5908,6 +6106,21 @@ const WX_NOTAM_START  = /^- [A-Z]{4}\b/m;
  * Matches: "ATLAS AIR BRIEF PAGE 12 OF 96"
  */
 const WX_PAGE_HEADER  = /^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg;
+
+// ═══════════════════════════════════════════════════════════════
+// § 6.5 · CAT II/III AUTHORIZED APPROACHES (v1.9.5)
+//         For descent subcard — shows authorized runways for arrival airport.
+//         Section format:
+//           AUTHORIZED CAT II/III APPROACHES
+//           VHHH CAT II - RWY 07L/07R/25L/25C
+//           VHHH CAT III - RWY 07L/25C
+// ═══════════════════════════════════════════════════════════════
+
+const CAT_II_III_PATTERNS = {
+  SECTION_ANCHOR: /^AUTHORIZED\s+CAT\s+II\/III\s+APPROACHES/m,
+  // "ICAO CAT II/III - RWY runway_list" — captures [1]=ICAO [2]=cat level [3]=rwy list
+  AIRPORT_ENTRY:  /^([A-Z]{4})\s+CAT\s+(II\/III|II|III)\s*-\s*RWY\s+([A-Z0-9\/]+)/,
+};
 
 // ═══════════════════════════════════════════════════════════════
 // § 6 · COMPANY NOTAM / CURFEW SECTION LABELS
@@ -6130,6 +6343,8 @@ function _ofpRulesetParse(rawText) {
   const blockFuelRaw = extractFuelField(PATTERNS.BLOCK_FUEL);
   const minfFuelRaw  = extractFuelField(PATTERNS.MINF_FUEL);
   const fresFuelRaw  = extractFuelField(PATTERNS.FRES_FUEL);
+  const ballastM     = t.match(PATTERNS.BALLAST_FUEL);
+  const ballastFuel  = ballastM ? parseInt(ballastM[1], 10) : null;
   const alt1FuelRaw  = (() => {
     const m = t.match(PATTERNS.ALT1_FUEL);
     return m ? String(parseInt(m[1], 10)) : '';
@@ -6163,6 +6378,46 @@ function _ofpRulesetParse(rawText) {
   const destLine = parseAptLine('DEST');
   const destIcao = destLine ? destLine.icao : '';
   const etaDest  = destLine ? destLine.hhmm : '';
+
+  // ── v1.9.5 fields — parsed AFTER destIcao (required by CAT II/III lookup) ──
+  const hasTemperatureControl = !!t.match(PATTERNS.TEMPERATURE_CONTROL);
+  const hasVzfwCkLimit        = !!t.match(PATTERNS.VZFW_CK_LIMIT);
+
+  // Additional fuel flow adjustment (CDL/MEL penalty)
+  let addlFfAdj = null;
+  const ffAdjM = t.match(PATTERNS.ADDL_FF_ADJ);
+  if (ffAdjM) addlFfAdj = ffAdjM[1]; // e.g. "+2.22"
+
+  // Wheels-up slot time: normalise HHMM → HH:MMZ and build display string
+  const _fmtT = s => s ? s.replace(/z$/i, 'Z').toUpperCase() : s; // keep HHMM, uppercase Z
+  let slotTime = null;
+  const slotWinM  = t.match(PATTERNS.SLOT_TIME_WINDOW);
+  const slotNBM   = !slotWinM  && t.match(PATTERNS.SLOT_TIME_NOT_BEFORE);
+  const slotBefM  = !slotNBM   && !slotWinM && t.match(PATTERNS.SLOT_TIME_BEFORE);
+  if (slotWinM)  slotTime = `${_fmtT(slotWinM[1])} – ${_fmtT(slotWinM[2])}`;
+  else if (slotNBM)  slotTime = `NOT BEFORE ${_fmtT(slotNBM[1])}`;
+  else if (slotBefM) slotTime = `BEFORE ${_fmtT(slotBefM[1])}`;
+
+  // CAT II/III: build { [ICAO]: [ {cat, rwys} ] } — one entry per OFP line,
+  // preserving every runway/category row so the renderer can display them individually.
+  // Format in OFP (may have separate CAT II and CAT III lines per airport):
+  //   KORD CAT II  - RWY 09C/27C/09R/27L
+  //   KORD CAT III - RWY 09C/27C
+  let catIiIiiApproaches = null;
+  const catAnchorM = t.match(CAT_II_III_PATTERNS.SECTION_ANCHOR);
+  if (catAnchorM) {
+    const secStart = t.indexOf(catAnchorM[0]);
+    const secText  = t.slice(secStart, Math.min(secStart + 5000, t.length));
+    const catMap   = {}; // { [ICAO]: [ {cat, rwys} ] }
+    for (const line of secText.split('\n')) {
+      const lm = line.match(CAT_II_III_PATTERNS.AIRPORT_ENTRY);
+      if (!lm) continue;
+      const icao = lm[1], cat = lm[2], rwys = lm[3].trim();
+      if (!catMap[icao]) catMap[icao] = [];
+      catMap[icao].push({ cat, rwys });
+    }
+    if (Object.keys(catMap).length > 0) catIiIiiApproaches = catMap;
+  }
 
   // ── ETA offsets ───────────────────────────────────────────────────
   const ofpOffMin = (offFromOFP.length === 4)
@@ -6494,9 +6749,15 @@ function _ofpRulesetParse(rawText) {
     blockFuelRaw,
     minfFuelRaw,
     fresFuelRaw,
+    ballastFuel,
     togwActual,
     togwLimit,
     hasPerishables,
+    hasTemperatureControl,
+    hasVzfwCkLimit,
+    slotTime,
+    catIiIiiApproaches,
+    addlFfAdj,
     ddgItems,
     melItems,
     overflightPerms,
@@ -6549,6 +6810,7 @@ function parseOFP() {
     blockFuel:  fuelK(result.blockFuelRaw),
     minfFuel:   fuelK(result.minfFuelRaw),
     fresFuel:   fuelK(result.fresFuelRaw),
+    ballastFuel: result.ballastFuel,
     togwActual: result.togwActual,
     togwLimit:  result.togwLimit,
     ddgItems:   result.ddgItems,
@@ -6558,6 +6820,11 @@ function parseOFP() {
     oeiData:    result.oeiData,
     oeiSelectedRwy: result.oeiData.length ? (S.oeiSelectedRwy || '') : '',
     hasPerishables: result.hasPerishables,
+    hasTemperatureControl: result.hasTemperatureControl,
+    hasVzfwCkLimit: result.hasVzfwCkLimit,
+    slotTime:       result.slotTime,
+    catIiIiiApproaches: result.catIiIiiApproaches,
+    addlFfAdj:      result.addlFfAdj,
     destEtaOffsetMins: result.destEtaOffsetMins,
     tripMinutes: result.tripMinutes,
     etopsEntry:  result.etopsEntry,
@@ -6786,9 +7053,32 @@ function renderPreflightPhase() {
   h += `<div class="data-table data-table-lg">`;
   h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${bClass}">${ev('blockFuel', S.blockFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value">${ev('minfFuel', S.minfFuel||'___')}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${ev('remfMFuel', S.remfMFuel||'___')}</span></div>`;
+  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${ev('destRemf', S.destRemf||'___')}</span></div>`;
+  if (S.hasVzfwCkLimit) {
+    h += `<div class="data-row" style="padding-top:var(--sp2)"><span class="data-value" style="font-size:13px;font-weight:600;color:var(--sys-red)">⚠ MTOW LTD BY VZFW/CK</span></div>`;
+  }
+  if (S.ballastFuel) {
+    h += `<div class="data-row" style="margin-top:var(--sp2);background:rgba(255,204,0,0.10);border-radius:6px;padding:var(--sp2) var(--sp3)">`;
+    h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">BALLAST FUEL</span>`;
+    h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:700">${S.ballastFuel.toLocaleString()}</span>`;
+    h += `</div>`;
+  }
+  if (S.addlFfAdj !== null) {
+    const ffSign = S.addlFfAdj.startsWith('+') ? 'var(--sys-yellow)' : 'var(--sys-green)';
+    h += `<div class="data-row"><span class="data-label" style="color:var(--label2)">FF ADJ</span><span class="data-value" style="font-weight:600;color:${ffSign}">${esc(S.addlFfAdj)}%</span></div>`;
+  }
   h += `</div>`;
   h += `</div></div>`; // subcard-body + subcard
+
+  // ── Wheels-up slot time (v1.9.5) ──
+  if (S.slotTime) {
+    h += `<div class="subcard">`;
+    h += `<div class="subcard-header">Slot Time</div>`;
+    h += `<div class="subcard-body">`;
+    h += `<div class="data-table data-table-lg">`;
+    h += `<div class="data-row"><span class="data-label">Wheels Up</span><span class="data-value" style="color:var(--tint);font-weight:700">${esc(S.slotTime)}</span></div>`;
+    h += `</div></div></div>`;
+  }
 
   // ── FCIR (shown on all phases when active) ──
   h += renderFcirSubcard();
@@ -6936,14 +7226,17 @@ function renderEnroutePhase() {
 function renderDescentPhase() {
   let h = '';
 
-  // ── Arrival subcard ──
+  // ── Airport summary (TOP — matches preflight summary style) ──
+  h += renderDescentAirportSummary();
+
+  // ── Arrival ATIS + Parking ──
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">Arrival</div>`;
   h += `<div class="subcard-body">`;
   h += renderAtisParking('Desc');
-  h += `</div></div>`; // subcard-body + subcard
+  h += `</div></div>`;
 
-  // ── Arrival Fuel subcard ──
+  // ── Arrival Fuel ──
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">Arrival Fuel</div>`;
   h += `<div class="subcard-body">`;
@@ -6952,16 +7245,170 @@ function renderDescentPhase() {
   h += `<div class="data-row"><span class="data-label">ALT 1</span><span class="data-value">${ev('alt1Fuel', S.alt1Fuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">FRES</span><span class="data-value">${ev('fresFuel', S.fresFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">GA</span><span class="data-value">${ev('gaFuel', S.gaFuel||'___')}</span></div>`;
-  h += `</div>`;
-  h += `</div></div>`; // subcard-body + subcard
-  // ── Scratchpad column ──
-  h += `<div class="enroute-scratch-col">`;
-  h += `<div class="enroute-scratch-label">Scratchpad</div>`;
-  h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Enroute scratchpad"></textarea>`;
-  h += `</div>`; // enroute-scratch-col
-  h += `</div>`; // enroute-split
-  h += `</div></div>`; // subcard-body + subcard
+  h += `</div></div></div>`;
+
+  // ── DDG items with TLR Landing or Both ──
+  const landingDdg = (S.ddgItems || []).filter(i => i.tlr === 'landing' || i.tlr === 'both');
+  if (landingDdg.length) {
+    h += `<div class="subcard">`;
+    h += `<div class="subcard-header">DDG — Landing</div>`;
+    h += `<div class="subcard-body">`;
+    h += `<div class="ddg-list">`;
+    landingDdg.forEach(item => {
+      const isCdl = item.code && item.code.startsWith('C');
+      const tlrBadge = item.tlr === 'landing'
+        ? `<span class="ddg-tlr-badge land">*TLR Landing</span>`
+        : `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
+      h += `<div class="ddg-item-row">`;
+      if (item.code) h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
+      h += `<div class="ddg-item-body">`;
+      if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
+      h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
+      h += tlrBadge;
+      h += `</div></div>`;
+    });
+    h += `</div></div></div>`;
+  }
+
+  // ── Scratchpad ──
+  h += `<div class="subcard">`;
+  h += `<div class="subcard-header">Scratchpad</div>`;
+  h += `<div class="subcard-body">`;
+  h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Descent scratchpad" style="width:100%;min-height:180px;resize:vertical"></textarea>`;
+  h += `</div></div>`;
   h += renderFcirSubcard();
+  return h;
+}
+
+// ── Descent airport picker (bottom-sheet overlay, same pattern as OEI) ──────
+function openDescentAptPicker() {
+  const overlay = document.getElementById('descentAptOverlay');
+  const list    = document.getElementById('descentAptList');
+  if (!overlay || !list) return;
+  const allApts = getAllAirports().filter(a => a.role !== 'ORIG');
+  const selIcao = S.descentAirport || (allApts[0] ? allApts[0].icao : '');
+  list.innerHTML = '';
+  allApts.forEach(a => {
+    const row = document.createElement('div');
+    row.className = 'oei-rwy-row' + (a.icao === selIcao ? ' selected' : '');
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-label', `${a.icao} — ${a.role}`);
+    const idEl = document.createElement('span');
+    idEl.className = 'oei-rwy-id'; idEl.textContent = a.icao;
+    const roleEl = document.createElement('span');
+    roleEl.className = 'oei-rwy-proc';
+    roleEl.textContent = a.role + (a.eta ? `  ${a.eta}Z` : '');
+    const chkEl = document.createElement('span');
+    chkEl.className = 'oei-rwy-check';
+    chkEl.textContent = a.icao === selIcao ? '✓' : '';
+    row.appendChild(idEl); row.appendChild(roleEl); row.appendChild(chkEl);
+    row.addEventListener('click', () => selectDescentApt(a.icao));
+    list.appendChild(row);
+  });
+  overlay.classList.add('open');
+}
+
+function closeDescentAptPicker(e) {
+  if (e && e.target !== document.getElementById('descentAptOverlay')) return;
+  document.getElementById('descentAptOverlay').classList.remove('open');
+}
+
+function selectDescentApt(icao) {
+  S.descentAirport = icao;
+  saveFlight();
+  document.getElementById('descentAptOverlay').classList.remove('open');
+  renderNote();
+}
+
+// ── Descent airport summary — compact dot/badge line + optional picker ───────
+// Mirrors the preflight Notes airport status rows; no full issues list.
+function renderDescentAirportSummary() {
+  const allApts = getAllAirports().filter(a => a.role !== 'ORIG');
+  if (!allApts.length) return '';
+
+  const selIcao = S.descentAirport && allApts.find(a => a.icao === S.descentAirport)
+    ? S.descentAirport : allApts[0].icao;
+  const selApt  = allApts.find(a => a.icao === selIcao) || allApts[0];
+
+  // Evaluate status and build per-category worst (same logic as buildAptStatusLines)
+  const data   = airportData[selApt.icao] || { notams:'', weather:'' };
+  const status = evalAirport(selApt.icao, selApt.eta, data.notams, data.weather,
+                              selApt.wxWindow || null, selApt.role, S.acftType);
+  const cat = { WX:'green', NOTAM:'green' };
+  status.issues.forEach(i => {
+    const c = _issueCategory(i);
+    if (!c || c === 'CURFEW') return;
+    if (_RANK[i.level] > _RANK[cat[c]]) cat[c] = i.level;
+  });
+  const cf          = evalCurfew(selApt.icao, selApt.eta);
+  const curfewLevel = (cf.color === 'red' || cf.color === 'yellow') ? cf.color : null;
+  const worst       = Math.max(_RANK[cat.WX], _RANK[cat.NOTAM], curfewLevel ? _RANK[curfewLevel] : 0);
+  const dotCls      = worst === 2 ? 'red' : worst === 1 ? 'yellow' : 'green';
+
+  const _badge = (label, lvl) => {
+    const col = lvl === 'red' ? 'var(--sys-red)' : 'var(--sys-yellow)';
+    return `<span style="color:${col};font-weight:600;font-size:13px">${label}</span>`;
+  };
+  const badges = [];
+  if (_RANK[cat.NOTAM] > 0) badges.push(_badge('NOTAM', cat.NOTAM));
+  if (_RANK[cat.WX]    > 0) badges.push(_badge('WX',    cat.WX));
+  if (curfewLevel)          badges.push(_badge('CURFEW', curfewLevel));
+
+  // CAT II/III rows — one line per OFP entry for this airport.
+  // Backward-compatible: legacy string value renders as a single row.
+  const catRows = (() => {
+    if (!S.catIiIiiApproaches) return [];
+    if (typeof S.catIiIiiApproaches === 'object') {
+      const entries = S.catIiIiiApproaches[selApt.icao];
+      if (!entries) return [];
+      // New format: array of {cat, rwys}
+      if (Array.isArray(entries)) return entries;
+      // Intermediate single-string format (saved flights from earlier build)
+      return [{ cat: null, rwys: null, legacy: entries }];
+    }
+    // Oldest legacy: plain string on S directly
+    if (selApt.icao === S.destIcao) return [{ cat: null, rwys: null, legacy: S.catIiIiiApproaches }];
+    return [];
+  })();
+
+  let h = `<div class="subcard">`;
+  h += `<div class="subcard-header">Airport</div>`;
+  h += `<div class="subcard-body" style="padding-bottom:var(--sp3)">`;
+
+  // Summary row
+  h += `<div class="apt-status-row" style="min-height:44px;align-items:center;flex-wrap:nowrap">`;
+  h += `<span class="apt-dot ${dotCls}" style="flex-shrink:0;margin-top:0"></span>`;
+  h += `<span style="font-weight:600;font-family:var(--font-mono);font-size:15px;min-width:44px">${esc(selApt.icao)}</span>`;
+  if (badges.length) {
+    h += `<span style="color:var(--label3);margin:0 3px">·</span>`;
+    h += badges.join(`<span style="color:var(--label4);margin:0 2px">/</span>`);
+  }
+  if (allApts.length > 1) {
+    h += `<button style="margin-left:auto;display:flex;align-items:center;gap:3px;background:none;border:none;cursor:pointer;color:var(--tint);padding:0 0 0 var(--sp2);min-height:44px;flex-shrink:0" onclick="openDescentAptPicker()" aria-label="Select airport">`;
+    h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.04em">${esc(selApt.role)}</span>`;
+    h += `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
+    h += `</button>`;
+  } else {
+    h += `<span style="margin-left:auto;font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0">${esc(selApt.role)}</span>`;
+  }
+  h += `</div>`;
+
+  // CAT II/III rows — one per entry, separated by a light rule
+  if (catRows.length) {
+    h += `<div style="padding-left:18px;padding-top:var(--sp2);display:flex;flex-direction:column;gap:3px;border-top:0.5px solid var(--sep);margin-top:var(--sp2);padding-top:var(--sp2)">`;
+    catRows.forEach(row => {
+      const label = row.legacy
+        ? row.legacy
+        : `CAT ${row.cat} — RWY ${row.rwys}`;
+      h += `<div style="display:flex;align-items:baseline;gap:var(--sp2)">`;
+      h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0;min-width:62px">CAT ${row.cat || 'II/III'}</span>`;
+      h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint)">${esc(row.rwys || row.legacy || '')}</span>`;
+      h += `</div>`;
+    });
+    h += `</div>`;
+  }
+
+  h += `</div></div>`;
   return h;
 }
   
@@ -7004,6 +7451,7 @@ function renderNotesSection() {
   if (resolvedDdg.length) {
     h += `<div class="ddg-list">`;
     resolvedDdg.forEach(item => {
+      const isCdl = item.code && item.code.startsWith('C');
       // TLR annotation badge
       let tlrBadge = '';
       if (item.tlr === 'takeoff') {
@@ -7016,6 +7464,7 @@ function renderNotesSection() {
       h += `<div class="ddg-item-row">`;
       if (item.code) h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
       h += `<div class="ddg-item-body">`;
+      if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
       if (tlrBadge) h += tlrBadge;
       h += `</div>`;
@@ -7453,60 +7902,144 @@ function renderNotamGroups(rwyGroups) {
   if (!rwyGroups || !rwyGroups.size) return '';
   const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
 
+  // ── Sub-category classifier (runway groups only) ──────────────────────
+  // Uses item label/rowLabel to bucket each NOTAM into a display category.
+  // Order of checks matters: CLOSED → LIGHTING → APPROACH/NAVAID → PROCEDURE
+  function _subCat(item) {
+    const lbl = ((item.label || '') + ' ' + (item.rowLabel || '')).toUpperCase();
+    if (/\bCLSD\b/.test(lbl)) return 'CLOSED';
+    if (/\bTKOF\s+MIN\b|\bTAKEOFF\s+MIN|\bODP\b|\bMIN\s+CLIMB\b|\bFT\/NM\b/.test(lbl)) return 'TKOF_MIN';
+    if (/\bPAPI\b|\bVASI\b|\bALS\b|\bALSF\b|\bMALSR?\b|\bSSALR?\b|\bREIL\b|\bTDZ\b|\bRCLL\b|\bLGTS?\b|\bLIGHT|\bLEAD\s+OFF|\bTKOF\s+HOLD/.test(lbl)) return 'LIGHTING';
+    if (/\bILS\b|\bLOC\b|\bGLS\b|\bG\/S\b|\bGLIDE|\bRNAV\b|\bRNP\b|\bVOR\b|\bNDB\b|\bGPS\b|\bGNSS\b|\bRAIM\b|\bDME\b|\bVORTAC\b|\bMARKER\b|\bOM\b|\bMM\b|\bIM\b|\bLOM\b|\bLMM\b|\bCAT\s+I/.test(lbl)) return 'APPROACH';
+    if (/PROC\b|ALT\s+MA|ALT\s+MINS|DSPLCD|THR\b|CHANGE|CHG\b|\bSTAR\b|\bSID\b/.test(lbl)) return 'PROCEDURE';
+    return 'OTHER';
+  }
+
+  // ── Numerical runway sort key ─────────────────────────────────────────
+  // Handles single (09C) and composite (04L/22R) designators.
+  // Non-runway groups (TAXIWAYS, GENERAL) sort to the end.
+  function _rwySort(key) {
+    if (!key.startsWith('RWY-')) return 9999;
+    const m = key.match(/RWY-(\d{2})([LCR]?)/);
+    if (!m) return 9999;
+    const sfx = { L: 0, C: 1, R: 2, '': 1 }[m[2]] ?? 1;
+    return parseInt(m[1], 10) * 10 + sfx;
+  }
+
+  const sortedKeys = [...rwyGroups.keys()].sort((a, b) => {
+    const aIsRwy = a.startsWith('RWY-');
+    const bIsRwy = b.startsWith('RWY-');
+    if (aIsRwy && bIsRwy) return _rwySort(a) - _rwySort(b);
+    if (aIsRwy) return -1; if (bIsRwy) return 1;
+    if (a === 'TAXIWAYS') return -1; if (b === 'TAXIWAYS') return 1;
+    return 0;
+  });
+
+  // ── Item renderer (shared for all levels) ────────────────────────────
+  function _renderItem(item, extraStyle) {
+    const ic  = item.level === 'red' ? 'r' : 'y';
+    const lbl = esc(item.rowLabel || item.label || '');
+    const raw = (item.notamRaw || '').trim();
+    let h = `<div class="notam-item"${extraStyle ? ` style="${extraStyle}"` : ''}>`;
+    h += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+    h += `<span class="notam-dot ${ic}"></span>`;
+    h += `<span class="notam-item-label">${lbl}</span>`;
+    if (raw) h += CHEV;
+    h += `</div>`;
+    if (raw) h += `<pre class="notam-raw-text" hidden>${esc(raw)}</pre>`;
+    h += `</div>`;
+    return h;
+  }
+
+  // ── Sub-group renderer (collapsible category inside a runway group) ───
+  // Single item → render directly without wrapper.
+  // Multiple items → collapsible sub-header with count.
+  const SUB_LABELS = {
+    CLOSED:    'Closed',
+    TKOF_MIN:  'Takeoff Minimums / ODP',
+    APPROACH:  'Approach / Navaid',
+    LIGHTING:  'Runway Lighting',
+    PROCEDURE: 'Procedure Changes',
+    OTHER:     'Other',
+  };
+
+  function _renderSubGroup(cat, items) {
+    if (!items.length) return '';
+    const worst  = items.reduce((w, i) => (_RANK[i.level] > _RANK[w]) ? i.level : w, 'green');
+    const dotCls = worst === 'red' ? 'r' : 'y';
+    if (items.length === 1) return _renderItem(items[0]);
+    // Multi-item: collapsible sub-group, indented body
+    let h = `<div class="notam-item">`;
+    h += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+    h += `<span class="notam-dot ${dotCls}"></span>`;
+    h += `<span class="notam-item-label" style="font-weight:600">${esc(SUB_LABELS[cat])} (${items.length})</span>`;
+    h += CHEV;
+    h += `</div>`;
+    h += `<div hidden style="padding-left:14px">`;
+    items.forEach(item => { h += _renderItem(item); });
+    h += `</div>`;
+    h += `</div>`;
+    return h;
+  }
+
   let h = '<div class="notam-groups">';
 
-  for (const [key, grp] of rwyGroups) {
-    if (!grp.items || !grp.items.length) continue;
-    // Filter to operational items only (red/yellow)
+  for (const key of sortedKeys) {
+    const grp = rwyGroups.get(key);
+    if (!grp || !grp.items) continue;
     const opItems = grp.items.filter(i => i.level === 'red' || i.level === 'yellow');
     if (!opItems.length) continue;
 
-    const grpWorst = opItems.reduce((w, i) =>
-      (_RANK[i.level] > _RANK[w]) ? i.level : w, 'green');
-    const dotCls = grpWorst === 'red' ? 'r' : 'y';
+    const grpWorst = opItems.reduce((w, i) => (_RANK[i.level] > _RANK[w]) ? i.level : w, 'green');
+    const dotCls   = grpWorst === 'red' ? 'r' : 'y';
 
-    // Single general item — no collapsible group wrapper, show flat with raw expand
-    if (grp.groupType === 'general' && opItems.length === 1) {
-      const item   = opItems[0];
-      const ic     = item.level === 'red' ? 'r' : 'y';
-      const lbl    = esc(item.rowLabel || item.label || '');
-      const rawTxt = (item.notamRaw || '').trim();
-      h += `<div class="notam-group"><div class="notam-item">`;
-      h += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
-      h += `<span class="notam-dot ${ic}"></span>`;
-      h += `<span class="notam-item-label">${lbl}</span>`;
-      if (rawTxt) h += CHEV;
-      h += `</div>`;
-      if (rawTxt) h += `<pre class="notam-raw-text" hidden>${esc(rawTxt)}</pre>`;
+    // ── Taxiway group — flat collapsible (unchanged) ──────────────────
+    if (grp.groupType === 'taxiway') {
+      h += `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+      h += `<span class="notam-dot ${dotCls}"></span>`;
+      h += `<span class="notam-group-label">Taxiway NOTAMs</span>${CHEV}</div>`;
+      h += `<div class="notam-group-body" hidden>`;
+      opItems.forEach(item => { h += _renderItem(item); });
       h += `</div></div>`;
       continue;
     }
 
-    // Group with collapsible body (runway or taxiway or multi-item general)
-    const grpLabel = grp.label || key.replace('RWY-', 'RWY ');
+    // ── General group — flat collapsible ──────────────────────────────
+    if (grp.groupType === 'general') {
+      if (opItems.length === 1) {
+        h += `<div class="notam-group">${_renderItem(opItems[0])}</div>`;
+      } else {
+        h += `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+        h += `<span class="notam-dot ${dotCls}"></span>`;
+        h += `<span class="notam-group-label">General NOTAMs</span>${CHEV}</div>`;
+        h += `<div class="notam-group-body" hidden>`;
+        opItems.forEach(item => { h += _renderItem(item); });
+        h += `</div></div>`;
+      }
+      continue;
+    }
+
+    // ── Runway group — hierarchical tree ──────────────────────────────
+    // Header: "RWY 09L" (clean runway label, no "Approach" prefix)
+    const rwyLabel = grp.rwy ? `RWY ${grp.rwy}` : key.replace('RWY-', 'RWY ');
+
+    // Bucket items by sub-category in display priority order
+    const buckets = { CLOSED: [], TKOF_MIN: [], APPROACH: [], LIGHTING: [], PROCEDURE: [], OTHER: [] };
+    opItems.forEach(item => { buckets[_subCat(item)].push(item); });
+
     h += `<div class="notam-group">`;
     h += `<div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
     h += `<span class="notam-dot ${dotCls}"></span>`;
-    h += `<span class="notam-group-label">${esc(grpLabel)}</span>`;
-    h += CHEV;
+    h += `<span class="notam-group-label">${esc(rwyLabel)}</span>${CHEV}`;
     h += `</div>`;
     h += `<div class="notam-group-body" hidden>`;
 
-    opItems.forEach(item => {
-      const ic     = item.level === 'red' ? 'r' : 'y';
-      const lbl    = esc(item.rowLabel || item.label || '');
-      const rawTxt = (item.notamRaw || '').trim();
-      h += `<div class="notam-item">`;
-      h += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
-      h += `<span class="notam-dot ${ic}"></span>`;
-      h += `<span class="notam-item-label">${lbl}</span>`;
-      if (rawTxt) h += CHEV;
-      h += `</div>`;
-      if (rawTxt) h += `<pre class="notam-raw-text" hidden>${esc(rawTxt)}</pre>`;
-      h += `</div>`;
-    });
+    // Render each sub-category in priority order
+    for (const cat of ['CLOSED', 'TKOF_MIN', 'APPROACH', 'LIGHTING', 'PROCEDURE', 'OTHER']) {
+      h += _renderSubGroup(cat, buckets[cat]);
+    }
 
-    h += `</div></div>`; // group-body + group
+    h += `</div></div>`;
   }
 
   h += '</div>';
@@ -8480,7 +9013,16 @@ function loadPdfJs() {
       <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
       Flights
     </button>
-    <span class="nav-title">Settings</span>
+    <span class="nav-brand-title" aria-label="PilotBrief — Settings">
+      <span class="nb-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label">Settings</span>
+    </span>
   </div>
   <div class="scroll-view">
 
@@ -8542,11 +9084,19 @@ function loadPdfJs() {
       <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
       Settings
     </button>
-    <span class="nav-title">Instructions</span>
+    <span class="nav-brand-title" aria-label="PilotBrief — Instructions">
+      <span class="nb-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label">Instructions</span>
+    </span>
   </div>
   <div class="scroll-view">
 
-    <!-- VERSION BADGE -->
     <div style="text-align:center;padding:var(--sp3) var(--sp4) 0;font-family:var(--font-mono);font-size:13px;color:var(--label3)" id="helpVersionInline"></div>
 
     <!-- DISCLAIMER -->
@@ -8568,7 +9118,7 @@ function loadPdfJs() {
           <p style="margin:0 0 8px;font-size:15px;color:var(--label)">Tap <strong>＋</strong> on the Flights screen to open the import screen. Three methods are supported:</p>
           <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>① PDF File:</strong> Tap the drop zone or drag an OFP PDF onto it. The app extracts and parses text using PDF.js.</p>
           <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>② iOS Share:</strong> In Files or Mail, open the OFP PDF → tap Share ↑ → select <em>Relief Pilot</em>. Add Relief Pilot to your Home Screen first to enable this method.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>③ Paste Text:</strong> Copy OFP text from any source and paste it into the text area at the bottom of the import screen, then tap Parse.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>③ Paste Text:</strong> Copy OFP text from any source and paste it into the text area at the bottom of the import screen, then tap Import Text.</p>
         </div>
       </div>
     </div>
@@ -8581,64 +9131,98 @@ function loadPdfJs() {
           <p style="margin:0 0 12px;font-size:15px;color:var(--label2)">After a flight is loaded, four tabs appear at the bottom of the screen. The <strong>FCIR/ASAP</strong> toggle is always visible in the top navigation bar.</p>
 
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M21 16l-9-4V4a2 2 0 00-4 0v8L3 16l1 2 7-2v3l-2 1v2l3-1 3 1v-2l-2-1v-3l7 2 1-2z"/></svg>
-            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Briefing</p><p style="margin:0;font-size:13px;color:var(--label2)">The crew briefing note. Displays flight header, OUT/ETA, OEI, STAB, fuel figures, and a NOTES section containing airport status, DDG, overflights, curfews, perishables alert, and the free-text Notes pad. Editable fields are shown in <span style="color:var(--tint)">tint colour with a dotted underline</span>.</p></div>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="9.5" stroke-width="1.4"/><path d="M12 4.5 L12 6M12 18 L12 19.5M4.5 12 L6 12M18 12 L19.5 12" stroke-width="1.1" opacity="0.55"/><path d="M12 6.5 L12.75 9.5 L16.8 11.2 L16.8 12.8 L12.75 11.8 L12 14.8 L12.75 16.2 L11.25 16.2 L12 14.8 L11.25 11.8 L7.2 12.8 L7.2 11.2 L11.25 9.5 L12 6.5Z" fill="currentColor" stroke="none"/></svg>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Briefing</p><p style="margin:0;font-size:13px;color:var(--label2)">Three-phase briefing note — <strong>Preflight</strong>, <strong>Enroute</strong>, and <strong>Descent</strong> — selectable with tab pills at the top. Each phase shows the fields relevant to that stage of flight. Editable fields are shown in <span style="color:var(--tint)">tint colour with a dotted underline</span>.</p></div>
           </div>
 
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="10" y="14" width="4" height="7" rx="0.5"/><path d="M9 14h6V9l1.5-1H7.5L9 9v5z"/><rect x="7" y="6" width="10" height="3" rx="1"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="5" y1="21" x2="19" y2="21"/></svg>
-            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Airports</p><p style="margin:0;font-size:13px;color:var(--label2)">Full airport cards for every airport on the release — origin, destination, all alternates, and CFS alternates. Weather and NOTAMs are auto-populated from the OFP. Each card shows the WX evaluation window, a colour-coded status badge, and a curfew row where applicable.</p></div>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Airports</p><p style="margin:0;font-size:13px;color:var(--label2)">Full airport cards for every airport on the release — origin, destination, all alternates, and CFS alternates. Weather and NOTAMs are auto-populated from the OFP. NOTAM items are organised by runway in numerical order, with a hierarchical tree of closure, approach/navaid, lighting, and procedure items.</p></div>
           </div>
 
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">OFP</p><p style="margin:0;font-size:13px;color:var(--label2)">The original OFP rendered page-by-page from the imported PDF. Falls back to raw text if no PDF was imported. Use for quick reference without leaving the app.</p></div>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">OFP</p><p style="margin:0;font-size:13px;color:var(--label2)">The original OFP rendered page-by-page from the imported PDF. Falls back to raw text if no PDF was imported.</p></div>
           </div>
 
           <div style="display:flex;align-items:flex-start;gap:12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><line x1="6" y1="8" x2="12" y2="16"/><line x1="18" y1="8" x2="12" y2="16"/><line x1="6" y1="8" x2="6" y2="11"/><line x1="18" y1="8" x2="18" y2="11"/></svg>
-            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Alternates</p><p style="margin:0;font-size:13px;color:var(--label2)">Alternate routes parsed from the OFP (e.g. Destination Primary, Initial Alternate). Routes are editable and can each be copied to clipboard individually.</p></div>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Alternates</p><p style="margin:0;font-size:13px;color:var(--label2)">Alternate routes parsed from the OFP. Routes are editable and can each be copied to clipboard. ETP coordinates appear at the bottom for ETOPS flights.</p></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- BRIEFING NOTE FIELDS -->
+    <!-- PREFLIGHT PHASE -->
     <div class="section">
-      <div class="section-header">Briefing Tab — Fields Explained</div>
+      <div class="section-header">Briefing — Preflight Phase</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Flight Header</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Flight ID</strong> (e.g. GTI500/15): Carrier + flight number + "/" + release date day. Turns <span style="color:var(--sys-yellow)">yellow</span> when FCIR/ASAP is active.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Date</strong>: Date of the release (day month year). Editable.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OUT / ETA</strong>: Scheduled off time from the OFP, used as the OUT baseline. Editing OUT automatically recalculates all downstream ETAs — destination and all alternates.</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>ETOPS block</strong> (ETOPS flights only): Displayed in tint colour at the right of the header. Shows the ETOPS authorisation (e.g. <em>ETOPS 60/180</em>) and the elapsed time to ETOPS airspace entry (<em>ETOPS ENTRY 06:12</em>), both parsed automatically from the OFP.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Flight ID</strong>: Carrier + flight number + "/" + release date day. Turns <span style="color:var(--sys-yellow)">yellow</span> when FCIR/ASAP is active.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OUT / IN</strong>: OUT is the OFP scheduled off-block time. Editing OUT recalculates all downstream ETAs. IN recalculates when the actual OFF time is entered on the Enroute phase.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>ETOPS block</strong> (ETOPS flights only): Shows ETOPS authorisation and elapsed time to ETOPS airspace entry, both parsed from the OFP.</p>
 
-          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">OEI &amp; STAB</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OEI</strong>: One Engine Inoperative takeoff procedure. When a TLR is present, select the departure runway from the picker to display the applicable EFP. Runways marked SPECIAL show the full procedure text; runways marked SEE CO CHART open a notepad for crew entry. Editable as a free-text field when no TLR is present.</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>STAB</strong>: Stabilizer trim setting (e.g. 4.5/UP). Always crew-entered.</p>
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Departure</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ATIS / PARK</strong>: Departure ATIS letter (tap to enter) and parking/gate notepad.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OEI</strong>: One Engine Inoperative takeoff procedure. When a TLR is parsed, tap to select the departure runway from the picker. SPECIAL runways show the full EFP text; SEE CO CHART runways open a notepad for crew entry.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>STAB</strong>: Stabilizer trim setting. Always crew-entered.</p>
 
-          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Fuel</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Block</strong>: Total fuel onboard at departure (OFP BLOCK field). Colour-coded by TOGW margin: <span style="color:var(--sys-green)">green</span> &gt;1,000 · <span style="color:var(--sys-yellow)">yellow</span> 500–1,000 · <span style="color:var(--sys-red)">red</span> &lt;500 lbs/kgs from structural limit.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>MIN</strong>: Minimum fuel required for dispatch (MINF field).</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FRES</strong>: Final reserve fuel.</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>GA</strong>: Go-around fuel. Always crew-entered.</p>
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Slot Time</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">When the OFP contains a wheels-up slot constraint, a <strong>Slot Time</strong> subcard appears showing the window (e.g. <em>0737Z – 0807Z</em>, <em>NOT BEFORE 0737Z</em>, or <em>BEFORE 0807Z</em>) parsed directly from the OFP remarks.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">OFP Fuel</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Block</strong>: Total fuel at departure. Colour-coded by TOGW margin: <span style="color:var(--sys-green)">green</span> &gt;1,000 · <span style="color:var(--sys-yellow)">yellow</span> 500–1,000 · <span style="color:var(--sys-red)">red</span> &lt;500 from structural limit.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>MIN / REMF</strong>: Minimum dispatch fuel and planned remaining fuel at destination.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FF ADJ</strong>: Appears when a CDL or MEL item carries an additional fuel flow adjustment (e.g. <em>+2.22%</em>). Shown in <span style="color:var(--sys-yellow)">yellow</span> for a penalty, green for a benefit.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--sys-red);font-weight:600">⚠ MTOW LTD BY VZFW/CK: Appears in red when the OFP indicates takeoff weight is limited by Zero Fuel Weight or Centre of Gravity constraints. Confirm with dispatch before departure.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">NOTES Section</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Airport status</strong>: One row per airport — origin, destination, all alternates, and CFS alternates. Each row shows a colour dot and up to three category badges evaluated within the arrival or departure window:</p>
-          <p style="margin:0 0 3px;font-size:15px;color:var(--label2);padding-left:12px"><strong>NOTAM</strong> — operational NOTAM trigger active within the ETA ±1 hr window</p>
-          <p style="margin:0 0 3px;font-size:15px;color:var(--label2);padding-left:12px"><strong>WX</strong> — ceiling, visibility, RVR, TEMPO, or significant wx within the window</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2);padding-left:12px"><strong>CURFEW</strong> — curfew or noise closure within 90 minutes of ETA</p>
-          <p style="margin:0 0 3px;font-size:15px"><span style="color:var(--sys-green)">●</span> <strong>Green</strong> — no issues detected in any category</p>
-          <p style="margin:0 0 3px;font-size:15px"><span style="color:var(--sys-yellow)">●</span> <strong>Yellow</strong> — advisory in one or more categories, review recommended</p>
-          <p style="margin:0 0 8px;font-size:15px"><span style="color:var(--sys-red)">●</span> <strong>Red</strong> — possible conflict with minimums, runway/navaid status, or curfew</p>
-          <p style="margin:0 0 3px;font-size:13px;color:var(--label3)">Origin airport is evaluated using the OUT time (OFP scheduled or crew-entered) as its window centre.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>DDG</strong>: MEL/CDL items parsed from the OFP. Cabin/fuselage (25-series) items are filtered out.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Airport status</strong>: One compact row per airport (origin, destination, alternates, CFS alternates). Each row shows a colour dot and badge category labels evaluated within the departure/arrival window: <strong>NOTAM</strong>, <strong>WX</strong>, <strong>CURFEW</strong>.</p>
+          <p style="margin:0 0 3px;font-size:15px"><span style="color:var(--sys-green)">●</span> <strong>Green</strong> — no issues · <span style="color:var(--sys-yellow)">●</span> <strong>Yellow</strong> — advisory · <span style="color:var(--sys-red)">●</span> <strong>Red</strong> — possible conflict</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2);margin-top:5px"><strong>DDG / CDL</strong>: MEL and CDL items parsed from the OFP. 25-series (NEF/cabin) items are filtered out. CDL items (C-prefix ATA codes) are marked with a <span style="color:var(--sys-green);font-weight:600">CDL</span> badge. Items with a TLR Takeoff or Both cross-reference carry a coloured TLR badge.</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Overflights</strong>: Permit numbers parsed from the release. Only shown when present.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Curfews</strong>: Airports with a curfew or closure window within 90 minutes of ETA (or already inside one) are listed here in <span style="color:var(--sys-yellow)">yellow</span> or <span style="color:var(--sys-red)">red</span>. Parsed from Company NOTAMs. Only shown when applicable.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Perishables</strong>: A banner reading PERISHABLES — SEE SP appears when the OFP indicates perishable cargo. Only shown when applicable.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Notes</strong>: Free-text notepad. Accepts keyboard input and Apple Pencil Scribble. Saved automatically per flight.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Curfews</strong>: Airports within 90 minutes of a curfew window listed in yellow or red. Parsed from Company NOTAMs.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Notes</strong>: Free-text notepad. Accepts keyboard and Apple Pencil Scribble.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENROUTE PHASE -->
+    <div class="section">
+      <div class="section-header">Briefing — Enroute Phase</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Enter the actual <strong>OFF</strong> time (wheels-up) to activate the enroute timeline. All computed times update from that moment.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>E.ENT</strong> (ETOPS flights): Computed ETOPS airspace entry time based on OFF + OFP elapsed time.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>RDA / POR</strong> (redispatch flights): Redispatch Action time (2 hrs before POR) and Point of Redispatch with its MINF fuel requirement, both computed from OFF time.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>CO RPT</strong>: Company position report schedule computed at 4-hour intervals from OFF. Reports that fall within the POR action window are struck through and annotated.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">A free-text <strong>Scratchpad</strong> occupies the right column for calculations, clearances, or ATC instructions.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESCENT PHASE -->
+    <div class="section">
+      <div class="section-header">Briefing — Descent Phase</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Airport</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">Displayed at the top of the descent card. Shows the selected airport's colour-coded status (dot + NOTAM/WX badge summary). When the release includes alternates, a <strong>chevron ▾</strong> opens a picker to switch between destination and any alternate.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>CAT II/III</strong>: If the OFP authorises CAT II or III approaches for the selected airport, the applicable runway list is shown below the status row (e.g. <em>CAT III - RWY 09C/27C</em>).</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Arrival</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">Arrival ATIS letter (tap to enter) and parking/gate notepad, independent of the Preflight departure ATIS.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Arrival Fuel</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">REMF (planned remaining fuel at destination), ALT 1 fuel, FRES (final reserve), and GA fuel. All parsed from the OFP. GA is crew-entered.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">DDG — Landing</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">DDG/MEL items that carry a TLR <span style="color:var(--tint);font-weight:600">Landing</span> or <span style="color:var(--sys-orange);font-weight:600">Takeoff &amp; Landing</span> cross-reference are pulled out of the full DDG list and displayed here as an arrival-specific reminder. CDL items are marked with a <span style="color:var(--sys-green);font-weight:600">CDL</span> badge.</p>
+
+          <p style="margin:0;font-size:15px;color:var(--label2)">A free-text <strong>Scratchpad</strong> is available for arrival calculations, clearance, or gate notes.</p>
         </div>
       </div>
     </div>
@@ -8649,11 +9233,18 @@ function loadPdfJs() {
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each airport card shows the role (ORIG, DEST, DEST ALT, EN ROUTE ALT, TKOF ALT, CFS ALT), ETA, and a colour-coded status badge from combined weather and NOTAM evaluation.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>WX Window</strong>: For all airports the evaluation window is ±1 hour of ETA — or OUT time for the origin. For CFS alternates, the window is the exact <em>WX WINDOW</em> published in the OFP Critical Fuel Scenario table.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather</strong>: Prevailing ceiling and visibility are evaluated against Open / Operational / Red thresholds (≥3,000 ft &amp; ≥5 SM = Open; &lt;1,000 ft or &lt;3 SM = Red). TEMPO, PROB40, RVR, windshear, and freezing precipitation are evaluated separately. Each condition appears as its own colour-coded row.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>NOTAMs — Grouped by runway / taxiway</strong>: Operational NOTAMs (red or yellow) are grouped by affected runway (e.g. <em>Approach RWY 24L</em>) or taxiway. Tap a group row to expand the list of individual triggers for that runway. Tap any trigger to reveal the full raw NOTAM text. All taxiway closures and restrictions are grouped together under <em>Taxiway NOTAMs</em>.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Editing</strong>: Tap the card header to expand the NOTAM and WX text areas. Paste or edit data here to supplement the OFP-extracted content. Changes are saved to the flight record.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Curfew row</strong>: When Company NOTAMs contain a curfew or closure window, a tappable row appears on the card. It shows the window times and how close the ETA falls, colour-coded by proximity.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>WX Window</strong>: ±1 hour of ETA for all airports. CFS alternates use the OFP-published WX WINDOW. Origin uses OUT time.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather</strong>: Prevailing ceiling/visibility evaluated against Open / Operational / Red thresholds. TEMPO, PROB40, RVR, windshear, and freezing precipitation are evaluated separately.</p>
+
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAMs — Runway tree</strong>: All runways appear in numerical order (04, 09, 10, 22, 27…). Each runway is a collapsible top-level entry. Within a runway, NOTAMs are organised into four priority tiers:</p>
+          <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-red)">●</span> <strong>Closed</strong> — runway or airport closure</p>
+          <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-red)">●</span> <strong>Approach / Navaid</strong> — ILS, GS, LOC, RNAV, GPS/GNSS, DME, marker beacons</p>
+          <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-yellow)">●</span> <strong>Runway Lighting</strong> — PAPI, VASI, ALS, REIL, RCLL, TDZ, HIRL, MIRL, lead-off lights</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-yellow)">●</span> <strong>Procedure Changes</strong> — IAP amendments, minimums raised, missed approach, STAR/SID changes</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">When two or more NOTAMs fall in the same tier, they collapse under a count label (e.g. <em>Approach / Navaid (3)</em>). Tap to expand and reveal individual items. Tap any item to show the raw NOTAM text.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Editing</strong>: Tap the card header to expand the NOTAM and WX text areas. Paste or edit data here to supplement OFP-extracted content.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Curfew row</strong>: Appears when Company NOTAMs contain a curfew window. Shows window times and proximity to ETA, colour-coded.</p>
         </div>
       </div>
     </div>
@@ -8663,20 +9254,20 @@ function loadPdfJs() {
       <div class="section-header">ETOPS &amp; Critical Fuel Scenario</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">On ETOPS flights, the OFP contains a <strong>Critical Fuel Scenario (CFS)</strong> section listing ETOPS alternate airports with ETP pairs and WX windows. These airports are automatically added alongside standard alternates and receive full airport cards with weather and NOTAM evaluation.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each CFS airport uses its OFP-published WX WINDOW rather than a computed ETA ±1 hour window. Return and continue (GO) airport roles are identified per ETP scenario.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)">The ETOPS authorisation (e.g. <em>ETOPS 60/180</em>) and ETOPS ENTRY elapsed time are parsed from the OFP and displayed in the Briefing tab flight header, right-aligned in tint colour.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">On ETOPS flights the OFP contains a <strong>Critical Fuel Scenario (CFS)</strong> section listing ETOPS alternates with ETP pairs and WX windows. These airports are automatically added and receive full airport cards.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each CFS airport uses the OFP-published WX WINDOW. The Enroute phase shows E.ENT (ETOPS entry time) computed from the actual OFF time.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">ETP coordinates (e.g. ETP1 N59 42.2 W036 03.6) are listed on the Alternates tab with a copy-to-clipboard button for each point.</p>
         </div>
       </div>
     </div>
 
-    <!-- EDITABLE FIELDS -->
+    <!-- EDITING -->
     <div class="section">
       <div class="section-header">Editing Values</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Any value displayed in <span style="color:var(--tint);text-decoration:underline dotted">tinted dotted-underline text</span> is editable. Tap it to open an edit popover. Editing <strong>OUT</strong> recalculates all downstream ETAs automatically. Other editable fields include: date, OEI, STAB, GA fuel, fuel figures, and the Notes pad.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)">Airport weather and NOTAM fields on each airport card are also editable — tap anywhere in the card body to open the edit view for that airport.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Any value shown in <span style="color:var(--tint);text-decoration:underline dotted">tinted dotted-underline text</span> is editable. Tap to open an edit popover. Editing <strong>OUT</strong> recalculates all downstream ETAs. Editing the actual <strong>OFF</strong> time on the Enroute phase recalculates the IN time using OFP trip time.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">Airport weather and NOTAM fields on each airport card are also editable — tap the card header to expand the input areas.</p>
         </div>
       </div>
     </div>
@@ -8686,10 +9277,10 @@ function loadPdfJs() {
       <div class="section-header">FCIR / ASAP Toggle</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">The <strong>FCIR/ASAP</strong> toggle sits in the navigation bar at the top of the flight screen. When active, the flight ID in the Briefing tab turns <span style="color:var(--sys-yellow);font-weight:600">yellow</span>, and the flight row in the Saved Flights list stays highlighted in yellow across sessions until the toggle is turned off.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Activating the toggle reveals a dedicated <strong>FCIR/ASAP Narrative</strong> notepad below the standard Notes field. Use it to record event details (description, times, observations). Tap the copy icon next to the narrative header to copy its contents to clipboard for pasting into your reporting system.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--sys-red);font-weight:600">⚠ Do not delete this flight entry until the FCIR/ASAP report has been submitted. The flight cannot be deleted while the toggle is ON.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)">To allow deletion: open the flight, turn off the FCIR/ASAP toggle, then return to Saved Flights.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">The <strong>FCIR/ASAP</strong> toggle sits in the navigation bar at the top of the flight screen. When active, the flight ID turns <span style="color:var(--sys-yellow);font-weight:600">yellow</span> and the flight row in the Saved Flights list stays highlighted until the toggle is turned off.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Activating the toggle reveals a <strong>FCIR/ASAP Narrative</strong> notepad on every phase. Record event details there and tap the copy icon to copy to clipboard for your reporting system.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--sys-red);font-weight:600">⚠ Do not delete this flight entry until the report has been submitted. The flight cannot be deleted while the toggle is ON.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">To allow deletion: open the flight, turn off the toggle, then return to Saved Flights.</p>
         </div>
       </div>
     </div>

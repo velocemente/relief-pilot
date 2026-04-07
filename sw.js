@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-//  Relief Pilot — Service Worker  v1.9.0-r3
+//  Relief Pilot — Service Worker  v1.9.5
 //
 //  Strategy: Offline-first (cache-first for everything)
 //  ─────────────────────────────────────────────────────
@@ -23,7 +23,7 @@
 // ═══════════════════════════════════════════════════════
 'use strict';
 
-const CACHE_NAME    = 'rp-v1.9.0-r3';
+const CACHE_NAME    = 'rp-v1.9.5';
 const PDFJS_VERSION = '3.11.174';
 
 // Everything the app needs to function offline.
