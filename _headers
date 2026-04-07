@@ -1,33 +1,33 @@
-# ═══════════════════════════════════════════════════════
-#  Relief Pilot — _headers (Netlify / Cloudflare Pages)
-#  Ensures correct MIME types, PWA headers, and security
-# ═══════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────
+# Relief Pilot — HTTP Headers
+# Processed automatically by Netlify and Cloudflare Pages.
+# For GitHub Pages these headers are applied at the CDN level;
+# the _headers file is not read directly but is kept for parity.
+# ─────────────────────────────────────────────────────────────────
 
-# ── Service Worker: must be served from root scope ──
-/sw.js
-  Content-Type: application/javascript; charset=utf-8
-  Cache-Control: no-cache, no-store, must-revalidate
-  Service-Worker-Allowed: /
-
-# ── Web App Manifest ──
-/manifest.json
-  Content-Type: application/manifest+json; charset=utf-8
-  Cache-Control: public, max-age=86400
-
-# ── Main app shell ──
-/index.html
-  Cache-Control: no-cache, no-store, must-revalidate
-  X-Content-Type-Options: nosniff
+# ── Security headers (all responses) ─────────────────────────────
+/*
   X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
   X-XSS-Protection: 1; mode=block
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
 
-# ── Icons and static assets ──
-/icons/*
-  Cache-Control: public, max-age=2592000, immutable
+# ── Service worker — must revalidate on every request ────────────
+# A stale sw.js would prevent clients from picking up new versions.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: application/javascript; charset=utf-8
 
-# ── Global security headers ──
-/*
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
+# ── App manifest ──────────────────────────────────────────────────
+/manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: application/manifest+json; charset=utf-8
+
+# ── App shell — always fetch fresh so SW update detection works ──
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# ── Immutable static assets (versioned by SW CACHE_NAME) ─────────
+/icons/*.png
+  Cache-Control: public, max-age=31536000, immutable
