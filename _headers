@@ -1,8 +1,9 @@
 # ─────────────────────────────────────────────────────────────────
-# Relief Pilot — HTTP Headers
+# PilotBrief — HTTP Headers  v1.9.5
+#
 # Processed automatically by Netlify and Cloudflare Pages.
-# For GitHub Pages these headers are applied at the CDN level;
-# the _headers file is not read directly but is kept for parity.
+# GitHub Pages does not read this file directly but it is kept
+# for parity when deploying to other platforms.
 # ─────────────────────────────────────────────────────────────────
 
 # ── Security headers (all responses) ─────────────────────────────
@@ -13,18 +14,18 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=()
 
-# ── Service worker — must revalidate on every request ────────────
-# A stale sw.js would prevent clients from picking up new versions.
+# ── Service worker — must never be served from cache ─────────────
+# A stale sw.js prevents clients picking up new app versions.
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate
   Content-Type: application/javascript; charset=utf-8
 
-# ── App manifest ──────────────────────────────────────────────────
+# ── PWA manifest ─────────────────────────────────────────────────
 /manifest.json
   Cache-Control: no-cache, no-store, must-revalidate
   Content-Type: application/manifest+json; charset=utf-8
 
-# ── App shell — always fetch fresh so SW update detection works ──
+# ── App shell — always revalidate so SW update detection works ───
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
 

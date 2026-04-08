@@ -1,12 +1,12 @@
 {
-  "name": "Relief Pilot",
-  "short_name": "Relief Pilot",
-  "description": "OFP briefing notes for relief and augmented crew",
+  "name": "PilotBrief",
+  "short_name": "PilotBrief",
+  "description": "OFP briefing notes for relief and augmented crew — Atlas Air / Polar Air Cargo",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f2f2f7",
-  "theme_color": "#007aff",
+  "background_color": "#1c1c1e",
+  "theme_color": "#002D62",
   "categories": ["utilities", "productivity"],
   "icons": [
     {

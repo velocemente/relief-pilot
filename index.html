@@ -630,7 +630,7 @@ body {
 /* Tab content panels — only active one visible */
 .flight-panel {
   display: none;
-  flex: 1;
+  flex: 1; min-height: 0;
   flex-direction: column;
   overflow: hidden;
   position: relative;
@@ -640,7 +640,7 @@ body {
 }
 /* briefing-outer and briefing-scroll live inside the note panel */
 .flight-panel .briefing-outer {
-  flex: 1;
+  flex: 1; min-height: 0;
 }
 
 #screen-settings {
@@ -737,7 +737,9 @@ body {
     letter-spacing: 0.01em;
   }
 }
-  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+/* Briefing panel: sticky header + scrolling body */
+.briefing-outer {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
 }
 .briefing-sticky-header {
   flex-shrink: 0;
@@ -746,7 +748,7 @@ body {
   border-bottom: 0.5px solid var(--sep);
 }
 .briefing-scroll {
-  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
   padding: var(--sp4)
     calc(var(--sar) + var(--sp5))
     calc(var(--sab) + var(--sp10))
