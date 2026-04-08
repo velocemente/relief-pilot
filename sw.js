@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-//  Relief Pilot — Service Worker  v1.9.5
+//  PilotBrief — Service Worker  v1.9.5
 //
 //  Strategy: Offline-first (cache-first for everything)
 //  ─────────────────────────────────────────────────────
@@ -23,7 +23,7 @@
 // ═══════════════════════════════════════════════════════
 'use strict';
 
-const CACHE_NAME    = 'rp-v1.9.5';
+const CACHE_NAME    = 'pb-v1.9.5';
 const PDFJS_VERSION = '3.11.174';
 
 // Everything the app needs to function offline.
@@ -41,21 +41,15 @@ const PRECACHE_URLS = [
 ];
 
 // ── Install ───────────────────────────────────────────
-// Pre-cache everything. If any asset fails, the SW install
-// is aborted so the old SW stays active — safer than
-// shipping a broken offline cache.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting())   // activate immediately, don't wait for tab reload
+      .then(() => self.skipWaiting())
   );
 });
 
 // ── Activate ─────────────────────────────────────────
-// Delete every cache that isn't this version.
-// This frees storage and ensures stale assets from old
-// SW versions are never served.
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
@@ -64,73 +58,44 @@ self.addEventListener('activate', event => {
           .filter(k => k !== CACHE_NAME)
           .map(k => caches.delete(k))
       ))
-      .then(() => self.clients.claim())  // take control of open tabs immediately
+      .then(() => self.clients.claim())
   );
 });
 
 // ── Fetch ─────────────────────────────────────────────
-// Cache-first for all requests.
-//
-// Flow:
-//   1. Check cache  → hit: return immediately (offline-safe)
-//   2. Cache miss   → fetch from network
-//                     → on success: cache + return
-//                     → on failure: return offline fallback
-//
-// This ensures:
-//   • The app shell always loads in airplane mode
-//   • pdf.js is available offline after first use
-//   • No fetch handler ever resolves to undefined (which
-//     would crash the browser's network stack)
+// Cache-first for all requests. Background revalidation for
+// same-origin assets keeps the cache fresh without blocking.
 self.addEventListener('fetch', event => {
-  // Only handle GET requests — POST/PUT/DELETE pass through
   if (event.request.method !== 'GET') return;
-
-  // Skip chrome-extension and non-http(s) requests
   const url = new URL(event.request.url);
   if (!url.protocol.startsWith('http')) return;
 
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) {
-        // Cache hit — return immediately.
-        // Trigger a background revalidation for same-origin assets
-        // so the cache stays fresh without blocking the user.
         if (url.origin === self.location.origin) {
           fetch(event.request)
             .then(response => {
               if (response && response.ok) {
-                caches.open(CACHE_NAME)
-                  .then(c => c.put(event.request, response));
+                caches.open(CACHE_NAME).then(c => c.put(event.request, response));
               }
             })
-            .catch(() => { /* network unavailable — fine, cached copy served */ });
+            .catch(() => {});
         }
         return cached;
       }
-
-      // Cache miss — fetch and cache
       return fetch(event.request)
         .then(response => {
-          // Only cache valid responses (not opaque/error responses)
           if (response && response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME)
-              .then(c => c.put(event.request, clone));
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => {
-          // Network failed and nothing in cache.
-          // Return a minimal offline fallback so the fetch handler
-          // never rejects — a rejected respondWith() causes a
-          // network error in the browser, which is worse than a
-          // graceful empty response.
-          return new Response('', {
-            status:  503,
-            headers: { 'Content-Type': 'text/plain' },
-          });
-        });
+        .catch(() => new Response('', {
+          status:  503,
+          headers: { 'Content-Type': 'text/plain' },
+        }));
     })
   );
 });
