@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-//  PilotBrief — Service Worker  v1.9.5
+//  PilotBrief — Service Worker  v1.9.6
 //
 //  Strategy: Offline-first (cache-first for everything)
 //  ─────────────────────────────────────────────────────
@@ -23,7 +23,8 @@
 // ═══════════════════════════════════════════════════════
 'use strict';
 
-const CACHE_NAME    = 'pb-v1.9.5';
+const CACHE_NAME    = 'pb-v1.9.6';   // bumped: Web Share Target support added
+const SHARE_RELAY   = 'pb-share-relay'; // ephemeral single-slot relay for shared PDFs
 const PDFJS_VERSION = '3.11.174';
 
 // Everything the app needs to function offline.
@@ -55,7 +56,7 @@ self.addEventListener('activate', event => {
     caches.keys()
       .then(keys => Promise.all(
         keys
-          .filter(k => k !== CACHE_NAME)
+          .filter(k => k !== CACHE_NAME && k !== SHARE_RELAY)
           .map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
@@ -65,9 +66,45 @@ self.addEventListener('activate', event => {
 // ── Fetch ─────────────────────────────────────────────
 // Cache-first for all requests. Background revalidation for
 // same-origin assets keeps the cache fresh without blocking.
+//
+// Share Target POST: intercept before the GET-only guard.
+// The manifest declares action="./?share-target" with method=POST.
+// iOS Safari sends the PDF as multipart/form-data when the user
+// picks PilotBrief from the system share sheet. We stash the bytes
+// in a dedicated relay cache and redirect to /?shared so the app
+// shell loads normally and consumes the pending file via
+// _consumeSharedPDF() in index.html.
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+
+  // ── Share Target relay ────────────────────────────────
+  if (event.request.method === 'POST' && url.searchParams.has('share-target')) {
+    event.respondWith(
+      event.request.formData().then(async formData => {
+        const file = formData.get('ofp_pdf');
+        if (file instanceof File && file.size > 0) {
+          const buf      = await file.arrayBuffer();
+          const filename = encodeURIComponent(file.name || 'OFP.pdf');
+          const relay    = await caches.open(SHARE_RELAY);
+          // Single-slot: overwrite any previously unread pending share.
+          await relay.put(
+            new Request('pb-pending-share'),
+            new Response(buf, {
+              headers: {
+                'Content-Type': 'application/pdf',
+                'X-PB-Filename': filename,
+              },
+            })
+          );
+        }
+        // Redirect to the app shell; ?shared signals the app to consume the relay.
+        return Response.redirect('./?shared', 303);
+      }).catch(() => Response.redirect('./?shared&err=relay', 303))
+    );
+    return;
+  }
+
+  if (event.request.method !== 'GET') return;
   if (!url.protocol.startsWith('http')) return;
 
   event.respondWith(
