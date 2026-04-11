@@ -736,6 +736,47 @@ body {
     font-size: 11px;
     letter-spacing: 0.01em;
   }
+
+  /* ── Secondary screens: same two-row treatment ────────────────
+     Import OFP / Settings / Help / Flights root                  */
+  .nav-secondary {
+    flex-wrap: wrap;
+    align-content: flex-start;
+    min-height: max(calc(var(--sat) + 96px), 104px);
+    padding-left:  max(calc(var(--sal) + var(--sp3)), 12px);
+    padding-right: max(calc(var(--sar) + var(--sp3)), 12px);
+    padding-bottom: 0;
+    row-gap: 0;
+  }
+  .nav-secondary .nav-brand-title {
+    position: static;
+    width: 100%;
+    order: -1;
+    justify-content: center;
+    align-items: center;
+    min-height: 44px;
+    padding-bottom: 0;
+    padding-top: max(calc(var(--sat) + 2px), 6px);
+  }
+  .nav-secondary .nav-back {
+    order: 1;
+    align-self: center;
+    padding-bottom: 0;
+    min-height: 44px;
+    font-size: 15px;
+  }
+  /* Flights root: add-button left, settings icon right on second row */
+  .nav-secondary .flights-add-btn {
+    order: 1;
+    align-self: center;
+    min-height: 44px;
+  }
+  .nav-secondary .icon-btn {
+    order: 1;
+    align-self: center;
+    min-height: 44px;
+    margin-left: auto;
+  }
 }
 /* Briefing panel: sticky header + scrolling body */
 .briefing-outer {
@@ -1119,6 +1160,7 @@ body {
   min-height: 44px;
   background: transparent;
   transition: background 0.12s;
+  flex-wrap: wrap;
 }
 .apt-curfew-row:active { background: var(--sys-bg3); }
 .apt-curfew-label {
@@ -1126,9 +1168,9 @@ body {
   flex-shrink: 0;
 }
 .apt-curfew-delta {
-  flex: 1; font-size: var(--type-overline); color: var(--label2);
-  font-family: var(--font-mono); text-align: right;
-  padding-right: var(--sp2);
+  flex: 1; min-width: 0; font-size: var(--type-overline); color: var(--label2);
+  text-align: right; padding-right: var(--sp2);
+  white-space: normal; word-break: break-word; overflow-wrap: anywhere;
 }
 
 
@@ -1471,6 +1513,32 @@ body {
 .enroute-scratch-col {
   flex: 1; min-width: 0; display: flex; flex-direction: column;
 }
+/* Narrow / Slide Over: stack times above scratchpad so neither is squeezed */
+@media (max-width: 400px) {
+  .enroute-split {
+    flex-direction: column;
+    min-height: unset;
+  }
+  .enroute-scratch-col {
+    min-height: 160px;
+  }
+  /* Narrow: show rest inside the split (below scratchpad), hide outer copy */
+  .rest-module-narrow  { display: block; margin-top: var(--sp3); }
+  .rest-module-regular { display: none; }
+  /* 4-pilot schedule: stack halves above quarters in narrow mode */
+  .rest-4pilot-grid { flex-direction: column; }
+}
+/* Regular: show rest as its own subcard, hide inner copy */
+@media (min-width: 401px) {
+  .rest-module-narrow  { display: none; }
+  .rest-module-regular { display: block; }
+}
+/* 4-pilot schedule columns — side-by-side in regular, stacked in narrow */
+.rest-4pilot-grid {
+  display: flex;
+  flex-direction: row;
+  gap: var(--sp3);
+}
 .enroute-scratchpad {
   flex: 1; width: 100%; min-height: 180px; resize: none;
   background: var(--fill4); color: var(--label);
@@ -1618,12 +1686,7 @@ body {
      SCREEN: IMPORT OFP
      ══════════════════════════════════════════════════════ -->
 <div class="screen" id="screen-import">
-  <div class="nav-bar">
-    <button class="nav-back" onclick="pop()" aria-label="Go back">
-      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
-      PilotBrief
-    </button>
-    <span class="nav-brand-title" aria-label="PilotBrief — Import OFP">
+  <div class="nav-bar nav-secondary">
       <span class="nb-icon">
         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
@@ -1686,7 +1749,7 @@ body {
      SCREEN: SAVED FLIGHTS
      ══════════════════════════════════════════════════════ -->
 <div class="screen is-root" id="screen-flights">
-  <div class="nav-bar" style="padding-top:calc(var(--sat) + 12px);min-height:calc(var(--sat) + 56px)">
+  <div class="nav-bar nav-secondary" style="padding-top:calc(var(--sat) + 12px);min-height:calc(var(--sat) + 56px)">
     <!-- Add New Flight button — right edge 60px left of centered title -->
     <button class="flights-add-btn" onclick="goToImport()" aria-label="Add new flight">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0">
@@ -1908,6 +1971,24 @@ body {
     <div class="oei-sheet-title">Select Airport</div>
     <div id="descentAptList"><!-- populated by openDescentAptPicker() --></div>
     <button class="oei-cancel-btn" onclick="closeDescentAptPicker()">Cancel</button>
+  </div>
+</div>
+
+<!-- Curfew detail — scrollable raw NOTAM text in a bottom sheet -->
+<div class="oei-overlay" id="curfewDetailOverlay" onclick="closeCurfewDetail(event)">
+  <div class="oei-sheet" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp3);flex-shrink:0">
+      <div class="oei-sheet-title" id="curfewDetailTitle" style="margin-bottom:0">Curfew</div>
+      <span id="curfewDetailDelta" style="font-size:13px;color:var(--label3)"></span>
+    </div>
+    <pre id="curfewDetailText"
+      style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+             font-family:var(--font-mono);font-size:13px;line-height:1.55;
+             color:var(--label);white-space:pre-wrap;word-break:break-word;
+             background:var(--fill4);border-radius:var(--r-md);
+             padding:var(--sp3);margin:0;min-height:80px">
+    </pre>
+    <button class="oei-cancel-btn" onclick="closeCurfewDetail()" style="margin-top:var(--sp3)">Done</button>
   </div>
 </div>
 
@@ -5108,6 +5189,11 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
       if (wLeg) active = nwOverlap(wLeg, etaMin);
     }
 
+    // Only create status items for NOTAMs inside the evaluation window.
+    // When the window cannot be determined (active === true, w === null),
+    // we conservatively include the NOTAM.
+    if (active === false) continue;
+
     const { slot, level, label, keyRe, rwy } =
       _classifyNotamSlot(nu, notamRaw, role, acftProfile.type || '', active);
 
@@ -5485,6 +5571,7 @@ const S = {
   //   coChartNote: crew-entered text for "SEE CO CHART" runways (SPECIAL + no proc)
   oeiData:[], oeiSelectedRwy:'',
   blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
+  crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
   // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
   //   code: ATA number string e.g. "36-12-02-01"
   //   desc: full description string (may be multi-line joined)
@@ -5550,6 +5637,7 @@ function resetStateForNewFlight() {
     oeiVal:'', stabTrim:'', gaFuel:'',
     oeiData:[], oeiSelectedRwy:'',
     blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
+    crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', togwActual:0, togwLimit:0,
     hasPerishables:false,
@@ -5630,6 +5718,42 @@ function recalcAllETAsFromOff(offZval) {
 // ═══════════════════════════════════════════════════════
 //  STORAGE
 // ═══════════════════════════════════════════════════════
+
+// ── IndexedDB PDF binary store ────────────────────────
+// Persists the raw PDF ArrayBuffer per flight so the OFP
+// viewer renders pages from the original PDF after reload.
+// localStorage quota (~5 MB) is too small for OFP PDFs.
+const _pdfDb = (() => {
+  let _db = null;
+  const _open = () => new Promise((res, rej) => {
+    if (_db) { res(_db); return; }
+    const req = indexedDB.open('pb_pdfs', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('pdfs');
+    req.onsuccess = e => { _db = e.target.result; res(_db); };
+    req.onerror   = e => rej(e.target.error);
+  });
+  return {
+    set: (key, buf) => {
+      if (!buf) return Promise.resolve();
+      return _open().then(db => new Promise((res, rej) => {
+        const tx = db.transaction('pdfs', 'readwrite');
+        tx.objectStore('pdfs').put(buf.slice(0), key); // slice to own the copy
+        tx.oncomplete = res;
+        tx.onerror = e => rej(e.target.error);
+      }));
+    },
+    get: (key) => _open().then(db => new Promise((res, rej) => {
+      const req = db.transaction('pdfs').objectStore('pdfs').get(key);
+      req.onsuccess = () => res(req.result || null);
+      req.onerror   = e => rej(e.target.error);
+    })),
+    del: (key) => _open().then(db => {
+      const tx = db.transaction('pdfs', 'readwrite');
+      tx.objectStore('pdfs').delete(key);
+    }).catch(() => {}),
+  };
+})();
+
 function getFlights() {
   try { return JSON.parse(localStorage.getItem('rp_flights') || '[]'); } catch(e) { return []; }
 }
@@ -5642,17 +5766,22 @@ function saveFlight() {
   const id = 'f_' + Date.now();
   const idx = flights.findIndex(f => f.fltNum === S.fltNum && f.date === S.date);
   const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state:{...S}, raw:pdfRawText.substring(0,10000), aptData: JSON.parse(JSON.stringify(airportData)) };
-  if (idx >= 0) { flights[idx] = {...entry, id: flights[idx].id}; }
+  const stableId = idx >= 0 ? flights[idx].id : entry.id;
+  if (idx >= 0) { flights[idx] = {...entry, id: stableId}; }
   else { flights.unshift(entry); }
   putFlights(flights);
+  // Persist PDF binary to IndexedDB (fire-and-forget — non-blocking)
+  if (pdfArrayBuffer) _pdfDb.set(stableId, pdfArrayBuffer).catch(() => {});
 }
 function deleteFlight(id) {
   // Block deletion if FCIR/ASAP is active — must be turned off first
+
   if (_fcirActive) {
     showToast('Turn off FCIR/ASAP toggle before deleting this flight.', 'error');
     return;
   }
   putFlights(getFlights().filter(f => f.id !== id));
+  _pdfDb.del(id);  // remove PDF binary from IndexedDB
   renderFlightList();
 }
 function clearOFPPanel() {
@@ -5672,7 +5801,7 @@ function loadFlight(entry) {
   // Restore state from saved entry
   Object.assign(S, entry.state || {});
   pdfRawText = entry.raw || '';
-  pdfArrayBuffer = null;   // saved flights don't store the PDF binary; fall back to text
+  pdfArrayBuffer = null;   // start null; async restore from IndexedDB below
   clearOFPPanel();         // wipe any canvas pages from the previously viewed flight
   _fcirActive = !!(S.fcirAsap);
   // Restore airport wx/notam data from saved entry
@@ -5689,6 +5818,20 @@ function loadFlight(entry) {
         window._flightDateISO = d.toISOString().slice(0,10);
       }
     } catch(e) {}
+  }
+  // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text
+  if (entry.id) {
+    _pdfDb.get(entry.id).then(buf => {
+      if (buf) {
+        pdfArrayBuffer = buf;
+        // If the OFP panel is currently visible, re-render it with the PDF
+        const ofpPanel = document.getElementById('fpanel-ofp');
+        if (ofpPanel && ofpPanel.classList.contains('active')) {
+          clearOFPPanel();
+          loadOFPPanel();
+        }
+      }
+    }).catch(() => {});
   }
   renderNote();
   push('screen-flight');
@@ -5980,6 +6123,7 @@ const PATTERNS = {
 
   // Trip time: "TRIP 158000 13.44" → captures HH and MM
   TRIP_TIME:    /TRIP\s+\d+\s+(\d{2})\.(\d{2})/,
+  TAXI_TIME:    /^TAXI\s+\d+\s+(\d{2})\.(\d{2})/m,
 
   // Perishables on board
   PERISHABLE:   /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES/i,
@@ -6347,6 +6491,46 @@ function _ofpRulesetParse(rawText) {
   const fresFuelRaw  = extractFuelField(PATTERNS.FRES_FUEL);
   const ballastM     = t.match(PATTERNS.BALLAST_FUEL);
   const ballastFuel  = ballastM ? parseInt(ballastM[1], 10) : null;
+
+  // ── Crew Members (Fit for Duty section) ──────────────────────────
+  const crewMembers = [];
+  (function parseCrew() {
+    const fitIdx = t.indexOf('Fit for Duty Affirmation');
+    if (fitIdx === -1) return;
+    const block = t.slice(fitIdx, Math.min(fitIdx + 3000, t.length));
+    // Handles all observed Atlas Air crew line formats:
+    //   "CA 448229 MAGGIO M .."          — standard
+    //   "* FO 456969 ERIKSSON E .."      — asterisk prefix (senior designee)
+    //   "* SEN FO 456942 BRAMLEY R .."   — asterisk + SEN prefix
+    //   "FO 459072 * SEN T .."           — asterisk SEN in name field (mid-line)
+    const re = /^\*?\s*(?:SEN\s+)?(CA|FO|DH|JS)\s+(?:(\d{6})\s+)?(\*\s*SEN|[A-Z][A-Z\s]*?)\s+([A-Z])\s+\.\./mg;
+    let m;
+    while ((m = re.exec(block)) !== null) {
+      const rawName = m[3].replace(/\s+$/, '');
+      if (rawName.includes('VERIFY')) continue;
+      const isSen = /^\*/.test(m[0].trimStart()) || /^\*?\s*SEN\s/i.test(m[0]) || /^\*\s*SEN$/i.test(rawName);
+      const displayName = isSen
+        ? `★ SEN ${m[4]}`
+        : `${rawName} ${m[4]}`;
+      crewMembers.push({
+        role:    m[1],
+        empNum:  m[2] || '',
+        lastName: rawName,
+        initial: m[4],
+        displayName,
+        active:  m[1] !== 'JS' && m[1] !== 'DH',
+        isSen,
+      });
+    }
+  })();
+
+  // ── TOC Elapsed Time ─────────────────────────────────────────────
+  let tocOffsetMins = null;
+  (function parseTOC() {
+    const re = /\b(?:[A-Z]\d*\s+|DCT\s+)?TOC\b\s*\r?\n[^\r\n]+\r?\n[^\r\n]*?\b(\d{2})\.(\d{2})\b/;
+    const m = t.match(re);
+    if (m) tocOffsetMins = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  })();
   const alt1FuelRaw  = (() => {
     const m = t.match(PATTERNS.ALT1_FUEL);
     return m ? String(parseInt(m[1], 10)) : '';
@@ -6368,6 +6552,8 @@ function _ofpRulesetParse(rawText) {
   // ── Trip time ─────────────────────────────────────────────────────
   const tripM = t.match(PATTERNS.TRIP_TIME);
   const tripMinutes = tripM ? elapsedToMins(tripM[1], tripM[2]) : null;
+  const taxiM = t.match(PATTERNS.TAXI_TIME);
+  const taxiMins = taxiM ? parseInt(taxiM[1],10)*60 + parseInt(taxiM[2],10) : null;
 
   // ── Perishables ───────────────────────────────────────────────────
   const hasPerishables = !!t.match(PATTERNS.PERISHABLE);
@@ -6740,6 +6926,7 @@ function _ofpRulesetParse(rawText) {
     etaDest,
     destEtaOffsetMins,
     tripMinutes,
+    taxiMins,
     etopsEntry,
     etopsSpec,
     etopsEntryMins,
@@ -6752,6 +6939,8 @@ function _ofpRulesetParse(rawText) {
     minfFuelRaw,
     fresFuelRaw,
     ballastFuel,
+    crewMembers,
+    tocOffsetMins,
     togwActual,
     togwLimit,
     hasPerishables,
@@ -6813,6 +7002,8 @@ function parseOFP() {
     minfFuel:   fuelK(result.minfFuelRaw),
     fresFuel:   fuelK(result.fresFuelRaw),
     ballastFuel: result.ballastFuel,
+    crewMembers:   result.crewMembers || [],
+    tocOffsetMins: result.tocOffsetMins,
     togwActual: result.togwActual,
     togwLimit:  result.togwLimit,
     ddgItems:   result.ddgItems,
@@ -6829,6 +7020,7 @@ function parseOFP() {
     addlFfAdj:      result.addlFfAdj,
     destEtaOffsetMins: result.destEtaOffsetMins,
     tripMinutes: result.tripMinutes,
+    taxiMins:    result.taxiMins,
     etopsEntry:  result.etopsEntry,
     etopsSpec:   result.etopsSpec,
     etpPoints:   result.etpPoints,
@@ -6844,6 +7036,8 @@ function parseOFP() {
     enrouteScratch:'', oeiVal:'', stabTrim:'', gaFuel:'',
     userNotes:'', fcirAsap:false, fcirNarrative:'',
   });
+  // Preserve crewVerified across re-imports; reset buffer only on first import
+  if (!S.crewVerified) S.crewRestBuffer = 60;
 
   renderNote();
   saveFlight();
@@ -6935,6 +7129,7 @@ function renderNote() {
     if (S.etopsEntry) sh += `<div class="etops-line">ETOPS ENTRY ${esc(S.etopsEntry)}</div>`;
     sh += `</div>`;
   }
+  sh += `<div class="flt-header-actions">${renderShareButton()}</div>`;
   sh += `</div>`;
   sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}</div>`;
   sh += `<div class="phase-tabs">`;
@@ -7217,11 +7412,411 @@ function renderEnroutePhase() {
   h += `<div class="enroute-scratch-col">`;
   h += `<div class="enroute-scratch-label">Scratchpad</div>`;
   h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Enroute scratchpad"></textarea>`;
+  // Narrow (≤400px): rest module stacks below scratchpad inside the split
+  h += `<div class="rest-module-narrow">${renderInflightRestModule()}</div>`;
   h += `</div>`; // enroute-scratch-col
   h += `</div>`; // enroute-split
   h += `</div></div>`; // subcard-body + subcard
+  // Regular (>400px): rest module as its own subcard below enroute times
+  h += `<div class="rest-module-regular">${renderInflightRestModule()}</div>`;
   h += renderFcirSubcard();
   return h;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INFLIGHT REST MODULE  v1.1.0  (14 CFR 121.467 — Augmented Crews)
+// ═══════════════════════════════════════════════════════════════════
+
+function calcInflightRest() {
+  const hasActualOff = S.offZ && S.offZ.length === 4;
+  const offZ  = hasActualOff ? S.offZ
+              : (S.outZ && S.outZ.length === 4) ? S.outZ : null;
+  const etaZ  = (S.etaDest && S.etaDest.length === 4) ? S.etaDest : null;
+  if (!offZ || !etaZ || S.tocOffsetMins === null) return null;
+  const toMin = hhmm => parseInt(hhmm.slice(0,2),10)*60 + parseInt(hhmm.slice(2,4),10);
+  const addM  = (hhmm, mins) => {
+    const t = (toMin(hhmm) + mins + 14400) % 1440;
+    return String(Math.floor(t/60)).padStart(2,'0') + String(t%60).padStart(2,'0');
+  };
+  const diffM = (a, b) => (toMin(b) - toMin(a) + 1440) % 1440;
+
+  // TOC baseline:
+  //   tocZOverride set → crew-entered TOC (highest priority)
+  //   OFF entered      → OFF + TOC_TOT-T  (elapsed measured from wheels-up)
+  //   OUT only         → OUT + taxi + TOC_TOT-T  (must add outbound taxi before elapsed)
+  const tocOffsetTotal = hasActualOff
+    ? S.tocOffsetMins
+    : S.tocOffsetMins + (S.taxiMins || 0);
+  const tocZ = (S.tocZOverride && S.tocZOverride.length === 4)
+    ? S.tocZOverride
+    : addM(offZ, tocOffsetTotal);
+  const restEndZ = addM(etaZ, -(S.crewRestBuffer || 60));
+  const totalMins = diffM(tocZ, restEndZ);
+  if (totalMins <= 0) return null;
+  const operatingCount = (S.crewMembers || [])
+    .filter(c => c.role !== 'JS' && c.role !== 'DH' && c.active !== false).length;
+  if (operatingCount < 3) return null;
+  function buildBlocks(n) {
+    const base = Math.floor(totalMins / n);
+    const rem  = totalMins - base * n;
+    const blocks = []; let cursor = tocZ;
+    for (let i = 0; i < n; i++) {
+      const dur = base + (i === n - 1 ? rem : 0);
+      const endZ = addM(cursor, dur);
+      blocks.push({ label: `Rest ${i+1}`, startZ: cursor, endZ, durationMins: dur });
+      cursor = endZ;
+    }
+    return blocks;
+  }
+  return {
+    tocZ, restEndZ, totalMins, operatingCount,
+    tocBasis: (S.tocZOverride && S.tocZOverride.length === 4) ? 'manual'
+            : hasActualOff ? 'off' : 'out',
+    blocks3: buildBlocks(3),
+    blocksH: operatingCount >= 4 ? buildBlocks(2) : null,
+    blocksQ: operatingCount >= 4 ? buildBlocks(4) : null,
+  };
+}
+
+function renderBlockList(blocks, fmtZ, fmtDur) {
+  let h = `<div style="display:flex;flex-direction:column;gap:var(--sp2)">`;
+  blocks.forEach(b => {
+    h += `<div style="display:grid;grid-template-columns:48px 1fr auto;align-items:center;
+            gap:var(--sp3);background:var(--fill4);border-radius:var(--r-sm);
+            padding:var(--sp2) var(--sp3)">`;
+    h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+            text-transform:uppercase;letter-spacing:0.04em">${esc(b.label)}</span>`;
+    h += `<span style="font-family:var(--font-mono);font-size:14px;color:var(--label);
+            font-weight:600;white-space:nowrap">
+            ${fmtZ(b.startZ)}&thinsp;→&thinsp;${fmtZ(b.endZ)}</span>`;
+    h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint);
+            font-weight:600;white-space:nowrap;text-align:right">
+            ${fmtDur(b.durationMins)}</span>`;
+    h += `</div>`;
+  });
+  h += `</div>`;
+  return h;
+}
+
+function renderBlockColumn(title, blocks, fmtZ, fmtDur) {
+  if (!blocks) return '';
+  let h = `<div style="background:var(--fill4);border-radius:var(--r-md);padding:var(--sp3)">`;
+  h += `<div style="display:flex;align-items:baseline;justify-content:space-between;
+          margin-bottom:var(--sp3)">`;
+  h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+          text-transform:uppercase;letter-spacing:0.05em">${title}</span>`;
+  h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint);
+          font-weight:600">${fmtDur(blocks[0].durationMins)}</span>`;
+  h += `</div>`;
+  blocks.forEach(b => {
+    h += `<div style="border-top:0.5px solid var(--sep);padding:var(--sp2) 0">`;
+    h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+            text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px">
+            ${esc(b.label)}</div>`;
+    h += `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:4px">`;
+    h += `<span style="font-family:var(--font-mono);font-size:13px;font-weight:600;
+            color:var(--label);white-space:nowrap">
+            ${fmtZ(b.startZ)}&thinsp;→&thinsp;${fmtZ(b.endZ)}</span>`;
+    h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label2);
+            white-space:nowrap">${fmtDur(b.durationMins)}</span>`;
+    h += `</div></div>`;
+  });
+  h += `</div>`;
+  return h;
+}
+
+function renderInflightRestModule() {
+  const offZ    = (S.offZ && S.offZ.length === 4) ? S.offZ
+                : (S.outZ && S.outZ.length === 4) ? S.outZ : null;
+  const hasOff  = !!offZ;
+  const hasTOC  = S.tocOffsetMins !== null;
+  const opCrew  = (S.crewMembers || []).filter(c => c.role !== 'JS' && c.role !== 'DH');
+  const opCount = opCrew.filter(c => c.active !== false).length;
+
+  // Do not show card for 2-crew operations
+  if (opCrew.length > 0 && opCount <= 2) return '';
+
+  const fmtZ   = hhmm => hhmm ? `${hhmm.slice(0,2)}:${hhmm.slice(2,4)}Z` : '——';
+  const fmtDur = mins  => (mins || mins === 0)
+    ? `${Math.floor(mins/60)}h ${String(mins%60).padStart(2,'0')}m` : '——';
+
+  const hasEnough = opCount >= 3;
+
+  const cardCollapsed = !!S.restCardCollapsed;
+  const CHEV_DN = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
+  const CHEV_RT = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>`;
+
+  let h = `<div class="subcard" id="inflightRestCard">`;
+
+  // Header — left: label, right: copy (when ready) + collapse chevron
+  h += `<div class="subcard-header" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleRestCard()">`;
+  h += `<span>Inflight Rest</span>`;
+  h += `<div style="display:flex;align-items:center;gap:var(--sp2)">`;
+  if (!cardCollapsed && hasOff && hasTOC && hasEnough) {
+    h += `<button class="icon-btn" style="width:28px;height:28px;flex-shrink:0"
+            onclick="event.stopPropagation();copyInflightRestLog()" aria-label="Copy inflight rest schedule">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg></button>`;
+  }
+  h += `<span style="color:var(--label3)">${cardCollapsed ? CHEV_RT : CHEV_DN}</span>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  if (cardCollapsed) {
+    h += `</div>`; // close subcard
+    return h;
+  }
+
+  h += `<div class="subcard-body" style="padding-bottom:var(--sp4)">`;
+
+  // Section 1: Operating crew chips
+  h += `<div style="margin-bottom:var(--sp3)">`;
+  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+          text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">
+          Operating Crew</div>`;
+  if (!opCrew.length) {
+    h += `<div style="font-size:15px;color:var(--label3)">Import OFP to load crew.</div>`;
+  } else {
+    h += `<div style="display:flex;flex-wrap:wrap;gap:var(--sp2);margin-bottom:var(--sp2)">`;
+    opCrew.forEach((c, idx) => {
+      const isActive = c.active !== false;
+      if (c.manual) {
+        // Manual crew: always active, show × remove button
+        h += `<div style="display:flex;align-items:center;gap:4px;
+                background:var(--fill3);border-radius:20px;padding:4px 6px 4px 12px;
+                min-height:32px;font-size:13px;font-family:var(--font);color:var(--label2)">
+                <span style="font-weight:700">FO</span>
+                <span>+ Crew</span>
+                <button onclick="removeManualCrew(${idx})" aria-label="Remove manual crew"
+                  style="width:20px;height:20px;border-radius:50%;background:var(--fill);
+                    border:0.5px solid var(--sep);color:var(--label3);font-size:13px;
+                    cursor:pointer;display:flex;align-items:center;justify-content:center;
+                    flex-shrink:0;margin-left:2px;line-height:1">×</button>
+              </div>`;
+      } else {
+        // Parsed crew: tap to toggle active/inactive
+        h += `<button onclick="toggleCrewMember(${idx})" aria-label="Toggle ${c.role}"
+                aria-pressed="${isActive}"
+                style="display:flex;align-items:center;gap:4px;
+                  background:${isActive ? 'var(--tint-bg)' : 'var(--fill3)'};
+                  color:${isActive ? 'var(--tint)' : 'var(--label3)'};
+                  border:none;border-radius:20px;padding:4px 12px;
+                  font-size:13px;font-family:var(--font);cursor:pointer;min-height:32px">
+                <span style="font-weight:700">${c.role}${c.isSen ? ' ★' : ''}</span>
+                <span>${esc(c.displayName)}</span>
+              </button>`;
+      }
+    });
+    h += `</div>`;
+    // + Add Crew button — always visible for manual correction
+    h += `<div style="display:flex;align-items:center;gap:var(--sp3);flex-wrap:wrap">`;
+    h += `<button onclick="addManualCrew()"
+              style="display:flex;align-items:center;gap:5px;background:none;
+                border:0.5px dashed var(--sep-opaque);border-radius:20px;
+                padding:4px 12px;font-size:13px;font-family:var(--font);
+                color:var(--label3);cursor:pointer;min-height:32px">
+              <span style="font-size:16px;line-height:1">+</span>
+              <span>Add Crew</span>
+            </button>`;
+    if (!S.crewVerified) {
+      h += `<span style="font-size:13px;color:var(--label3)">Confirm operating crew</span>`;
+      h += `<button onclick="verifyCrewList()"
+                style="background:var(--tint);color:#fff;border:none;border-radius:var(--r-sm);
+                  padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;
+                  min-height:32px;white-space:nowrap">Verify ✓</button>`;
+    } else {
+      h += `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="var(--sys-green)" stroke-width="2.5" stroke-linecap="round">
+              <path d="M5 12l5 5L20 7"/></svg>`;
+      h += `<span style="font-size:13px;color:var(--sys-green);font-weight:600">
+              ${opCount}-pilot confirmed</span>`;
+      h += `<button onclick="S.crewVerified=false;saveFlight();renderNote()"
+                style="background:none;border:none;color:var(--label3);font-size:13px;
+                  cursor:pointer;padding:0">Edit</button>`;
+    }
+    h += `</div>`;
+  }
+  h += `</div>`;
+
+  // Section 2: Rest window
+  h += `<div style="border-top:0.5px solid var(--sep);padding-top:var(--sp3);margin-bottom:var(--sp3)">`;
+  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+          text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">
+          Rest Window</div>`;
+  if (!hasOff) {
+    h += `<div style="font-size:15px;color:var(--label3)">Enter OFF time to calculate.</div>`;
+  } else if (!hasTOC) {
+    h += `<div style="font-size:15px;color:var(--sys-yellow)">⚠ TOC waypoint not found in OFP route table.</div>`;
+  } else {
+    const data = calcInflightRest();
+    if (!data) {
+      h += `<div style="font-size:15px;color:var(--label3)">Operating crew count insufficient (min 3).</div>`;
+    } else {
+      // Basis tag: manual override, OFF (actual), or OUT+taxi (planned)
+      const basisTag = data.tocBasis === 'manual'
+        ? `<span style="font-size:11px;font-family:var(--font-mono);color:var(--tint);background:var(--tint-bg);border-radius:4px;padding:1px 5px;flex-shrink:0">MANUAL</span>`
+        : data.tocBasis === 'off'
+        ? `<span style="font-size:11px;font-family:var(--font-mono);color:var(--sys-green);background:rgba(52,199,89,0.12);border-radius:4px;padding:1px 5px;flex-shrink:0">OFF</span>`
+        : `<span style="font-size:11px;font-family:var(--font-mono);color:var(--label3);background:var(--fill3);border-radius:4px;padding:1px 5px;flex-shrink:0">OUT${S.taxiMins ? '+'+S.taxiMins+'m taxi' : ''}</span>`;
+      h += `<div style="display:flex;align-items:baseline;gap:var(--sp3);
+              font-family:var(--font-mono);font-size:15px;flex-wrap:wrap">`;
+      h += `<span style="color:var(--label2);font-size:12px">TOC</span>`;
+      // TOC time — tappable to override
+      h += `<span class="ev" role="button" tabindex="0"
+              onclick="openEdit('tocZOverride')"
+              style="font-weight:700;color:${data.tocBasis === 'manual' ? 'var(--tint)' : 'var(--label)'};
+                     text-decoration:${data.tocBasis === 'manual' ? 'underline dotted' : 'none'}">
+              ${data.tocZ.slice(0,2)}:${data.tocZ.slice(2,4)}Z</span>`;
+      h += `<span style="color:var(--label4)">→</span>`;
+      h += `<span style="font-weight:700;color:var(--label)">${fmtZ(data.restEndZ)}</span>`;
+      h += `<span style="margin-left:auto;font-size:14px;color:var(--label2)">
+              ${fmtDur(data.totalMins)} total</span>`;
+      h += `</div>`;
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-top:var(--sp1)">${basisTag}`;
+      if (data.tocBasis === 'manual') {
+        h += `<button onclick="S.tocZOverride=null;saveFlight();renderNote()"
+                style="background:none;border:none;color:var(--label3);font-size:12px;cursor:pointer;padding:0">
+                Reset to computed</button>`;
+      } else if (data.tocBasis !== 'off') {
+        h += `<span style="font-size:12px;color:var(--label3)">Enter OFF time for precise TOC</span>`;
+      }
+      h += `</div>`;
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-top:var(--sp3)">`;
+      h += `<span style="font-size:13px;color:var(--label3)">Pre-landing</span>`;
+      h += `<button onclick="adjustBuffer(-10)" aria-label="Decrease buffer"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>`;
+      h += `<span class="ev" role="button" tabindex="0" onclick="openEdit('crewRestBuffer')"
+              style="font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--tint);
+                min-width:52px;text-align:center">${S.crewRestBuffer}min</span>`;
+      h += `<button onclick="adjustBuffer(+10)" aria-label="Increase buffer"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
+      h += `</div>`;
+    }
+  }
+  h += `</div>`;
+
+  // Section 3: Schedule — collapsible, 4-pilot has halves/quarters pill switcher
+  if (hasOff && hasTOC && hasEnough) {
+    const data = calcInflightRest();
+    if (data) {
+      const sv = S.restSchedView === 'quarters' ? 'quarters' : 'halves';
+
+      h += `<div style="border-top:0.5px solid var(--sep);padding-top:var(--sp3)">`;
+
+      // ── Header row: label + pill switcher (4-pilot only) ──
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-bottom:var(--sp3)">`;
+      if (data.operatingCount === 3) {
+        h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+                text-transform:uppercase;letter-spacing:0.05em;flex:1">
+                Schedule — ${fmtDur(data.blocks3[0].durationMins)}/crew</span>`;
+      } else {
+        h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+                text-transform:uppercase;letter-spacing:0.05em">Schedule</span>`;
+        h += `<div style="display:flex;background:var(--fill3);border-radius:20px;padding:2px;gap:2px;margin-left:var(--sp2)">`;
+        h += `<button onclick="setRestSchedView('halves')"
+                style="background:${sv==='halves'?'var(--sys-bg2)':'none'};
+                  color:${sv==='halves'?'var(--label)':'var(--label3)'};
+                  border:none;border-radius:18px;padding:3px 10px;font-size:12px;font-weight:${sv==='halves'?'600':'400'};
+                  cursor:pointer;transition:all 0.15s;white-space:nowrap">
+                Halves</button>`;
+        h += `<button onclick="setRestSchedView('quarters')"
+                style="background:${sv==='quarters'?'var(--sys-bg2)':'none'};
+                  color:${sv==='quarters'?'var(--label)':'var(--label3)'};
+                  border:none;border-radius:18px;padding:3px 10px;font-size:12px;font-weight:${sv==='quarters'?'600':'400'};
+                  cursor:pointer;transition:all 0.15s;white-space:nowrap">
+                Quarters</button>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+
+      // ── Schedule blocks ──
+      if (data.operatingCount === 3) {
+        h += renderBlockList(data.blocks3, fmtZ, fmtDur);
+      } else {
+        if (sv === 'halves') {
+          h += renderBlockColumn('Halves', data.blocksH, fmtZ, fmtDur);
+        } else {
+          h += renderBlockColumn('Quarters', data.blocksQ, fmtZ, fmtDur);
+        }
+      }
+
+      h += `</div>`;
+    }
+  }
+
+  h += `</div></div>`;  // subcard-body + subcard
+  return h;
+}
+
+// ── Inflight Rest interaction handlers ─────────────────────────────
+function setRestSchedView(v) {
+  S.restSchedView = (v === 'quarters') ? 'quarters' : 'halves';
+  saveFlight(); renderNote();
+}
+function toggleRestCard() {
+  S.restCardCollapsed = !S.restCardCollapsed;
+  saveFlight(); renderNote();
+}
+function toggleCrewMember(idx) {
+  const c = (S.crewMembers || [])[idx];
+  if (!c) return;
+  const activeCount = S.crewMembers.filter(
+    m => m.role !== 'JS' && m.role !== 'DH' && m.active !== false).length;
+  if (c.active !== false && activeCount <= 3) {
+    showToast('Minimum 3 operating crew required', 'info'); return;
+  }
+  c.active = (c.active === false) ? true : false;
+  S.crewVerified = false; saveFlight(); renderNote();
+}
+function verifyCrewList() { S.crewVerified = true; saveFlight(); renderNote(); }
+function adjustBuffer(deltaMins) {
+  const next = (S.crewRestBuffer || 60) + deltaMins;
+  if (next < 0 || next > 180) return;
+  S.crewRestBuffer = next; saveFlight(); renderNote();
+}
+function addManualCrew() {
+  if (!S.crewMembers) S.crewMembers = [];
+  S.crewMembers.push({ role:'FO', empNum:'', lastName:'MANUAL', initial:'',
+                       displayName:'+ CREW', active:true, manual:true });
+  S.crewVerified = false; saveFlight(); renderNote();
+}
+function removeManualCrew(idx) {
+  if (!S.crewMembers || !S.crewMembers[idx]) return;
+  S.crewMembers.splice(idx, 1);
+  S.crewVerified = false; saveFlight(); renderNote();
+}
+function copyInflightRestLog() {
+  const data = calcInflightRest();
+  if (!data) { showToast('No schedule to copy', 'info'); return; }
+  const fmtZ   = hhmm => hhmm ? `${hhmm.slice(0,2)}:${hhmm.slice(2,4)}Z` : '——';
+  const fmtDur = mins  => `${Math.floor(mins/60)}h ${String(mins%60).padStart(2,'0')}m`;
+  const lines = [
+    `INFLIGHT REST  ${S.fltNum || ''}  ${S.date || ''}`,
+    `TOC: ${fmtZ(data.tocZ)}  End: ${fmtZ(data.restEndZ)}  Total: ${fmtDur(data.totalMins)}`,
+    `Pre-landing buffer: ${S.crewRestBuffer}min`, '',
+  ];
+  if (data.operatingCount === 3) {
+    lines.push(`THIRDS — ${fmtDur(data.blocks3[0].durationMins)}/crew`);
+    data.blocks3.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+  } else {
+    lines.push(`HALVES — ${fmtDur(data.blocksH[0].durationMins)}/crew`);
+    data.blocksH.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+    lines.push('', `QUARTERS — ${fmtDur(data.blocksQ[0].durationMins)}/crew`);
+    data.blocksQ.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+  }
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => showToast('✓ Rest schedule copied', 'ok'))
+    .catch(() => showToast('Copy failed', 'err'));
 }
 
 // ── DESCENT PHASE ─────────────────────────────────────────────────────────
@@ -7796,6 +8391,8 @@ const FIELD_LABELS = {
   preAtisLetter:'Departure ATIS Letter',
   descAtisLetter:'Arrival ATIS Letter',
   destRemf:'REMF at Destination', alt1Fuel:'ALT 1 Fuel',
+  crewRestBuffer:'Pre-landing buffer (minutes, 0–180)',
+  tocZOverride:'TOC Time (HHMM Z) — overrides computed TOC',
 };
 const NUM_FIELDS = new Set(['outZ','etaDest','offZ','destRemf','alt1Fuel']);
 let _editField = null;
@@ -7813,16 +8410,17 @@ function openEdit(field) {
 
 function confirmEdit() {
   if (!_editField) return;
-  // Curfew detail read-only modal — just close and reset input styling
-  if (_editField === '__curfew__') {
-    const inp = document.getElementById('editInput');
-    inp.readOnly = false;
-    inp.style.cssText = '';
-    _editField = null;
-    document.getElementById('editOverlay').classList.remove('open');
-    return;
-  }
   let val = document.getElementById('editInput').value.trim();
+  if (_editField === 'crewRestBuffer') {
+    const parsed = parseInt(val.replace(/\D/g,''), 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 180) S.crewRestBuffer = parsed;
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
+  if (_editField === 'tocZOverride') {
+    const cleaned = val.replace(/\D/g,'').slice(0,4);
+    S.tocZOverride = cleaned.length === 4 ? cleaned : null; // null clears override
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
   if (NUM_FIELDS.has(_editField)) {
     val = val.replace(/\D/g,'').slice(0,4);
   }
@@ -8095,13 +8693,13 @@ function buildAirportCards() {
     let wxWindowStr = '';
     if (apt.wxWindow) {
       // CFS airport — show OFP window verbatim (already "HHMMz-HHMMZ")
-      wxWindowStr = `WX ${apt.wxWindow.replace('Z-','Z–')}`;
+      wxWindowStr = `EVAL ${apt.wxWindow.replace('Z-','Z–')}`;
     } else if (apt.eta && apt.eta.length === 4) {
       const em = parseInt(apt.eta.slice(0,2))*60 + parseInt(apt.eta.slice(2,4));
       const wStart = (em - 60 + 1440) % 1440;
       const wEnd   = (em + 60) % 1440;
       const fmt4 = n => String(Math.floor(n/60)).padStart(2,'0') + String(n%60).padStart(2,'0');
-      wxWindowStr = `WX ${fmt4(wStart)}–${fmt4(wEnd)}Z`;
+      wxWindowStr = `EVAL ${fmt4(wStart)}–${fmt4(wEnd)}Z`;
     }
 
     // ── Curfew evaluation for this airport ──
@@ -8174,21 +8772,23 @@ function buildAirportCards() {
 function showCurfewDetail(icao) {
   const cf = evalCurfew(icao, (getAllAirports().find(a=>a.icao===icao)||{}).eta);
   if (!cf.detail) return;
-  const col = { green:'var(--sys-green)', yellow:'var(--sys-yellow)', red:'var(--sys-red)' }[cf.color] || 'var(--label1)';
-  const deltaStr = cf.delta === 0 ? 'ETA is inside a curfew window'
+  const col = { green:'var(--sys-green)', yellow:'var(--sys-yellow)', red:'var(--sys-red)' }[cf.color] || 'var(--label)';
+  const deltaStr = cf.delta === 0 ? 'ETA inside curfew window'
     : cf.delta == null ? ''
-    : (() => { const h=Math.floor(cf.delta/60),m=cf.delta%60; return (h?`${h} hr `:'')+(m?`${m} min `:'')+`to nearest curfew boundary`; })();
-  // Reuse the edit overlay as a read-only detail sheet
-  document.getElementById('editLabel').textContent = `${icao} — Curfew`;
-  const inp = document.getElementById('editInput');
-  inp.value = cf.detail;
-  inp.readOnly = true;
-  inp.style.cssText = 'font-family:var(--font-mono);font-size:13px;height:auto;min-height:120px;color:'+col+';background:transparent;border:none;resize:none;outline:none;padding:0;width:100%';
-  // Swap confirm button to "Done" only
-  const overlay = document.getElementById('editOverlay');
-  overlay.classList.add('open');
-  // Patch confirm to just close
-  _editField = '__curfew__';
+    : (() => { const h=Math.floor(cf.delta/60),m=cf.delta%60; return (h?`${h} hr `:'')+(m?`${m} min `:'')+`to curfew`; })();
+
+  const title = document.getElementById('curfewDetailTitle');
+  const delta = document.getElementById('curfewDetailDelta');
+  const pre   = document.getElementById('curfewDetailText');
+  if (title) { title.textContent = `${icao} — Curfew`; title.style.color = col; }
+  if (delta) delta.textContent = deltaStr;
+  if (pre)   pre.textContent   = cf.detail;
+  document.getElementById('curfewDetailOverlay').classList.add('open');
+}
+
+function closeCurfewDetail(e) {
+  if (e && e.target !== document.getElementById('curfewDetailOverlay')) return;
+  document.getElementById('curfewDetailOverlay').classList.remove('open');
 }
 
 function toggleAptInputs(icao) {
@@ -8949,6 +9549,256 @@ function copyNote() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// iOS SHARE MODULE  v1.0.0
+// [A] composeShareText — plain-text briefing from S state (all phases)
+// [B] shareNote        — Web Share API dispatcher + clipboard fallback
+// [C] renderShareButton — icon button HTML injected by renderNote()
+// ═══════════════════════════════════════════════════════════════════
+
+// ── [A] composeShareText() ────────────────────────────────────────
+function composeShareText() {
+  const val  = v => (v && String(v).trim()) ? String(v).trim() : null;
+  const fmtZ = hhmm => (hhmm && hhmm.length === 4)
+    ? `${hhmm.slice(0,2)}:${hhmm.slice(2,4)}Z` : null;
+  const fmtDur = mins => {
+    const h = Math.floor(mins / 60);
+    const m = String(mins % 60).padStart(2, '0');
+    return `${h}h ${m}m`;
+  };
+  const ln  = (label, v) => v ? `  ${label}: ${v}` : null;
+  const sep = label => `\n\u2500\u2500 ${label.toUpperCase()} \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n`;
+
+  const lines = [];
+
+  // ── Flight identity ──
+  const fltId = val(S.fltNum)   || '------';
+  const date  = val(S.date)     || '--';
+  const orig  = val(S.origIcao) || '????';
+  const dest  = val(S.destIcao) || '????';
+  lines.push(`PILOTBRIEF  ${fltId}  ${date}`);
+  lines.push(`${orig} \u2192 ${dest}`);
+  const timeParts = [
+    S.outZ    ? `OUT: ${fmtZ(S.outZ)}`    : null,
+    S.etaDest ? `IN: ${fmtZ(S.etaDest)}`  : null,
+  ].filter(Boolean);
+  if (timeParts.length) lines.push(timeParts.join('  '));
+  if (val(S.etopsSpec))  lines.push(`ETOPS: ${S.etopsSpec}`);
+  if (val(S.etopsEntry)) lines.push(`ETOPS ENTRY: ${S.etopsEntry}`);
+  if (val(S.acftType))   lines.push(`ACFT: ${S.acftType}`);
+
+  // ── PREFLIGHT ──
+  lines.push(sep('Preflight'));
+
+  const fuelParts = [
+    val(S.blockFuel) ? `Block: ${S.blockFuel}` : null,
+    val(S.minfFuel)  ? `MINF: ${S.minfFuel}`   : null,
+    val(S.fresFuel)  ? `FRES: ${S.fresFuel}`   : null,
+    (S.ballastFuel != null && val(String(S.ballastFuel))) ? `Ballast: ${S.ballastFuel}` : null,
+  ].filter(Boolean);
+  if (fuelParts.length) lines.push('FUEL\n  ' + fuelParts.join('  '));
+
+  if (S.togwActual || S.togwLimit)
+    lines.push(`  TOGW: ${S.togwActual || '?'} / ${S.togwLimit || '?'} (ACT / LIM)${
+      S.hasVzfwCkLimit ? '  \u26a0 VZFW/CK LIMITED' : ''}`);
+  if (val(S.stabTrim)) lines.push(ln('STAB TRIM', S.stabTrim));
+  if (val(S.gaFuel))   lines.push(ln('GA FUEL',   S.gaFuel));
+
+  if (S.oeiData && S.oeiData.length) {
+    lines.push('OEI EFP');
+    S.oeiData.forEach(o => {
+      const p = [`RWY ${o.rwy}`];
+      if (o.special)                   p.push('SPECIAL');
+      if (o.efp && o.efp !== 'SPECIAL') p.push(o.efp);
+      if (o.proc)                       p.push(`(${o.proc})`);
+      lines.push('  ' + p.join('  '));
+    });
+  }
+
+  if (val(S.slotTime)) lines.push(ln('SLOT', fmtZ(S.slotTime) || S.slotTime));
+
+  if (S.ddgItems && S.ddgItems.length) {
+    lines.push('DDG/MEL');
+    S.ddgItems.forEach(d =>
+      lines.push(`  ${d.code} \u2014 ${d.desc}${d.tlr ? ` [TLR: ${d.tlr}]` : ''}`)
+    );
+  } else if (val(S.melItems)) {
+    lines.push('MEL/DDG\n  ' + S.melItems);
+  }
+
+  if (val(S.overflightPerms))
+    lines.push('OVFLT PERMS\n  ' + S.overflightPerms.replace(/\n/g, '\n  '));
+
+  const cargo = [
+    S.hasPerishables        ? 'PERISHABLES ABOARD'      : null,
+    S.hasTemperatureControl ? 'TEMPERATURE CONTROL REQ' : null,
+  ].filter(Boolean);
+  if (cargo.length) lines.push(ln('CARGO', cargo.join(' / ')));
+
+  if (val(S.preAtisLetter) || val(S.preAtisNotes))
+    lines.push(ln('DEP ATIS',
+      [val(S.preAtisLetter), val(S.preAtisNotes)].filter(Boolean).join('  ')));
+  if (val(S.preParkingNotes)) lines.push(ln('DEP PARKING', S.preParkingNotes));
+  if (val(S.userNotes))
+    lines.push('NOTES\n  ' + S.userNotes.replace(/\n/g, '\n  '));
+
+  // ── ENROUTE ──
+  lines.push(sep('Enroute'));
+
+  if (val(S.porWpt)) {
+    const porParts = [`POR: ${S.porWpt}`];
+    if (val(S.porMinf)) porParts.push(`MINF: ${S.porMinf}`);
+    lines.push(porParts.join('  '));
+  }
+
+  // Inflight rest (requires inflight-rest-module)
+  if (typeof calcInflightRest === 'function') {
+    const rest = calcInflightRest();
+    if (rest) {
+      lines.push(`INFLIGHT REST  TOC ${fmtZ(rest.tocZ)} \u2192 ${fmtZ(rest.restEndZ)}  ${fmtDur(rest.totalMins)}`);
+      lines.push(`  Buffer: ${S.crewRestBuffer || 60}min  Crew: ${rest.operatingCount}`);
+      if (rest.operatingCount === 3 && rest.blocks3) {
+        lines.push('  THIRDS');
+        rest.blocks3.forEach(b =>
+          lines.push(`    ${b.label}  ${fmtZ(b.startZ)} \u2192 ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+      } else {
+        if (rest.blocksH) {
+          lines.push('  HALVES');
+          rest.blocksH.forEach(b =>
+            lines.push(`    ${b.label}  ${fmtZ(b.startZ)} \u2192 ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+        }
+        if (rest.blocksQ) {
+          lines.push('  QUARTERS');
+          rest.blocksQ.forEach(b =>
+            lines.push(`    ${b.label}  ${fmtZ(b.startZ)} \u2192 ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+        }
+      }
+    }
+  }
+
+  if (val(S.enrouteScratch))
+    lines.push('ENROUTE NOTES\n  ' + S.enrouteScratch.replace(/\n/g, '\n  '));
+
+  if (S.etpPoints && S.etpPoints.length) {
+    lines.push('ETP COORDINATES');
+    S.etpPoints.forEach(p => lines.push(`  ${p.name}  ${p.lat} ${p.lon}`));
+  }
+
+  if (S.altRoutes && S.altRoutes.length) {
+    lines.push('ALTERNATE ROUTES');
+    S.altRoutes.forEach((r, i) => {
+      const title = val(r.title) || `Alt ${i + 1}`;
+      lines.push(`  ${title}${val(r.mora) ? `  MORA ${r.mora}` : ''}`);
+      if (val(r.route)) lines.push(`    ${r.route}`);
+    });
+  }
+
+  // ── DESCENT ──
+  lines.push(sep('Descent'));
+
+  lines.push(`AIRPORT: ${val(S.descentAirport) || dest}`);
+
+  const arrFuelParts = [
+    val(S.destRemf) ? `REMF: ${S.destRemf}` : null,
+    val(S.alt1Fuel) ? `ALT1: ${S.alt1Fuel}` : null,
+  ].filter(Boolean);
+  if (arrFuelParts.length) lines.push('ARR FUEL\n  ' + arrFuelParts.join('  '));
+
+  if (val(S.descAtisLetter) || val(S.descAtisNotes))
+    lines.push(ln('ARR ATIS',
+      [val(S.descAtisLetter), val(S.descAtisNotes)].filter(Boolean).join('  ')));
+  if (val(S.descParkingNotes)) lines.push(ln('ARR PARKING', S.descParkingNotes));
+
+  if (S.fcirAsap && val(S.fcirNarrative))
+    lines.push('\u26a0 FCIR/ASAP NARRATIVE\n  ' + S.fcirNarrative.replace(/\n/g, '\n  '));
+
+  // ── Footer ──
+  const now = new Date();
+  const hh = String(now.getUTCHours()).padStart(2,'0');
+  const mm = String(now.getUTCMinutes()).padStart(2,'0');
+  const dd = String(now.getUTCDate()).padStart(2,'0');
+  const mo = ['JAN','FEB','MAR','APR','MAY','JUN',
+               'JUL','AUG','SEP','OCT','NOV','DEC'][now.getUTCMonth()];
+  const yr = String(now.getUTCFullYear()).slice(2);
+  lines.push(`\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
+  lines.push(`Generated by PilotBrief  ${dd}${mo}${yr} ${hh}:${mm}Z`);
+
+  return lines.filter(l => l !== null).join('\n');
+}
+
+// ── [B] shareNote() ───────────────────────────────────────────────
+function shareNote() {
+  if (!S.fltNum && !S.date) { showToast('info', 'No flight loaded'); return; }
+
+  const text  = composeShareText();
+  const title = `${S.fltNum || 'PilotBrief'}  ${S.origIcao || ''}\u2192${S.destIcao || ''}  ${S.date || ''}`.trim();
+
+  // Web Share API — Home Screen PWA / Android Chrome
+  if (navigator.share && navigator.canShare && navigator.canShare({ title, text })) {
+    navigator.share({ title, text })
+      .catch(err => {
+        if (err && err.name !== 'AbortError')
+          showToast('err', 'Share failed \u2014 ' + err.message);
+      });
+    return;
+  }
+
+  // Clipboard fallback — in-browser Safari / desktop
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => { showToast('ok', '\u2713 Briefing copied to clipboard'); _flashShareButton(); })
+      .catch(() => showToast('err', 'Copy failed \u2014 select text manually'));
+    return;
+  }
+
+  // execCommand last resort (legacy WebKit)
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('ok', '\u2713 Briefing copied to clipboard');
+    _flashShareButton();
+  } catch {
+    showToast('err', 'Share unavailable \u2014 install PilotBrief to Home Screen');
+  }
+}
+
+function _flashShareButton() {
+  const btn = document.querySelector('.pb-share-btn');
+  if (!btn) return;
+  const orig = btn.innerHTML;
+  btn.style.color = 'var(--sys-green)';
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    style="width:20px;height:20px"><path d="M5 12l5 5L20 7"/></svg>`;
+  setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1600);
+}
+
+// ── [C] renderShareButton() ───────────────────────────────────────
+function renderShareButton() {
+  return `<button
+    class="icon-btn pb-share-btn"
+    onclick="shareNote()"
+    aria-label="Share briefing"
+    title="Share briefing"
+    style="width:44px;height:44px;display:flex;align-items:center;
+           justify-content:center;flex-shrink:0;color:var(--tint);
+           background:none;border:none;
+           -webkit-tap-highlight-color:transparent;cursor:pointer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+      style="width:20px;height:20px" aria-hidden="true">
+      <path d="M9 12H4a1 1 0 00-1 1v7a1 1 0 001 1h16a1 1 0 001-1v-7a1 1 0 00-1-1h-5"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+      <polyline points="8 7 12 3 16 7"/>
+    </svg>
+  </button>`;
+}
+
 // ═══════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════
@@ -9010,7 +9860,7 @@ function loadPdfJs() {
      SCREEN: SETTINGS
      ══════════════════════════════════════════════════════ -->
 <div class="screen" id="screen-settings">
-  <div class="nav-bar">
+  <div class="nav-bar nav-secondary">
     <button class="nav-back" onclick="pop()" aria-label="Go back">
       <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
       Flights
@@ -9081,7 +9931,7 @@ function loadPdfJs() {
      SCREEN: HELP / INSTRUCTIONS
      ══════════════════════════════════════════════════════ -->
 <div class="screen" id="screen-help">
-  <div class="nav-bar">
+  <div class="nav-bar nav-secondary">
     <button class="nav-back" onclick="pop()" aria-label="Go back">
       <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
       Settings
@@ -9235,7 +10085,7 @@ function loadPdfJs() {
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each airport card shows the role (ORIG, DEST, DEST ALT, EN ROUTE ALT, TKOF ALT, CFS ALT), ETA, and a colour-coded status badge from combined weather and NOTAM evaluation.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>WX Window</strong>: ±1 hour of ETA for all airports. CFS alternates use the OFP-published WX WINDOW. Origin uses OUT time.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Eval Window</strong>: ±1 hour of ETA for all airports. CFS alternates use the OFP-published WX WINDOW. Origin uses OUT time.</p>
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather</strong>: Prevailing ceiling/visibility evaluated against Open / Operational / Red thresholds. TEMPO, PROB40, RVR, windshear, and freezing precipitation are evaluated separately.</p>
 
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAMs — Runway tree</strong>: All runways appear in numerical order (04, 09, 10, 22, 27…). Each runway is a collapsible top-level entry. Within a runway, NOTAMs are organised into four priority tiers:</p>
