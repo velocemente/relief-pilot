@@ -9812,7 +9812,45 @@ renderNote();
   });
 })();
 renderFlightList();
-if (new URLSearchParams(location.search).has('shared')) push('screen-import');
+// ── Web Share Target consumer ─────────────────────────────────────
+// When the SW relay redirects to /?shared, boot into the import
+// screen and immediately attempt to consume the pending PDF from the
+// relay cache written by the SW share target handler.
+if (new URLSearchParams(location.search).has('shared')) {
+  push('screen-import');
+  _consumeSharedPDF();
+}
+
+async function _consumeSharedPDF() {
+  // Relay cache is available only when a SW is controlling the page
+  // (i.e. the app is installed on Home Screen).
+  if (!('caches' in self)) {
+    // No Cache API — user may be in a plain browser tab; let them pick manually.
+    showToast('info', 'Open PilotBrief from Home Screen to use direct share');
+    return;
+  }
+  try {
+    const relay    = await caches.open('pb-share-relay');
+    const response = await relay.match('pb-pending-share');
+    if (!response) {
+      // No pending file — ?shared arrived without a SW relay (e.g. manual URL).
+      return;
+    }
+    // Consume immediately — single-slot relay is deleted after read.
+    const filename = decodeURIComponent(
+      response.headers.get('X-PB-Filename') || 'OFP.pdf'
+    );
+    const buf  = await response.arrayBuffer();
+    await relay.delete('pb-pending-share');
+
+    const blob = new Blob([buf], { type: 'application/pdf' });
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    showToast('info', `Loading shared OFP: ${filename}\u2026`);
+    await processPDF(file);
+  } catch (err) {
+    showToast('err', 'Share relay error: ' + err.message);
+  }
+}
 </script>
 
 <script>

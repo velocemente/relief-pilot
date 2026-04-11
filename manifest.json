@@ -23,5 +23,18 @@
     }
   ],
   "prefer_related_applications": false,
-  "scope": "./"
+  "scope": "./",
+  "share_target": {
+    "action": "./?share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "ofp_pdf",
+          "accept": ["application/pdf", ".pdf"]
+        }
+      ]
+    }
+  }
 }
