@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0C0C0E" media="(prefers-color-scheme: dark)">
 <title>PilotBrief</title>
+<link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAE8klEQVR42u3dwXETSxQFUM2UEiAQfiCwIwRYsCCev2CBQ2AHgeBACMEsKBUqEEYaTXe/9/rctS25pDPXV5ZmvByi5OXbp4PkzePDEuHHWACWSsAXiKUS7gViqYR7AVkqwV5AlkqwV5hlaHY2s4Asldp6hVkqtfUKs1RCvYAslSbICrNUausVZqmEeoVZKqFePVpSKeveR4jIyJZeYZZKqFeYpRJqG1om2dDaWRK29AqzVEJtckjxyaGdJXFLa2gp3NDaWZK3tIaW4htapARoc0MKzA4NLSaHSGzQ5kbzPH375EHoMDs0tJgcop2BFrC7gLafpdCO1tBicoiZAbQADrQI0AK0mBdAiwAtmhtoEaC1MNAiQIsGB1oEaO0rQEuzfHn/GWip0eQnzNFQAy13N/OX95/DwAZa65aaIEDLrmhHowZadm/gkRMEaBOl2ZwYgRpo+7n5gdATNtDSpWl7oQZaukHsgRpoU6UrwNYTBGj7uczBArQMmwevP75pcruLa9vFa+Xlv3cwb8wRy3jT4vw+euOO+Ak6oAtt5NP9jm7tDO1sciR9odcKd+apAXQyxK1xV8BsciRFvPfezr6bgS4AOdPe7tXOU06O2d4A+RfuKlNjKtDexbuMuxrm0pMD4ucfk6//v6h50FZqaIi3pQXuEe1cBjTIsWCPwpwaNMQxcY/EnG5DQ9wvrz58T7m3wzc0xHmae3Q7hwYNci7YETCHAw1xzkR6Z3I4aIjh3jNOwZJSAVqAFgFaBGgRoAVoEaBFgBYBWgRomTGuy7Exv39m4d7PpOx9e0DL1dj+9jV7Irx0n5AD3QTvqPs8/7rTJQjOzyyRyUFnvaLn+fU0Lp1BMjPyI7x5Mf8tMyM/wrvv/bbcufdc6WgW5Ed45/35L50XmP2F59GTX2dq3JPTSa7Z/7pyhBfmLc9FVORHeGPv6B6Yt1yCICryFea5s+f1NCI8lz7LEfhgrnj9ZqDtZpiBzj2jKv0TH6Al1W4GWp5tcVMD6FTb1W4GujuoPWDduqPtZqCbtmM1YDO0M9D/wNsLtakBdDdMLbBdOvMEZqC7NeNWdKPfCbShYS6Fb7Z2PhwmPKcwCkxTQ0MPR7QXQpiBDoPo1tv5fUdX/afxQCf+9R55T8/czlOAboUvIurZMZcH3RpdJNQwFwcd6V2+0262n4FO0Vijm1o7TzI5IqD2Jzqgy6BufYVQmCcEPQr1pWZ26Vug0ze1dga69N7cAzjMQKfFCzPQU7S0AN0VtXYGugzqazDfCh5moMsggRnoYVhuaV5bGujpGlA7Az0MzpbGfe57YAa6TBvCDPRQSPfsYVt6vyyHl2+fPAx/ZuRnnLWzhi6DCmagy+CCGWjIBGgHDtCwwQw01DADbRYI0DlRO0BagH58WDwM/SHC3CCPD4uGHgAS5nY5egj2QX3NW+UgA50O9yXYIPfLr/3sQ0qSfD//fFEoUihAS1HQ/nwnyeeGhhaTQyQPaLNDEs8NDS0TTA4tLUnbWUPLJC8KtbQkbOfnGxpqSYbZ5JBJJoeWloTtfF1DQy1JMF8/OaCWBJhtaJlsQ2tpSdTOtzc01BIY87bJAbUExXw4nJ9TuCXOQ5QgkPd5UaitJRDm+0FDLYEw3z85TBAJAnm/htbWEshMO4DaWgaUX/tGBVs6/hbvOxHghrhxxm1euCEuBRpwgBvkB0VuYbC09WVZAAAAAElFTkSuQmCC">
 
 <!--
   DESIGN PRINCIPLES APPLIED
@@ -500,6 +501,31 @@ body {
 }
 .drop-zone.over { border-color: var(--tint); background: var(--tint-bg); }
 .drop-zone:active { background: var(--fill4); }
+
+/* ── Global PDF drag-drop overlay (iPadOS Slide Over / Split View) ── */
+#dragOverlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0, 122, 255, 0.18);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border: 3px dashed var(--tint);
+  border-radius: var(--r-xl);
+  margin: var(--sp3);
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: var(--sp4);
+  pointer-events: none;
+}
+#dragOverlay.visible { display: flex; }
+#dragOverlay .drag-label {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 700;
+  color: var(--tint); text-align: center;
+  line-height: 1.3;
+}
+#dragOverlay .drag-sub {
+  font-size: 14px; color: var(--label2); text-align: center;
+}
 .dz-icon-wrap {
   width: 56px; height: 56px; border-radius: var(--r-md);
   background: var(--tint-bg);
@@ -906,6 +932,11 @@ body {
   font-size: 15px; font-weight: 400;
   color: var(--label2); display: block;
   margin-top: 2px;
+}
+/* ── ACMI / wet-lease callsign note — right of flight ID row ── */
+.flt-callsign-note {
+  display: flex; align-items: flex-start;
+  margin-left: auto; flex-shrink: 0;
 }
 /* ── Editable inline value ── */
 .ev {
@@ -1722,11 +1753,23 @@ body {
       <div class="callout">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 7h.01"/></svg>
         <span class="callout-text">
-          <span class="callout-title">Share from iOS Files or Mail</span>
-          Open OFP PDF → tap Share ↑ → select <strong>Relief Pilot</strong>.
-          Add to Home Screen first for the best experience.
+          <span class="callout-title">Import from Safari — Drag &amp; Drop</span>
+          On iPad: open the OFP PDF in Safari, then use Slide Over or Split View to show PilotBrief alongside it. Drag the PDF from Safari and drop it anywhere on PilotBrief.
         </span>
       </div>
+    </div>
+
+    <!-- Global PDF drag overlay — visible when any drag enters the app window -->
+    <div id="dragOverlay" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"
+        style="width:56px;height:56px;color:var(--tint);opacity:0.8">
+        <rect x="8" y="4" width="24" height="32" rx="3"/>
+        <path d="M20 4v10h12"/>
+        <path d="M24 28v12M20 36l4 4 4-4"/>
+      </svg>
+      <div class="drag-label">Drop OFP PDF Here</div>
+      <div class="drag-sub">Release to import</div>
     </div>
 
     <div id="importToast" class="import-toast"></div>
@@ -5579,6 +5622,11 @@ const S = {
   ddgItems:[], melItems:'', overflightPerms:'',
   altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
   acftType:'', togwActual:0, togwLimit:0,
+  zfwActual:0,  zfwLimit:0,   // parsed from OFP weight table
+  ldgwActual:0, ldgwLimit:0,  // parsed from OFP weight table
+  radioCallsign:'',   // e.g. "GTI8993"  — derived from fltNum prefix
+  verbalCallsign:'',  // e.g. "GIANT"    — GTI→GIANT, PAC→POLAR, CMB→CAMBER
+  isHeavy:false,      // true for all B747/B777 Atlas/Polar aircraft
   hasPerishables:false,
   hasTemperatureControl:false, // v1.9.5 — temperature control required for cargo
   hasVzfwCkLimit:false,        // v1.9.5 — MTOW limited by VZFW/CK constraints (RED alert)
@@ -5640,6 +5688,8 @@ function resetStateForNewFlight() {
     crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', togwActual:0, togwLimit:0,
+    zfwActual:0, zfwLimit:0, ldgwActual:0, ldgwLimit:0,
+    radioCallsign:'', verbalCallsign:'', isHeavy:false,
     hasPerishables:false,
     hasTemperatureControl:false, hasVzfwCkLimit:false,
     slotTime:null, catIiIiiApproaches:null, addlFfAdj:null,
@@ -5895,6 +5945,70 @@ dz.addEventListener('drop', async e => {
   const f = e.dataTransfer.files[0]; if (f) await processPDF(f);
 });
 
+// ── Global PDF drag-and-drop (iPadOS Slide Over / Split View) ─────────────────
+// Catches PDF files dragged from any other app (Safari, Files, Mail) onto
+// the PilotBrief window — not just the import screen drop zone.
+// Shows a full-screen overlay while dragging so the target is unambiguous.
+(function initGlobalDrop() {
+  const overlay = document.getElementById('dragOverlay');
+  let _dragDepth = 0;  // track enter/leave nesting
+
+  document.addEventListener('dragenter', e => {
+    // Only activate for drags that carry files
+    if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    _dragDepth++;
+    overlay.classList.add('visible');
+  }, false);
+
+  document.addEventListener('dragover', e => {
+    if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, false);
+
+  document.addEventListener('dragleave', () => {
+    _dragDepth--;
+    if (_dragDepth <= 0) { _dragDepth = 0; overlay.classList.remove('visible'); }
+  }, false);
+
+  document.addEventListener('drop', async e => {
+    e.preventDefault();
+    _dragDepth = 0;
+    overlay.classList.remove('visible');
+
+    const items = e.dataTransfer && e.dataTransfer.items;
+    let file = null;
+
+    // Prefer DataTransferItemList (gives MIME type before reading)
+    if (items) {
+      for (const item of items) {
+        if (item.kind === 'file' &&
+            (item.type === 'application/pdf' || item.type === '')) {
+          file = item.getAsFile();
+          break;
+        }
+      }
+    }
+    // Fallback: FileList
+    if (!file && e.dataTransfer.files && e.dataTransfer.files.length) {
+      const f = e.dataTransfer.files[0];
+      if (f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf') {
+        file = f;
+      }
+    }
+
+    if (!file) {
+      showToast('info', 'Drop a PDF file to import');
+      return;
+    }
+
+    // Navigate to import screen so the user sees the loading toast
+    if (!_navStack.includes('screen-import')) goToImport();
+    await processPDF(file);
+  }, false);
+})();
+
 async function processPDF(file) {
   resetStateForNewFlight();
   showToast('info', `Loading ${file.name}…`);
@@ -6117,9 +6231,13 @@ const PATTERNS = {
   // "MINF  087301  11.39  ....  030679  04.36  083572  11.04"
   POR_MINF:     /^MINF\s+\d{5,7}\s+[\d.]+\s+\.+\s+(\d{5,7})/m,
 
-  // TOGW: "TOGW 322195 ...... S396893"
+  // TOGW: "TOGW 322195 ...... S396893" or "TOGW 322195 S396893" (dots may be absent in pdf.js output)
   // Weight Limit Codes: S=Structural P=Performance L=LDW+trip I=By Dispatcher
-  TOGW:         /TOGW\s*\n?(\d{5,7})\s*\.+\s*[SPLI](\d{5,7})/,
+  TOGW:         /^TOGW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})/m,
+  // ZFW: "ZFW  271469 ...... S276691"  — dots optional (LDGW format)
+  ZFW:          /^ZFW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})/m,
+  // LDGW: "LDGW 287690        S302092"  — dots often absent
+  LDGW:         /^LDGW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})/m,
 
   // Trip time: "TRIP 158000 13.44" → captures HH and MM
   TRIP_TIME:    /TRIP\s+\d+\s+(\d{2})\.(\d{2})/,
@@ -6549,6 +6667,16 @@ function _ofpRulesetParse(rawText) {
   const twM = t.match(PATTERNS.TOGW);
   if (twM) { togwActual = parseInt(twM[1], 10); togwLimit = parseInt(twM[2], 10); }
 
+  // ── ZFW ────────────────────────────────────────────────────────────
+  let zfwActual = 0, zfwLimit = 0;
+  const zfwM = t.match(PATTERNS.ZFW);
+  if (zfwM) { zfwActual = parseInt(zfwM[1], 10); zfwLimit = parseInt(zfwM[2], 10); }
+
+  // ── LDGW ───────────────────────────────────────────────────────────
+  let ldgwActual = 0, ldgwLimit = 0;
+  const ldgwM = t.match(PATTERNS.LDGW);
+  if (ldgwM) { ldgwActual = parseInt(ldgwM[1], 10); ldgwLimit = parseInt(ldgwM[2], 10); }
+
   // ── Trip time ─────────────────────────────────────────────────────
   const tripM = t.match(PATTERNS.TRIP_TIME);
   const tripMinutes = tripM ? elapsedToMins(tripM[1], tripM[2]) : null;
@@ -6765,6 +6893,16 @@ function _ofpRulesetParse(rawText) {
     ? permM[1].replace(/\s+/g,' ').trim().substring(0, 300)
     : '';
 
+  // ── Verbal callsign (ACMI / wet-lease operations) ─────────────────
+  // Explicit format in Remarks block:
+  //   ICAO - THY = IATA - TK = VERBAL CALLSIGN - TURKISH
+  // Pattern: "VERBAL CALLSIGN - {NAME}"
+  let parsedVerbalCallsign = null;
+  (function parseVerbalCallsign() {
+    const m = t.match(/VERBAL\s+CALLSIGN\s*[-\u2013]\s*([A-Z]+)/i);
+    if (m) parsedVerbalCallsign = m[1].toUpperCase();
+  })();
+
   // ── Alternate routes ──────────────────────────────────────────────
   const altRoutes = [];
   const altRouteSeen = new Set();
@@ -6943,6 +7081,10 @@ function _ofpRulesetParse(rawText) {
     tocOffsetMins,
     togwActual,
     togwLimit,
+    zfwActual,
+    zfwLimit,
+    ldgwActual,
+    ldgwLimit,
     hasPerishables,
     hasTemperatureControl,
     hasVzfwCkLimit,
@@ -6957,6 +7099,7 @@ function _ofpRulesetParse(rawText) {
     oeiData,
     etpPoints:    cfsPoints,
     airportData,  // { [icao]: { weather, notams, curfew? } }
+    parsedVerbalCallsign,  // from "VERBAL CALLSIGN - {NAME}" in Remarks; null if absent
   };
 }
 
@@ -6972,6 +7115,24 @@ function _ofpRulesetParse(rawText) {
 function fuelK(raw) {
   const n = parseFloat((raw||'').replace(/[^0-9.]/g,''));
   return isNaN(n) ? '' : (n/1000).toFixed(1);
+}
+
+// ── Radio callsign derivation ─────────────────────────────────────
+// Derived from flight number prefix — not parsed from OFP text.
+// All Atlas/Polar aircraft are Category HEAVY (B747, B777, B767).
+// Verbal callsigns per Atlas Air SOPs:
+//   GTI → GIANT  |  PAC → POLAR  |  CMB → CAMBER
+function deriveCallsign(fltNum) {
+  if (!fltNum) return { radioCallsign: '', verbalCallsign: '', isHeavy: false };
+  const m = fltNum.match(/^(GTI|PAC|CMB|QFA)(\d+)/i);
+  if (!m) return { radioCallsign: fltNum, verbalCallsign: '', isHeavy: false };
+  const prefix = m[1].toUpperCase();
+  const verbal = { GTI: 'GIANT', PAC: 'POLAR', CMB: 'CAMBER', QFA: 'QANTAS' }[prefix] || '';
+  return {
+    radioCallsign: prefix + m[2],
+    verbalCallsign: verbal,
+    isHeavy: true,   // All Atlas/Polar fleet are heavies
+  };
 }
 
 function parseOFP() {
@@ -7006,6 +7167,10 @@ function parseOFP() {
     tocOffsetMins: result.tocOffsetMins,
     togwActual: result.togwActual,
     togwLimit:  result.togwLimit,
+    zfwActual:  result.zfwActual,
+    zfwLimit:   result.zfwLimit,
+    ldgwActual: result.ldgwActual,
+    ldgwLimit:  result.ldgwLimit,
     ddgItems:   result.ddgItems,
     melItems:   result.melItems,
     overflightPerms: result.overflightPerms,
@@ -7035,6 +7200,13 @@ function parseOFP() {
     descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
     enrouteScratch:'', oeiVal:'', stabTrim:'', gaFuel:'',
     userNotes:'', fcirAsap:false, fcirNarrative:'',
+    ...deriveCallsign(result.fltNum),
+    // OFP Remarks "VERBAL CALLSIGN - {NAME}" takes precedence over derived callsign.
+    // This covers ACMI/wet-lease ops (e.g. THY operated by GTI → TURKISH).
+    ...(result.parsedVerbalCallsign ? {
+      verbalCallsign: result.parsedVerbalCallsign,
+      isHeavy: true,
+    } : {}),
   });
   // Preserve crewVerified across re-imports; reset buffer only on first import
   if (!S.crewVerified) S.crewRestBuffer = 60;
@@ -7123,12 +7295,23 @@ function renderNote() {
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
   sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
   sh += `</div>`;
+  // Callsign note — shown only when verbal is known AND the operator is NOT GTI or PAC
+  // (those crews use their own callsign; ACMI/wet-lease crews need the verbal displayed)
+  // Format:  CALLSIGN [TURKISH] 6044
+  if (S.verbalCallsign && S.fltNum && !/^(GTI|PAC)\d/i.test(S.fltNum)) {
+    const _numM = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
+    const _num  = _numM ? _numM[1] : '';
+    sh += `<div class="flt-callsign-note">`;
+    sh += `<span class="flt-id">${esc(S.verbalCallsign)} ${esc(_num)}</span>`;
+    sh += `</div>`;
+  }
   if (S.etopsSpec || S.etopsEntry) {
     sh += `<div class="etops-block">`;
     if (S.etopsSpec)  sh += `<div class="etops-line">ETOPS ${esc(S.etopsSpec)}</div>`;
     if (S.etopsEntry) sh += `<div class="etops-line">ETOPS ENTRY ${esc(S.etopsEntry)}</div>`;
     sh += `</div>`;
   }
+  sh += `<div class="flt-header-actions">${renderShareButton()}</div>`;
   sh += `</div>`;
   sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}</div>`;
   sh += `<div class="phase-tabs">`;
@@ -7242,20 +7425,34 @@ function renderPreflightPhase() {
   h += `</div>`; // data-table
   h += `</div></div>`; // subcard-body + subcard
 
-  // ── "OFP Fuel" subcard (Block / MIN / REMF) ──
+  // ── "OFP Fuel & Weight Summary" subcard ──
+  // Weight unit: KGS if acftType contains KGS (or known KG airframes), else LBS
+  const _wtUnit = /\bKGS?\b/i.test(S.acftType) ? 'KGS' : 'LBS';
+  // Margin colour: >1000 green, 500–1000 yellow, <500 red (same threshold for both units)
+  const wClass = (actual, limit) => {
+    if (!actual || !limit) return '';
+    const m = limit - actual;
+    return m > 1000 ? 'c-green' : m >= 500 ? 'c-yellow' : 'c-red';
+  };
+  const fmtWt = n => n ? n.toLocaleString() : '—';
+
   h += `<div class="subcard">`;
-  h += `<div class="subcard-header">OFP Fuel</div>`;
+  h += `<div class="subcard-header">OFP Fuel &amp; Weight Summary</div>`;
   h += `<div class="subcard-body">`;
+
+  // Two-column layout: Fuel (left) | Weights (right)
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp4);align-items:start">`;
+
+  // ── Left: Fuel ──
+  h += `<div>`;
+  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">Fuel</div>`;
   h += `<div class="data-table data-table-lg">`;
   h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${bClass}">${ev('blockFuel', S.blockFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value">${ev('minfFuel', S.minfFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${ev('destRemf', S.destRemf||'___')}</span></div>`;
-  if (S.hasVzfwCkLimit) {
-    h += `<div class="data-row" style="padding-top:var(--sp2)"><span class="data-value" style="font-size:13px;font-weight:600;color:var(--sys-red)">⚠ MTOW LTD BY VZFW/CK</span></div>`;
-  }
   if (S.ballastFuel) {
     h += `<div class="data-row" style="margin-top:var(--sp2);background:rgba(255,204,0,0.10);border-radius:6px;padding:var(--sp2) var(--sp3)">`;
-    h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">BALLAST FUEL</span>`;
+    h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">BALLAST</span>`;
     h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:700">${S.ballastFuel.toLocaleString()}</span>`;
     h += `</div>`;
   }
@@ -7264,6 +7461,31 @@ function renderPreflightPhase() {
     h += `<div class="data-row"><span class="data-label" style="color:var(--label2)">FF ADJ</span><span class="data-value" style="font-weight:600;color:${ffSign}">${esc(S.addlFfAdj)}%</span></div>`;
   }
   h += `</div>`;
+  h += `</div>`;
+
+  // ── Right: Weights ──
+  h += `<div>`;
+  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">Weight (${_wtUnit})</div>`;
+  h += `<div class="data-table data-table-lg">`;
+  // ZFW
+  const _zClass = wClass(S.zfwActual, S.zfwLimit);
+  h += `<div class="data-row"><span class="data-label">ZFW</span>`;
+  h += `<span class="data-value ${_zClass}">${ev('zfwActual', S.zfwActual ? S.zfwActual.toLocaleString() : '___')}</span></div>`;
+  // TOGW
+  const _tClass = wClass(S.togwActual, S.togwLimit);
+  h += `<div class="data-row"><span class="data-label">TOGW</span>`;
+  h += `<span class="data-value ${_tClass}">${ev('togwActual', S.togwActual ? S.togwActual.toLocaleString() : '___')}</span></div>`;
+  // LDGW — display only (limit enforced by TOGW planning, not pilot-adjustable)
+  const _lClass = wClass(S.ldgwActual, S.ldgwLimit);
+  h += `<div class="data-row"><span class="data-label">LDGW</span>`;
+  h += `<span class="data-value ${_lClass}">${S.ldgwActual ? S.ldgwActual.toLocaleString() : '—'}</span></div>`;
+  if (S.hasVzfwCkLimit) {
+    h += `<div class="data-row" style="padding-top:var(--sp2)"><span class="data-value" style="font-size:12px;font-weight:600;color:var(--sys-red)">⚠ MTOW LTD BY VZFW/CK</span></div>`;
+  }
+  h += `</div>`;
+  h += `</div>`;
+
+  h += `</div>`; // grid
   h += `</div></div>`; // subcard-body + subcard
 
   // ── Wheels-up slot time (v1.9.5) ──
@@ -7841,6 +8063,28 @@ function renderDescentPhase() {
   h += `<div class="data-row"><span class="data-label">ALT 1</span><span class="data-value">${ev('alt1Fuel', S.alt1Fuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">FRES</span><span class="data-value">${ev('fresFuel', S.fresFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">GA</span><span class="data-value">${ev('gaFuel', S.gaFuel||'___')}</span></div>`;
+
+  // MLDW / MAX LDG FUEL — shown only when LDGW ≤ 3000 from limit
+  // MAX LDG FUEL = LDGW_LIMIT − ZFW_ACTUAL (max fuel permissible at landing)
+  // Displayed in ×1000 format (xx.x or xxx.x) to match fuel card convention
+  if (S.ldgwActual && S.ldgwLimit && S.zfwActual &&
+      (S.ldgwLimit - S.ldgwActual) <= 3000) {
+    const _maxLdgFuelRaw = S.ldgwLimit - S.zfwActual;
+    const _maxLdgFuelStr = (_maxLdgFuelRaw / 1000).toFixed(1);
+    const _mldwStr       = S.ldgwLimit.toLocaleString();
+    const _wtUnit        = /\bKGS?\b/i.test(S.acftType) ? 'KGS' : 'LBS';
+    h += `<div style="border-top:0.5px solid var(--sep);margin-top:var(--sp2);padding-top:var(--sp2)">`;
+    h += `<div class="data-row">`;
+    h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">MLDW</span>`;
+    h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:700">${esc(_mldwStr)}</span>`;
+    h += `</div>`;
+    h += `<div class="data-row">`;
+    h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">MAX LDG FUEL</span>`;
+    h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:700">${esc(_maxLdgFuelStr)}</span>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+
   h += `</div></div></div>`;
 
   // ── DDG items with TLR Landing or Both ──
@@ -8392,24 +8636,83 @@ const FIELD_LABELS = {
   destRemf:'REMF at Destination', alt1Fuel:'ALT 1 Fuel',
   crewRestBuffer:'Pre-landing buffer (minutes, 0–180)',
   tocZOverride:'TOC Time (HHMM Z) — overrides computed TOC',
+  zfwActual:'ZFW — Actual (raw weight)',
+  togwActual:'TOGW — Actual (raw weight)',
 };
-const NUM_FIELDS = new Set(['outZ','etaDest','offZ','destRemf','alt1Fuel']);
+const NUM_FIELDS     = new Set(['outZ','etaDest','offZ','destRemf','alt1Fuel']);
+// Raw integer weight fields — stored as integers, input stripped of non-numeric chars
+const WEIGHT_INT_FIELDS = new Set(['zfwActual','togwActual']);
 let _editField = null;
 
 function openEdit(field) {
   _editField = field;
   const inp = document.getElementById('editInput');
-  inp.value = (S[field]||'').replace(/Z$/,'');
-  inp.inputMode = NUM_FIELDS.has(field) ? 'numeric' : 'text';
-  inp.autocapitalize = NUM_FIELDS.has(field) ? 'off' : 'characters';
+  // Weight int fields: show raw integer, numeric keyboard
+  if (WEIGHT_INT_FIELDS.has(field)) {
+    inp.value = S[field] ? String(S[field]) : '';
+    inp.inputMode = 'numeric';
+    inp.autocapitalize = 'off';
+  } else {
+    inp.value = (S[field]||'').replace(/Z$/,'');
+    inp.inputMode = NUM_FIELDS.has(field) ? 'numeric' : 'text';
+    inp.autocapitalize = NUM_FIELDS.has(field) ? 'off' : 'characters';
+  }
   document.getElementById('editLabel').textContent = FIELD_LABELS[field] || field;
   document.getElementById('editOverlay').classList.add('open');
   setTimeout(() => { inp.focus(); inp.select(); }, 60);
 }
 
+// ── Weight cascade: TOGW and LDGW track ZFW and block fuel changes ───────
+// Uses DELTA approach — avoids the RAMP/TOGW confusion.
+//
+// LDGW = TOGW − Trip Fuel.  Trip fuel is fixed by the flight plan.
+// Therefore ΔLDGW = ΔTOGW for every source of change (fuel, ZFW, direct edit).
+//
+// _togwDeltaFromBlock(oldBlock):
+//   Called after S.blockFuel is updated.
+//   delta = (new block − old block) × 1000
+//   TOGW += delta,  LDGW += delta
+//
+// _togwDeltaFromZFW(oldZFW):
+//   Called after S.zfwActual is updated.
+//   delta = new ZFW − old ZFW
+//   TOGW += delta,  LDGW += delta
+
+function _applyWeightDelta(delta) {
+  if (!delta) return;
+  if (S.togwActual) S.togwActual = S.togwActual + delta;
+  if (S.ldgwActual) S.ldgwActual = S.ldgwActual + delta;
+}
+
+function _togwDeltaFromBlock(oldBlockStr) {
+  if (!S.togwActual) return;
+  const oldKg = parseFloat(oldBlockStr || '0') * 1000;
+  const newKg = parseFloat(S.blockFuel  || '0') * 1000;
+  _applyWeightDelta(Math.round(newKg - oldKg));
+}
+
+function _togwDeltaFromZFW(oldZFW) {
+  if (!S.togwActual || !oldZFW) return;
+  _applyWeightDelta(S.zfwActual - oldZFW);
+}
+
 function confirmEdit() {
   if (!_editField) return;
   let val = document.getElementById('editInput').value.trim();
+  if (WEIGHT_INT_FIELDS.has(_editField)) {
+    // Strip commas/spaces, parse as integer — reject if zero or non-numeric
+    const parsed = parseInt(val.replace(/[^\d]/g, ''), 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      const _prevZFW  = S.zfwActual;
+      const _prevTOGW = S.togwActual;
+      S[_editField] = parsed;
+      if (_editField === 'zfwActual')  _togwDeltaFromZFW(_prevZFW);
+      // Direct TOGW edit → apply same delta to LDGW
+      if (_editField === 'togwActual' && S.ldgwActual)
+        S.ldgwActual = S.ldgwActual + (parsed - _prevTOGW);
+    }
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
   if (_editField === 'crewRestBuffer') {
     const parsed = parseInt(val.replace(/\D/g,''), 10);
     if (!isNaN(parsed) && parsed >= 0 && parsed <= 180) S.crewRestBuffer = parsed;
@@ -8423,7 +8726,11 @@ function confirmEdit() {
   if (NUM_FIELDS.has(_editField)) {
     val = val.replace(/\D/g,'').slice(0,4);
   }
+  const _prevBlockFuel = S.blockFuel;
   S[_editField] = val;
+
+  // Block fuel change → apply delta to TOGW
+  if (_editField === 'blockFuel') _togwDeltaFromBlock(_prevBlockFuel);
 
   // Editing outZ cascades DEST ETA + ALL alt ETAs (planned push time)
   if (_editField === 'outZ' && val.length === 4) {
@@ -9548,6 +9855,256 @@ function copyNote() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// iOS SHARE MODULE  v1.0.0
+// [A] composeShareText — plain-text briefing from S state (all phases)
+// [B] shareNote        — Web Share API dispatcher + clipboard fallback
+// [C] renderShareButton — icon button HTML injected by renderNote()
+// ═══════════════════════════════════════════════════════════════════
+
+// ── [A] composeShareText() ────────────────────────────────────────
+function composeShareText() {
+  const val  = v => (v && String(v).trim()) ? String(v).trim() : null;
+  const fmtZ = hhmm => (hhmm && hhmm.length === 4)
+    ? `${hhmm.slice(0,2)}:${hhmm.slice(2,4)}Z` : null;
+  const fmtDur = mins => {
+    const h = Math.floor(mins / 60);
+    const m = String(mins % 60).padStart(2, '0');
+    return `${h}h ${m}m`;
+  };
+  const ln  = (label, v) => v ? `  ${label}: ${v}` : null;
+  const sep = label => `\n\u2500\u2500 ${label.toUpperCase()} \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n`;
+
+  const lines = [];
+
+  // ── Flight identity ──
+  const fltId = val(S.fltNum)   || '------';
+  const date  = val(S.date)     || '--';
+  const orig  = val(S.origIcao) || '????';
+  const dest  = val(S.destIcao) || '????';
+  lines.push(`PILOTBRIEF  ${fltId}  ${date}`);
+  lines.push(`${orig} \u2192 ${dest}`);
+  const timeParts = [
+    S.outZ    ? `OUT: ${fmtZ(S.outZ)}`    : null,
+    S.etaDest ? `IN: ${fmtZ(S.etaDest)}`  : null,
+  ].filter(Boolean);
+  if (timeParts.length) lines.push(timeParts.join('  '));
+  if (val(S.etopsSpec))  lines.push(`ETOPS: ${S.etopsSpec}`);
+  if (val(S.etopsEntry)) lines.push(`ETOPS ENTRY: ${S.etopsEntry}`);
+  if (val(S.acftType))   lines.push(`ACFT: ${S.acftType}`);
+
+  // ── PREFLIGHT ──
+  lines.push(sep('Preflight'));
+
+  const fuelParts = [
+    val(S.blockFuel) ? `Block: ${S.blockFuel}` : null,
+    val(S.minfFuel)  ? `MINF: ${S.minfFuel}`   : null,
+    val(S.fresFuel)  ? `FRES: ${S.fresFuel}`   : null,
+    (S.ballastFuel != null && val(String(S.ballastFuel))) ? `Ballast: ${S.ballastFuel}` : null,
+  ].filter(Boolean);
+  if (fuelParts.length) lines.push('FUEL\n  ' + fuelParts.join('  '));
+
+  if (S.togwActual || S.togwLimit)
+    lines.push(`  TOGW: ${S.togwActual || '?'} / ${S.togwLimit || '?'} (ACT / LIM)${
+      S.hasVzfwCkLimit ? '  \u26a0 VZFW/CK LIMITED' : ''}`);
+  if (val(S.stabTrim)) lines.push(ln('STAB TRIM', S.stabTrim));
+  if (val(S.gaFuel))   lines.push(ln('GA FUEL',   S.gaFuel));
+
+  if (S.oeiData && S.oeiData.length) {
+    lines.push('OEI EFP');
+    S.oeiData.forEach(o => {
+      const p = [`RWY ${o.rwy}`];
+      if (o.special)                   p.push('SPECIAL');
+      if (o.efp && o.efp !== 'SPECIAL') p.push(o.efp);
+      if (o.proc)                       p.push(`(${o.proc})`);
+      lines.push('  ' + p.join('  '));
+    });
+  }
+
+  if (val(S.slotTime)) lines.push(ln('SLOT', fmtZ(S.slotTime) || S.slotTime));
+
+  if (S.ddgItems && S.ddgItems.length) {
+    lines.push('DDG/MEL');
+    S.ddgItems.forEach(d =>
+      lines.push(`  ${d.code} \u2014 ${d.desc}${d.tlr ? ` [TLR: ${d.tlr}]` : ''}`)
+    );
+  } else if (val(S.melItems)) {
+    lines.push('MEL/DDG\n  ' + S.melItems);
+  }
+
+  if (val(S.overflightPerms))
+    lines.push('OVFLT PERMS\n  ' + S.overflightPerms.replace(/\n/g, '\n  '));
+
+  const cargo = [
+    S.hasPerishables        ? 'PERISHABLES ABOARD'      : null,
+    S.hasTemperatureControl ? 'TEMPERATURE CONTROL REQ' : null,
+  ].filter(Boolean);
+  if (cargo.length) lines.push(ln('CARGO', cargo.join(' / ')));
+
+  if (val(S.preAtisLetter) || val(S.preAtisNotes))
+    lines.push(ln('DEP ATIS',
+      [val(S.preAtisLetter), val(S.preAtisNotes)].filter(Boolean).join('  ')));
+  if (val(S.preParkingNotes)) lines.push(ln('DEP PARKING', S.preParkingNotes));
+  if (val(S.userNotes))
+    lines.push('NOTES\n  ' + S.userNotes.replace(/\n/g, '\n  '));
+
+  // ── ENROUTE ──
+  lines.push(sep('Enroute'));
+
+  if (val(S.porWpt)) {
+    const porParts = [`POR: ${S.porWpt}`];
+    if (val(S.porMinf)) porParts.push(`MINF: ${S.porMinf}`);
+    lines.push(porParts.join('  '));
+  }
+
+  // Inflight rest (requires inflight-rest-module)
+  if (typeof calcInflightRest === 'function') {
+    const rest = calcInflightRest();
+    if (rest) {
+      lines.push(`INFLIGHT REST  TOC ${fmtZ(rest.tocZ)} \u2192 ${fmtZ(rest.restEndZ)}  ${fmtDur(rest.totalMins)}`);
+      lines.push(`  Buffer: ${S.crewRestBuffer || 60}min  Crew: ${rest.operatingCount}`);
+      if (rest.operatingCount === 3 && rest.blocks3) {
+        lines.push('  THIRDS');
+        rest.blocks3.forEach(b =>
+          lines.push(`    ${b.label}  ${fmtZ(b.startZ)} \u2192 ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+      } else {
+        if (rest.blocksH) {
+          lines.push('  HALVES');
+          rest.blocksH.forEach(b =>
+            lines.push(`    ${b.label}  ${fmtZ(b.startZ)} \u2192 ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+        }
+        if (rest.blocksQ) {
+          lines.push('  QUARTERS');
+          rest.blocksQ.forEach(b =>
+            lines.push(`    ${b.label}  ${fmtZ(b.startZ)} \u2192 ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+        }
+      }
+    }
+  }
+
+  if (val(S.enrouteScratch))
+    lines.push('ENROUTE NOTES\n  ' + S.enrouteScratch.replace(/\n/g, '\n  '));
+
+  if (S.etpPoints && S.etpPoints.length) {
+    lines.push('ETP COORDINATES');
+    S.etpPoints.forEach(p => lines.push(`  ${p.name}  ${p.lat} ${p.lon}`));
+  }
+
+  if (S.altRoutes && S.altRoutes.length) {
+    lines.push('ALTERNATE ROUTES');
+    S.altRoutes.forEach((r, i) => {
+      const title = val(r.title) || `Alt ${i + 1}`;
+      lines.push(`  ${title}${val(r.mora) ? `  MORA ${r.mora}` : ''}`);
+      if (val(r.route)) lines.push(`    ${r.route}`);
+    });
+  }
+
+  // ── DESCENT ──
+  lines.push(sep('Descent'));
+
+  lines.push(`AIRPORT: ${val(S.descentAirport) || dest}`);
+
+  const arrFuelParts = [
+    val(S.destRemf) ? `REMF: ${S.destRemf}` : null,
+    val(S.alt1Fuel) ? `ALT1: ${S.alt1Fuel}` : null,
+  ].filter(Boolean);
+  if (arrFuelParts.length) lines.push('ARR FUEL\n  ' + arrFuelParts.join('  '));
+
+  if (val(S.descAtisLetter) || val(S.descAtisNotes))
+    lines.push(ln('ARR ATIS',
+      [val(S.descAtisLetter), val(S.descAtisNotes)].filter(Boolean).join('  ')));
+  if (val(S.descParkingNotes)) lines.push(ln('ARR PARKING', S.descParkingNotes));
+
+  if (S.fcirAsap && val(S.fcirNarrative))
+    lines.push('\u26a0 FCIR/ASAP NARRATIVE\n  ' + S.fcirNarrative.replace(/\n/g, '\n  '));
+
+  // ── Footer ──
+  const now = new Date();
+  const hh = String(now.getUTCHours()).padStart(2,'0');
+  const mm = String(now.getUTCMinutes()).padStart(2,'0');
+  const dd = String(now.getUTCDate()).padStart(2,'0');
+  const mo = ['JAN','FEB','MAR','APR','MAY','JUN',
+               'JUL','AUG','SEP','OCT','NOV','DEC'][now.getUTCMonth()];
+  const yr = String(now.getUTCFullYear()).slice(2);
+  lines.push(`\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
+  lines.push(`Generated by PilotBrief  ${dd}${mo}${yr} ${hh}:${mm}Z`);
+
+  return lines.filter(l => l !== null).join('\n');
+}
+
+// ── [B] shareNote() ───────────────────────────────────────────────
+function shareNote() {
+  if (!S.fltNum && !S.date) { showToast('info', 'No flight loaded'); return; }
+
+  const text  = composeShareText();
+  const title = `${S.fltNum || 'PilotBrief'}  ${S.origIcao || ''}\u2192${S.destIcao || ''}  ${S.date || ''}`.trim();
+
+  // Web Share API — Home Screen PWA / Android Chrome
+  if (navigator.share && navigator.canShare && navigator.canShare({ title, text })) {
+    navigator.share({ title, text })
+      .catch(err => {
+        if (err && err.name !== 'AbortError')
+          showToast('err', 'Share failed \u2014 ' + err.message);
+      });
+    return;
+  }
+
+  // Clipboard fallback — in-browser Safari / desktop
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => { showToast('ok', '\u2713 Briefing copied to clipboard'); _flashShareButton(); })
+      .catch(() => showToast('err', 'Copy failed \u2014 select text manually'));
+    return;
+  }
+
+  // execCommand last resort (legacy WebKit)
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('ok', '\u2713 Briefing copied to clipboard');
+    _flashShareButton();
+  } catch {
+    showToast('err', 'Share unavailable \u2014 install PilotBrief to Home Screen');
+  }
+}
+
+function _flashShareButton() {
+  const btn = document.querySelector('.pb-share-btn');
+  if (!btn) return;
+  const orig = btn.innerHTML;
+  btn.style.color = 'var(--sys-green)';
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    style="width:20px;height:20px"><path d="M5 12l5 5L20 7"/></svg>`;
+  setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1600);
+}
+
+// ── [C] renderShareButton() ───────────────────────────────────────
+function renderShareButton() {
+  return `<button
+    class="icon-btn pb-share-btn"
+    onclick="shareNote()"
+    aria-label="Share briefing"
+    title="Share briefing"
+    style="width:44px;height:44px;display:flex;align-items:center;
+           justify-content:center;flex-shrink:0;color:var(--tint);
+           background:none;border:none;
+           -webkit-tap-highlight-color:transparent;cursor:pointer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+      style="width:20px;height:20px" aria-hidden="true">
+      <path d="M9 12H4a1 1 0 00-1 1v7a1 1 0 001 1h16a1 1 0 001-1v-7a1 1 0 00-1-1h-5"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+      <polyline points="8 7 12 3 16 7"/>
+    </svg>
+  </button>`;
+}
+
 // ═══════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════
@@ -9561,7 +10118,45 @@ renderNote();
   });
 })();
 renderFlightList();
-if (new URLSearchParams(location.search).has('shared')) push('screen-import');
+// ── Web Share Target consumer ─────────────────────────────────────
+// When the SW relay redirects to /?shared, boot into the import
+// screen and immediately attempt to consume the pending PDF from the
+// relay cache written by the SW share target handler.
+if (new URLSearchParams(location.search).has('shared')) {
+  push('screen-import');
+  _consumeSharedPDF();
+}
+
+async function _consumeSharedPDF() {
+  // Relay cache is available only when a SW is controlling the page
+  // (i.e. the app is installed on Home Screen).
+  if (!('caches' in self)) {
+    // No Cache API — user may be in a plain browser tab; let them pick manually.
+    showToast('info', 'Open PilotBrief from Home Screen to use direct share');
+    return;
+  }
+  try {
+    const relay    = await caches.open('pb-share-relay');
+    const response = await relay.match('pb-pending-share');
+    if (!response) {
+      // No pending file — ?shared arrived without a SW relay (e.g. manual URL).
+      return;
+    }
+    // Consume immediately — single-slot relay is deleted after read.
+    const filename = decodeURIComponent(
+      response.headers.get('X-PB-Filename') || 'OFP.pdf'
+    );
+    const buf  = await response.arrayBuffer();
+    await relay.delete('pb-pending-share');
+
+    const blob = new Blob([buf], { type: 'application/pdf' });
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    showToast('info', `Loading shared OFP: ${filename}\u2026`);
+    await processPDF(file);
+  } catch (err) {
+    showToast('err', 'Share relay error: ' + err.message);
+  }
+}
 </script>
 
 <script>
