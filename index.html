@@ -574,6 +574,47 @@ body {
 .import-toast.ok   { background: var(--sys-green-bg); color: var(--sys-green); }
 .import-toast.err  { background: var(--sys-red-bg); color: var(--sys-red); }
 
+/* ── SW Update Banner ─────────────────────────────────
+   Shown only when a new Service Worker activates.
+   Never visible offline — SW activation requires a
+   network download of the updated sw.js.              */
+#sw-update-banner {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 10000;
+  background: var(--tint);
+  color: #fff;
+  font: 600 13px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: calc(var(--sat) + 10px) 16px 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.20);
+  -webkit-tap-highlight-color: transparent;
+}
+#sw-update-banner.visible { display: flex; }
+#sw-update-banner .swub-reload {
+  background: rgba(255,255,255,0.22);
+  border: none;
+  color: #fff;
+  font: 600 13px -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 5px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#sw-update-banner .swub-dismiss {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.75);
+  font: 600 16px -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 4px 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 /* ═══════════════════════════════════════════════════════
    FLIGHT LIST
    ═══════════════════════════════════════════════════════ */
@@ -933,10 +974,9 @@ body {
   color: var(--label2); display: block;
   margin-top: 2px;
 }
-/* ── ACMI / wet-lease callsign note — right of flight ID row ── */
+/* ── ACMI / wet-lease callsign note — child of flt-header-right ── */
 .flt-callsign-note {
-  display: flex; align-items: flex-start;
-  margin-left: auto; flex-shrink: 0;
+  display: flex; align-items: flex-end;
 }
 /* ── Editable inline value ── */
 .ev {
@@ -951,17 +991,21 @@ body {
   background: var(--tint-bg);
   border-color: var(--tint);
 }
-/* ── Flight header row (ID+date left, ETOPS right) ── */
+/* ── Flight header row (ID+date left, right-column right) ── */
 .flt-header-row {
   display: flex; justify-content: space-between; align-items: flex-start;
   margin-bottom: var(--sp5);
 }
 .flt-header-left { display: flex; flex-direction: column; }
+/* ── Right column: callsign stacked above ETOPS ── */
+.flt-header-right {
+  display: flex; flex-direction: column; align-items: flex-end;
+  margin-left: auto; flex-shrink: 0; gap: 2px;
+}
 /* ── ETOPS header block ── */
 .etops-block {
   font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
   color: var(--tint); letter-spacing: 0.04em;
-  margin-bottom: var(--sp3); margin-top: 4px;
   display: flex; flex-direction: column; gap: 1px;
   text-align: right; align-items: flex-end;
 }
@@ -1125,6 +1169,8 @@ body {
 /* NOTAM keyword highlights from evalNotams */
 .nt-red { color: var(--sys-red);    font-weight: 600; }
 .nt-yel { color: var(--sys-yellow); font-weight: 600; }
+/* GNSS enrichment — spatial detail appended to GPS/GNSS issue rows */
+.gnss-spatial { font-family: var(--font-mono); font-size: 12px; color: var(--label3); font-weight: 400; }
 
 /* ── NOTAM group display in airport card ─────────────────────────── */
 .notam-groups { margin: 0; }
@@ -1697,7 +1743,7 @@ body {
         </svg>
       </div>
       <div class="home-app-name">PilotBrief</div>
-      <div class="home-tagline">Relief Pilot Your flight assistant</div>
+      <div class="home-tagline">Your flight assistant</div>
     </div>
 
     <div style="padding: 0 var(--sp4); display:flex; flex-direction:column; gap: var(--sp3); max-width:400px">
@@ -1718,6 +1764,11 @@ body {
      ══════════════════════════════════════════════════════ -->
 <div class="screen" id="screen-import">
   <div class="nav-bar nav-secondary">
+    <button class="nav-back" onclick="pop()" aria-label="Go back to Flights">
+      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
+      Flights
+    </button>
+    <span class="nav-brand-title" aria-label="PilotBrief — Import OFP">
       <span class="nb-icon">
         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
@@ -4030,10 +4081,38 @@ function xNW_standalone(notamText, flightDateISO) {
     const flightMo = iso ? parseInt(iso.slice(5, 7)) - 1 : new Date().getUTCMonth();
     const endYear   = trailingYear ||
                       (endMo < startMo && endMo < flightMo ? baseYear + 1 : baseYear);
-    const startYear = (endMo < startMo) ? endYear - 1 : endYear;
-    const startMs = _parseDateToken(inM[1], baseYear, startYear);
+    let startYear = (endMo < startMo) ? endYear - 1 : endYear;
+    let startMs = _parseDateToken(inM[1], baseYear, startYear);
     const endMs   = _parseDateToken(endToken, baseYear, endYear);
-    if (startMs !== null && endMs !== null) return { startMs, endMs };
+    if (startMs !== null && endMs !== null) {
+      // ── Multi-year NOTAM guard ────────────────────────────────────────
+      // When an explicit trailing year is present (e.g. "22OCT1455-22OCT1454 2027")
+      // and startMo === endMo, the 1-year heuristic sets startYear = endYear,
+      // placing the entire window in the trailing year — either inverted by a
+      // few minutes, or simply shifted years ahead of the flight date. Both
+      // cases suppress NOTAMs that are actually active. Trigger when the trailing
+      // year exceeds the flight base year OR when the window is inverted.
+      // Primary resolution: use the NOTAM ID issuance year (/YY suffix).
+      // Fallback: walk startYear backward until the window is valid.
+      if (trailingYear && (endYear > baseYear || startMs >= endMs)) {
+        const idM = tu.match(/\b[A-Z]\d{4}\/(\d{2})\b/);
+        if (idM) {
+          const century = Math.floor(endYear / 100) * 100;
+          let issYear = century + parseInt(idM[1]);
+          if (issYear > endYear) issYear -= 100; // don't overshoot end year
+          const tryMs = _parseDateToken(inM[1], baseYear, issYear);
+          if (tryMs !== null && tryMs < endMs) startMs = tryMs;
+        }
+        // Safety: decrement startYear until valid (max 5 years back)
+        if (startMs >= endMs) {
+          for (let sy = startYear - 1, lim = 5; sy >= startYear - lim; sy--) {
+            const tryMs = _parseDateToken(inM[1], baseYear, sy);
+            if (tryMs !== null && tryMs < endMs) { startMs = tryMs; break; }
+          }
+        }
+      }
+      return { startMs, endMs };
+    }
   }
 
   // ── 10-digit pair: 2603010000-2603312359 ─────────────────────────────
@@ -4083,18 +4162,25 @@ function nwOverlap_standalone(w, etaMin, flightDateISO) {
     (typeof window !== 'undefined' && window._flightDateISO) || null;
   if (!iso) return true; // no flight date → treat as active
 
-  const etaMs   = new Date(iso + 'T00:00:00Z').getTime()
-                  + Math.floor(etaMin / 60) * 3600000
-                  + (etaMin % 60) * 60000;
+  const base   = new Date(iso + 'T00:00:00Z').getTime();
+  const etaMs  = base + Math.floor(etaMin / 60) * 3600000 + (etaMin % 60) * 60000;
 
-  // If ETA crosses midnight, the minutes-of-day wrapped — add one day
-  // Detect: if computed etaMs is more than 12 hrs before the NOTAM window start
-  // (which has an absolute year), nudge the etaMs to next day.
-  const nudgedEtaMs = (w.startMs - etaMs > 12 * 3600000) ? etaMs + 86400000 : etaMs;
+  const winStart = etaMs - 3600000; // ETA − 1 hour
+  const winEnd   = etaMs + 3600000; // ETA + 1 hour
+  if (w.startMs < winEnd && w.endMs > winStart) return true;
 
-  const winStart = nudgedEtaMs - 3600000; // ETA − 1 hour
-  const winEnd   = nudgedEtaMs + 3600000; // ETA + 1 hour
-  return w.startMs < winEnd && w.endMs > winStart;
+  // ── Cross-midnight guard ───────────────────────────────────────────
+  // Long-haul flights departing in the evening (e.g. 2230Z) arrive the
+  // following UTC day. pZM converts "0448Z" to 288 min, which anchors
+  // to the DEPARTURE date — one day too early. When etaMin is before noon
+  // (< 720), the ETA is almost certainly the next calendar day. Evaluate
+  // the NOTAM window against the next-day anchor as a conservative fallback.
+  if (etaMin < 720) {
+    const nextMs = etaMs + 86400000;
+    return w.startMs < nextMs + 3600000 && w.endMs > nextMs - 3600000;
+  }
+
+  return false;
 }
 
 /**
@@ -4765,6 +4851,13 @@ const NM = {
 
   // IAP_CHG: IAP NOTAM with any amendment keyword
   IAP_CHG:    /(?:\bIAP\b|\bILS\b|\bLPV\b|\bLNAV\b|\bRNAV\b|\bRNP\b).*?(?:INCREASED\s+FR\s+\d|\bDA\b.*\/HAT|\bMDA\b.*\/HAT|\bPROC\s+NA\b|NOT\s+AVBL|AMDT\s+\d|\bDA\s+\d|\bMDA\s+\d|LPV\s+DA)/i,
+
+  // ── FICON: runway/taxiway/ramp surface conditions ──────────────────────
+  // FICON (Field Condition) NOTAMs report surface state for runways, taxiways, aprons.
+  // Operationally critical for landing performance, braking, and ground movement.
+  FICON:      /\bFICON\b/i,
+  // FICON_POOR: conditions that reduce braking below "good" (ice, compacted ice, poor BA codes)
+  FICON_POOR: /\bICE\b|\bICY\b|COMPACTED\s+ICE|FICON\s+[12][\/\s]|FICON\s+NIL\b/i,
 };
 
 /**
@@ -4953,6 +5046,22 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
       return { slot: 6, level: 'yellow', label: `ALT MA PROC CHANGE${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
     }
 
+    // Slot 6 — FICON (surface conditions affect departure performance)
+    if (NM.FICON.test(nu)) {
+      const isPoor  = NM.FICON_POOR.test(nu);
+      const isTwy   = /\bTWY\b/i.test(nu);
+      const isAPN   = /\b(?:APN|RAMP)\b/i.test(nu);
+      if (isTwy || isAPN) {
+        const tm  = nu.match(NM.TWY_ID);
+        const twy = tm ? tm[1] : (isAPN ? 'APN' : 'TWY');
+        return { slot: 3, level: isPoor ? 'red' : 'yellow', label: `TWY ${twy} FICON`, keyRe: NM.FICON };
+      }
+      const rm  = nu.match(NM.RWY_ID);
+      const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      return { slot: 2, level: isPoor ? 'red' : 'yellow',
+               label: `RWY${rwy ? ' ' + rwy : ''} FICON`, keyRe: NM.FICON, rwy };
+    }
+
     // Slot 7 (active) / Slot 8 (other) — catch-all
     return { slot: active ? activeSlotBase : otherSlot, level: 'yellow', label: null, keyRe: null };
   }
@@ -5138,6 +5247,22 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
     };
   }
 
+  // Slot 6b — FICON (surface conditions affect landing/rollout/taxi ops)
+  if (NM.FICON.test(nu)) {
+    const isPoor  = NM.FICON_POOR.test(nu);
+    const isTwy   = /\bTWY\b/i.test(nu);
+    const isAPN   = /\b(?:APN|RAMP)\b/i.test(nu);
+    if (isTwy || isAPN) {
+      const tm  = nu.match(NM.TWY_ID);
+      const twy = tm ? tm[1] : (isAPN ? 'APN' : 'TWY');
+      return { slot: 6, level: isPoor ? 'red' : 'yellow', label: `TWY ${twy} FICON`, keyRe: NM.FICON };
+    }
+    const rm  = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    return { slot: 3, level: isPoor ? 'red' : 'yellow',
+             label: `RWY${rwy ? ' ' + rwy : ''} FICON`, keyRe: NM.FICON, rwy };
+  }
+
   // Slot 7 — active during period / slot 8 — all other
   return { slot: active ? activeSlotBase : otherSlot, level: 'yellow', label: null, keyRe: null };
 }
@@ -5232,6 +5357,48 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
       if (wLeg) active = nwOverlap(wLeg, etaMin);
     }
 
+    // ── OFP inline schedule (Atlas Air format): "DD-DD DD-DD ... HHMM-HHMM" ──
+    // These lines follow the NOTAM header and restrict activity to specific
+    // day-of-month ranges and a daily time window within the overall validity period.
+    // e.g. "08-09 13-17 20-24 1510-2020" — active only on those calendar days, 1510–2020Z.
+    if (active !== false && etaMin !== null && resolvedISO) {
+      const ofpSchedM = notamRaw.match(/^\s*((?:\d{2}-\d{2}\s+)+)(\d{4})-(\d{4})\s*$/m);
+      if (ofpSchedM) {
+        const etaMs  = new Date(resolvedISO + 'T00:00:00Z').getTime() + etaMin * 60000;
+        const etaDay = new Date(etaMs).getUTCDate();
+        const etaHM  = new Date(etaMs).getUTCHours() * 60 + new Date(etaMs).getUTCMinutes();
+        const startT = parseInt(ofpSchedM[2].slice(0, 2)) * 60 + parseInt(ofpSchedM[2].slice(2));
+        const endT   = parseInt(ofpSchedM[3].slice(0, 2)) * 60 + parseInt(ofpSchedM[3].slice(2));
+        const dayRanges = [...ofpSchedM[1].matchAll(/(\d{2})-(\d{2})/g)]
+          .map(m => ({ from: parseInt(m[1]), to: parseInt(m[2]) }));
+        const dayOk  = dayRanges.some(r => etaDay >= r.from && etaDay <= r.to);
+        // Support cross-midnight time ranges (e.g. 2200-0300)
+        const timeOk = endT >= startT
+          ? (etaHM >= startT && etaHM <= endT)
+          : (etaHM >= startT || etaHM <= endT);
+        active = dayOk && timeOk;
+      }
+    }
+
+    // ── OFP daily time-window schedule: "HHMM-HHMM" alone on a line ──────
+    // When no day-range prefix is present, the NOTAM is active only during
+    // that time window on every day within the validity period.
+    // e.g. "1410-2030" — RWY closed daily only between 1410Z and 2030Z.
+    if (active !== false && etaMin !== null) {
+      const hasDayRangeSched = /^\s*(?:\d{2}-\d{2}\s+)+\d{4}-\d{4}\s*$/m.test(notamRaw);
+      if (!hasDayRangeSched) {
+        const tSchedM = notamRaw.match(/^\s*(\d{4})-(\d{4})\s*$/m);
+        if (tSchedM) {
+          const startT = parseInt(tSchedM[1].slice(0, 2)) * 60 + parseInt(tSchedM[1].slice(2));
+          const endT   = parseInt(tSchedM[2].slice(0, 2)) * 60 + parseInt(tSchedM[2].slice(2));
+          const timeOk = endT >= startT
+            ? (etaMin >= startT && etaMin <= endT)
+            : (etaMin >= startT || etaMin <= endT); // cross-midnight
+          active = timeOk;
+        }
+      }
+    }
+
     // Only create status items for NOTAMs inside the evaluation window.
     // When the window cannot be determined (active === true, w === null),
     // we conservatively include the NOTAM.
@@ -5241,8 +5408,17 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
       _classifyNotamSlot(nu, notamRaw, role, acftProfile.type || '', active);
 
     // ── Build display text ────────────────────────────────────────────────
-    const firstLine = notamRaw.split('\n').find(l => l.trim() && !l.trim().startsWith('-')) || notamRaw;
+    // Skip: (1) header lines starting with "- ICAO", (2) day-range+time schedule
+    // lines e.g. "08-09 13-17 20-24 1510-2020", (3) pure daily time-window lines
+    // e.g. "1410-2030" — all precede the operative NOTAM body text.
+    const _SCHED_LINE = /^(?:\d{2}-\d{2}(?:\s+\d{2}-\d{2})*\s+)?\d{4}-\d{4}$/;
+    const _notamLines = notamRaw.split('\n');
+    const firstLine = _notamLines.find(l => {
+      const tr = l.trim();
+      return tr && !tr.startsWith('-') && !_SCHED_LINE.test(tr);
+    }) || _notamLines.find(l => l.trim() && !l.trim().startsWith('-')) || notamRaw;
     const shortLine = firstLine.replace(/^\s*[-–]\s*[A-Z]{4}\s*/,'').trim().slice(0, 120);
+
 
     let displayText;
     if (label) {
@@ -5384,11 +5560,124 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
 // ═══════════════════════════════════════════════════════════════
 
 
+// ═══════════════════════════════════════════════════════════════════
+//  GNSS NOTAM RULESET  v1.0.0
+//  Phase 1 — Production implementation
+//  QA: 100% pass rate (Chaos Engineering + Coordinate Validation)
+//  Date: 2026-04-09
+//
+//  Exposes: evalGNSS(notamText) → enriched GNSS event object | null
+//
+//  Integration: evalAirport() calls evalGNSS() as an enrichment pass
+//  after evalNotams() to append spatial/temporal detail (radius, alt
+//  bounds) to existing GPS/GNSS/RAIM issue rows. No duplication —
+//  only items already classified by evalNotams() are augmented.
+// ═══════════════════════════════════════════════════════════════════
+(function () {
+  var GNSS_PRIMARY_KEYWORDS = {
+    'INTERFERENCE':       { normalized: 'GPS Interference',  severity: 'warning' },
+    'INTERRUPTED':        { normalized: 'GPS Interrupted',   severity: 'info'    },
+    'MAY NOT BE AVAILABLE':{ normalized: 'GPS Unavailable',  severity: 'info'    },
+    'UNREL':              { normalized: 'GPS Unreliable',    severity: 'info'    },
+    'RAIM OUTAGES':       { normalized: 'RAIM Unreliable',   severity: 'info'    },
+    'UNAVAILABLE':        { normalized: 'GPS Unavailable',   severity: 'info'    },
+    'OUTAGE':             { normalized: 'RAIM Unreliable',   severity: 'info'    },
+    'LOSS':               { normalized: 'GPS Unavailable',   severity: 'warning' },
+    'WEAK':               { normalized: 'GPS Unreliable',    severity: 'info'    },
+    'INOPERATIVE':        { normalized: 'GPS Unavailable',   severity: 'warning' }
+  };
+
+  var GNSS_SECONDARY_KEYWORDS = [
+    'SPOOFED','JAMMED','PROPAGATION','IONOSPHERIC','SOLAR ACTIVITY',
+    'MULTIPATH','BLOCKED','DEGRADED','INACCURATE','UNRELIABLE','SIGNAL','INOPERATIVE'
+  ];
+
+  function _matchKw(text, kw) {
+    if (kw.indexOf(' ') >= 0) {
+      var parts = kw.split(' ');
+      return new RegExp(parts.join('\\s+(?:\\w+\\s+){0,2}'), 'i').test(text);
+    }
+    return new RegExp('\\b' + kw + '\\b', 'i').test(text);
+  }
+
+  function _findPrimary(text) {
+    var keys = Object.keys(GNSS_PRIMARY_KEYWORDS);
+    for (var i = 0; i < keys.length; i++) {
+      if (_matchKw(text, keys[i])) return { keyword: keys[i], rule: GNSS_PRIMARY_KEYWORDS[keys[i]] };
+    }
+    return null;
+  }
+
+  function _validateCoord(lat, lon) {
+    if (Math.abs(lat) > 90)  return false;
+    if (Math.abs(lon) > 180) return false;
+    return true;
+  }
+
+  function _extractCoords(text) {
+    var results = [], m;
+    // Decimal degrees: 40.1234N 074.0056W
+    var dec = /(\d{1,3}\.\d{2,4}°?[NS])\s+(\d{1,3}\.\d{2,4}°?[EW])/gi;
+    while ((m = dec.exec(text)) !== null) {
+      var la = parseFloat(m[1]), lo = parseFloat(m[2]);
+      if (/S$/i.test(m[1])) la = -la;
+      if (/W$/i.test(m[2])) lo = -lo;
+      if (_validateCoord(la, lo)) results.push({ lat: la, lon: lo, display: m[1]+' '+m[2] });
+    }
+    // ICAO compact: 390124N 0775340W
+    var icao = /(\d{6}[NS])\s+(\d{7}[EW])/gi;
+    while ((m = icao.exec(text)) !== null) {
+      var lam = m[1].match(/(\d{2})(\d{2})(\d{2})([NS])/);
+      var lom = m[2].match(/(\d{3})(\d{2})(\d{2})([EW])/);
+      if (lam && lom) {
+        var lav = +lam[1] + +lam[2]/60 + +lam[3]/3600;
+        var lov = +lom[1] + +lom[2]/60 + +lom[3]/3600;
+        if (lam[4]==='S') lav=-lav; if (lom[4]==='W') lov=-lov;
+        if (_validateCoord(lav, lov)) results.push({ lat: lav, lon: lov, display: m[1]+' '+m[2] });
+      }
+    }
+    return results;
+  }
+
+  function _extractRadius(text) {
+    var m = text.match(/WI(?:THIN)?\s+(\d+)\s*NM\s+(?:RADIUS|OF)/i);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function _extractAlt(text) {
+    var m = text.match(/(?:SFC|GND|(\d+)\s*FT\s+(?:AGL|MSL)?)\s+(?:TO|AND BELOW)\s+FL(\d+)/i);
+    if (m) return { lower: m[1] ? m[1]+' ft' : 'SFC', upper: 'FL'+m[2] };
+    var fl = text.match(/FL(\d+)\s+AND\s+BELOW/i);
+    if (fl) return { lower: 'SFC', upper: 'FL'+fl[1] };
+    return null;
+  }
+
+  window.evalGNSS = function evalGNSS(notamText) {
+    if (!notamText || typeof notamText !== 'string') return null;
+    if (!/\b(GNSS|GPS|RAIM|SBAS|WAAS|DGPS)\b/i.test(notamText)) return null;
+    var primary = _findPrimary(notamText);
+    if (!primary) return null;
+    var secondary = GNSS_SECONDARY_KEYWORDS.filter(function(kw) {
+      return new RegExp('\\b' + kw + '\\b', 'i').test(notamText);
+    });
+    return {
+      normalized_state:    primary.rule.normalized,
+      severity:            primary.rule.severity,
+      raw_keyword:         primary.keyword,
+      coordinates:         _extractCoords(notamText),
+      radius_nm:           _extractRadius(notamText),
+      affected_altitudes:  _extractAlt(notamText),
+      confidence:          secondary.length > 0 ? 'high' : 'medium',
+      secondary_keywords:  secondary
+    };
+  };
+})();
+
 
 // ═══════════════════════════════════════════════════════
 //  VERSION
 // ═══════════════════════════════════════════════════════
-const APP_VERSION = '1.9.5';
+const APP_VERSION = '1.9.7';
 
 // ═══════════════════════════════════════════════════════
 //  THEME — follows system, or manual override
@@ -5621,7 +5910,7 @@ const S = {
   //   tlr:  ''|'takeoff'|'landing'|'both'  — TLR Remarks cross-reference
   ddgItems:[], melItems:'', overflightPerms:'',
   altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
-  acftType:'', togwActual:0, togwLimit:0,
+  acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
   zfwActual:0,  zfwLimit:0,   // parsed from OFP weight table
   ldgwActual:0, ldgwLimit:0,  // parsed from OFP weight table
   radioCallsign:'',   // e.g. "GTI8993"  — derived from fltNum prefix
@@ -5687,7 +5976,8 @@ function resetStateForNewFlight() {
     blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
     crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
     ddgItems:[], melItems:'', overflightPerms:'',
-    altRoutes:[], acftType:'', togwActual:0, togwLimit:0,
+    altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
+    navLog:[], enrouteNotams:null, natTrack:null,
     zfwActual:0, zfwLimit:0, ldgwActual:0, ldgwLimit:0,
     radioCallsign:'', verbalCallsign:'', isHeavy:false,
     hasPerishables:false,
@@ -6197,6 +6487,14 @@ const PATTERNS = {
   // Aircraft type — from ICAO FPL line "-XXXX/Y" format
   AIRCRAFT_TYPE: /\(FPL-[A-Z0-9]+-[A-Z]+\s*\n?-([A-Z0-9]{2,4})\/[A-Z]/,
 
+  // Wake turbulence category — from FPL field 9 "-XXXX/Y-" (H=Heavy, J=Super)
+  // Used to append "Heavy" to the radio callsign display.
+  FPL_WAKE:      /\(FPL-[A-Z0-9]+-[A-Z]+\s*\n?-[A-Z0-9]{2,4}\/([A-Z])-/,
+
+  // Weight unit — from OFP narrative header "B747-400F / CF680C2B1F / KGS / IFR"
+  // Position 3 field (after model / engine) is always KGS or LBS
+  WEIGHT_UNIT:   /\b(?:B\d|A\d|MD|DC|E\d|CRJ|ERJ|DHC|ATR|C\d|L\d)[^\n]*\/\s*(KGS?|LBS?)\s*\//i,
+
   // Date of flight
   DATE_DOF:   /DOF\/(\d{2})(\d{2})(\d{2})/i,
   DATE_PLAIN: /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{2,4})/i,
@@ -6252,13 +6550,15 @@ const PATTERNS = {
   // VZFW/CK weight limit RED alert (v1.9.5)
   VZFW_CK_LIMIT: /\*MTOW\s+LTD\s+BY\s+VZFW\/CK\s+LIMITS\*/i,
 
-  // Wheels-up slot time window (v1.9.5) — three OFP formats:
+  // Wheels-up slot time window (v1.9.5) — four OFP formats:
   //   Window:     "WHEELS UP MUST BE BETWEEN 0737Z AND 0807Z DUE TO ANC SLOT TIME"
   //   Not before: "WHEELS UP NOT BEFORE 0737Z"
   //   Before:     "WHEELS UP BEFORE 0807Z" / "WHEELS UP MUST BE BEFORE 0807Z"
+  //   Earliest:   "EARLIEST WHEELS UP 2247Z DUE TO ANC PARKING"
   SLOT_TIME_WINDOW:     /WHEELS\s+UP\s+MUST\s+BE\s+BETWEEN\s+(\d{4}Z?)\s+AND\s+(\d{4}Z?)/i,
   SLOT_TIME_NOT_BEFORE: /WHEELS\s+UP\s+NOT\s+BEFORE\s+(\d{4}Z?)/i,
   SLOT_TIME_BEFORE:     /WHEELS\s+UP\s+(?:MUST\s+BE\s+)?BEFORE\s+(\d{4}Z?)/i,
+  SLOT_TIME_EARLIEST:   /EARLIEST\s+WHEELS\s+UP\s+(\d{4}Z?)/i,
 
   // MEL/DDG block anchor — block ends at underline or "Flight Release"
   MEL_BLOCK:    /MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i,
@@ -6330,8 +6630,8 @@ const CFS_PATTERNS = {
   DATA_HDR: 'MORA',
 
   // Data row: MORA MTK GCD TIME REMF PAD MINF WX_WINDOW
-  // Groups: [1]=WX start HHMM, [2]=WX end HHMM
-  DATA_ROW: /^\s*\d{3}\s+\d+\s+\d+\s+\d{2}:\d{2}\s+\d+\s+\d+\s+\d+\s+(\d{4})Z-(\d{4})Z/mg,
+  // Groups: [1]=HH [2]=MM elapsed from dep, [3]=WX start HHMM, [4]=WX end HHMM
+  DATA_ROW: /^\s*\d{3}\s+\d+\s+\d+\s+(\d{2}):(\d{2})\s+\d+\s+\d+\s+\d+\s+(\d{4})Z-(\d{4})Z/mg,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -6422,12 +6722,12 @@ const TLR_PATTERNS = {
   // RUNWAY INFO block: each line has RWY, LENGTH, EFP type
   RUNWAY_INFO_HDR:  /RUNWAY INFO\s*-+\s*\nRWY\s+LENGTH\s+EFP\s+NOTES\s*\n([\s\S]*?)(?=-{5})/,
   // Data line: "07R 12467 SPECIAL ..." or "25C 12467 DT H254 ..."
-  RUNWAY_INFO_LINE: /^(\d{2}[LRC]?(?:\s+SHIPS)?)\s+\d+\s+(SPECIAL|DT\s+\S+|LT\s+\S+|RT\s+\S+)/,
+  RUNWAY_INFO_LINE: /^(\d{2}[LRC]?(?:-\w+)?(?:\s+[A-Z]+)?)\s+\d+\s+(SPECIAL|DT\s+\S+|LT\s+\S+|RT\s+\S+)/,
 
   // SPECIAL EFP table
   SPECIAL_EFP_HDR:  /SPECIAL ENG FAIL TAKEOFF PROCEDURES\s*-+\s*\nRWY\s+CLB\s+VIA[^\n]*\n([\s\S]*?)(?=-{5})/,
   // Data line: "07C H079 D7.9 IZSC *D3.2 SMT RT H185 1200"
-  SPECIAL_EFP_LINE: /^(\d{2}[LRC]?(?:\s+SHIPS)?)\s+(.*)/,
+  SPECIAL_EFP_LINE: /^(\d{2}[LRC]?(?:-\w+)?(?:\s+[A-Z]+)?)\s+(.*)/,
   // SHIPS variant suffix to strip for deduplication
   SHIPS_SUFFIX:     /\s+SHIPS$/,
 };
@@ -6545,6 +6845,21 @@ function _ofpRulesetParse(rawText) {
   const acftM = t.match(PATTERNS.AIRCRAFT_TYPE);
   if (acftM) acftType = acftM[1];
 
+  // ── Heavy flag — from FPL field 9 wake turbulence category ─────────
+  // /H = Heavy (B744, B748, B777, B767…); /J = Super (A380, A225)
+  const wakeM = t.match(PATTERNS.FPL_WAKE);
+  const isHeavy = wakeM ? /^[HJ]$/i.test(wakeM[1]) : false;
+
+  // ── Weight unit (KGS / LBS) ─────────────────────────────────────────
+  // Parsed from OFP narrative header field 3: "B747-400F / CF680C2B1F / KGS / IFR"
+  // Defaults to KGS (Atlas Air standard) when unreadable.
+  let weightUnit = 'KGS';
+  const wuM = t.match(PATTERNS.WEIGHT_UNIT);
+  if (wuM) {
+    const wu = wuM[1].toUpperCase();
+    weightUnit = wu.startsWith('K') ? 'KGS' : 'LBS';
+  }
+
   // ── Date ───────────────────────────────────────────────────────────
   let dateStr = '';
   let flightDateISO = '';
@@ -6617,16 +6932,17 @@ function _ofpRulesetParse(rawText) {
     if (fitIdx === -1) return;
     const block = t.slice(fitIdx, Math.min(fitIdx + 3000, t.length));
     // Handles all observed Atlas Air crew line formats:
-    //   "CA 448229 MAGGIO M .."          — standard
-    //   "* FO 456969 ERIKSSON E .."      — asterisk prefix (senior designee)
+    //   "CA 448229 MAGGIO M .."          — standard 6-digit emp#
+    //   "CA 751 REDFORD D .."            — 3-digit emp#
+    //   "CA 452980 * LINEHAN R .."       — mid-line asterisk (unusual circumstance flag)
+    //   "* FO 456969 ERIKSSON E .."      — leading asterisk (senior designee)
     //   "* SEN FO 456942 BRAMLEY R .."   — asterisk + SEN prefix
-    //   "FO 459072 * SEN T .."           — asterisk SEN in name field (mid-line)
-    const re = /^\*?\s*(?:SEN\s+)?(CA|FO|DH|JS)\s+(?:(\d{6})\s+)?(\*\s*SEN|[A-Z][A-Z\s]*?)\s+([A-Z])\s+\.\./mg;
+    const re = /^\*?\s*(?:SEN\s+)?(CA|FO|DH|JS)\s+(?:(\d{3,6})\s+)?\*?\s*([A-Z][A-Z]*)\s+([A-Z])\s+\.\./mg;
     let m;
     while ((m = re.exec(block)) !== null) {
-      const rawName = m[3].replace(/\s+$/, '');
+      const rawName = m[3];
       if (rawName.includes('VERIFY')) continue;
-      const isSen = /^\*/.test(m[0].trimStart()) || /^\*?\s*SEN\s/i.test(m[0]) || /^\*\s*SEN$/i.test(rawName);
+      const isSen = /^\*/.test(m[0].trimStart()) || /SEN\s/i.test(m[0]);
       const displayName = isSen
         ? `★ SEN ${m[4]}`
         : `${rawName} ${m[4]}`;
@@ -6683,7 +6999,31 @@ function _ofpRulesetParse(rawText) {
   const taxiM = t.match(PATTERNS.TAXI_TIME);
   const taxiMins = taxiM ? parseInt(taxiM[1],10)*60 + parseInt(taxiM[2],10) : null;
 
-  // ── Perishables ───────────────────────────────────────────────────
+  // ── Nav log waypoints ─────────────────────────────────────────────
+  // Extract ordered {wpt, elapsedMins} from nav log rows.
+  // Atlas/Polar format: fix name at line start, cumulative elapsed HH+MM.
+  // Longest-monotonically-increasing-run isolates the real nav log
+  // from other text containing similar elapsed-time tokens.
+  const navLog = [];
+  (function parseNavLog() {
+    const rowRe = /^([A-Z][A-Z0-9]{1,5})\s+\S[^\n]*?\b(\d{1,3})\+(\d{2})\b/mg;
+    const candidates = [];
+    let m;
+    while ((m = rowRe.exec(t)) !== null) {
+      const elapsed = parseInt(m[2]) * 60 + parseInt(m[3]);
+      if (elapsed > 1440) continue;
+      candidates.push({ wpt: m[1], elapsedMins: elapsed });
+    }
+    if (!candidates.length) return;
+    let bestStart = 0, bestLen = 1, curStart = 0, curLen = 1;
+    for (let i = 1; i < candidates.length; i++) {
+      if (candidates[i].elapsedMins > candidates[i-1].elapsedMins) {
+        curLen++;
+        if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
+      } else { curStart = i; curLen = 1; }
+    }
+    for (let i = bestStart; i < bestStart + bestLen; i++) navLog.push(candidates[i]);
+  })();
   const hasPerishables = !!t.match(PATTERNS.PERISHABLE);
 
   // ── Origin / Destination ──────────────────────────────────────────
@@ -6710,9 +7050,11 @@ function _ofpRulesetParse(rawText) {
   const slotWinM  = t.match(PATTERNS.SLOT_TIME_WINDOW);
   const slotNBM   = !slotWinM  && t.match(PATTERNS.SLOT_TIME_NOT_BEFORE);
   const slotBefM  = !slotNBM   && !slotWinM && t.match(PATTERNS.SLOT_TIME_BEFORE);
-  if (slotWinM)  slotTime = `${_fmtT(slotWinM[1])} – ${_fmtT(slotWinM[2])}`;
-  else if (slotNBM)  slotTime = `NOT BEFORE ${_fmtT(slotNBM[1])}`;
-  else if (slotBefM) slotTime = `BEFORE ${_fmtT(slotBefM[1])}`;
+  const slotEarM  = !slotWinM  && !slotNBM  && !slotBefM && t.match(PATTERNS.SLOT_TIME_EARLIEST);
+  if (slotWinM)       slotTime = `${_fmtT(slotWinM[1])} – ${_fmtT(slotWinM[2])}`;
+  else if (slotNBM)   slotTime = `NOT BEFORE ${_fmtT(slotNBM[1])}`;
+  else if (slotBefM)  slotTime = `BEFORE ${_fmtT(slotBefM[1])}`;
+  else if (slotEarM)  slotTime = `NOT BEFORE ${_fmtT(slotEarM[1])}`;
 
   // CAT II/III: build { [ICAO]: [ {cat, rwys} ] } — one entry per OFP line,
   // preserving every runway/category row so the renderer can display them individually.
@@ -6802,12 +7144,16 @@ function _ofpRulesetParse(rawText) {
       const rows = [];
       let rm;
       while ((rm = rowRe.exec(dataSlice)) !== null) {
-        rows.push(rm[1] + 'Z-' + rm[2] + 'Z');
+        // [1]=HH [2]=MM elapsed dep→ETP; [3][4]=WX window HHMM
+        rows.push({ wxWindow: rm[3] + 'Z-' + rm[4] + 'Z', elapsedMins: parseInt(rm[1])*60 + parseInt(rm[2]) });
         if (rows.length === 2) break;
       }
-      [[retApt, rows[0]||null], [contApt, rows[1]||null]].forEach(([icao, wxWindow]) => {
+      // Stamp elapsed time onto the ETP point so the timeline can anchor it
+      const ptRef = cfsPoints.find(p => p.name === etpName);
+      if (ptRef && rows[0] && ptRef.elapsedMins == null) ptRef.elapsedMins = rows[0].elapsedMins;
+      [[retApt, rows[0]||null], [contApt, rows[1]||null]].forEach(([icao, rowData]) => {
         if (!icao || cfsApts.find(a => a.icao === icao)) return;
-        cfsApts.push({ icao, wxWindow, etpName, role: 'CFS ALT' });
+        cfsApts.push({ icao, wxWindow: rowData ? rowData.wxWindow : null, etpName, role: 'CFS ALT' });
       });
     }
   })();
@@ -6842,11 +7188,15 @@ function _ofpRulesetParse(rawText) {
       }
       curCode = null; curDescLines = [];
     };
+    // OFP page-footer lines that may appear inside the MEL block
+    // (e.g. "ATLAS AIR BRIEF PAGE 2 OF 65" / "PAGE 2 OF 65").
+    // Reject these so they are not captured as part of a DDG description.
+    const PAGE_FOOTER_RE = /^(?:[A-Z ]+\s+)?PAGE\s+\d+\s+OF\s+\d+\s*$/i;
     for (const line of melBlock.split(/\r?\n/)) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       if (ataRe.test(trimmed)) { flush(); curCode = trimmed; }
-      else if (curCode) curDescLines.push(trimmed);
+      else if (curCode && !PAGE_FOOTER_RE.test(trimmed)) curDescLines.push(trimmed);
     }
     flush();
     // Deduplicate code+desc
@@ -7052,10 +7402,156 @@ function _ofpRulesetParse(rawText) {
     });
   })();
 
+  // ── Enroute NOTAM sections ────────────────────────────────────────
+  // Extracts ROUTE / FIR / AIRWAY / WAYPOINT / GEOGRAPHIC COMPANY NOTAM
+  // blocks. Each key holds the raw text for that section.
+  const enrouteNotams = { route:'', fir:'', airway:'', waypoint:'', geographic:'' };
+  (function extractEnrouteNotams() {
+    const SECTIONS = [
+      { re: /^ROUTE\s+COMPANY\s+NOTAMS\s*$/m,      key: 'route'      },
+      { re: /^FIR\s+COMPANY\s+NOTAMS\s*$/m,        key: 'fir'        },
+      { re: /^AIRWAY\s+COMPANY\s+NOTAMS\s*$/m,     key: 'airway'     },
+      { re: /^WAYPOINT\s+COMPANY\s+NOTAMS\s*$/m,   key: 'waypoint'   },
+      { re: /^GEOGRAPHIC\s+COMPANY\s+NOTAMS\s*$/m, key: 'geographic' },
+    ];
+    const ANY_HDR = /^(?:STATION|ROUTE|FIR|AIRWAY|WAYPOINT|GEOGRAPHIC|ADMIN|RELEASE|FLTNUM)\s+COMPANY\s+NOTAMS\s*$/m;
+    const stripPage = s => s.replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '');
+
+    // Atlas Air briefs are issued in two identical copies (e.g. 63-page brief = 2×~31 pages).
+    // The first STATION COMPANY NOTAMS header marks the boundary between enroute content
+    // (Route/FIR/Airway/Waypoint/Geographic NOTAMs) and station-level content in Copy 1.
+    // Scoping the search to text before that boundary prevents the parser matching the
+    // second copy's section — which may be truncated — and returning an empty block.
+    const firstStationM = t.match(/^STATION\s+COMPANY\s+NOTAMS\s*$/m);
+    const searchScope = firstStationM && firstStationM.index > 0
+      ? t.slice(0, firstStationM.index)
+      : t;
+
+    SECTIONS.forEach(({ re, key }) => {
+      const m = searchScope.match(re);
+      if (!m) return;
+      const start = m.index + m[0].length;
+      const rest  = searchScope.slice(start);
+      const nextM = rest.search(ANY_HDR);
+      const block = stripPage(nextM > -1 ? rest.slice(0, nextM) : rest).trim();
+      if (block) enrouteNotams[key] = block;
+    });
+  })();
+
+  // ── NAT / PACOTS Oceanic Track Message ──────────────────────────────
+  // Detected for Atlantic (NAM↔EUR) and Pacific (NAM↔PAC) crossings.
+  // Extracts both EAST BOUND and WEST BOUND track sections, with the
+  // flight direction block ordered first. Supports NAT (letter IDs) and
+  // PACOTS/NOPAC (letter or numeric IDs: PAC A, PAC 1, PAC 14…).
+  // Verbal callsign reference: CMB→CAMBER (parsed via VERBAL CALLSIGN remark).
+  const natTrack = (() => {
+    const NAM = /^(?:K|CY|PA|TJ|MD|MH)/;
+    const EUR = /^(?:EG|EI|EH|EK|EN|EB|ED|LF|LE|LP|LI|LO|EF|EE|EV|EY|ES|EP|LR|LK|LZ|LH|LD|LQ|BI|UG)/;
+    const PAC = /^(?:RJ|RK|ZS|ZB|ZH|ZP|ZG|ZW|VH|WS|VT|RP|VV|HL|RC|VY)/; // Japan, Korea, China, SEA, Taiwan
+
+    const isAtlantic = (NAM.test(origIcao) && EUR.test(destIcao)) || (EUR.test(origIcao) && NAM.test(destIcao));
+    const isPacific  = (NAM.test(origIcao) && PAC.test(destIcao)) || (PAC.test(origIcao) && NAM.test(destIcao));
+    if (!isAtlantic && !isPacific) return null;
+
+    // Track system type
+    const trackType = isPacific ? 'PAC' : 'NAT';
+
+    // Flight direction: NAM→EUR=EAST, EUR→NAM=WEST, NAM→PAC=WEST, PAC→NAM=EAST
+    const flightDir = NAM.test(origIcao)
+      ? (isAtlantic ? 'EAST' : 'WEST')
+      : (isAtlantic ? 'WEST' : 'EAST');
+
+    // Locate track block
+    const BLOCK_HDR = /(?:(?:EAST|WEST)\s+BOUND\s+(?:NAT|PAC)\s+TRACKS?|NAT\s+TRACK\s+MESSAGE|ORGANIZED\s+TRACK\s+SYSTEM|OCEANIC\s+TRACK\s+MESSAGE|NAT\s+OTS)/i;
+    const bIdx = t.search(BLOCK_HDR);
+    const rawBlock = bIdx > -1
+      ? t.slice(bIdx, bIdx + 8000).replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '')
+      : '';
+
+    // TMI — Atlas format: "EAST BOUND NAT TRACKS TMI 071"
+    const tmiHdrM  = rawBlock.match(/(?:EAST|WEST)\s+BOUND\s+NAT\s+TRACKS?\s+TMI\s+(\d{2,4})/i);
+    const tmiBodyM = !tmiHdrM && rawBlock.match(/TMI[:\s#]*(\d{2,4})/i);
+    const tmiFullM = !tmiHdrM && !tmiBodyM && t.match(/TMI[:\s#]*(\d{2,4})/i);
+    const tmi = (tmiHdrM || tmiBodyM || tmiFullM)?.[1] ?? null;
+
+    // Assigned track ID — from OFP route header or remarks
+    const assignedM = t.match(/(?:NAT\s+)?(?:ASSIGNED\s+)?TRACK[:\s]+([A-Z0-9]{1,3})\b/i);
+    const assignedId = assignedM ? assignedM[1].toUpperCase() : null;
+
+    // Split rawBlock at each direction heading so each direction's entries
+    // are parsed independently
+    const DIR_SPLIT_RE = /(?=(?:EAST|WEST)\s+BOUND\s+(?:NAT|PAC)\s+TRACKS?)/gi;
+    const dirSections = rawBlock.split(DIR_SPLIT_RE).filter(s => /\S/.test(s));
+
+    const parseSection = (section) => {
+      const tracks = [];
+      // Match "TRACK A" (NAT) and "PAC A" / "PAC 1" / "PAC 14" (PACOTS)
+      const HDR_RE = /^\s*(?:TRACK\s+([A-Z])|PAC\s+([A-Z]|\d{1,2}))\b/gm;
+      let tm;
+      while ((tm = HDR_RE.exec(section)) !== null) {
+        const id = (tm[1] || tm[2]).toUpperCase();
+        const after = section.slice(tm.index, tm.index + 1000);
+
+        // Waypoints — PACOTS uses "WPTS:" label; NAT uses unlabelled lines
+        const wpts = [];
+        const wptSrcM = after.match(/WPTS?:\s*([\s\S]*?)(?=\r?\n(?:ENT|EXIT|CMTS?|RTE|PAC\s+[A-Z0-9]|TRACK\s+[A-Z]|EAST|WEST)|$)/i);
+        const wptSrc = wptSrcM
+          ? wptSrcM[1]
+          : after.split('\n').slice(1, 7).join(' ');
+
+        const WPT_RE = /\b([A-Z]{3,5}|\d{2}[NS]\d{2,3}[EW])\b/g;
+        let wm;
+        while ((wm = WPT_RE.exec(wptSrc)) !== null) {
+          const tok = wm[1];
+          if (/^(?:TRACK|PAC|NAT|MACH|VALID|EAST|WEST|FROM|THRU|THEN|TMI|NOTE|RMKS?|WPTS?|CMTS?|ENT|EXIT|RTE|TRK|ATM|NOT|AVBL|ONLY|ACFT)$/.test(tok)) continue;
+          wpts.push(tok);
+        }
+
+        const flM = after.match(/FL[:\s]*(\d{2,3})\s*[\/\-\u2013]\s*(\d{2,3})/i) || after.match(/\bFL\s*(\d{2,3})\b/i);
+        const fl = flM ? (flM[2] ? `FL${flM[1]}\u2013${flM[2]}` : `FL${flM[1]}`) : '';
+
+        const machM = after.match(/MACH[:\s]*\.?(\d{2})/i) || after.match(/M\.(\d{2})/i);
+        const mach = machM ? `M.${machM[1]}` : '';
+
+        // Validity — PACOTS: "04/05-1900 TO: 04/06-0800"; NAT: "1200Z–2000Z"
+        const valM = after.match(/(?:VALID\s+FROM[:\s]*)(\S+)\s+TO[:\s]*(\S+)/i)
+          || after.match(/(?:VALID[:\s]*)(\d{4}Z?)\s*[\/\-\u2013]\s*(\d{4}Z?)/i);
+        const valid = valM ? `${valM[1]}\u2013${valM[2]}` : '';
+
+        if (wpts.length >= 2) {
+          tracks.push({ id, waypoints: wpts, fl, mach, valid, assigned: id === assignedId });
+        }
+      }
+      return tracks;
+    };
+
+    // Build blocks — flight direction first, opposite direction second
+    const blocks = [];
+    for (const section of dirSections) {
+      const dirM = section.match(/^(EAST|WEST)\s+BOUND/i);
+      const secDir = dirM ? dirM[1].toUpperCase() : null;
+      if (!secDir) continue;
+      blocks.push({ dir: secDir, tracks: parseSection(section) });
+    }
+    blocks.sort((a, b) => {
+      if (a.dir === flightDir && b.dir !== flightDir) return -1;
+      if (b.dir === flightDir && a.dir !== flightDir) return  1;
+      return 0;
+    });
+
+    const rawFallback = (!blocks.length || !blocks.some(b => b.tracks.length)) && rawBlock.length > 30
+      ? rawBlock.slice(0, 2500) : '';
+
+    return { trackType, tmi, flightDir, assignedId, blocks, rawFallback };
+  })();
+
+
   // ── Return structured result ───────────────────────────────────────
   return {
     fltNum,
     acftType,
+    weightUnit,
+    isHeavy,
     dateStr,
     flightDateISO,
     origIcao,
@@ -7098,6 +7594,9 @@ function _ofpRulesetParse(rawText) {
     altData,
     oeiData,
     etpPoints:    cfsPoints,
+    navLog,
+    enrouteNotams,
+    natTrack,
     airportData,  // { [icao]: { weather, notams, curfew? } }
     parsedVerbalCallsign,  // from "VERBAL CALLSIGN - {NAME}" in Remarks; null if absent
   };
@@ -7159,6 +7658,7 @@ function parseOFP() {
     destIcao:   result.destIcao,
     altData:    result.altData,
     acftType:   result.acftType,
+    weightUnit: result.weightUnit || 'KGS',
     blockFuel:  fuelK(result.blockFuelRaw),
     minfFuel:   fuelK(result.minfFuelRaw),
     fresFuel:   fuelK(result.fresFuelRaw),
@@ -7175,6 +7675,9 @@ function parseOFP() {
     melItems:   result.melItems,
     overflightPerms: result.overflightPerms,
     altRoutes:  result.altRoutes,
+    navLog:         result.navLog     || [],
+    enrouteNotams:  result.enrouteNotams || null,
+    natTrack:       result.natTrack   || null,
     oeiData:    result.oeiData,
     oeiSelectedRwy: result.oeiData.length ? (S.oeiSelectedRwy || '') : '',
     hasPerishables: result.hasPerishables,
@@ -7201,11 +7704,13 @@ function parseOFP() {
     enrouteScratch:'', oeiVal:'', stabTrim:'', gaFuel:'',
     userNotes:'', fcirAsap:false, fcirNarrative:'',
     ...deriveCallsign(result.fltNum),
+    // FPL field 9 wake turbulence category overrides deriveCallsign's default.
+    // /H = Heavy (all B744/B748/B767/B777); /J = Super (A380).
+    isHeavy: result.isHeavy !== undefined ? result.isHeavy : true,
     // OFP Remarks "VERBAL CALLSIGN - {NAME}" takes precedence over derived callsign.
     // This covers ACMI/wet-lease ops (e.g. THY operated by GTI → TURKISH).
     ...(result.parsedVerbalCallsign ? {
       verbalCallsign: result.parsedVerbalCallsign,
-      isHeavy: true,
     } : {}),
   });
   // Preserve crewVerified across re-imports; reset buffer only on first import
@@ -7295,20 +7800,25 @@ function renderNote() {
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
   sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
   sh += `</div>`;
-  // Callsign note — shown only when verbal is known AND the operator is NOT GTI or PAC
-  // (those crews use their own callsign; ACMI/wet-lease crews need the verbal displayed)
-  // Format:  CALLSIGN [TURKISH] 6044
-  if (S.verbalCallsign && S.fltNum && !/^(GTI|PAC)\d/i.test(S.fltNum)) {
-    const _numM = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
-    const _num  = _numM ? _numM[1] : '';
-    sh += `<div class="flt-callsign-note">`;
-    sh += `<span class="flt-id">${esc(S.verbalCallsign)} ${esc(_num)}</span>`;
-    sh += `</div>`;
-  }
-  if (S.etopsSpec || S.etopsEntry) {
-    sh += `<div class="etops-block">`;
-    if (S.etopsSpec)  sh += `<div class="etops-line">ETOPS ${esc(S.etopsSpec)}</div>`;
-    if (S.etopsEntry) sh += `<div class="etops-line">ETOPS ENTRY ${esc(S.etopsEntry)}</div>`;
+  // Right-column: callsign (top) stacked above ETOPS (bottom).
+  // Rendered only when at least one of the two is present.
+  // Covers native Atlas ops (GIANT, POLAR, CAMBER) and ACMI/wet-lease (e.g. TURKISH).
+  if ((S.verbalCallsign && S.fltNum) || S.etopsSpec || S.etopsEntry) {
+    sh += `<div class="flt-header-right">`;
+    if (S.verbalCallsign && S.fltNum) {
+      const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
+      const _num   = _numM ? _numM[1] : '';
+      const _heavy = S.isHeavy ? ' Heavy' : '';
+      sh += `<div class="flt-callsign-note">`;
+      sh += `<span class="flt-id">${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}</span>`;
+      sh += `</div>`;
+    }
+    if (S.etopsSpec || S.etopsEntry) {
+      sh += `<div class="etops-block">`;
+      if (S.etopsSpec)  sh += `<div class="etops-line">ETOPS ${esc(S.etopsSpec)}</div>`;
+      if (S.etopsEntry) sh += `<div class="etops-line">ETOPS ENTRY ${esc(S.etopsEntry)}</div>`;
+      sh += `</div>`;
+    }
     sh += `</div>`;
   }
   sh += `<div class="flt-header-actions">${renderShareButton()}</div>`;
@@ -7426,8 +7936,8 @@ function renderPreflightPhase() {
   h += `</div></div>`; // subcard-body + subcard
 
   // ── "OFP Fuel & Weight Summary" subcard ──
-  // Weight unit: KGS if acftType contains KGS (or known KG airframes), else LBS
-  const _wtUnit = /\bKGS?\b/i.test(S.acftType) ? 'KGS' : 'LBS';
+  // Weight unit sourced from OFP narrative header (e.g. "/ KGS /"), stored in S.weightUnit
+  const _wtUnit = S.weightUnit || 'KGS';
   // Margin colour: >1000 green, 500–1000 yellow, <500 red (same threshold for both units)
   const wClass = (actual, limit) => {
     if (!actual || !limit) return '';
@@ -7506,66 +8016,358 @@ function renderPreflightPhase() {
 }
 
 // ── ENROUTE PHASE ─────────────────────────────────────────────────────────
+
+// _deriveOffZ — resolves the effective wheels-off time from state.
+//
+// Priority chain:
+//   1. S.offZ (crew-entered actual OFF)           → source: 'manual'
+//   2. S.outZ + S.taxiMins (OFP planned taxi out) → source: 'computed'
+//   3. S.outZ alone (no taxi data in OFP)         → source: 'out'
+//   4. null — no departure time available
+//
+// Returns: { hhmm: 'HHMM', source: 'manual'|'computed'|'out' } | null
+//
+// Used by: renderEnroutePhase(), calcInflightRest(), renderInflightRestModule()
+function _deriveOffZ() {
+  if (S.offZ && S.offZ.length === 4) return { hhmm: S.offZ, source: 'manual' };
+  if (S.outZ && S.outZ.length === 4) {
+    if (S.taxiMins) {
+      const t = (parseInt(S.outZ.slice(0,2),10)*60 + parseInt(S.outZ.slice(2,4),10)
+                 + S.taxiMins + 14400) % 1440;
+      return {
+        hhmm: String(Math.floor(t/60)).padStart(2,'0') + String(t%60).padStart(2,'0'),
+        source: 'computed'
+      };
+    }
+    return { hhmm: S.outZ, source: 'out' };
+  }
+  return null;
+}
+
 function renderEnroutePhase() {
-  // Helper: add minutes to a HHMM string, return HHMM
-  const addMins = (hhmm, mins) => {
-    if (!hhmm || hhmm.length !== 4) return null;
-    const base = parseInt(hhmm.slice(0,2))*60 + parseInt(hhmm.slice(2,4));
-    const total = (base + mins + 1440*10) % 1440;
+  const navLog = S.navLog || [];
+
+  // Effective OFF: manual crew entry > OUT+taxi (OFP) > OUT alone > null
+  const _offDerived = _deriveOffZ();
+  const offZ   = _offDerived ? _offDerived.hhmm : '';
+  const offSrc = _offDerived ? _offDerived.source : null;  // 'manual'|'computed'|'out'|null
+  const hasOff = offZ.length === 4;
+  const offMin = hasOff ? parseInt(offZ.slice(0,2),10)*60 + parseInt(offZ.slice(2,4),10) : 0;
+
+  // ── Core helpers ─────────────────────────────────────────────────
+  // Elapsed minutes from OFF → HHMM Z
+  const toZ = (elapsedMins) => {
+    const total = (offMin + elapsedMins + 14400) % 1440;
     return String(Math.floor(total/60)).padStart(2,'0') + String(total%60).padStart(2,'0');
   };
-  const fmtZ = t => t ? t + 'Z' : '——';
+  // Format elapsed as HH+MM
+  const fmtE = (m) => `${Math.floor(m/60)}+${String(m%60).padStart(2,'0')}`;
 
-  const offZ = (S.offZ || '').replace(/\D/g,'').slice(0,4);
-  const hasOff = offZ.length === 4;
+  // Nearest navLog wpt within ±maxDelta minutes of targetMins
+  const wptNearest = (targetMins, maxDelta) => {
+    const pool = maxDelta !== undefined
+      ? navLog.filter(w => Math.abs(w.elapsedMins - targetMins) <= maxDelta)
+      : navLog;
+    if (!pool.length) return null;
+    return pool.reduce((b,w) => Math.abs(w.elapsedMins-targetMins) < Math.abs(b.elapsedMins-targetMins) ? w : b);
+  };
 
-  // Calculated times (only when OFF entered)
-  const eentZ = (hasOff && S.etopsEntryMins != null)
-    ? addMins(offZ, S.etopsEntryMins) : null;
-  const porZ  = (hasOff && S.porOffsetMins != null)
-    ? addMins(offZ, S.porOffsetMins) : null;
-  const rdaZ  = porZ ? addMins(porZ, -120) : null;  // 2 hrs prior to POR
+  // Pre-POR position report: nearest wpt in [POR-180, POR), closest to 3-hr mark.
+  // "Not more than 3 hours prior" = wpt.elapsedMins >= porElapsed − 180.
+  const wptPrePor = (porElapsed) => {
+    if (!navLog.length || !porElapsed) return null;
+    const target = porElapsed - 180;
+    const valid  = navLog.filter(w => w.elapsedMins >= target && w.elapsedMins < porElapsed);
+    if (!valid.length) return null;
+    return valid.reduce((b,w) => Math.abs(w.elapsedMins-target) < Math.abs(b.elapsedMins-target) ? w : b);
+  };
 
-  // CO RPT schedule: every 4 hrs from OFF, but suppress if within 2–3 hrs of POR
-  // Rule: report at OFF+4h, OFF+8h, etc.  Skip any that fall within porZ-3h … porZ-2h window (replaced by POR report)
-  const coRpts = (() => {
-    if (!hasOff) return [];
-    const rpts = [];
-    for (let i = 1; i <= 10; i++) {
-      const mins = i * 240;
-      const t = addMins(offZ, mins);
-      if (!t) break;
-      const tMin = parseInt(t.slice(0,2))*60 + parseInt(t.slice(2,4));
-      // Check overlap with POR window (2–3 hrs before POR)
-      if (porZ) {
-        const pMin = parseInt(porZ.slice(0,2))*60 + parseInt(porZ.slice(2,4));
-        const overlap2 = ((pMin - 120 - tMin + 1440) % 1440);
-        const overlap3 = ((pMin - 180 - tMin + 1440) % 1440);
-        // suppressed if this report falls in the [POR-3h, POR-2h] window
-        // i.e. it's AFTER POR-3h and AT-OR-BEFORE POR-2h
-        const afterMinus3 = overlap3 >= 1440 - 30 || overlap3 <= 30; // within 30 min of boundary
-        const afterMinus3b = ((tMin - (pMin - 180) + 1440) % 1440) <= 60;
-        const beforeMinus2 = ((pMin - 120 - tMin + 1440) % 1440) >= 0 &&
-                             ((pMin - 120 - tMin + 1440) % 1440) <= 1440 - 1;
-        // Simpler: suppress if (tMin is within [porMin-180, porMin-120] window
-        const diff = (tMin - (pMin - 180) + 1440) % 1440;
-        if (diff >= 0 && diff <= 60) {
-          rpts.push({ t, suppressed: true, reason: 'overlaps POR window' });
-          continue;
-        }
-      }
-      // Stop generating past ETA dest
-      if (S.etaDest && S.etaDest.length === 4) {
-        const etaMin = parseInt(S.etaDest.slice(0,2))*60 + parseInt(S.etaDest.slice(2,4));
-        const diff = (parseInt(t.slice(0,2))*60 + parseInt(t.slice(2,4)) - parseInt(offZ.slice(0,2))*60 - parseInt(offZ.slice(2,4)) + 1440) % 1440;
-        const ete  = (etaMin - parseInt(offZ.slice(0,2))*60 - parseInt(offZ.slice(2,4)) + 1440) % 1440;
-        if (diff > ete + 30) break;
-      }
-      rpts.push({ t, suppressed: false });
+  // ── Build chronological event list ──────────────────────────────
+  const events = [];
+  if (hasOff) {
+    const eteDest = S.destEtaOffsetMins || S.tripMinutes || 0;
+
+    // ETOPS: 60-min advisory + entry
+    if (S.etopsEntryMins != null) {
+      events.push({ type:'preEtops',    elapsed: S.etopsEntryMins - 60 });
+      events.push({ type:'etopsEntry',  elapsed: S.etopsEntryMins });
     }
-    return rpts;
-  })();
 
+    // POR cluster (redispatch only)
+    if (S.porOffsetMins != null) {
+      const prePorWpt = wptPrePor(S.porOffsetMins);
+      events.push({
+        type:'prePor',
+        elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
+        wpt: prePorWpt ? prePorWpt.wpt : null,
+      });
+      events.push({ type:'rda', elapsed: S.porOffsetMins - 120 });
+      events.push({ type:'por', elapsed: S.porOffsetMins, wpt: S.porWpt || null });
+    }
+
+    // CO RPTs — 4-hr intervals, waypoint-anchored
+    for (let i = 1; i <= 15; i++) {
+      const targetElapsed = i * 240;
+      if (eteDest && targetElapsed > eteDest + 60) break;
+      // Suppress if within 90 min of POR cluster
+      if (S.porOffsetMins != null) {
+        const d = targetElapsed - S.porOffsetMins;
+        if (d >= -90 && d <= 90) continue;
+      }
+      const wpt = wptNearest(targetElapsed, 45);
+      events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                    targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
+    }
+
+    // ETP waypoints (from CFS section)
+    (S.etpPoints || []).forEach(pt => {
+      if (pt.elapsedMins == null) return;
+      events.push({ type:'etp', elapsed: pt.elapsedMins, label: pt.name,
+                    coord: pt.lat && pt.lon ? `${pt.lat}  ${pt.lon}` : '' });
+    });
+
+    events.sort((a,b) => a.elapsed - b.elapsed);
+  }
+
+  // ── Timeline row renderer ────────────────────────────────────────
+  const renderEvent = (evt) => {
+    const etaStr = toZ(evt.elapsed) + 'Z';
+    let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
+
+    if (evt.type === 'coRpt') {
+      h += `<div style="display:flex;flex-direction:column;min-width:96px;flex-shrink:0;gap:1px">`;
+      h += `<span class="enroute-label">CO RPT</span>`;
+      h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono)">${evt.rptHours} HR</span>`;
+      h += `</div>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      if (evt.wpt) {
+        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--label)">${esc(evt.wpt)}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}`;
+        if (navLog.length) h += `<span style="color:var(--label3)">  T+${fmtE(evt.elapsed)}</span>`;
+        h += `</span>`;
+      } else {
+        h += `<span class="enroute-value">${etaStr}</span>`;
+      }
+      h += `</div>`;
+
+    } else if (evt.type === 'prePor') {
+      h += `<div style="display:flex;flex-direction:column;min-width:96px;flex-shrink:0;gap:1px">`;
+      h += `<span class="enroute-label" style="color:var(--sys-yellow)">CO RPT</span>`;
+      h += `<span style="font-size:11px;color:var(--sys-yellow);opacity:.75;font-family:var(--font-mono)">PRE-POR</span>`;
+      h += `</div>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      if (evt.wpt) {
+        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--sys-yellow)">${esc(evt.wpt)}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}`;
+        if (navLog.length) h += `<span style="color:var(--label3)">  T+${fmtE(evt.elapsed)}</span>`;
+        h += `</span>`;
+      } else {
+        h += `<span class="enroute-value" style="color:var(--sys-yellow)">${etaStr}</span>`;
+      }
+      h += `</div>`;
+
+    } else if (evt.type === 'rda') {
+      h += `<span class="enroute-label" style="color:var(--sys-yellow)">RDA</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value" style="color:var(--sys-yellow)">${etaStr}</span>`;
+      h += `<span style="font-size:11px;color:var(--label3)">2 hr prior to POR</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'por') {
+      h += `<span class="enroute-label" style="color:var(--sys-yellow)">POR</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      if (evt.wpt) h += `<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--sys-yellow)">${esc(evt.wpt)}</span>`;
+      h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}</span>`;
+      if (S.porMinf) h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">MINF&nbsp;${esc(S.porMinf)}</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'preEtops') {
+      h += `<span class="enroute-label" style="color:var(--tint)">E.ENT&nbsp;−60</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
+      h += `<span style="font-size:11px;color:var(--label3)">ETOPS advisory</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'etopsEntry') {
+      h += `<span class="enroute-label" style="color:var(--tint)">E.ENT</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
+      if (S.etopsSpec) h += `<span style="font-size:11px;color:var(--label3)">ETOPS ${esc(S.etopsSpec)}</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'etp') {
+      h += `<span class="enroute-label" style="color:var(--label2)">${esc(evt.label)}</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value">${etaStr}</span>`;
+      if (evt.coord) h += `<span style="font-family:var(--font-mono);font-size:11px;color:var(--label3)">${esc(evt.coord)}</span>`;
+      h += `</div>`;
+    }
+
+    h += `</div>`;
+    return h;
+  };
+
+  // ── Enroute NOTAM card renderer ──────────────────────────────────
+  const renderEnrouteNotams = () => {
+    const en = S.enrouteNotams;
+    if (!en) return '';
+    const SECTION_LABELS = {
+      route:      'Route',
+      fir:        'FIR',
+      airway:     'Airway',
+      waypoint:   'Waypoint',
+      geographic: 'Geographic',
+    };
+    // Build list of non-empty sections
+    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en[k] && en[k].trim());
+    if (!filled.length) return '';
+
+    // For waypoint section: highlight any navLog waypoint names found in the text
+    const highlightWpts = (text) => {
+      if (!navLog.length) return esc(text);
+      // Escape for HTML, then wrap found waypoint names in a highlight span
+      let safe = esc(text);
+      navLog.forEach(({ wpt }) => {
+        const re = new RegExp(`\\b(${wpt})\\b`, 'g');
+        safe = safe.replace(re, `<mark style="background:rgba(255,204,0,.3);border-radius:2px;padding:0 2px">$1</mark>`);
+      });
+      return safe;
+    };
+
+    const CHEV = `<svg style="width:9px;height:14px;flex-shrink:0;margin-left:4px;transition:transform .2s;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 9 14"><path d="M1 1l6.5 6L1 13"/></svg>`;
+
+    let h = `<div class="subcard">`;
+    h += `<div class="subcard-header">Route NOTAMs</div>`;
+    h += `<div class="subcard-body" style="padding:0">`;
+
+    filled.forEach(([key, label], idx) => {
+      const text  = en[key];
+      const domId = `enr-notam-${key}`;
+      const isWpt = key === 'waypoint';
+      h += `<div class="notam-group"${idx===0?' style="border-top:none"':''}>`;
+      h += `<div class="notam-group-hdr" onclick="(function(el){`;
+      h += `var b=document.getElementById('${domId}');`;
+      h += `var ch=el.querySelector('svg');`;
+      h += `if(b.hidden){b.hidden=false;ch.style.transform='rotate(90deg)';}`;
+      h += `else{b.hidden=true;ch.style.transform='';}`;
+      h += `})(this)">`;
+      h += `<span class="notam-dot y"></span>`;
+      h += `<span class="notam-group-label">${label} Company NOTAMs</span>${CHEV}`;
+      h += `</div>`;
+      h += `<div id="${domId}" class="notam-group-body" hidden>`;
+      h += `<pre style="margin:0;white-space:pre-wrap;font-family:var(--font-mono);font-size:12px;line-height:1.55;color:var(--label)">`;
+      h += isWpt ? highlightWpts(text) : esc(text);
+      h += `</pre>`;
+      h += `</div>`;
+      h += `</div>`;
+    });
+
+    h += `</div></div>`;
+    return h;
+  };
+
+  // ── NAT Track Message card renderer ─────────────────────────────
+  const renderNatTrack = () => {
+    const nt = S.natTrack;
+    if (!nt) return '';
+
+    const CHEV = `<svg style="width:9px;height:14px;flex-shrink:0;margin-left:auto;transition:transform .2s;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 9 14"><path d="M1 1l6.5 6L1 13"/></svg>`;
+    const trackType = nt.trackType || 'NAT';
+
+    // ── Render a single direction block (one subcard) ─────────────────
+    const renderBlock = (blk, isFlightDir) => {
+      const dirLabel = blk.dir === 'EAST'
+        ? (trackType === 'PAC' ? 'Eastbound PAC Tracks' : 'Eastbound NAT Tracks')
+        : (trackType === 'PAC' ? 'Westbound PAC Tracks' : 'Westbound NAT Tracks');
+
+      // Header badge: "TMI 071 · NAT T" (combining TMI and assigned track)
+      // — replaces the old separate "TMI 071" + "TRACK T ASSIGNED" labels
+      const hasAssigned = isFlightDir && nt.assignedId;
+      let badge = '';
+      if (hasAssigned && nt.tmi) {
+        badge = `<span style="font-size:13px;font-weight:700;color:var(--sys-yellow);font-family:var(--font-mono);letter-spacing:0.04em;margin-left:4px">TMI\u00a0${esc(nt.tmi)}\u00a0\u00b7\u00a0${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`;
+      } else if (nt.tmi && isFlightDir) {
+        badge = `<span style="font-size:13px;font-weight:700;color:var(--label2);font-family:var(--font-mono);letter-spacing:0.04em;margin-left:4px">TMI\u00a0${esc(nt.tmi)}</span>`;
+      } else if (hasAssigned) {
+        badge = `<span style="font-size:13px;font-weight:700;color:var(--sys-yellow);font-family:var(--font-mono);margin-left:4px">${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`;
+      }
+
+      let h = `<div class="subcard">`;
+      h += `<div class="subcard-header" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">`;
+      h += `<span style="flex:0 0 auto">${dirLabel}</span>`;
+      h += badge;
+      h += `</div>`;
+      h += `<div class="subcard-body" style="padding:0">`;
+
+      if (blk.tracks.length) {
+        blk.tracks.forEach((tr, idx) => {
+          const domId = `nat-track-${blk.dir}-${tr.id}`;
+          const isAssigned = isFlightDir && (tr.assigned || tr.id === nt.assignedId);
+          const dotCls = isAssigned ? 'y' : 'g';
+          h += `<div class="notam-group"${idx===0?' style="border-top:none"':''}>`;
+          h += `<div class="notam-group-hdr" onclick="(function(el){`;
+          h += `var b=document.getElementById('${domId}');`;
+          h += `var ch=el.querySelector('svg');`;
+          h += `if(b.hidden){b.hidden=false;ch.style.transform='rotate(90deg)';}`;
+          h += `else{b.hidden=true;ch.style.transform='';}`;
+          h += `})(this)" style="${isAssigned?'background:rgba(255,204,0,.08)':''}">`;
+          h += `<span class="notam-dot ${dotCls}"></span>`;
+          h += `<span class="notam-group-label" style="${isAssigned?'font-weight:700;color:var(--sys-yellow)':''}">`;
+          // Row label: "NAT A" / "PAC 1" instead of "Track A"
+          h += `${esc(trackType)}\u00a0${esc(tr.id)}`;
+          if (isAssigned) h += ` \u2014 ASSIGNED`;
+          h += `</span>`;
+          if (tr.valid) h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label3);margin-left:8px">${esc(tr.valid)}</span>`;
+          h += CHEV;
+          h += `</div>`;
+          h += `<div id="${domId}" class="notam-group-body" ${isAssigned?'':'hidden'}>`;
+          if (tr.waypoints.length) {
+            h += `<div style="font-family:var(--font-mono);font-size:13px;color:var(--label);line-height:1.8;word-break:break-all">`;
+            h += tr.waypoints.map((w,i) => {
+              const isMatch = navLog.some(n => n.wpt === w);
+              return `<span style="${isMatch?'color:var(--tint);font-weight:700':'color:var(--label)'}">${esc(w)}</span>${i < tr.waypoints.length-1 ? '<span style="color:var(--label3)"> \u2192 </span>' : ''}`;
+            }).join('');
+            h += `</div>`;
+          }
+          const meta = [tr.fl, tr.mach].filter(Boolean);
+          if (meta.length) {
+            h += `<div style="display:flex;gap:16px;margin-top:6px">`;
+            meta.forEach(m => { h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label2)">${esc(m)}</span>`; });
+            h += `</div>`;
+          }
+          h += `</div></div>`;
+        });
+      } else {
+        h += `<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No structured tracks found for this direction.</div>`;
+      }
+      h += `</div></div>`;
+      return h;
+    };
+
+    // ── Render both blocks or raw fallback ───────────────────────────
+    const blocks = nt.blocks;
+    if (blocks && blocks.length && blocks.some(b => b.tracks.length)) {
+      // Flight direction block first (already sorted by parser), then opposite
+      return blocks.map((blk, i) => renderBlock(blk, blk.dir === (nt.flightDir || nt.dir))).join('');
+    } else if (nt.rawFallback) {
+      const dirLabel = (nt.flightDir || nt.dir) === 'EAST' ? 'Eastbound NAT Tracks' : 'Westbound NAT Tracks';
+      let h = `<div class="subcard">`;
+      h += `<div class="subcard-header">${dirLabel}</div>`;
+      h += `<div class="subcard-body" style="padding:var(--sp2) var(--sp3)">`;
+      h += `<pre style="margin:0;white-space:pre-wrap;font-family:var(--font-mono);font-size:12px;line-height:1.55;color:var(--label)">${esc(nt.rawFallback)}</pre>`;
+      h += `</div></div>`;
+      return h;
+    } else {
+      const crossing = (nt.trackType === 'PAC') ? 'Pacific' : 'Atlantic';
+      let h = `<div class="subcard">`;
+      h += `<div class="subcard-header">Oceanic Track Message</div>`;
+      h += `<div class="subcard-body"><div style="padding:var(--sp3);font-size:14px;color:var(--label3)">${crossing} crossing detected — no structured track message found in OFP. Paste track message in scratchpad.</div></div>`;
+      h += `</div>`;
+      return h;
+    }
+  };
+
+  // ── Render ───────────────────────────────────────────────────────
   let h = '';
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">Enroute</div>`;
@@ -7573,63 +8375,35 @@ function renderEnroutePhase() {
   h += `<div class="enroute-split">`;
   h += `<div class="enroute-times-col">`;
 
-  // OFF time entry
+  // OFF time — pre-populated from OUT+taxi when not manually entered by crew.
+  // Crew taps to override with actual wheels-off; basis tag reflects data source.
   h += `<div class="data-table data-table-lg">`;
-  h += `<div class="data-row"><span class="data-label">OFF</span><span class="data-value">${ev('offZ', offZ ? offZ+'Z' : '____Z')}</span></div>`;
+  h += `<div class="data-row" style="align-items:center;gap:var(--sp2)">`;
+  h += `<span class="data-label">OFF</span>`;
+  h += `<span class="data-value">${ev('offZ', offZ ? offZ+'Z' : '____Z')}</span>`;
+  if (offSrc === 'computed') {
+    h += `<span style="font-size:11px;font-family:var(--font-mono);color:var(--label3);`
+       + `background:var(--fill3);border-radius:4px;padding:1px 5px;flex-shrink:0">`
+       + `OUT+${S.taxiMins}m</span>`;
+  } else if (offSrc === 'out') {
+    h += `<span style="font-size:11px;font-family:var(--font-mono);color:var(--label3);`
+       + `background:var(--fill3);border-radius:4px;padding:1px 5px;flex-shrink:0">`
+       + `OUT</span>`;
+  }
+  h += `</div>`;
   h += `</div>`;
 
-  if (hasOff) {
-    // ── E.ENT (ETOPS entry — only on ETOPS flights) ──
-    if (eentZ) {
-      h += `<div class="enroute-row">`;
-      h += `<span class="enroute-label">E.ENT</span>`;
-      h += `<span class="enroute-value">${eentZ}Z</span>`;
-      if (S.etopsEntry) h += `<span class="enroute-sub">+${esc(S.etopsEntry)}</span>`;
-      h += `</div>`;
-    }
-
-    // ── RDA + POR (only on RDA/redispatch flights) ──
-    // Order: RDA first (single time, 2 hrs before POR), then POR (time + MINF)
-    if (rdaZ && porZ && S.porWpt) {
-      // RDA — single point in time, NOT a window
-      h += `<div class="enroute-row">`;
-      h += `<span class="enroute-label">RDA</span>`;
-      h += `<span class="enroute-value">${rdaZ}Z</span>`;
-      h += `</div>`;
-
-      // POR — waypoint, time, and minimum fuel required at that point
-      h += `<div class="enroute-row" style="align-items:flex-start;padding-top:10px;padding-bottom:10px">`;
-      h += `<span class="enroute-label" style="padding-top:1px">POR</span>`;
-      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
-      h += `<span class="enroute-value">${esc(S.porWpt)}  ${porZ}Z</span>`;
-      if (S.porMinf) {
-        h += `<span style="font-size:13px;font-family:var(--font-mono);color:var(--label2)">MINF&nbsp;${esc(S.porMinf)}</span>`;
-      }
-      h += `</div>`;
-      h += `</div>`;
-    }
-
-    // CO RPT schedule
-    if (coRpts.length) {
-      h += `<div class="enroute-row" style="align-items:flex-start;padding-top:var(--sp2);padding-bottom:var(--sp2)">`;
-      h += `<span class="enroute-label" style="padding-top:2px">CO RPT</span>`;
-      h += `<div style="display:flex;flex-direction:column;gap:3px">`;
-      coRpts.forEach((r, i) => {
-        if (r.suppressed) {
-          h += `<span class="enroute-value dim" style="text-decoration:line-through">${r.t}Z</span>`;
-          h += `<span style="font-size:11px;color:var(--label3);margin-left:2px">POR report covers this window</span>`;
-        } else {
-          h += `<span class="enroute-value">${r.t}Z</span>`;
-        }
-      });
-      h += `</div></div>`;
-    }
+  if (!hasOff) {
+    h += `<div style="padding:var(--sp3) 0;font-size:15px;color:var(--label3)">Enter OUT time to generate enroute events.</div>`;
+  } else if (!events.length) {
+    h += `<div style="padding:var(--sp3) 0;font-size:15px;color:var(--label3)">Import an OFP to populate the enroute timeline.</div>`;
   } else {
-    h += `<div style="padding:var(--sp3) 0;font-size:15px;color:var(--label3)">Enter OFF time to calculate enroute events.</div>`;
+    events.forEach(evt => { h += renderEvent(evt); });
   }
 
   h += `</div>`; // enroute-times-col
-  // ── Scratchpad column ──
+
+  // Scratchpad column
   h += `<div class="enroute-scratch-col">`;
   h += `<div class="enroute-scratch-label">Scratchpad</div>`;
   h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Enroute scratchpad"></textarea>`;
@@ -7638,20 +8412,26 @@ function renderEnroutePhase() {
   h += `</div>`; // enroute-scratch-col
   h += `</div>`; // enroute-split
   h += `</div></div>`; // subcard-body + subcard
+
   // Regular (>400px): rest module as its own subcard below enroute times
   h += `<div class="rest-module-regular">${renderInflightRestModule()}</div>`;
+
+  // Route NOTAMs — full-width, below the timeline/scratchpad split
+  h += renderEnrouteNotams();
+
+  // NAT Track — full-width, only on Atlantic crossings
+  h += renderNatTrack();
+
   h += renderFcirSubcard();
   return h;
 }
-
 // ═══════════════════════════════════════════════════════════════════
 // INFLIGHT REST MODULE  v1.1.0  (14 CFR 121.467 — Augmented Crews)
 // ═══════════════════════════════════════════════════════════════════
 
 function calcInflightRest() {
-  const hasActualOff = S.offZ && S.offZ.length === 4;
-  const offZ  = hasActualOff ? S.offZ
-              : (S.outZ && S.outZ.length === 4) ? S.outZ : null;
+  const _off = _deriveOffZ();
+  const offZ  = _off ? _off.hhmm : null;
   const etaZ  = (S.etaDest && S.etaDest.length === 4) ? S.etaDest : null;
   if (!offZ || !etaZ || S.tocOffsetMins === null) return null;
   const toMin = hhmm => parseInt(hhmm.slice(0,2),10)*60 + parseInt(hhmm.slice(2,4),10);
@@ -7663,11 +8443,12 @@ function calcInflightRest() {
 
   // TOC baseline:
   //   tocZOverride set → crew-entered TOC (highest priority)
-  //   OFF entered      → OFF + TOC_TOT-T  (elapsed measured from wheels-up)
-  //   OUT only         → OUT + taxi + TOC_TOT-T  (must add outbound taxi before elapsed)
-  const tocOffsetTotal = hasActualOff
-    ? S.tocOffsetMins
-    : S.tocOffsetMins + (S.taxiMins || 0);
+  //   source 'manual'  → OFF + tocOffsetMins (elapsed from wheels-up)
+  //   source 'computed'→ (OUT+taxi) + tocOffsetMins (taxi already in base)
+  //   source 'out'     → OUT + taxiMins + tocOffsetMins (no taxi in base yet)
+  const tocOffsetTotal = (_off && _off.source === 'out')
+    ? S.tocOffsetMins + (S.taxiMins || 0)
+    : S.tocOffsetMins;
   const tocZ = (S.tocZOverride && S.tocZOverride.length === 4)
     ? S.tocZOverride
     : addM(offZ, tocOffsetTotal);
@@ -7692,7 +8473,7 @@ function calcInflightRest() {
   return {
     tocZ, restEndZ, totalMins, operatingCount,
     tocBasis: (S.tocZOverride && S.tocZOverride.length === 4) ? 'manual'
-            : hasActualOff ? 'off' : 'out',
+            : (_off && _off.source === 'manual') ? 'off' : 'out',
     blocks3: buildBlocks(3),
     blocksH: operatingCount >= 4 ? buildBlocks(2) : null,
     blocksQ: operatingCount >= 4 ? buildBlocks(4) : null,
@@ -7747,8 +8528,8 @@ function renderBlockColumn(title, blocks, fmtZ, fmtDur) {
 }
 
 function renderInflightRestModule() {
-  const offZ    = (S.offZ && S.offZ.length === 4) ? S.offZ
-                : (S.outZ && S.outZ.length === 4) ? S.outZ : null;
+  const _off    = _deriveOffZ();
+  const offZ    = _off ? _off.hhmm : null;
   const hasOff  = !!offZ;
   const hasTOC  = S.tocOffsetMins !== null;
   const opCrew  = (S.crewMembers || []).filter(c => c.role !== 'JS' && c.role !== 'DH');
@@ -7868,7 +8649,7 @@ function renderInflightRestModule() {
           text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">
           Rest Window</div>`;
   if (!hasOff) {
-    h += `<div style="font-size:15px;color:var(--label3)">Enter OFF time to calculate.</div>`;
+    h += `<div style="font-size:15px;color:var(--label3)">Enter OUT or OFF time to calculate.</div>`;
   } else if (!hasTOC) {
     h += `<div style="font-size:15px;color:var(--sys-yellow)">⚠ TOC waypoint not found in OFP route table.</div>`;
   } else {
@@ -7876,12 +8657,13 @@ function renderInflightRestModule() {
     if (!data) {
       h += `<div style="font-size:15px;color:var(--label3)">Operating crew count insufficient (min 3).</div>`;
     } else {
-      // Basis tag: manual override, OFF (actual), or OUT+taxi (planned)
+      // Basis tag: matches enroute OFF row badge — MANUAL / OFF / OUT+Nm / OUT
+      const _offSrc = _off ? _off.source : 'out';
       const basisTag = data.tocBasis === 'manual'
         ? `<span style="font-size:11px;font-family:var(--font-mono);color:var(--tint);background:var(--tint-bg);border-radius:4px;padding:1px 5px;flex-shrink:0">MANUAL</span>`
         : data.tocBasis === 'off'
         ? `<span style="font-size:11px;font-family:var(--font-mono);color:var(--sys-green);background:rgba(52,199,89,0.12);border-radius:4px;padding:1px 5px;flex-shrink:0">OFF</span>`
-        : `<span style="font-size:11px;font-family:var(--font-mono);color:var(--label3);background:var(--fill3);border-radius:4px;padding:1px 5px;flex-shrink:0">OUT${S.taxiMins ? '+'+S.taxiMins+'m taxi' : ''}</span>`;
+        : `<span style="font-size:11px;font-family:var(--font-mono);color:var(--label3);background:var(--fill3);border-radius:4px;padding:1px 5px;flex-shrink:0">${_offSrc === 'computed' && S.taxiMins ? 'OUT+'+S.taxiMins+'m' : 'OUT'}</span>`;
       h += `<div style="display:flex;align-items:baseline;gap:var(--sp3);
               font-family:var(--font-mono);font-size:15px;flex-wrap:wrap">`;
       h += `<span style="color:var(--label2);font-size:12px">TOC</span>`;
@@ -8072,7 +8854,7 @@ function renderDescentPhase() {
     const _maxLdgFuelRaw = S.ldgwLimit - S.zfwActual;
     const _maxLdgFuelStr = (_maxLdgFuelRaw / 1000).toFixed(1);
     const _mldwStr       = S.ldgwLimit.toLocaleString();
-    const _wtUnit        = /\bKGS?\b/i.test(S.acftType) ? 'KGS' : 'LBS';
+    const _wtUnit        = S.weightUnit || 'KGS';
     h += `<div style="border-top:0.5px solid var(--sep);margin-top:var(--sp2);padding-top:var(--sp2)">`;
     h += `<div class="data-row">`;
     h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">MLDW</span>`;
@@ -8732,16 +9514,20 @@ function confirmEdit() {
   // Block fuel change → apply delta to TOGW
   if (_editField === 'blockFuel') _togwDeltaFromBlock(_prevBlockFuel);
 
-  // Editing outZ cascades DEST ETA + ALL alt ETAs (planned push time)
+  // Editing outZ cascades DEST ETA + ALL alt ETAs (planned push time).
+  // buildAirportCards() re-evaluates WX, NOTAMs, and curfews against the new ETAs.
   if (_editField === 'outZ' && val.length === 4) {
     recalcAllETAs();
+    buildAirportCards();
   }
 
   // Editing offZ (actual wheels-off) recalculates IN time using OFP ETE (tripMinutes).
   // offZ + tripMinutes = actual estimated IN time at destination.
   // All alternate ETAs also recalculate from offZ + their ofpOffsetMins offset.
+  // buildAirportCards() re-evaluates WX, NOTAMs, and curfews against the new ETAs.
   if (_editField === 'offZ' && val.length === 4) {
     recalcAllETAsFromOff(val);
+    buildAirportCards();
   }
 
   cancelEdit();
@@ -9287,6 +10073,34 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     if (result.worst && result.worst !== 'unknown') {
       worst = bump(worst, result.worst);
     }
+
+    // ── GNSS enrichment — append spatial/temporal detail to existing GPS items ──
+    // evalGNSS() is defined by the GNSS NOTAM Ruleset IIFE (below evalNotams).
+    // It is called only when evalNotams() has already classified at least one GPS/GNSS
+    // item. The enrichment appends radius and altitude bounds inline — no new rows,
+    // no duplication.
+    if (typeof evalGNSS === 'function') {
+      const notamArr2 = _splitNotams(notamText);
+      for (var _gi = 0; _gi < notamArr2.length; _gi++) {
+        const _g = evalGNSS(notamArr2[_gi]);
+        if (!_g) continue;
+        const _parts = [];
+        if (_g.radius_nm) _parts.push('WI\u00a0' + _g.radius_nm + 'NM');
+        if (_g.affected_altitudes) {
+          const _a = _g.affected_altitudes;
+          _parts.push((_a.lower || 'SFC') + '\u2013' + (_a.upper || ''));
+        }
+        if (!_parts.length) continue;
+        // Find the first GPS/GNSS/RAIM issue row and append detail tag
+        const _detail = '<span class="gnss-spatial"> ' + _parts.join('\u00a0') + '</span>';
+        for (var _ii = 0; _ii < issues.length; _ii++) {
+          if (/GPS|GNSS|RAIM/i.test(issues[_ii].text || '')) {
+            issues[_ii].text += _detail;
+            break; // one enrichment per GNSS event
+          }
+        }
+      }
+    }
   }
 
   // ── WEATHER evaluation — classifyAirportStatus() from wx-rules.js ────────
@@ -9565,11 +10379,32 @@ function xNW(notamLine) {
 
   // Start year: if the NOTAM crosses a calendar year boundary,
   // the start must be in the previous year (e.g. 29DEC→31MAR crosses Dec/Jan)
-  const startYear = (endMo < startMo) ? endYear - 1 : endYear;
+  let startYear = (endMo < startMo) ? endYear - 1 : endYear;
 
-  const startMs = _parseNotamToken(m[1], baseYear, startYear);
+  let startMs = _parseNotamToken(m[1], baseYear, startYear);
   const endMs   = _parseNotamToken(m[2], baseYear, endYear);
   if (startMs === null || endMs === null) return null;
+
+  // ── Multi-year NOTAM guard ──────────────────────────────────────────
+  // When an explicit trailing year is present and startMo === endMo, the
+  // 1-year heuristic can produce an inverted window. Use the NOTAM ID
+  // issuance year (/YY) as the authoritative start year anchor.
+  if (trailingYear && (endYear > baseYear || startMs >= endMs)) {
+    const idM = notamLine.match(/\b[A-Z]\d{4}\/(\d{2})\b/i);
+    if (idM) {
+      const century = Math.floor(endYear / 100) * 100;
+      let issYear = century + parseInt(idM[1]);
+      if (issYear > endYear) issYear -= 100;
+      const tryMs = _parseNotamToken(m[1], baseYear, issYear);
+      if (tryMs !== null && tryMs < endMs) startMs = tryMs;
+    }
+    if (startMs >= endMs) {
+      for (let sy = startYear - 1, lim = 5; sy >= startYear - lim; sy--) {
+        const tryMs = _parseNotamToken(m[1], baseYear, sy);
+        if (tryMs !== null && tryMs < endMs) { startMs = tryMs; break; }
+      }
+    }
+  }
 
   return { startMs, endMs };
 }
@@ -10111,7 +10946,7 @@ function renderShareButton() {
 renderNote();
 // Stamp version badges
 (function() {
-  const vTxt = 'Relief Pilot v' + APP_VERSION;
+  const vTxt = 'PilotBrief v' + APP_VERSION;
   ['helpVersionInline','settingsVersionBadge'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = vTxt;
@@ -10189,7 +11024,7 @@ function loadPdfJs() {
       // force-quitting the app. Without this, the cached rejection
       // permanently blocks every subsequent loadPdfJs() call.
       _pdfjsReady = null;
-      reject(new Error('Could not load pdf.js — check your internet connection'));
+      reject(new Error('PDF import requires a network connection on first use. Ensure PilotBrief is installed to Home Screen for full offline capability.'));
     };
     document.head.appendChild(s);
   });
@@ -10199,6 +11034,14 @@ function loadPdfJs() {
 
 <!-- Global toast (visible on any screen) -->
 <div id="globalToast" class="import-toast" style="display:none;position:fixed;bottom:calc(var(--sab)+20px);left:50%;transform:translateX(-50%);z-index:9999;min-width:260px;text-align:center"></div>
+
+<!-- SW Update Banner — shown only when a new Service Worker activates.
+     Never appears offline: SW activation requires a network fetch of sw.js. -->
+<div id="sw-update-banner" role="alert" aria-live="polite">
+  <span>PilotBrief updated</span>
+  <button class="swub-reload" onclick="window.location.reload()">Reload</button>
+  <button class="swub-dismiss" onclick="document.getElementById('sw-update-banner').classList.remove('visible')" aria-label="Dismiss">&#x2715;</button>
+</div>
 
 <!-- ══════════════════════════════════════════════════════
      SCREEN: SETTINGS
@@ -10301,7 +11144,7 @@ function loadPdfJs() {
         <svg viewBox="0 0 20 20" fill="none" stroke="var(--sys-red)" stroke-width="1.8" stroke-linecap="round"><path d="M10 2L2 18h16L10 2z"/><path d="M10 8v4M10 14h.01"/></svg>
         <span class="callout-text">
           <span class="callout-title" style="color:var(--sys-red)">Disclaimer</span>
-          Relief Pilot is NOT certified aviation software. It is an informational tool only. All data must be independently verified against the official OFP and dispatch release. Do not use as a sole reference for any operational decision.
+          PilotBrief is NOT certified aviation software. It is an informational tool only. All data must be independently verified against the official OFP and dispatch release. Do not use as a sole reference for any operational decision.
         </span>
       </div>
     </div>
@@ -10313,7 +11156,7 @@ function loadPdfJs() {
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
           <p style="margin:0 0 8px;font-size:15px;color:var(--label)">Tap <strong>＋</strong> on the Flights screen to open the import screen. Three methods are supported:</p>
           <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>① PDF File:</strong> Tap the drop zone or drag an OFP PDF onto it. The app extracts and parses text using PDF.js.</p>
-          <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>② iOS Share:</strong> In Files or Mail, open the OFP PDF → tap Share ↑ → select <em>Relief Pilot</em>. Add Relief Pilot to your Home Screen first to enable this method.</p>
+          <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>② iOS Share:</strong> Install PilotBrief to your Home Screen first. Then in Files or Mail, open the OFP PDF → tap Share ↑ → select <em>PilotBrief</em>. The app opens automatically and loads the OFP. Home Screen installation is required — this method is not available from a browser tab.</p>
           <p style="margin:0;font-size:15px;color:var(--label2)"><strong>③ Paste Text:</strong> Copy OFP text from any source and paste it into the text area at the bottom of the import screen, then tap Import Text.</p>
         </div>
       </div>
@@ -10357,16 +11200,17 @@ function loadPdfJs() {
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Flight Header</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Flight ID</strong>: Carrier + flight number + "/" + release date day. Turns <span style="color:var(--sys-yellow)">yellow</span> when FCIR/ASAP is active.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Radio Callsign</strong>: Displayed immediately below the Flight ID when a verbal callsign is known. Format: <em>GIANT 7134 Heavy</em>. Native Atlas/Polar/Camber callsigns are derived from the flight number prefix (GTI→GIANT, PAC→POLAR, CMB→CAMBER). ACMI and wet-lease operations use the verbal callsign from the OFP Remarks field (<em>VERBAL CALLSIGN - TURKISH</em>). The Heavy suffix is determined from the ICAO FPL field 9 wake turbulence category (<em>/H</em> or <em>/J</em>).</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OUT / IN</strong>: OUT is the OFP scheduled off-block time. Editing OUT recalculates all downstream ETAs. IN recalculates when the actual OFF time is entered on the Enroute phase.</p>
           <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>ETOPS block</strong> (ETOPS flights only): Shows ETOPS authorisation and elapsed time to ETOPS airspace entry, both parsed from the OFP.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Departure</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ATIS / PARK</strong>: Departure ATIS letter (tap to enter) and parking/gate notepad.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OEI</strong>: One Engine Inoperative takeoff procedure. When a TLR is parsed, tap to select the departure runway from the picker. SPECIAL runways show the full EFP text; SEE CO CHART runways open a notepad for crew entry.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OEI</strong>: One Engine Inoperative takeoff procedure. When a TLR is parsed, tap to select the departure runway from the picker. All runway variants are shown including noise-restricted and obstacle-limited designations (e.g. <em>16R-N390M</em>, <em>34L CRANE</em>). SPECIAL runways show the full EFP text; SEE CO CHART runways open a notepad for crew entry.</p>
           <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>STAB</strong>: Stabilizer trim setting. Always crew-entered.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Slot Time</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">When the OFP contains a wheels-up slot constraint, a <strong>Slot Time</strong> subcard appears showing the window (e.g. <em>0737Z – 0807Z</em>, <em>NOT BEFORE 0737Z</em>, or <em>BEFORE 0807Z</em>) parsed directly from the OFP remarks.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">When the OFP contains a wheels-up slot constraint, a <strong>Slot Time</strong> subcard appears. Four OFP remark formats are recognised: <em>EARLIEST WHEELS UP 2247Z DUE TO ANC PARKING</em>, <em>WHEELS UP NOT BEFORE 0737Z</em>, <em>WHEELS UP BEFORE 0807Z</em>, and <em>WHEELS UP MUST BE BETWEEN 0737Z AND 0807Z</em>. All display as a <strong>NOT BEFORE</strong> or window constraint in the card.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">OFP Fuel</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Block</strong>: Total fuel at departure. Colour-coded by TOGW margin: <span style="color:var(--sys-green)">green</span> &gt;1,000 · <span style="color:var(--sys-yellow)">yellow</span> 500–1,000 · <span style="color:var(--sys-red)">red</span> &lt;500 from structural limit.</p>
@@ -10394,6 +11238,16 @@ function loadPdfJs() {
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>E.ENT</strong> (ETOPS flights): Computed ETOPS airspace entry time based on OFF + OFP elapsed time.</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>RDA / POR</strong> (redispatch flights): Redispatch Action time (2 hrs before POR) and Point of Redispatch with its MINF fuel requirement, both computed from OFF time.</p>
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>CO RPT</strong>: Company position report schedule computed at 4-hour intervals from OFF. Reports that fall within the POR action window are struck through and annotated.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">In-Flight Rest</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">The crew rest schedule activates automatically when <strong>3 or more operating crew members</strong> (CA or FO) are parsed from the OFP Fit for Duty section. Operating crew are identified by position (<em>CA</em> or <em>FO</em>), employee number (3–6 digits), and last name/initial. An asterisk (<em>*</em>) adjacent to the employee number or name indicates an unusual circumstance and does not exclude the crew member. Deadhead (<em>DH</em>) and jump-seat (<em>JS</em>) crew do not count toward the operating total.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Rest periods are divided into equal halves (or quarters for 4-pilot operations) across the available enroute time. The pre-landing buffer (default 60 min) is adjustable. Tap any crew row to adjust individual rest slots.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">NAT / PACOTS Track Message</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">On North Atlantic and Pacific oceanic crossings, the OFP includes an organized track message. PilotBrief renders <strong>both</strong> the eastbound and westbound track sets, with the <strong>flight direction block displayed first</strong>. Each direction appears as a separate subcard.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">The subcard header shows the TMI and assigned track combined: <em>TMI 071 · NAT T</em> (Atlantic) or <em>PAC A</em> / <em>PAC 1</em> (Pacific). The assigned track row is highlighted in yellow and expanded by default. Waypoints that appear on the filed route are shown in <span style="color:var(--tint)">tint colour</span>.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Supported formats: NAT letter tracks (<em>TRACK A</em>), PACOTS alpha tracks (<em>PAC A</em>), and PACOTS numeric tracks (<em>PAC 1</em>, <em>PAC 14</em>). ACMI/wet-lease flights over the North Atlantic (e.g. THY operated by GTI) and all native Atlas/Polar Pacific crossings (GTI, PAC) are supported.</p>
+
           <p style="margin:0;font-size:15px;color:var(--label2)">A free-text <strong>Scratchpad</strong> occupies the right column for calculations, clearances, or ATC instructions.</p>
         </div>
       </div>
@@ -10439,6 +11293,12 @@ function loadPdfJs() {
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-yellow)">●</span> <strong>Procedure Changes</strong> — IAP amendments, minimums raised, missed approach, STAR/SID changes</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">When two or more NOTAMs fall in the same tier, they collapse under a count label (e.g. <em>Approach / Navaid (3)</em>). Tap to expand and reveal individual items. Tap any item to show the raw NOTAM text.</p>
 
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FICON</strong>: Field Condition NOTAMs are classified and grouped automatically. Runway FICONs (e.g. <em>RWY 33 FICON 5/5/5 100 PCT WET</em>) appear within the applicable runway group. Taxiway and ramp FICONs appear under the <strong>Taxiway NOTAMs</strong> group. Severity: conditions involving ice, compacted ice, or braking codes 1–2 are shown in <span style="color:var(--sys-red)">red</span>; wet, slush, and compacted snow in <span style="color:var(--sys-yellow)">yellow</span>.</p>
+
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAM scheduling</strong>: Atlas Air OFP NOTAMs may include schedule lines immediately after the NOTAM header. Two formats are handled: <em>day-range + time window</em> (e.g. <em>08-09 13-17 20-24 1510-2020</em> — active only on those calendar days between 1510–2020Z) and <em>daily time window alone</em> (e.g. <em>1410-2030</em> — active every day only during that period). NOTAMs outside the window relative to the departure or arrival time are suppressed.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Multi-year NOTAMs</strong>: NOTAMs issued in one year but valid through a future year (e.g. <em>A4133/25 22OCT1455-22OCT1454 2027 EST</em>) are resolved using the NOTAM ID issuance year (<em>/25</em>) to anchor the start date. All approach procedure amendments, CAT authorisation changes, and other long-duration NOTAMs with explicit trailing years are evaluated correctly.</p>
+
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Editing</strong>: Tap the card header to expand the NOTAM and WX text areas. Paste or edit data here to supplement OFP-extracted content.</p>
           <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Curfew row</strong>: Appears when Company NOTAMs contain a curfew window. Shows window times and proximity to ETA, colour-coded.</p>
         </div>
@@ -10483,6 +11343,41 @@ function loadPdfJs() {
 
   </div>
 </div>
+
+<script>
+// ── Service Worker Registration ───────────────────────────────────────────
+// Must run after all app scripts. Non-blocking — SW failure degrades
+// gracefully (online-only mode); it must never crash or stall the app.
+// ADR-001: SW registration is fully decoupled from RulesLoader.init().
+//
+// SW_UPDATED is posted by the SW activate handler only after the browser
+// has successfully downloaded and parsed a new sw.js from the network.
+// It therefore NEVER fires when the device is offline — the update banner
+// is structurally incapable of appearing without a network connection.
+(function () {
+  if (!('serviceWorker' in navigator)) return; // not supported (rare)
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js')
+      .then(function (reg) {
+        console.log('[SW] Registered — scope:', reg.scope);
+      })
+      .catch(function (err) {
+        // Non-fatal. App continues in online-only mode.
+        console.warn('[SW] Registration failed (online-only mode):', err);
+      });
+    // ── Update notification listener ───────────────────
+    // Receives SW_UPDATED from the service worker activate handler.
+    // Shows a non-blocking, crew-dismissible banner. Safe to attach
+    // here even if registration fails — no message will ever arrive.
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'SW_UPDATED') {
+        var b = document.getElementById('sw-update-banner');
+        if (b) b.classList.add('visible');
+      }
+    });
+  });
+})();
+</script>
 
 </body>
 </html>
