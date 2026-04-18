@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PilotBrief — Developer Documentation</title>
+<style>
+  body { font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 14px; color: #1c1c1e; max-width: 960px; margin: 0 auto; padding: 40px 32px; line-height: 1.7; }
+  h1 { font-size: 28px; font-weight: 700; border-bottom: 3px solid #007aff; padding-bottom: 12px; margin-top: 0; }
+  h2 { font-size: 20px; font-weight: 700; margin-top: 40px; color: #007aff; border-left: 4px solid #007aff; padding-left: 12px; }
+  h3 { font-size: 16px; font-weight: 700; margin-top: 28px; color: #1c1c1e; }
+  h4 { font-size: 14px; font-weight: 700; margin-top: 20px; }
+  code { font-family: 'Courier New', Courier, monospace; background: #f2f2f7; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  pre { background: #1c1c1e; color: #e5e5ea; padding: 16px 20px; border-radius: 10px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th { background: #007aff; color: white; padding: 8px 12px; text-align: left; font-size: 13px; }
+  td { padding: 7px 12px; border-bottom: 1px solid #e5e5ea; font-size: 13px; }
+  tr:nth-child(even) { background: #f9f9fb; }
+  .callout { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px 16px; border-radius: 6px; margin: 16px 0; }
+  .callout.red { background: #fdecea; border-color: #ff3b30; }
+  .callout.blue { background: #e8f0fe; border-color: #007aff; }
+  .callout.green { background: #edfbf0; border-color: #34c759; }
+  .tag { display: inline-block; background: #007aff; color: white; font-size: 11px; padding: 2px 7px; border-radius: 4px; margin-right: 4px; vertical-align: middle; }
+  .tag.yellow { background: #ff9500; }
+  .tag.red { background: #ff3b30; }
+  .tag.green { background: #34c759; }
+  ul, ol { padding-left: 24px; }
+  li { margin-bottom: 4px; }
+  hr { border: none; border-top: 1px solid #e5e5ea; margin: 36px 0; }
+  .toc a { color: #007aff; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ul { list-style: none; padding-left: 16px; }
+  .toc > ul { padding-left: 0; }
+  .toc li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<h1>PilotBrief — Developer Documentation</h1>
+<p><strong>Version:</strong> v1.9.7 &nbsp;|&nbsp; <strong>Date:</strong> April 2026 &nbsp;|&nbsp; <strong>File:</strong> index.html</p>
+<p>PilotBrief is a single-file HTML/JS progressive web app (PWA) for Atlas Air and Polar Air Cargo relief and augmented crew. It parses Operational Flight Plan (OFP) PDFs and generates structured three-phase preflight briefing notes. No server, build step, or login is required. All data stays on the device.</p>
+
+<div class="callout red">
+  <strong>⚠ Certification Status:</strong> PilotBrief is NOT certified aviation software. It is an informational tool only. All parsed data must be independently verified against the official OFP and dispatch release.
+</div>
+
+<hr>
+
+<div class="toc">
+<h2 style="color:#1c1c1e;border:none;padding:0">Table of Contents</h2>
+<ul>
+  <li><a href="#architecture">1. Architecture Overview</a></li>
+  <li><a href="#state">2. State Model (S object)</a></li>
+  <li><a href="#screens">3. Screen &amp; Phase Navigation</a></li>
+  <li><a href="#parser">4. OFP Parser — Regex Reference</a></li>
+  <li><a href="#fuel">5. Fuel &amp; Weight Logic</a></li>
+  <li><a href="#eta">6. ETA Recalculation &amp; OFF Derivation</a></li>
+  <li><a href="#airports">7. Airport Status, Weather &amp; GNSS Enrichment</a></li>
+  <li><a href="#notam">8. NOTAM Evaluation Engine</a></li>
+  <li><a href="#rest">9. Inflight Rest Module (14 CFR 121.467)</a></li>
+  <li><a href="#fcir">10. FCIR / ASAP Toggle</a></li>
+  <li><a href="#storage">11. Storage</a></li>
+  <li><a href="#sw">12. Service Worker &amp; PWA</a></li>
+  <li><a href="#design">13. Design System</a></li>
+  <li><a href="#ruleset">14. ADR-001 Ruleset Architecture</a></li>
+  <li><a href="#changelog">Appendix A — Version History</a></li>
+</ul>
+</div>
+
+<hr>
+
+<h2 id="architecture">1. Architecture Overview</h2>
+
+<p>The entire application is a <strong>single HTML file</strong> (~11,383 lines, v1.9.7). There is no build process, no framework, no bundler. External runtime dependencies:</p>
+<ul>
+  <li><code>pdf.js 3.11.174</code> — loaded from <code>cdnjs.cloudflare.com</code> for PDF text extraction; pre-cached by SW on first load</li>
+</ul>
+
+<h3>Repository File Structure</h3>
+<table>
+  <tr><th>File</th><th>Purpose</th></tr>
+  <tr><td><code>index.html</code></td><td>Entire application — HTML, CSS, JS in one file (~11,383 lines)</td></tr>
+  <tr><td><code>sw.js</code></td><td>Service worker — offline-first cache strategy, Share Target POST relay</td></tr>
+  <tr><td><code>manifest.json</code></td><td>PWA manifest — name, icons, display mode, Web Share Target declaration</td></tr>
+  <tr><td><code>icon192.png</code></td><td>PWA icon 192×192 (root level — referenced by sw.js SHELL_URLS and manifest.json)</td></tr>
+  <tr><td><code>icon512.png</code></td><td>PWA icon 512×512 (root level)</td></tr>
+  <tr><td><code>_headers</code></td><td>HTTP cache / security headers for Cloudflare Pages deployment</td></tr>
+  <tr><td><code>.github/workflows/deploy.yml</code></td><td>GitHub Actions → GitHub Pages CI/CD pipeline</td></tr>
+</table>
+
+<h3>index.html Logical Sections</h3>
+<table>
+  <tr><th>Section</th><th>Lines (approx.)</th><th>Description</th></tr>
+  <tr><td><code>&lt;style&gt;</code></td><td>39–2,060</td><td>CSS design system — semantic color tokens, iOS HIG layout, phase cards, NOTAM tree, airport cards, inflight rest, narrow-viewport (≤400px) overrides</td></tr>
+  <tr><td>Screen HTML</td><td>1,860–2,090</td><td>All screen divs: flights, import, flight detail (briefing/airports/OFP/alternates tabs), edit overlay, curfew overlay, help</td></tr>
+  <tr><td>JS — WX Rules</td><td>~2,100–3,220</td><td>TAF/METAR parsing: <code>pCeil</code>, <code>pVis</code>, <code>pRVR</code>, <code>pGCeil</code>, <code>pGVis</code>, <code>extractEtaWindow</code>, <code>classifyAirportStatus</code>, <code>classifyRvr</code></td></tr>
+  <tr><td>JS — NOTAM Rules</td><td>~3,230–5,560</td><td>NOTAM classification engine: <code>_classifyNotamSlot</code>, <code>evalNotams</code>, slot/level/label/rwyGroups system; OFP schedule parsing; aircraft applicability filter</td></tr>
+  <tr><td>JS — GNSS Ruleset</td><td>~5,560–5,680</td><td>IIFE: <code>window.evalGNSS</code> — GPS/GNSS/RAIM NOTAM enrichment with coordinates, radius, altitude bounds</td></tr>
+  <tr><td>JS — App Core</td><td>~5,680–6,060</td><td>State model (S object), reset, <code>recalcAllETAs</code>, <code>recalcAllETAsFromOff</code>, storage helpers</td></tr>
+  <tr><td>JS — OFP Parser</td><td>~6,060–7,650</td><td><code>parseOFP()</code> — all regex extraction, <code>parseAptLine</code>, <code>parseCFS</code>, callsign derivation, nav log, crew list</td></tr>
+  <tr><td>JS — Render Engine</td><td>~7,650–8,410</td><td><code>renderNote</code>, <code>_deriveOffZ</code>, <code>renderPreflightPhase</code>, <code>renderEnroutePhase</code>, <code>renderDescentPhase</code>, <code>renderEvent</code>, <code>renderNotesSection</code></td></tr>
+  <tr><td>JS — Inflight Rest</td><td>~8,410–8,760</td><td><code>calcInflightRest</code>, <code>renderInflightRestModule</code>, crew chip management, TOC override, rest schedule blocks</td></tr>
+  <tr><td>JS — Airport Cards</td><td>~9,710–10,400</td><td><code>buildAirportCards</code>, <code>evalAirport</code>, <code>evalCurfew</code>, airport card HTML, NOTAM group renderers</td></tr>
+  <tr><td>JS — Utilities</td><td>~10,400–11,150</td><td>Edit overlay, copy functions, toast, share button, help screen, OFP viewer, SW registration</td></tr>
+</table>
+
+<hr>
+
+<h2 id="state">2. State Model (S object)</h2>
+
+<p>All parsed and user-entered data lives in the global <code>S</code> object. Serialized to localStorage via <code>saveFlight()</code>. PDF blobs stored separately in IndexedDB (SW never touches either store).</p>
+
+<pre><code>S = {
+  // ── Flight identity ────────────────────────────────────────────────
+  fltNum:        String,   // Full dispatch ID: "GTI8993/16"
+  date:          String,   // Human date: "16 APR 26"
+  outZ:          String,   // OUT (gate departure) "HHMM"
+  offZ:          String,   // OFF (actual wheels-off) "HHMM" — crew-entered; empty = use computed
+  etaDest:       String,   // Destination ETA "HHMM" — recalculated from OUT or OFF
+  activePhase:   String,   // 'preflight' | 'enroute' | 'descent'
+
+  // ── Airports ───────────────────────────────────────────────────────
+  origIcao:      String,   // "KORD"
+  destIcao:      String,   // "RKSI"
+  altData: [               // Alternate + CFS airports
+    {
+      icao:          String,  // "RKPC"
+      role:          String,  // "DEST ALT" | "EN ROUTE ALT" | "TKOF ALT" | "CFS ALT"
+      ofpEta:        String,  // OFP-published ETA "HHMM"
+      ofpOffsetMins: Number,  // Minutes from OFP OUT to alt ETA
+      currentEta:    String,  // Live recalculated ETA
+      wxWindow:      Number,  // CFS: OFP WX window (mins, overrides ±60 default)
+      etpName:       String,  // CFS: ETP name e.g. "GOEINN"
+    }
+  ],
+  etpPoints: [             // ETP coordinate waypoints from CFS block
+    { name: String, lat: String, lon: String }
+  ],
+
+  // ── Fuel & weight ──────────────────────────────────────────────────
+  blockFuel:     Number,   // OFP BLOCK field (raw integer, lbs×10 or kgs×10)
+  minfFuel:      Number,   // OFP MINF field
+  fresFuel:      Number,   // OFP FRES field
+  destRemf:      Number,   // Destination REMF — crew-entered actual
+  ballastFuel:   Number,   // Ballast fuel (parsed or crew-entered)
+  togwActual:    Number,   // TOGW actual
+  togwLimit:     Number,   // TOGW structural limit
+  togwFlag:      Boolean,  // true = TOGW at or near limit
+  weightUnit:    String,   // "KGS" | "LBS" — from OFP narrative header
+  acftType:      String,   // "B748" | "B744"
+
+  // ── ETA offsets (authoritative from OFP header) ───────────────────
+  destEtaOffsetMins: Number, // Minutes from OFP OUT to DEST ETA (includes taxi)
+  tripMinutes:       Number, // OFP TRIP field — flight time only (not used for ETA calc)
+  taxiMins:          Number, // OFP TAXI field — outbound taxi minutes
+
+  // ── Callsign ───────────────────────────────────────────────────────
+  radioCallsign:    String, // e.g. "GTI8993" — ICAO radio callsign
+  verbalCallsign:   String, // e.g. "GIANT"   — verbal callsign (GIANT / POLAR / CAMBER / ACMI)
+  isHeavy:          Boolean, // true for all Atlas/Polar B747/B777 (appends "Heavy" to callsign)
+
+  // ── ETOPS ──────────────────────────────────────────────────────────
+  etopsSpec:       String,  // e.g. "60/180" — from CFS header
+  etopsEntry:      String,  // e.g. "06:12" — elapsed to ETOPS airspace entry
+  etopsEntryMins:  Number,  // etopsEntry converted to minutes of elapsed flight time
+
+  // ── Redispatch / POR ───────────────────────────────────────────────
+  porWpt:          String,  // POR waypoint identifier e.g. "N60W040"
+  porOffsetMins:   Number,  // Minutes from OFF to POR
+  porMinf:         String,  // POR MINF fuel
+
+  // ── OEI / STAB ────────────────────────────────────────────────────
+  oeiVal:          String,  // OEI speed/alt (crew-entered)
+  stabTrim:        String,  // Stab trim e.g. "4.5/UP" (crew-entered)
+  gaFuel:          String,  // Go-around fuel (crew-entered)
+  slotTime:        String,  // Wheels-up slot window e.g. "2247Z–2317Z"
+  oeiRwy:          String,  // Selected OEI runway
+
+  // ── DDG / MEL ──────────────────────────────────────────────────────
+  melItems:        Array,   // Parsed DDG items [{ code, desc, phase, tlrRmk }]
+  hasPerishables:  Boolean, // true if PERISHABLES O/B = YES
+
+  // ── Navigation ────────────────────────────────────────────────────
+  navLog:          Array,   // Waypoint list [{ wpt, elapsedMins, eta, ... }]
+  altRoutes:       Array,   // Alternate routes [{ title, route, mora }]
+  natTrack:        Object,  // NAT/PACOTS track message
+
+  // ── Crew & inflight rest ───────────────────────────────────────────
+  crewMembers:     Array,   // [{ role, name, empNum, active }]
+  crewVerified:    Boolean,
+  tocOffsetMins:   Number,  // Minutes from OFF to TOC (from OFP route table)
+  tocZOverride:    String,  // Crew-entered TOC override "HHMM"
+  crewRestBuffer:  Number,  // Pre-landing buffer minutes (default 60)
+  restSchedView:   String,  // 'halves' | 'quarters'
+  restCardCollapsed: Boolean,
+
+  // ── Airport text inputs (persisted) ───────────────────────────────
+  airportData:     Object,  // { [icao]: { notams, weather, curfew? } }
+
+  // ── Overflight & company NOTAMs ────────────────────────────────────
+  overflightPerms: Array,   // ["TAIWAN 11410083789"]
+  companyNotams:   Array,   // Parsed Company NOTAM entries
+
+  // ── UI state ──────────────────────────────────────────────────────
+  fcirAsap:        Boolean,
+  fcirNarrative:   String,
+  userNotes:       String,
+  preAtisLetter:   String,
+  preAtisNotes:    String,
+  preParkingNotes: String,
+}
+</code></pre>
+
+<hr>
+
+<h2 id="screens">3. Screen &amp; Phase Navigation</h2>
+
+<h3>Screen Stack</h3>
+<p>Screens are full-size <code>&lt;div&gt;</code> elements. Navigation is a push/pop stack:</p>
+<pre><code>let _navStack = ['screen-flights'];
+function push(id)  // adds screen, applies is-active/is-behind CSS classes
+function pop()     // returns to previous screen
+</code></pre>
+
+<table>
+  <tr><th>Screen ID</th><th>Purpose</th></tr>
+  <tr><td><code>screen-flights</code></td><td>Root — saved flight list with FCIR highlighting; New Flight button</td></tr>
+  <tr><td><code>screen-import</code></td><td>PDF drop zone, iOS Share callout, manual paste textarea</td></tr>
+  <tr><td><code>screen-flight</code></td><td>Main flight detail screen — contains four tab panels below</td></tr>
+  <tr><td><code>fpanel-note</code></td><td>Three-phase briefing note (Preflight / Enroute / Descent)</td></tr>
+  <tr><td><code>fpanel-airports</code></td><td>Per-airport NOTAM/WX/curfew cards</td></tr>
+  <tr><td><code>fpanel-ofp</code></td><td>Raw OFP PDF viewer (canvas-rendered)</td></tr>
+  <tr><td><code>fpanel-alternates</code></td><td>Alternate route cards and ETP coordinates</td></tr>
+  <tr><td><code>screen-help</code></td><td>User instructions and disclaimer</td></tr>
+</table>
+
+<h3>Three-Phase Briefing Architecture</h3>
+<p>The briefing note (<code>fpanel-note</code>) is split into three phases managed by <code>S.activePhase</code>. The sticky header (flight ID, date, OUT/IN, callsign, ETOPS, phase tabs) is always visible; the body scrolls per phase.</p>
+
+<table>
+  <tr><th>Phase</th><th>Renderer</th><th>Key Content</th></tr>
+  <tr><td>Preflight</td><td><code>renderPreflightPhase()</code></td><td>ATIS/parking, fuel (Block/MIN/REMF/Ballast), TOGW, OEI/STAB, DDG, Notes, Curfews, Overflights, Perishables, Slot Time, FCIR narrative</td></tr>
+  <tr><td>Enroute</td><td><code>renderEnroutePhase()</code></td><td>OFF time (computed or manual), enroute event timeline (ETOPS, POR, RDA), scratchpad, inflight rest module, enroute NOTAMs, NAT/PACOTS track, FCIR narrative</td></tr>
+  <tr><td>Descent</td><td><code>renderDescentPhase()</code></td><td>Airport subcard (DEST + alternates via bottom-sheet picker), DDG landing items, CAT II/III per runway, descent scratchpad, FCIR narrative</td></tr>
+</table>
+
+<h3>Flight Header Right Column</h3>
+<p>The <code>.flt-header-right</code> container holds two optional elements stacked vertically — callsign above, ETOPS below. It renders only when at least one is present, preventing an empty flex child from consuming space.</p>
+
+<pre><code>// renderNote() — header right column
+if ((S.verbalCallsign && S.fltNum) || S.etopsSpec || S.etopsEntry) {
+  sh += '&lt;div class="flt-header-right"&gt;';
+  // callsign (conditional)
+  // etops-block (conditional)
+  sh += '&lt;/div&gt;';
+}
+</code></pre>
+
+<hr>
+
+<h2 id="parser">4. OFP Parser — Regex Reference</h2>
+
+<p><code>parseOFP(rawText)</code> runs against the full extracted OFP text. All timing data is extracted from self-contained single-line headers. The Atlas/Polar format places ICAO, coordinates, and time on one line — no multi-line look-ahead required.</p>
+
+<h3>Core Helper: <code>parseAptLine(keyword)</code></h3>
+<pre><code>// Format: ORIG VHHH/HKG HONG KONG INTL Q N22185E113549 0510Z
+function parseAptLine(keyword) {
+  const re = new RegExp('^' + keyword + '\\s+([A-Z]{4})\\/\\S+[^\\n]*?(\\d{4})Z\\s*$', 'm');
+  const m = t.match(re);
+  return m ? { icao: m[1], hhmm: m[2] } : null;
+}
+</code></pre>
+
+<h3>Primary Parsed Fields</h3>
+<table>
+  <tr><th>Field</th><th>Pattern / Method</th><th>Example</th></tr>
+  <tr><td>Flight ID</td><td><code>/\b([A-Z]{2,3}\d{3,5})\s*\/\s*(\d{2})\b/</code></td><td><code>GTI8993/16</code></td></tr>
+  <tr><td>Aircraft type</td><td><code>/\(FPL-...-([A-Z0-9]{2,4})\/[A-Z]/</code></td><td><code>B748</code></td></tr>
+  <tr><td>Date (DOF)</td><td><code>/DOF\/(\d{2})(\d{2})(\d{2})/i</code> → YYMMDD</td><td><code>16 APR 26</code></td></tr>
+  <tr><td>Origin ICAO + OUT</td><td><code>parseAptLine('ORIG')</code></td><td><code>KORD / 0517Z</code></td></tr>
+  <tr><td>Destination ICAO + ETA</td><td><code>parseAptLine('DEST')</code></td><td><code>RKSI / 1934Z</code></td></tr>
+  <tr><td>TRIP time</td><td><code>/TRIP\s+\d+\s+(\d{2})\.(\d{2})/</code></td><td><code>13h 17m (797 min)</code></td></tr>
+  <tr><td>TAXI time</td><td><code>/^TAXI\s+\d+\s+(\d{2})\.(\d{2})/m</code></td><td><code>27 min</code></td></tr>
+  <tr><td>BLOCK fuel</td><td><code>/BLOCK\s+(\d{5,7})/i</code></td><td><code>193100</code></td></tr>
+  <tr><td>MINF fuel</td><td><code>/MINF\s+(\d{5,7})/i</code></td><td><code>188954</code></td></tr>
+  <tr><td>FRES fuel</td><td><code>/FRES\s+(\d{5,7})/i</code></td><td><code>5400</code></td></tr>
+  <tr><td>TOGW actual/limit</td><td><code>/TOGW\s*\n?(\d{5,7})\s*\.+\s*[SP](\d{5,7})/</code></td><td><code>396054 / S412775</code></td></tr>
+  <tr><td>Weight unit</td><td><code>/(?:FUEL|BLOCK)\s+(?:IN\s+)?([KL]BS)/i</code></td><td><code>KGS</code></td></tr>
+  <tr><td>ETOPS entry</td><td><code>/ETOPS\s+Entry\s+(\d{1,2}:\d{2})/i</code></td><td><code>06:12</code></td></tr>
+  <tr><td>ETOPS spec</td><td><code>/Critical Fuel Scenario\s+ETOPS\s+(\d{2,3}\/\d{2,3})/i</code></td><td><code>60/180</code></td></tr>
+  <tr><td>Slot time</td><td>Four variants — SLOT, CTOT, ATOT, EARLIEST WHEELS UP patterns</td><td><code>2247Z–2317Z</code></td></tr>
+  <tr><td>DDG/MEL items</td><td>Block parser: <code>/MEL\/CDL\s*([\s\S]*?)(?:Flight Release|_{10})/i</code></td><td><code>[{code, desc, phase}]</code></td></tr>
+  <tr><td>Alternate routes</td><td>Underline-bounded title blocks; deduplicated by title+route</td><td>3 routes</td></tr>
+  <tr><td>Verbal callsign</td><td><code>/VERBAL\s+CALLSIGN\s*[-–]\s*([A-Z]+)/i</code> from OFP remarks</td><td><code>TURKISH</code></td></tr>
+</table>
+
+<h3>Radio Callsign Derivation</h3>
+<pre><code>// deriveCallsign(fltNum) — maps ICAO prefix to verbal callsign
+// GTI → GIANT, PAC → POLAR, CMB → CAMBER
+// ACMI/wet-lease: parsed from OFP "VERBAL CALLSIGN - WORD" remark
+// Heavy suffix: isHeavy = true for all Atlas/Polar fleet (B747/B777 wake cat H/J)
+{ radioCallsign: 'GTI8993', verbalCallsign: 'GIANT', isHeavy: true }
+</code></pre>
+
+<h3>Alternate Airport Patterns</h3>
+<pre><code>const ALT_PATTERNS = [
+  { key:'PALT', role:'DEST ALT'     },  // Primary destination alternate
+  { key:'SALT', role:'DEST ALT'     },  // Secondary destination alternate
+  { key:'RALT', role:'EN ROUTE ALT' },  // En-route alternate
+  { key:'RAPT', role:'EN ROUTE ALT' },  // Redispatch alternate
+  { key:'TALT', role:'TKOF ALT'     },  // Takeoff alternate
+];
+// CFS alternates added via parseCFS() with role:'CFS ALT' and OFP WX window
+</code></pre>
+
+<hr>
+
+<h2 id="fuel">5. Fuel &amp; Weight Logic</h2>
+
+<p>Atlas/Polar OFPs express fuel in raw integer format (lbs×10 or kgs×10). The weight unit is parsed from the OFP narrative header — <code>S.weightUnit</code> is either <code>'KGS'</code> or <code>'LBS'</code>.</p>
+
+<h3>TOGW Margin Color Coding</h3>
+<pre><code>margin = togwLimit - togwActual
+if (margin &gt; 1000)    → GREEN   (comfortable)
+if (margin 500–1000)  → YELLOW  (advisory)
+if (margin &lt; 500)     → RED     (near structural limit)
+</code></pre>
+
+<h3>Ballast Fuel</h3>
+<p>Parsed from OFP ballast section. Displayed as a yellow-highlighted caution row below FRES when present. Does not affect TOGW calculation — crew reference only.</p>
+
+<hr>
+
+<h2 id="eta">6. ETA Recalculation &amp; OFF Derivation</h2>
+
+<h3>recalcAllETAs() — OUT-based (planned)</h3>
+<p>Called when crew edits <code>outZ</code>. Uses the OFP-derived offset (which includes taxi and startup time, unlike the TRIP field).</p>
+<pre><code>function recalcAllETAs() {
+  const baseMin = hhmm2min(S.outZ);
+  if (S.destEtaOffsetMins !== null)
+    S.etaDest = addMin(baseMin, S.destEtaOffsetMins);  // OUT + OFP block-time offset
+  S.altData.forEach(a => {
+    a.currentEta = addMin(baseMin, a.ofpOffsetMins);
+  });
+}
+// Why not TRIP? TRIP = 13h17m (flight time only); OFP offset = 14h17m (incl. taxi)
+// Using TRIP gives ETA 18h34Z not the planned 19h34Z.
+</code></pre>
+
+<h3>recalcAllETAsFromOff() — OFF-based (actual)</h3>
+<p>Called when crew enters actual wheels-off time. Uses <code>tripMinutes</code> for DEST (pure flight time from wheels-up). Subtracts derived taxi time from alternate offsets.</p>
+<pre><code>function recalcAllETAsFromOff(offZval) {
+  const baseMin = hhmm2min(offZval);
+  if (S.tripMinutes !== null)
+    S.etaDest = addMin(baseMin, S.tripMinutes);
+  const taxiMins = S.destEtaOffsetMins - S.tripMinutes;  // taxi derived from OFP offsets
+  S.altData.forEach(a => {
+    a.currentEta = addMin(baseMin, Math.max(0, a.ofpOffsetMins - taxiMins));
+  });
+}
+</code></pre>
+
+<h3>_deriveOffZ() — Effective OFF Time</h3>
+<p>Single source of truth for the effective wheels-off time. Used by <code>renderEnroutePhase()</code>, <code>calcInflightRest()</code>, and <code>renderInflightRestModule()</code>.</p>
+<pre><code>// Priority chain:
+//   1. S.offZ (crew-entered actual OFF)          → source: 'manual'
+//   2. S.outZ + S.taxiMins (OFP planned taxi)    → source: 'computed'
+//   3. S.outZ alone (no taxi data in OFP)         → source: 'out'
+//   4. null — no departure time available
+
+function _deriveOffZ() {
+  if (S.offZ && S.offZ.length === 4) return { hhmm: S.offZ, source: 'manual' };
+  if (S.outZ && S.outZ.length === 4) {
+    if (S.taxiMins) {
+      // OUT + taxiMins, with midnight rollover
+      const t = (hhmm2min(S.outZ) + S.taxiMins + 14400) % 1440;
+      return { hhmm: min2hhmm(t), source: 'computed' };
+    }
+    return { hhmm: S.outZ, source: 'out' };
+  }
+  return null;
+}
+</code></pre>
+
+<div class="callout blue">
+  <strong>Basis tags:</strong> The enroute OFF row and inflight rest module both display a small badge indicating the data source. <code>OUT+Nm</code> = computed (planned), no badge = manual (actual), <code>OUT</code> = OFP has no taxi time. The basis drives the TOC offset arithmetic in <code>calcInflightRest()</code>.
+</div>
+
+<h3>WX / NOTAM / Curfew Cascade</h3>
+<p>When crew edits <code>outZ</code> or <code>offZ</code>, <code>confirmEdit()</code> calls both an ETA recalc function and <code>buildAirportCards()</code>. This re-evaluates weather, NOTAMs, and curfews for all airports against the updated ETAs without requiring the crew to switch tabs.</p>
+
+<pre><code>// confirmEdit() cascade (both branches)
+if (_editField === 'outZ' && val.length === 4) {
+  recalcAllETAs();
+  buildAirportCards();   // ← WX/NOTAM/curfew re-evaluated
+}
+if (_editField === 'offZ' && val.length === 4) {
+  recalcAllETAsFromOff(val);
+  buildAirportCards();   // ← WX/NOTAM/curfew re-evaluated
+}
+</code></pre>
+
+<hr>
+
+<h2 id="airports">7. Airport Status, Weather &amp; GNSS Enrichment</h2>
+
+<h3>evalAirport()</h3>
+<p>Called by <code>buildAirportCards()</code> for every airport in the release. Returns <code>{ color, issues[], wxIssues[], rwyGroups }</code>.</p>
+
+<table>
+  <tr><th>Color</th><th>Meaning</th></tr>
+  <tr><td><span class="tag green">GREEN</span></td><td>No conflicts — weather at minimums, no active closures</td></tr>
+  <tr><td><span class="tag yellow">YELLOW</span></td><td>Advisory — taxiway, lighting U/S, weather approaching minimums</td></tr>
+  <tr><td><span class="tag red">RED</span></td><td>Active runway closed, ILS U/S, below minimums, curfew, VOLCANIC ASH</td></tr>
+  <tr><td>UNKNOWN</td><td>No NOTAM or weather data entered</td></tr>
+</table>
+
+<h3>Weather Thresholds (FOM §7.1.31)</h3>
+<table>
+  <tr><th>Status</th><th>Ceiling</th><th>Visibility</th></tr>
+  <tr><td>OPEN (green)</td><td>≥ 3,000 ft</td><td>≥ 5 SM</td></tr>
+  <tr><td>OPERATIONAL (yellow)</td><td>1,000–2,999 ft</td><td>3–4.99 SM</td></tr>
+  <tr><td>RED</td><td>&lt; 1,000 ft</td><td>&lt; 3 SM</td></tr>
+</table>
+
+<h3>GNSS NOTAM Enrichment (evalGNSS)</h3>
+<p>After <code>evalNotams()</code> classifies GPS/GNSS/RAIM NOTAMs, <code>evalAirport()</code> runs a second pass calling <code>evalGNSS()</code> on each NOTAM. If the GNSS enrichment finds spatial detail (radius, altitude bounds), it appends it inline to the existing GPS issue row. No new rows are created — this avoids duplication with the existing NOTAM classification.</p>
+
+<pre><code>// evalAirport() — GNSS enrichment pass (post evalNotams)
+if (typeof evalGNSS === 'function') {
+  for (const notam of notamArr) {
+    const g = evalGNSS(notam);
+    if (!g) continue;
+    const parts = [];
+    if (g.radius_nm) parts.push('WI ' + g.radius_nm + 'NM');
+    if (g.affected_altitudes) parts.push(a.lower + '–' + a.upper);
+    if (!parts.length) continue;
+    // Append to the first matching GPS/GNSS/RAIM issue row
+    const idx = issues.findIndex(i => /GPS|GNSS|RAIM/i.test(i.text));
+    if (idx >= 0) issues[idx].text += '&lt;span class="gnss-spatial"&gt; ' + parts.join(' ') + '&lt;/span&gt;';
+  }
+}
+// Result: "GPS/GNSS UNRELIABLE — WI 50NM SFC–FL280"
+</code></pre>
+
+<h3>GNSS Ruleset — evalGNSS()</h3>
+<p>Inlined as an IIFE in <code>index.html</code> (immediately after the NOTAM rules EXPORTS section). Exposed as <code>window.evalGNSS</code>.</p>
+
+<table>
+  <tr><th>Input</th><th>Output field</th><th>Detail</th></tr>
+  <tr><td>NOTAM text</td><td><code>normalized_state</code></td><td>GPS Interference / GPS Unavailable / GPS Unreliable / RAIM Unreliable</td></tr>
+  <tr><td></td><td><code>radius_nm</code></td><td>Parsed from <code>WI NN NM RADIUS</code></td></tr>
+  <tr><td></td><td><code>affected_altitudes</code></td><td><code>{ lower, upper }</code> e.g. <code>SFC–FL280</code></td></tr>
+  <tr><td></td><td><code>coordinates</code></td><td>Array of validated lat/lon (decimal, DMS, ICAO compact)</td></tr>
+  <tr><td></td><td><code>confidence</code></td><td><code>'high'</code> when secondary keywords (JAMMED, IONOSPHERIC, etc.) corroborate</td></tr>
+</table>
+
+<p>Returns <code>null</code> if no GNSS context keyword (<code>GPS</code>, <code>GNSS</code>, <code>RAIM</code>, <code>SBAS</code>, <code>WAAS</code>, <code>DGPS</code>) is found, or if no primary condition keyword matches. Prevents false positives on NOTAMs that mention GPS only incidentally.</p>
+
+<hr>
+
+<h2 id="notam">8. NOTAM Evaluation Engine</h2>
+
+<h3>evalNotams(notams, role, etaMin, acftType, flightDateISO)</h3>
+<p>Slot-based classification system. Each NOTAM is assigned a priority slot (1–8) by <code>_classifyNotamSlot()</code>. Returns <code>{ issues[], rwyGroups Map, worst }</code>.</p>
+
+<table>
+  <tr><th>Slot</th><th>Category</th><th>Level</th></tr>
+  <tr><td>1</td><td>Airport/airspace closed; volcanic ash; curfew within ETA window</td><td>RED</td></tr>
+  <tr><td>2</td><td>Runway closed; takeoff minimums/ODP; ILS/LOC/GLS unserviceable</td><td>RED/YELLOW</td></tr>
+  <tr><td>3</td><td>Other approach navaids (VOR/NDB/DME) U/S; GPS/GNSS U/S; approach lighting; FICON</td><td>RED/YELLOW</td></tr>
+  <tr><td>4</td><td>Procedure changes (SID NA, hold procedure changes)</td><td>YELLOW</td></tr>
+  <tr><td>5</td><td>ORIG-specific: takeoff minimums, SID restrictions</td><td>YELLOW</td></tr>
+  <tr><td>6</td><td>Alternates: approach U/S, runway restrictions, taxiway issues</td><td>YELLOW</td></tr>
+  <tr><td>7</td><td>Restrictions (weight, wingspan, noise abatement)</td><td>YELLOW</td></tr>
+  <tr><td>8</td><td>Informational</td><td>GREEN</td></tr>
+</table>
+
+<h3>NOTAM Activity Window</h3>
+<p>Each NOTAM is evaluated against a time window: ORIG uses departure ETA (OUT), DEST/ALT use arrival ETA ± 60 min. The <code>xNW_standalone()</code> parser handles three timestamp formats: 10-digit ICAO (<code>2603052354-2603062354</code>), OFP human (<code>05MAR2354-06MAR2354</code>), and 6-digit (<code>051730-060800</code>). Cross-midnight windows supported.</p>
+
+<h3>OFP Inline Schedule Parsing</h3>
+<p>Atlas/Polar OFPs embed schedules directly below the NOTAM header line. Two formats:</p>
+<ul>
+  <li>Day-range + time window: <code>08-09 13-17 20-24 1510-2020</code> — active only on those calendar days, 1510–2020Z</li>
+  <li>Daily time window: <code>1410-2030</code> — active every day during that period only</li>
+</ul>
+<p>NOTAMs outside their schedule window relative to the flight ETA are suppressed — eliminates false runway closure alarms from overnight maintenance NOTAMs.</p>
+
+<h3>Aircraft Applicability Filter</h3>
+<p><code>_acftApplies(notamRaw, acftProfile)</code> evaluates wingspan and weight restriction qualifiers. If no qualifier is found, the NOTAM passes (conservative). Wingspan categories: NARROW (&lt;30m), MEDIUM (30–52m), WIDE (&gt;52m, B747/B777).</p>
+
+<hr>
+
+<h2 id="rest">9. Inflight Rest Module (14 CFR 121.467)</h2>
+
+<p>Regulatory basis: 14 CFR 121.467 — Augmented flight crew rest requirements.</p>
+
+<h3>calcInflightRest()</h3>
+<p>Computes the rest window from TOC to pre-landing buffer and divides into blocks.</p>
+
+<pre><code>// Input state:
+//   _deriveOffZ()     → effective OFF (manual > computed > out > null)
+//   S.tocOffsetMins   → minutes from OFF to TOC (from OFP route table)
+//   S.tocZOverride    → crew-entered TOC override (highest priority)
+//   S.etaDest         → destination ETA
+//   S.crewRestBuffer  → pre-landing buffer in minutes (default 60)
+//   S.crewMembers     → crew list; operating count = non-JS, non-DH, active
+
+// TOC arithmetic:
+//   source 'manual'  : TOC = offZ + tocOffsetMins
+//   source 'computed': TOC = (outZ+taxi) + tocOffsetMins  (taxi already in base)
+//   source 'out'     : TOC = outZ + taxiMins + tocOffsetMins  (add taxi explicitly)
+
+// Rest window: TOC → (etaDest − crewRestBuffer)
+// totalMins = window duration
+
+// Returns:
+{ tocZ, restEndZ, totalMins, operatingCount, tocBasis, blocks3, blocksH, blocksQ }
+</code></pre>
+
+<h3>Schedule Types</h3>
+<table>
+  <tr><th>Crew count</th><th>Schedule</th><th>View toggle</th></tr>
+  <tr><td>3 pilots</td><td>3 sequential thirds (Rest 1, Rest 2, Rest 3)</td><td>N/A</td></tr>
+  <tr><td>4 pilots</td><td>Halves (2 blocks) or Quarters (4 blocks)</td><td>Halves ↔ Quarters chip</td></tr>
+</table>
+
+<p>Remainder minutes (totalMins mod n) go to the last block in each set, keeping the chain clean with no gap.</p>
+
+<h3>TOC Basis Tags</h3>
+<table>
+  <tr><th>tocBasis</th><th>Badge</th><th>Meaning</th></tr>
+  <tr><td><code>manual</code></td><td>MANUAL (tint blue)</td><td>Crew-entered TOC override active</td></tr>
+  <tr><td><code>off</code></td><td>OFF (green)</td><td>Computed from actual wheels-off time</td></tr>
+  <tr><td><code>out</code></td><td>OUT+Nm (gray)</td><td>Computed from OUT + taxi (planned)</td></tr>
+</table>
+
+<hr>
+
+<h2 id="fcir">10. FCIR / ASAP Toggle</h2>
+
+<ul>
+  <li>State: <code>S.fcirAsap</code> (boolean) — persisted via <code>saveFlight()</code></li>
+  <li>When ON: flight ID turns <code>var(--sys-yellow)</code>; saved flight cell gets yellow highlight</li>
+  <li>When ON: flight cannot be deleted — <code>deleteFlight()</code> aborts with toast</li>
+  <li>FCIR narrative textarea appears on all three phases when active</li>
+</ul>
+
+<hr>
+
+<h2 id="storage">11. Storage</h2>
+
+<h3>localStorage — Flight Records</h3>
+<pre><code>// Key prefix: 'pb_' (all PilotBrief keys)
+const LS_KEY = 'pb_flights';   // flight record array
+
+// Flight entry:
+{
+  id:     String,   // UUID
+  fltNum: String,   // "GTI8993/16"
+  date:   String,   // "16 APR 26"
+  at:     String,   // ISO timestamp of last save
+  state:  Object,   // full S snapshot (no binary data)
+  raw:    String,   // first 10,000 chars of OFP text for OFP viewer fallback
+}
+// Max 25 flights; older entries trimmed on save
+</code></pre>
+
+<h3>IndexedDB — PDF Blobs</h3>
+<p>Imported PDF <code>ArrayBuffer</code>s are stored in IndexedDB under <code>'pb_pdf_store'</code>, keyed by flight ID. Accessed by the OFP viewer to render the original PDF canvas. The service worker does not touch IndexedDB.</p>
+
+<h3>Service Worker Cache</h3>
+<p>Two cache namespaces:</p>
+<ul>
+  <li><code>pb-v1.9.7</code> — app shell + CDN assets (versioned, pruned on SW activate)</li>
+  <li><code>pb-share-relay</code> — single-slot relay for Share Target PDF POST (preserved across SW updates)</li>
+</ul>
+
+<hr>
+
+<h2 id="sw">12. Service Worker &amp; PWA</h2>
+
+<h3>Cache Strategy</h3>
+<ul>
+  <li><strong>Shell pre-cache (atomic):</strong> <code>index.html</code>, <code>manifest.json</code>, <code>icon192.png</code>, <code>icon512.png</code> — all must succeed or SW install aborts.</li>
+  <li><strong>CDN pre-cache (best-effort):</strong> pdf.js + worker — failure does not abort SW install. Lazy-loader in index.html retries on next online session.</li>
+  <li><strong>Runtime GET strategy:</strong> Cache-first; background revalidation for same-origin; 503 text fallback on cache miss + network failure.</li>
+</ul>
+
+<h3>Share Target (Web Share Target API)</h3>
+<p>Declared in <code>manifest.json</code> as POST multipart to <code>./?share-target</code>. The SW fetch handler intercepts the POST, extracts the <code>ofp_pdf</code> file, writes it to <code>pb-share-relay</code> cache with an <code>X-PB-Filename</code> header, and redirects to <code>/?shared</code>. The <code>_consumeSharedPDF()</code> consumer in index.html reads and deletes the relay entry, then calls <code>processPDF()</code>.</p>
+
+<h3>SW Update Notification</h3>
+<p>On activate, the SW posts <code>{ type: 'SW_UPDATED', version: CACHE_NAME }</code> to all open window clients. The listener in index.html shows a non-blocking dismissible banner. The crew decides when to reload — the session is never interrupted automatically.</p>
+
+<div class="callout">
+  <strong>Version bump requirement:</strong> Every deployment that changes <code>sw.js</code> must increment <code>CACHE_NAME</code>. Current: <code>pb-v1.9.7</code>. The old cache is pruned by the activate handler; <code>pb-share-relay</code> is explicitly exempted from pruning.
+</div>
+
+<hr>
+
+<h2 id="design">13. Design System</h2>
+
+<h3>CSS Custom Properties (Design Tokens)</h3>
+<pre><code>/* Backgrounds */
+--sys-bg:       #f2f2f7   /* systemBackground (light) */
+--sys-bg2:      #ffffff   /* secondarySystemBackground */
+
+/* Labels */
+--label:        #1C1C1E   /* primary text */
+--label2:       #636366   /* secondary — AA compliant */
+--label3:       #8E8E93   /* tertiary / captions */
+
+/* Semantic */
+--sys-green:    #34c759
+--sys-yellow:   #ff9f0a
+--sys-red:      #FF375F
+--tint:         #007aff   /* interactive / editable */
+
+/* Typography */
+--font:         -apple-system, 'SF Pro Text', Arial, sans-serif
+--font-mono:    'SF Mono', 'Courier New', monospace
+--font-display: -apple-system, 'SF Pro Display', Arial, sans-serif
+
+/* Type scale */
+--type-h2:      22px      /* flight number, callsign */
+--type-body:    17px
+--type-caption: 13px
+--type-overline:11px      /* section labels, uppercase */
+</code></pre>
+
+<h3>Touch Targets</h3>
+<p>All interactive elements enforce <code>min-height: 44px</code> per Apple HIG. Stored in <code>--touch: 44px</code>.</p>
+
+<h3>Narrow Viewport (≤ 400px — Slide Over)</h3>
+<p>At <code>max-width: 400px</code>, the nav bar switches to a two-row layout using the shared <code>.nav-secondary</code> class. Enroute split columns stack vertically. Rest module moves below the scratchpad inside the split column.</p>
+
+<hr>
+
+<h2 id="ruleset">14. ADR-001 Ruleset Architecture</h2>
+
+<p>The app follows ADR-001 (Ruleset Modularity). Rulesets are inlined as IIFE-wrapped blocks in <code>index.html</code>:</p>
+<ul>
+  <li>All module-level declarations use <code>var</code> (not <code>const</code>) to avoid block-scoping conflicts</li>
+  <li><code>'use strict'</code> stripped before wrapping</li>
+  <li>Browser environment assignments (<code>window.fn = fn</code>) replace <code>module.exports</code> blocks</li>
+  <li>Test harnesses stripped</li>
+  <li>No <code>&lt;script src=""&gt;</code> external tags — single-file constraint</li>
+  <li><code>console.info</code> not available in Safari/WKWebView — use <code>console.log</code> throughout ruleset code</li>
+</ul>
+
+<p>Current inlined rulesets:</p>
+<table>
+  <tr><th>Ruleset</th><th>Global(s) exposed</th><th>Version</th></tr>
+  <tr><td>WX Rules</td><td><code>classifyAirportStatus</code>, <code>classifyRvr</code>, <code>extractEtaWindow</code>, ceiling/vis parsers</td><td>inline</td></tr>
+  <tr><td>NOTAM Rules</td><td><code>evalNotams</code>, <code>_classifyNotamSlot</code>, <code>buildAcftProfile</code></td><td>inline</td></tr>
+  <tr><td>GNSS NOTAM Ruleset</td><td><code>window.evalGNSS</code></td><td>v1.0.0</td></tr>
+  <tr><td>OFP Rules</td><td><code>parseOFP</code>, <code>PATTERNS</code></td><td>inline</td></tr>
+</table>
+
+<hr>
+
+<h2 id="changelog">Appendix A — Version History</h2>
+
+<p>Versioning follows <strong>Semantic Versioning 2.0.0</strong>: <code>MAJOR.MINOR.PATCH</code>.</p>
+
+<div class="callout blue">
+  <strong>Standing Development Practices:</strong>
+  <ul style="margin:6px 0 0">
+    <li>Read exact source before any edit — never assume state from prior sessions</li>
+    <li>Surgical string substitutions only — no wholesale rewrites of large files</li>
+    <li>Node.js assertion battery + logic simulation before every file delivery</li>
+    <li>Version bump in <code>sw.js</code> CACHE_NAME with every deployment</li>
+    <li>QA test report (ISO/IEC 29119-3) produced for every release cycle</li>
+  </ul>
+</div>
+
+<table>
+  <tr><th style="width:100px">Version</th><th style="width:90px">Date</th><th>Changes</th></tr>
+
+  <tr>
+    <td><strong>v1.9.7</strong></td>
+    <td>Apr 2026</td>
+    <td>
+      <strong>Callsign/ETOPS layout; GNSS enrichment; OFF pre-population; WX/NOTAM cascade; icon fix; _deriveOffZ unification.</strong>
+      <ul>
+        <li><strong>Header layout (CHG-003):</strong> <code>.flt-header-right</code> column container introduced. Callsign stacks above ETOPS in right column of flight header. Eliminates horizontal interference when both are present. Works correctly for callsign-only, ETOPS-only, and both-present cases.</li>
+        <li><strong>GNSS NOTAM Ruleset v1.0.0 (CHG-004):</strong> Inlined as IIFE. <code>window.evalGNSS(notamText)</code> exposed globally. <code>evalAirport()</code> enrichment pass appends radius and altitude bounds (e.g. <code>WI 50NM SFC–FL280</code>) to existing GPS/GNSS/RAIM issue rows. No duplication — spatial detail is appended to classified rows only. <code>.gnss-spatial</code> CSS token: 12px, <code>--label3</code>, subordinate weight.</li>
+        <li><strong>OFF pre-population (CHG-005):</strong> <code>_deriveOffZ()</code> helper function; priority chain manual > computed (OUT+taxi) > out-only > null. Enroute OFF row shows computed value with <code>OUT+Nm</code> basis badge when not manually entered. Basis badge rendered consistently in both the enroute subcard and inflight rest module.</li>
+        <li><strong>WX/NOTAM/curfew cascade (CHG-006):</strong> <code>buildAirportCards()</code> added to both <code>outZ</code> and <code>offZ</code> edit branches in <code>confirmEdit()</code>. Airport WX, NOTAM, and curfew evaluations now re-run immediately on any time amendment, without requiring a manual tab switch.</li>
+        <li><strong>calcInflightRest() unification (CHG-007):</strong> Replaced inline offZ derivation with <code>_deriveOffZ()</code>. <code>tocOffsetTotal</code> arithmetic corrected — taxi minutes are only added when source is <code>'out'</code> (raw outZ with no taxi data). On <code>'computed'</code> source, taxi is already in the base; adding it again was double-counting. TOC result is unchanged for all three source paths.</li>
+        <li><strong>renderInflightRestModule() unification (CHG-008):</strong> Uses <code>_deriveOffZ()</code>. Empty-state prompt updated to "Enter OUT or OFF time to calculate." Basis badge label aligned with enroute row format (<code>OUT+Nm</code>, not <code>OUT+Nm taxi</code>).</li>
+        <li><strong>PWA icon fix (DEF-003/CHG-001):</strong> Icon paths corrected from <code>icons/icon-192.png</code> (non-existent subdirectory) to <code>icon192.png</code> / <code>icon512.png</code> at repository root in both <code>sw.js</code> SHELL_URLS and <code>manifest.json</code>. PWA install prompt now functions on all platforms.</li>
+        <li><strong>Version bump (CHG-002):</strong> <code>CACHE_NAME = 'pb-v1.9.7'</code>; <code>APP_VERSION = '1.9.7'</code>.</li>
+      </ul>
+    </td>
+  </tr>
+
+  <tr>
+    <td><strong>v1.9.6</strong></td>
+    <td>Apr 2026</td>
+    <td>
+      <strong>Web Share Target; SW update banner; DDG page-footer fix; branding to PilotBrief.</strong>
+      <ul>
+        <li><strong>Web Share Target:</strong> <code>manifest.json</code> share_target declaration (POST multipart, <code>ofp_pdf</code> field). SW fetch handler intercepts PDF POST, relays to <code>pb-share-relay</code> cache, redirects to <code>/?shared</code>. <code>_consumeSharedPDF()</code> consumer reads relay and calls <code>processPDF()</code>.</li>
+        <li><strong>SW update notification:</strong> SW activate handler posts <code>SW_UPDATED</code> to all window clients. Listener in index.html shows persistent dismissible banner.</li>
+        <li><strong>DDG page-footer fix (DEF-PB-002):</strong> <code>PAGE_FOOTER_RE</code> guard added in MEL block parser; prevents <code>ATLAS AIR BRIEF PAGE X OF 65</code> lines from appending to DDG item descriptions.</li>
+        <li><strong>Relay cache pruning race fix (DEF-PB-001):</strong> SW activate handler now exempts <code>pb-share-relay</code> from cache pruning.</li>
+        <li><strong>Branding:</strong> All "Relief Pilot" references replaced with "PilotBrief". Storage keys migrated to <code>pb_</code> prefix.</li>
+      </ul>
+    </td>
+  </tr>
+
+  <tr>
+    <td><strong>v1.9.5</strong></td>
+    <td>Mar 2026</td>
+    <td>
+      <strong>Inflight Rest Module; descent card redesign; hierarchical NOTAM tree; ballast fuel; narrow viewport.</strong>
+      <ul>
+        <li><strong>Inflight Rest Module (14 CFR 121.467):</strong> Crew list parser (employee numbers, asterisk unusual circumstance flag, role assignment); TOC parsing from nav log; thirds/halves/quarters schedule; pre-landing buffer control (adjustable, default 60 min); TOC override; copy-to-clipboard; collapsible card; halves/quarters view toggle.</li>
+        <li><strong>Descent card redesign:</strong> Airport subcard with selectable destination/alternate via bottom-sheet picker. DDG landing items subcard. CAT II/III per runway array-parsed from OFP.</li>
+        <li><strong>Hierarchical NOTAM tree:</strong> Runways in numerical sort order. Sub-categories: Closed → Takeoff Minimums/ODP → Approach/Navaid → Lighting → Procedure Changes. Collapsible groups.</li>
+        <li><strong>Ballast fuel:</strong> Parsed from OFP ballast section; yellow caution row below FRES.</li>
+        <li><strong>Narrow viewport (≤400px):</strong> Two-row nav bar using shared <code>.nav-secondary</code> CSS class. Enroute split columns stack vertically. NOTAM eval window renamed to EVAL throughout.</li>
+        <li><strong>Slot time:</strong> Fourth variant added — <code>EARLIEST WHEELS UP HHmmZ DUE TO [REASON]</code>.</li>
+        <li><strong>Radio callsign:</strong> GIANT (GTI), POLAR (PAC), CAMBER (CMB) + ACMI verbal callsign from OFP remark. Heavy suffix from FPL wake category.</li>
+      </ul>
+    </td>
+  </tr>
+
+  <tr>
+    <td><strong>v1.9.0-dev → v1.9.4</strong></td>
+    <td>Mar 2026</td>
+    <td>
+      <strong>ETP coordinates; CFS alternates; curfew evaluator; ETOPS display; NOTAM engine maturation; multi-year NOTAM validity; FICON; NAT/PACOTS tracks; weight unit parsing.</strong>
+      <ul>
+        <li>ETP coordinate parsing and Alternates tab display; CFS alternate airports with OFP WX window.</li>
+        <li>Curfew evaluator (<code>evalCurfew</code>) — static table keyed by ICAO; tappable curfew row with delta-to-boundary; scrollable detail sheet.</li>
+        <li>ETOPS block display in flight header (<code>.etops-block / .etops-line</code>).</li>
+        <li>NOTAM engine: multi-year validity anchoring from NOTAM ID issuance year; cross-midnight ETA evaluation; OFP inline schedule parsing (day-range + time-window, daily time-window).</li>
+        <li>FICON (Field Condition) NOTAMs: braking codes 1–2 = RED, wet/slush/compacted snow = YELLOW; runway vs. taxiway/ramp group assignment.</li>
+        <li>NAT/PACOTS tracks: both eastbound and westbound subcards; TMI + track badge; PACOTS numeric IDs; Pacific crossing detection for Japan, Korea, China, SEA, Taiwan, Vietnam, Philippines.</li>
+        <li>Weight unit (<code>KGS</code> / <code>LBS</code>) parsed from OFP narrative header field 3.</li>
+        <li>TLR OEI picker: extended runway variant support.</li>
+      </ul>
+    </td>
+  </tr>
+
+  <tr>
+    <td><strong>v1.8.0–v1.8.2</strong></td>
+    <td>Mar 2026</td>
+    <td>
+      <strong>iOS Share import; unified flight tab screen; ETOPS parsing; PDF canvas fixes.</strong>
+      <ul>
+        <li>Unified <code>screen-flight</code> with four tab panels (Briefing, Airports, OFP, Alternates). <code>screen-flights</code> as root.</li>
+        <li><code>processPDFFromNative(b64, filename)</code> for Xcode iOS Share sheet path.</li>
+        <li>ETOPS parsing: <code>S.etopsEntry</code> and <code>S.etopsSpec</code>.</li>
+        <li>OFP canvas race fix: <code>renderPage(1)</code> deferred via <code>requestAnimationFrame()</code>.</li>
+        <li>pdf.js CORS fix: <code>crossOrigin = 'anonymous'</code>; <code>_pdfjsReady</code> reset on error.</li>
+      </ul>
+    </td>
+  </tr>
+
+  <tr>
+    <td><strong>v1.0.0–v1.7.0</strong></td>
+    <td>Mar 2026</td>
+    <td>
+      Foundation versions — core OFP parser, airport status engine, weather/NOTAM evaluation, alternate routes, FCIR/ASAP, PDF viewer, design system, security hardening (XSS/memory audit), RVR parsing, FOM §7.1.31 weather thresholds, alternate route screen, ETP coordinates, semantic versioning.
+    </td>
+  </tr>
+
+</table>
+
+<hr>
+
+<p style="color:#8e8e93;font-size:12px;margin-top:40px;border-top:1px solid #e5e5ea;padding-top:16px">
+  PilotBrief v1.9.7 — Developer Documentation — April 2026<br>
+  This document is for internal developer use only. Not for distribution or operational use.
+</p>
+
+</body>
+</html>
