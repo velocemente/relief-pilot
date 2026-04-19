@@ -974,10 +974,6 @@ body {
   color: var(--label2); display: block;
   margin-top: 2px;
 }
-/* ── ACMI / wet-lease callsign note — child of flt-header-right ── */
-.flt-callsign-note {
-  display: flex; align-items: flex-end;
-}
 /* ── Editable inline value ── */
 .ev {
   display: inline-flex; align-items: center;
@@ -1001,6 +997,11 @@ body {
 .flt-header-right {
   display: flex; flex-direction: column; align-items: flex-end;
   margin-left: auto; flex-shrink: 0; gap: 2px;
+}
+/* ── Callsign note (ACMI / native Atlas ops) — child of flt-header-right ── */
+.flt-callsign-note {
+  font-family: var(--font); font-size: var(--type-caption); font-weight: 600;
+  color: var(--label2); text-align: right;
 }
 /* ── ETOPS header block ── */
 .etops-block {
@@ -5677,7 +5678,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
 // ═══════════════════════════════════════════════════════
 //  VERSION
 // ═══════════════════════════════════════════════════════
-const APP_VERSION = '1.9.7';
+const APP_VERSION = '1.9.8';
 
 // ═══════════════════════════════════════════════════════
 //  THEME — follows system, or manual override
@@ -6928,16 +6929,19 @@ function _ofpRulesetParse(rawText) {
   // ── Crew Members (Fit for Duty section) ──────────────────────────
   const crewMembers = [];
   (function parseCrew() {
-    const fitIdx = t.indexOf('Fit for Duty Affirmation');
-    if (fitIdx === -1) return;
-    const block = t.slice(fitIdx, Math.min(fitIdx + 3000, t.length));
+    const _ffSearch = t.search(/Fit\s+for\s+Duty\s+Affirmation/i);
+    if (_ffSearch === -1) return;
+    const block = t.slice(_ffSearch, Math.min(_ffSearch + 5000, t.length));
     // Handles all observed Atlas Air crew line formats:
     //   "CA 448229 MAGGIO M .."          — standard 6-digit emp#
     //   "CA 751 REDFORD D .."            — 3-digit emp#
     //   "CA 452980 * LINEHAN R .."       — mid-line asterisk (unusual circumstance flag)
     //   "* FO 456969 ERIKSSON E .."      — leading asterisk (senior designee)
     //   "* SEN FO 456942 BRAMLEY R .."   — asterisk + SEN prefix
-    const re = /^\*?\s*(?:SEN\s+)?(CA|FO|DH|JS)\s+(?:(\d{3,6})\s+)?\*?\s*([A-Z][A-Z]*)\s+([A-Z])\s+\.\./mg;
+    //   "FO 459072 * SEN T .."           — SEN in name-field position
+    //   "CA 1234567 JONES A.."           — no space before dots (PDF whitespace collapse)
+    //   "CA 12 SMITH B .."               — short emp# (2-digit contract format)
+    const re = /^\*?\s*(?:SEN\s+)?(CA|FO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\-]*)\s+([A-Z])\s*\.{1,3}/mg;
     let m;
     while ((m = re.exec(block)) !== null) {
       const rawName = m[3];
@@ -7800,9 +7804,9 @@ function renderNote() {
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
   sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
   sh += `</div>`;
-  // Right-column: callsign (top) stacked above ETOPS (bottom).
-  // Rendered only when at least one of the two is present.
-  // Covers native Atlas ops (GIANT, POLAR, CAMBER) and ACMI/wet-lease (e.g. TURKISH).
+  // Right-column: callsign (top) + ETOPS (bottom).
+  // Renders when either is present. Callsign block only when verbalCallsign is known.
+  // Per DBG-01/02: if no callsign available, space is left blank; ETOPS stays in column.
   if ((S.verbalCallsign && S.fltNum) || S.etopsSpec || S.etopsEntry) {
     sh += `<div class="flt-header-right">`;
     if (S.verbalCallsign && S.fltNum) {
@@ -7810,7 +7814,7 @@ function renderNote() {
       const _num   = _numM ? _numM[1] : '';
       const _heavy = S.isHeavy ? ' Heavy' : '';
       sh += `<div class="flt-callsign-note">`;
-      sh += `<span class="flt-id">${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}</span>`;
+      sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
       sh += `</div>`;
     }
     if (S.etopsSpec || S.etopsEntry) {
@@ -8109,14 +8113,23 @@ function renderEnroutePhase() {
     for (let i = 1; i <= 15; i++) {
       const targetElapsed = i * 240;
       if (eteDest && targetElapsed > eteDest + 60) break;
-      // Suppress if within 90 min of POR cluster
+      const wpt = wptNearest(targetElapsed, 45);
+      const baseEvt = { type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                        targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null };
+      // PB-198-011: past event — at or before wheels-off
+      if (targetElapsed <= 0) {
+        events.push({ ...baseEvt, past: true });
+        continue;
+      }
+      // PB-198-010: near POR — visual strikethrough, not silent drop
       if (S.porOffsetMins != null) {
         const d = targetElapsed - S.porOffsetMins;
-        if (d >= -90 && d <= 90) continue;
+        if (d >= -90 && d <= 90) {
+          events.push({ ...baseEvt, nearPor: true });
+          continue;
+        }
       }
-      const wpt = wptNearest(targetElapsed, 45);
-      events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
-                    targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
+      events.push(baseEvt);
     }
 
     // ETP waypoints (from CFS section)
@@ -8135,18 +8148,22 @@ function renderEnroutePhase() {
     let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
 
     if (evt.type === 'coRpt') {
+      const isSuppressed = evt.nearPor || evt.past;
+      const suppressTag  = evt.nearPor ? 'NEAR POR' : evt.past ? 'PAST' : '';
+      const sStyle = isSuppressed ? 'text-decoration:line-through;opacity:.55;' : '';
       h += `<div style="display:flex;flex-direction:column;min-width:96px;flex-shrink:0;gap:1px">`;
-      h += `<span class="enroute-label">CO RPT</span>`;
-      h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono)">${evt.rptHours} HR</span>`;
+      h += `<span class="enroute-label" style="${sStyle}">CO RPT</span>`;
+      h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono);${sStyle}">${evt.rptHours} HR</span>`;
+      if (isSuppressed) h += `<span style="font-size:10px;color:var(--label3);font-family:var(--font-mono);letter-spacing:.04em">${suppressTag}</span>`;
       h += `</div>`;
       h += `<div style="display:flex;flex-direction:column;gap:2px">`;
       if (evt.wpt) {
-        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--label)">${esc(evt.wpt)}</span>`;
-        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}`;
+        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--label);${sStyle}">${esc(evt.wpt)}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2);${sStyle}">ETA&nbsp;${etaStr}`;
         if (navLog.length) h += `<span style="color:var(--label3)">  T+${fmtE(evt.elapsed)}</span>`;
         h += `</span>`;
       } else {
-        h += `<span class="enroute-value">${etaStr}</span>`;
+        h += `<span class="enroute-value" style="${sStyle}">${etaStr}</span>`;
       }
       h += `</div>`;
 
@@ -8580,18 +8597,19 @@ function renderInflightRestModule() {
           text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">
           Operating Crew</div>`;
   if (!opCrew.length) {
-    h += `<div style="font-size:15px;color:var(--label3)">Import OFP to load crew.</div>`;
+    h += `<div style="font-size:15px;color:var(--label3);margin-bottom:var(--sp2)">No crew parsed — add manually below.</div>`;
   } else {
     h += `<div style="display:flex;flex-wrap:wrap;gap:var(--sp2);margin-bottom:var(--sp2)">`;
-    opCrew.forEach((c, idx) => {
+    opCrew.forEach((c, opIdx) => {
+      const idx = (S.crewMembers || []).indexOf(c);
       const isActive = c.active !== false;
       if (c.manual) {
-        // Manual crew: always active, show × remove button
+        // Manual crew: show role + label, × remove button
         h += `<div style="display:flex;align-items:center;gap:4px;
                 background:var(--fill3);border-radius:20px;padding:4px 6px 4px 12px;
                 min-height:32px;font-size:13px;font-family:var(--font);color:var(--label2)">
-                <span style="font-weight:700">FO</span>
-                <span>+ Crew</span>
+                <span style="font-weight:700">${c.role}</span>
+                <span>${esc(c.displayName)}</span>
                 <button onclick="removeManualCrew(${idx})" aria-label="Remove manual crew"
                   style="width:20px;height:20px;border-radius:50%;background:var(--fill);
                     border:0.5px solid var(--sep);color:var(--label3);font-size:13px;
@@ -8613,9 +8631,24 @@ function renderInflightRestModule() {
       }
     });
     h += `</div>`;
-    // + Add Crew button — always visible for manual correction
-    h += `<div style="display:flex;align-items:center;gap:var(--sp3);flex-wrap:wrap">`;
-    h += `<button onclick="addManualCrew()"
+  }
+  // + Add Crew button — always visible
+  h += `<div style="display:flex;align-items:center;gap:var(--sp3);flex-wrap:wrap">`;
+  if (_crewPickerOpen) {
+    // Inline role picker
+    h += `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap">`;
+    h += `<span style="font-size:13px;color:var(--label3)">Add role:</span>`;
+    [['CA','Captain'],['FO','First Officer']].forEach(([r,label]) => {
+      h += `<button onclick="addManualCrew('${r}')"
+              style="background:var(--fill3);border:0.5px solid var(--sep-opaque);border-radius:20px;
+                padding:4px 14px;font-size:13px;font-family:var(--font);color:var(--label2);
+                cursor:pointer;min-height:32px;font-weight:600">${r}</button>`;
+    });
+    h += `<button onclick="closeCrewPicker()"
+            style="background:none;border:none;color:var(--label3);font-size:13px;cursor:pointer;padding:2px 6px">Cancel</button>`;
+    h += `</div>`;
+  } else {
+    h += `<button onclick="openCrewPicker()"
               style="display:flex;align-items:center;gap:5px;background:none;
                 border:0.5px dashed var(--sep-opaque);border-radius:20px;
                 padding:4px 12px;font-size:13px;font-family:var(--font);
@@ -8623,24 +8656,26 @@ function renderInflightRestModule() {
               <span style="font-size:16px;line-height:1">+</span>
               <span>Add Crew</span>
             </button>`;
-    if (!S.crewVerified) {
-      h += `<span style="font-size:13px;color:var(--label3)">Confirm operating crew</span>`;
-      h += `<button onclick="verifyCrewList()"
-                style="background:var(--tint);color:#fff;border:none;border-radius:var(--r-sm);
-                  padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;
-                  min-height:32px;white-space:nowrap">Verify ✓</button>`;
-    } else {
-      h += `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="var(--sys-green)" stroke-width="2.5" stroke-linecap="round">
-              <path d="M5 12l5 5L20 7"/></svg>`;
-      h += `<span style="font-size:13px;color:var(--sys-green);font-weight:600">
-              ${opCount}-pilot confirmed</span>`;
-      h += `<button onclick="S.crewVerified=false;saveFlight();renderNote()"
-                style="background:none;border:none;color:var(--label3);font-size:13px;
-                  cursor:pointer;padding:0">Edit</button>`;
+    if (opCrew.length > 0) {
+      if (!S.crewVerified) {
+        h += `<span style="font-size:13px;color:var(--label3)">Confirm operating crew</span>`;
+        h += `<button onclick="verifyCrewList()"
+                  style="background:var(--tint);color:#fff;border:none;border-radius:var(--r-sm);
+                    padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;
+                    min-height:32px;white-space:nowrap">Verify ✓</button>`;
+      } else {
+        h += `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="var(--sys-green)" stroke-width="2.5" stroke-linecap="round">
+                <path d="M5 12l5 5L20 7"/></svg>`;
+        h += `<span style="font-size:13px;color:var(--sys-green);font-weight:600">
+                ${opCount}-pilot confirmed</span>`;
+        h += `<button onclick="S.crewVerified=false;saveFlight();renderNote()"
+                  style="background:none;border:none;color:var(--label3);font-size:13px;
+                    cursor:pointer;padding:0">Edit</button>`;
+      }
     }
-    h += `</div>`;
   }
+  h += `</div>`;
   h += `</div>`;
 
   // Section 2: Rest window
@@ -8784,10 +8819,16 @@ function adjustBuffer(deltaMins) {
   if (next < 0 || next > 180) return;
   S.crewRestBuffer = next; saveFlight(); renderNote();
 }
-function addManualCrew() {
+var _crewPickerOpen = false;
+function openCrewPicker()  { _crewPickerOpen = true;  renderNote(); }
+function closeCrewPicker() { _crewPickerOpen = false; renderNote(); }
+function addManualCrew(role) {
+  _crewPickerOpen = false;
   if (!S.crewMembers) S.crewMembers = [];
-  S.crewMembers.push({ role:'FO', empNum:'', lastName:'MANUAL', initial:'',
-                       displayName:'+ CREW', active:true, manual:true });
+  var r = role || 'FO';
+  var label = { CA:'Captain', FO:'First Officer' }[r] || r;
+  S.crewMembers.push({ role:r, empNum:'', lastName:label, initial:'',
+                       displayName:label, active: true, manual:true });
   S.crewVerified = false; saveFlight(); renderNote();
 }
 function removeManualCrew(idx) {
