@@ -7477,9 +7477,17 @@ function _ofpRulesetParse(rawText) {
       if (fbIdx > -1) bIdx = Math.max(0, fbIdx - 200);
     }
 
-    // 18000-char slice guarantees both direction blocks on a full NAT OTS are captured
+    // Dynamic slice: find the LAST direction header so rawBlock always spans both
+    // direction blocks regardless of how far apart they appear in the OFP
+    const allDirMatches = bIdx > -1
+      ? [...t.matchAll(/(?:EAST|WEST)\s*BOUND\s+(?:NAT|PAC)\s+TRACKS?/gi)]
+      : [];
+    const lastDirIdx = allDirMatches.length
+      ? allDirMatches[allDirMatches.length - 1].index
+      : bIdx;
+    const sliceLen = Math.max(18000, (lastDirIdx - bIdx) + 8000);
     let rawBlock = bIdx > -1
-      ? t.slice(bIdx, bIdx + 18000).replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '')
+      ? t.slice(bIdx, bIdx + sliceLen).replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '')
       : '';
 
     // TMI — Atlas format: "EAST BOUND NAT TRACKS TMI 071" (also catches no-space variant)
@@ -8307,17 +8315,11 @@ function renderEnroutePhase() {
         ? (trackType === 'PAC' ? 'Eastbound PAC Tracks' : 'Eastbound NAT Tracks')
         : (trackType === 'PAC' ? 'Westbound PAC Tracks' : 'Westbound NAT Tracks');
 
-      // Header badge: "TMI 071 · NAT T" (combining TMI and assigned track)
-      // — replaces the old separate "TMI 071" + "TRACK T ASSIGNED" labels
+      // Subcard badge: assigned track only — TMI is displayed at section level above
       const hasAssigned = isFlightDir && nt.assignedId;
-      let badge = '';
-      if (hasAssigned && nt.tmi) {
-        badge = `<span style="font-size:13px;font-weight:700;color:var(--sys-yellow);font-family:var(--font-mono);letter-spacing:0.04em;margin-left:4px">TMI\u00a0${esc(nt.tmi)}\u00a0\u00b7\u00a0${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`;
-      } else if (nt.tmi && isFlightDir) {
-        badge = `<span style="font-size:13px;font-weight:700;color:var(--label2);font-family:var(--font-mono);letter-spacing:0.04em;margin-left:4px">TMI\u00a0${esc(nt.tmi)}</span>`;
-      } else if (hasAssigned) {
-        badge = `<span style="font-size:13px;font-weight:700;color:var(--sys-yellow);font-family:var(--font-mono);margin-left:4px">${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`;
-      }
+      const badge = hasAssigned
+        ? `<span style="font-size:13px;font-weight:700;color:var(--sys-yellow);font-family:var(--font-mono);margin-left:4px">${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`
+        : '';
 
       let h = `<div class="subcard">`;
       h += `<div class="subcard-header" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">`;
@@ -8374,8 +8376,17 @@ function renderEnroutePhase() {
     // ── Render both blocks or raw fallback ───────────────────────────
     const blocks = nt.blocks;
     if (blocks && blocks.length && blocks.some(b => b.tracks.length)) {
+      // TMI section banner — displayed once at top, above both direction subcards
+      let out = '';
+      if (nt.tmi) {
+        out += `<div style="display:flex;align-items:baseline;gap:8px;padding:8px var(--sp3) 2px">`;
+        out += `<span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--label3);font-family:var(--font-mono)">TMI</span>`;
+        out += `<span style="font-size:17px;font-weight:700;font-family:var(--font-mono);color:var(--label)">${esc(nt.tmi)}</span>`;
+        out += `</div>`;
+      }
       // Flight direction block first (already sorted by parser), then opposite
-      return blocks.map((blk, i) => renderBlock(blk, blk.dir === (nt.flightDir || nt.dir))).join('');
+      out += blocks.map((blk) => renderBlock(blk, blk.dir === (nt.flightDir || nt.dir))).join('');
+      return out;
     } else if (nt.rawFallback) {
       const dirLabel = (nt.flightDir || nt.dir) === 'EAST' ? 'Eastbound NAT Tracks' : 'Westbound NAT Tracks';
       let h = `<div class="subcard">`;
