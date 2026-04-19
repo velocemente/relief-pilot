@@ -7469,17 +7469,8 @@ function _ofpRulesetParse(rawText) {
     const BLOCK_HDR = /(?:(?:EAST|WEST)\s+BOUND\s+(?:NAT|PAC)\s+TRACKS?|NAT\s+TRACK\s+MESSAGE|ORGANIZED\s+TRACK\s+SYSTEM|OCEANIC\s+TRACK\s+MESSAGE|NAT\s+OTS)/i;
     const bIdx = t.search(BLOCK_HDR);
     const rawBlock = bIdx > -1
-      ? t.slice(bIdx, bIdx + 8000).replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '')
+      ? t.slice(bIdx, bIdx + 18000).replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '')
       : '';
-
-    if (typeof console !== 'undefined') {
-      console.log('[NAT-DEBUG] bIdx:', bIdx);
-      console.log('[NAT-DEBUG] rawBlock first 500:', rawBlock.slice(0, 500));
-      console.log('[NAT-DEBUG] rawBlock chars:', rawBlock.length);
-      console.log('[NAT-DEBUG] dirSections count after split:', 
-        rawBlock.split(/(?=(?:EAST|WEST)\s+BOUND\s+(?:NAT|PAC)\s+TRACKS?)/gi)
-               .filter(s => /\S/.test(s)).length);
-    }
 
     // TMI — Atlas format: "EAST BOUND NAT TRACKS TMI 071"
     const tmiHdrM  = rawBlock.match(/(?:EAST|WEST)\s+BOUND\s+NAT\s+TRACKS?\s+TMI\s+(\d{2,4})/i);
@@ -7498,11 +7489,11 @@ function _ofpRulesetParse(rawText) {
 
     const parseSection = (section) => {
       const tracks = [];
-      // Match "TRACK A" (NAT) and "PAC A" / "PAC 1" / "PAC 14" (PACOTS)
-      const HDR_RE = /^\s*(?:TRACK\s+([A-Z])|PAC\s+([A-Z]|\d{1,2}))\b/gm;
+      // Match "NAT V" (Atlas NAT), "TRACK A" (generic NAT), "PAC A"/"PAC 14" (PACOTS)
+      const HDR_RE = /^\s*(?:NAT\s+([A-Z])|TRACK\s+([A-Z])|PAC\s+([A-Z]|\d{1,2}))\b/gm;
       let tm;
       while ((tm = HDR_RE.exec(section)) !== null) {
-        const id = (tm[1] || tm[2]).toUpperCase();
+        const id = (tm[1] || tm[2] || tm[3]).toUpperCase();
         const after = section.slice(tm.index, tm.index + 1000);
 
         // Waypoints — PACOTS uses "WPTS:" label; NAT uses unlabelled lines
@@ -7521,7 +7512,8 @@ function _ofpRulesetParse(rawText) {
         }
 
         const flM = after.match(/FL[:\s]*(\d{2,3})\s*[\/\-\u2013]\s*(\d{2,3})/i) || after.match(/\bFL\s*(\d{2,3})\b/i);
-        const fl = flM ? (flM[2] ? `FL${flM[1]}\u2013${flM[2]}` : `FL${flM[1]}`) : '';
+        const flListM = !flM && after.match(/FL\s*:\s*((\d{3})\s+(?:\d{3}\s+)*(\d{3}))/i);
+        const fl = flM ? (flM[2] ? `FL${flM[1]}\u2013${flM[2]}` : `FL${flM[1]}`) : flListM ? `FL${flListM[2]}\u2013${flListM[3]}` : '';
 
         const machM = after.match(/MACH[:\s]*\.?(\d{2})/i) || after.match(/M\.(\d{2})/i);
         const mach = machM ? `M.${machM[1]}` : '';
