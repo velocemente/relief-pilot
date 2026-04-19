@@ -7478,8 +7478,12 @@ function _ofpRulesetParse(rawText) {
     const tmiFullM = !tmiHdrM && !tmiBodyM && t.match(/TMI[:\s#]*(\d{2,4})/i);
     const tmi = (tmiHdrM || tmiBodyM || tmiFullM)?.[1] ?? null;
 
-    // Assigned track ID — from OFP route header or remarks
-    const assignedM = t.match(/(?:NAT\s+)?(?:ASSIGNED\s+)?TRACK[:\s]+([A-Z0-9]{1,3})\b/i);
+    // Assigned track ID — fallback chain: TRACK keyword → FILED → OTS TRK/TRK → route /X
+    const assignedM = t.match(/(?:NAT\s+)?(?:ASSIGNED\s+)?TRACK[:\s]+([A-Z0-9]{1,3})\b/i)
+                   || t.match(/\bFILED[:\s]+([A-Z0-9]{1,3})\b/i)
+                   || t.match(/\bOTS\s+TRK\s+([A-Z0-9]{1,3})\b/i)
+                   || t.match(/\bTRK\s+([A-Z0-9]{1,3})\b/i)
+                   || t.match(/(?:^|[\s,])\/([A-Z])\b/m);
     const assignedId = assignedM ? assignedM[1].toUpperCase() : null;
 
     // Split rawBlock at each direction heading so each direction's entries
@@ -7503,7 +7507,7 @@ function _ofpRulesetParse(rawText) {
           ? wptSrcM[1]
           : after.split('\n').slice(1, 7).join(' ');
 
-        const WPT_RE = /\b([A-Z]{3,5}|\d{2}[NS]\d{2,3}[EW])\b/g;
+        const WPT_RE = /\b([A-Z]{3,5}|\d{4}[NS]\d{5}[EW]|N\d{4}[EW]\d{5}|\d{2}[NS]\d{2,3}[EW]|\d{4}[NS])\b/g;
         let wm;
         while ((wm = WPT_RE.exec(wptSrc)) !== null) {
           const tok = wm[1];
@@ -8113,9 +8117,7 @@ function renderEnroutePhase() {
     for (let i = 1; i <= 15; i++) {
       const targetElapsed = i * 240;
       if (eteDest && targetElapsed > eteDest + 60) break;
-      // PB-198-011: suppress events at or before wheels-off
-      if (targetElapsed <= 0) continue;
-      // PB-198-010: suppress within ±90 min of POR cluster
+      // Suppress if within 90 min of POR cluster
       if (S.porOffsetMins != null) {
         const d = targetElapsed - S.porOffsetMins;
         if (d >= -90 && d <= 90) continue;
