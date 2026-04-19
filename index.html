@@ -8113,23 +8113,16 @@ function renderEnroutePhase() {
     for (let i = 1; i <= 15; i++) {
       const targetElapsed = i * 240;
       if (eteDest && targetElapsed > eteDest + 60) break;
-      const wpt = wptNearest(targetElapsed, 45);
-      const baseEvt = { type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
-                        targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null };
-      // PB-198-011: past event — at or before wheels-off
-      if (targetElapsed <= 0) {
-        events.push({ ...baseEvt, past: true });
-        continue;
-      }
-      // PB-198-010: near POR — visual strikethrough, not silent drop
+      // PB-198-011: suppress events at or before wheels-off
+      if (targetElapsed <= 0) continue;
+      // PB-198-010: suppress within ±90 min of POR cluster
       if (S.porOffsetMins != null) {
         const d = targetElapsed - S.porOffsetMins;
-        if (d >= -90 && d <= 90) {
-          events.push({ ...baseEvt, nearPor: true });
-          continue;
-        }
+        if (d >= -90 && d <= 90) continue;
       }
-      events.push(baseEvt);
+      const wpt = wptNearest(targetElapsed, 45);
+      events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                    targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
     }
 
     // ETP waypoints (from CFS section)
@@ -8148,22 +8141,18 @@ function renderEnroutePhase() {
     let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
 
     if (evt.type === 'coRpt') {
-      const isSuppressed = evt.nearPor || evt.past;
-      const suppressTag  = evt.nearPor ? 'NEAR POR' : evt.past ? 'PAST' : '';
-      const sStyle = isSuppressed ? 'text-decoration:line-through;opacity:.55;' : '';
       h += `<div style="display:flex;flex-direction:column;min-width:96px;flex-shrink:0;gap:1px">`;
-      h += `<span class="enroute-label" style="${sStyle}">CO RPT</span>`;
-      h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono);${sStyle}">${evt.rptHours} HR</span>`;
-      if (isSuppressed) h += `<span style="font-size:10px;color:var(--label3);font-family:var(--font-mono);letter-spacing:.04em">${suppressTag}</span>`;
+      h += `<span class="enroute-label">CO RPT</span>`;
+      h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono)">${evt.rptHours} HR</span>`;
       h += `</div>`;
       h += `<div style="display:flex;flex-direction:column;gap:2px">`;
       if (evt.wpt) {
-        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--label);${sStyle}">${esc(evt.wpt)}</span>`;
-        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2);${sStyle}">ETA&nbsp;${etaStr}`;
+        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--label)">${esc(evt.wpt)}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}`;
         if (navLog.length) h += `<span style="color:var(--label3)">  T+${fmtE(evt.elapsed)}</span>`;
         h += `</span>`;
       } else {
-        h += `<span class="enroute-value" style="${sStyle}">${etaStr}</span>`;
+        h += `<span class="enroute-value">${etaStr}</span>`;
       }
       h += `</div>`;
 
