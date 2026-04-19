@@ -7465,50 +7465,26 @@ function _ofpRulesetParse(rawText) {
       ? (isAtlantic ? 'EAST' : 'WEST')
       : (isAtlantic ? 'WEST' : 'EAST');
 
-    // Locate track block — broadened to catch no-space "EASTBOUND", "OCEANIC TRACK SYSTEM",
-    // "NOPAC TRACKS", and any Atlas OFP variant not requiring an exact space between EAST/WEST and BOUND
-    const BLOCK_HDR = /(?:(?:EAST|WEST)\s*BOUND\s+(?:NAT|PAC)\s+TRACKS?|NAT\s+(?:TRACK\s+MESSAGE|OTS)|ORGANIZED\s+TRACK\s+SYSTEM|OCEANIC\s+TRACK(?:\s+SYSTEM|\s+MESSAGE)?|(?:NAT|PAC|NOPAC)\s+TRACKS?\s+(?:MESSAGE|SYSTEM))/i;
-    let bIdx = t.search(BLOCK_HDR);
-
-    // Fallback: no section label found — scan full OFP for the first structured track header
-    // (TRACK A / PAC A / PAC 1) and anchor rawBlock 200 chars before it to capture any preamble
-    if (bIdx === -1) {
-      const fbIdx = t.search(/\b(?:TRACK\s+[A-Z]|PAC\s+(?:[A-Z]|\d{1,2}))\b/i);
-      if (fbIdx > -1) bIdx = Math.max(0, fbIdx - 200);
-    }
-
-    // Dynamic slice: find the LAST direction header so rawBlock always spans both
-    // direction blocks regardless of how far apart they appear in the OFP
-    const allDirMatches = bIdx > -1
-      ? [...t.matchAll(/(?:EAST|WEST)\s*BOUND\s+(?:NAT|PAC)\s+TRACKS?/gi)]
-      : [];
-    const lastDirIdx = allDirMatches.length
-      ? allDirMatches[allDirMatches.length - 1].index
-      : bIdx;
-    const sliceLen = Math.max(18000, (lastDirIdx - bIdx) + 8000);
-    let rawBlock = bIdx > -1
-      ? t.slice(bIdx, bIdx + sliceLen).replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '')
+    // Locate track block
+    const BLOCK_HDR = /(?:(?:EAST|WEST)\s+BOUND\s+(?:NAT|PAC)\s+TRACKS?|NAT\s+TRACK\s+MESSAGE|ORGANIZED\s+TRACK\s+SYSTEM|OCEANIC\s+TRACK\s+MESSAGE|NAT\s+OTS)/i;
+    const bIdx = t.search(BLOCK_HDR);
+    const rawBlock = bIdx > -1
+      ? t.slice(bIdx, bIdx + 8000).replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '')
       : '';
 
-    // TMI — Atlas format: "EAST BOUND NAT TRACKS TMI 071" (also catches no-space variant)
-    const tmiHdrM  = rawBlock.match(/(?:EAST|WEST)\s*BOUND\s+NAT\s+TRACKS?\s+TMI\s+(\d{2,4})/i);
+    // TMI — Atlas format: "EAST BOUND NAT TRACKS TMI 071"
+    const tmiHdrM  = rawBlock.match(/(?:EAST|WEST)\s+BOUND\s+NAT\s+TRACKS?\s+TMI\s+(\d{2,4})/i);
     const tmiBodyM = !tmiHdrM && rawBlock.match(/TMI[:\s#]*(\d{2,4})/i);
     const tmiFullM = !tmiHdrM && !tmiBodyM && t.match(/TMI[:\s#]*(\d{2,4})/i);
     const tmi = (tmiHdrM || tmiBodyM || tmiFullM)?.[1] ?? null;
 
-    // Assigned track ID — NAT only; PACOTS is information-only (no assigned track concept)
-    // Fallback chain: TRACK keyword → FILED → OTS TRK/TRK → route /X
-    const assignedM = !isPacific && (
-      t.match(/(?:NAT\s+)?(?:ASSIGNED\s+)?TRACK[:\s]+([A-Z0-9]{1,3})\b/i)
-      || t.match(/\bFILED[:\s]+([A-Z0-9]{1,3})\b/i)
-      || t.match(/\bOTS\s+TRK\s+([A-Z0-9]{1,3})\b/i)
-      || t.match(/\bTRK\s+([A-Z0-9]{1,3})\b/i)
-      || t.match(/(?:^|[\s,])\/([A-Z])\b/m)
-    );
+    // Assigned track ID — from OFP route header or remarks
+    const assignedM = t.match(/(?:NAT\s+)?(?:ASSIGNED\s+)?TRACK[:\s]+([A-Z0-9]{1,3})\b/i);
     const assignedId = assignedM ? assignedM[1].toUpperCase() : null;
 
-    // Split rawBlock at each direction heading — \s*BOUND handles no-space variant
-    const DIR_SPLIT_RE = /(?=(?:EAST|WEST)\s*BOUND\s+(?:NAT|PAC)\s+TRACKS?)/gi;
+    // Split rawBlock at each direction heading so each direction's entries
+    // are parsed independently
+    const DIR_SPLIT_RE = /(?=(?:EAST|WEST)\s+BOUND\s+(?:NAT|PAC)\s+TRACKS?)/gi;
     const dirSections = rawBlock.split(DIR_SPLIT_RE).filter(s => /\S/.test(s));
 
     const parseSection = (section) => {
@@ -7527,9 +7503,7 @@ function _ofpRulesetParse(rawText) {
           ? wptSrcM[1]
           : after.split('\n').slice(1, 7).join(' ');
 
-        // All ICAO oceanic coordinate formats: named fixes, 4+4 compressed, N-prefix,
-        // legacy 2+2/3, and latitude-only shorthand (5530N)
-        const WPT_RE = /\b([A-Z]{3,5}|\d{4}[NS]\d{5}[EW]|N\d{4}[EW]\d{5}|\d{2}[NS]\d{2,3}[EW]|\d{4}[NS])\b/g;
+        const WPT_RE = /\b([A-Z]{3,5}|\d{2}[NS]\d{2,3}[EW])\b/g;
         let wm;
         while ((wm = WPT_RE.exec(wptSrc)) !== null) {
           const tok = wm[1];
@@ -7549,8 +7523,7 @@ function _ofpRulesetParse(rawText) {
         const valid = valM ? `${valM[1]}\u2013${valM[2]}` : '';
 
         if (wpts.length >= 2) {
-          // NAT: assigned track highlighted yellow; PACOTS: all tracks are information-only
-          tracks.push({ id, waypoints: wpts, fl, mach, valid, assigned: !isPacific && id === assignedId });
+          tracks.push({ id, waypoints: wpts, fl, mach, valid, assigned: id === assignedId });
         }
       }
       return tracks;
@@ -7559,7 +7532,7 @@ function _ofpRulesetParse(rawText) {
     // Build blocks — flight direction first, opposite direction second
     const blocks = [];
     for (const section of dirSections) {
-      const dirM = section.match(/^(EAST|WEST)\s*BOUND/i);
+      const dirM = section.match(/^(EAST|WEST)\s+BOUND/i);
       const secDir = dirM ? dirM[1].toUpperCase() : null;
       if (!secDir) continue;
       blocks.push({ dir: secDir, tracks: parseSection(section) });
@@ -7573,11 +7546,7 @@ function _ofpRulesetParse(rawText) {
     const rawFallback = (!blocks.length || !blocks.some(b => b.tracks.length)) && rawBlock.length > 30
       ? rawBlock.slice(0, 2500) : '';
 
-    // FLEX / random routing — captured as raw pre-formatted text for information display
-    const flexM = t.match(/(?:FLEX\s+TRACKS?|RANDOM\s+ROUTING)[^\n]*\n([\s\S]{20,2000}?)(?=\n{3,}|\n[A-Z]{4}\s+[A-Z]{4}|$)/i);
-    const flexRaw = flexM ? flexM[0].trim() : '';
-
-    return { trackType, tmi, flightDir, assignedId, blocks, rawFallback, flexRaw };
+    return { trackType, tmi, flightDir, assignedId, blocks, rawFallback };
   })();
 
 
@@ -8144,14 +8113,23 @@ function renderEnroutePhase() {
     for (let i = 1; i <= 15; i++) {
       const targetElapsed = i * 240;
       if (eteDest && targetElapsed > eteDest + 60) break;
-      // Suppress if within 90 min of POR cluster
+      const wpt = wptNearest(targetElapsed, 45);
+      const baseEvt = { type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                        targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null };
+      // PB-198-011: past event — at or before wheels-off
+      if (targetElapsed <= 0) {
+        events.push({ ...baseEvt, past: true });
+        continue;
+      }
+      // PB-198-010: near POR — visual strikethrough, not silent drop
       if (S.porOffsetMins != null) {
         const d = targetElapsed - S.porOffsetMins;
-        if (d >= -90 && d <= 90) continue;
+        if (d >= -90 && d <= 90) {
+          events.push({ ...baseEvt, nearPor: true });
+          continue;
+        }
       }
-      const wpt = wptNearest(targetElapsed, 45);
-      events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
-                    targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
+      events.push(baseEvt);
     }
 
     // ETP waypoints (from CFS section)
@@ -8170,18 +8148,22 @@ function renderEnroutePhase() {
     let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
 
     if (evt.type === 'coRpt') {
+      const isSuppressed = evt.nearPor || evt.past;
+      const suppressTag  = evt.nearPor ? 'NEAR POR' : evt.past ? 'PAST' : '';
+      const sStyle = isSuppressed ? 'text-decoration:line-through;opacity:.55;' : '';
       h += `<div style="display:flex;flex-direction:column;min-width:96px;flex-shrink:0;gap:1px">`;
-      h += `<span class="enroute-label">CO RPT</span>`;
-      h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono)">${evt.rptHours} HR</span>`;
+      h += `<span class="enroute-label" style="${sStyle}">CO RPT</span>`;
+      h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono);${sStyle}">${evt.rptHours} HR</span>`;
+      if (isSuppressed) h += `<span style="font-size:10px;color:var(--label3);font-family:var(--font-mono);letter-spacing:.04em">${suppressTag}</span>`;
       h += `</div>`;
       h += `<div style="display:flex;flex-direction:column;gap:2px">`;
       if (evt.wpt) {
-        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--label)">${esc(evt.wpt)}</span>`;
-        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}`;
+        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--label);${sStyle}">${esc(evt.wpt)}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2);${sStyle}">ETA&nbsp;${etaStr}`;
         if (navLog.length) h += `<span style="color:var(--label3)">  T+${fmtE(evt.elapsed)}</span>`;
         h += `</span>`;
       } else {
-        h += `<span class="enroute-value">${etaStr}</span>`;
+        h += `<span class="enroute-value" style="${sStyle}">${etaStr}</span>`;
       }
       h += `</div>`;
 
@@ -8315,11 +8297,17 @@ function renderEnroutePhase() {
         ? (trackType === 'PAC' ? 'Eastbound PAC Tracks' : 'Eastbound NAT Tracks')
         : (trackType === 'PAC' ? 'Westbound PAC Tracks' : 'Westbound NAT Tracks');
 
-      // Subcard badge: assigned track only — TMI is displayed at section level above
+      // Header badge: "TMI 071 · NAT T" (combining TMI and assigned track)
+      // — replaces the old separate "TMI 071" + "TRACK T ASSIGNED" labels
       const hasAssigned = isFlightDir && nt.assignedId;
-      const badge = hasAssigned
-        ? `<span style="font-size:13px;font-weight:700;color:var(--sys-yellow);font-family:var(--font-mono);margin-left:4px">${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`
-        : '';
+      let badge = '';
+      if (hasAssigned && nt.tmi) {
+        badge = `<span style="font-size:13px;font-weight:700;color:var(--sys-yellow);font-family:var(--font-mono);letter-spacing:0.04em;margin-left:4px">TMI\u00a0${esc(nt.tmi)}\u00a0\u00b7\u00a0${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`;
+      } else if (nt.tmi && isFlightDir) {
+        badge = `<span style="font-size:13px;font-weight:700;color:var(--label2);font-family:var(--font-mono);letter-spacing:0.04em;margin-left:4px">TMI\u00a0${esc(nt.tmi)}</span>`;
+      } else if (hasAssigned) {
+        badge = `<span style="font-size:13px;font-weight:700;color:var(--sys-yellow);font-family:var(--font-mono);margin-left:4px">${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`;
+      }
 
       let h = `<div class="subcard">`;
       h += `<div class="subcard-header" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">`;
@@ -8376,17 +8364,8 @@ function renderEnroutePhase() {
     // ── Render both blocks or raw fallback ───────────────────────────
     const blocks = nt.blocks;
     if (blocks && blocks.length && blocks.some(b => b.tracks.length)) {
-      // TMI section banner — displayed once at top, above both direction subcards
-      let out = '';
-      if (nt.tmi) {
-        out += `<div style="display:flex;align-items:baseline;gap:8px;padding:8px var(--sp3) 2px">`;
-        out += `<span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--label3);font-family:var(--font-mono)">TMI</span>`;
-        out += `<span style="font-size:17px;font-weight:700;font-family:var(--font-mono);color:var(--label)">${esc(nt.tmi)}</span>`;
-        out += `</div>`;
-      }
       // Flight direction block first (already sorted by parser), then opposite
-      out += blocks.map((blk) => renderBlock(blk, blk.dir === (nt.flightDir || nt.dir))).join('');
-      return out;
+      return blocks.map((blk, i) => renderBlock(blk, blk.dir === (nt.flightDir || nt.dir))).join('');
     } else if (nt.rawFallback) {
       const dirLabel = (nt.flightDir || nt.dir) === 'EAST' ? 'Eastbound NAT Tracks' : 'Westbound NAT Tracks';
       let h = `<div class="subcard">`;
