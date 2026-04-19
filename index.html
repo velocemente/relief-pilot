@@ -8285,15 +8285,15 @@ function renderEnroutePhase() {
         ? (trackType === 'PAC' ? 'Eastbound PAC Tracks' : 'Eastbound NAT Tracks')
         : (trackType === 'PAC' ? 'Westbound PAC Tracks' : 'Westbound NAT Tracks');
 
-      // Header badge: "TMI 071 · NAT T" (combining TMI and filed track)
-      // — replaces the old separate "TMI 071" + "TRACK T FILED" labels
-      const hasFiled = isFlightDir && nt.assignedId;
+      // Header badge: "TMI 071 · NAT T" (combining TMI and assigned track)
+      // — replaces the old separate "TMI 071" + "TRACK T ASSIGNED" labels
+      const hasAssigned = isFlightDir && nt.assignedId;
       let badge = '';
-      if (hasFiled && nt.tmi) {
+      if (hasAssigned && nt.tmi) {
         badge = `<span style="font-size:13px;font-weight:700;color:var(--sys-green);font-family:var(--font-mono);letter-spacing:0.04em;margin-left:4px">TMI\u00a0${esc(nt.tmi)}\u00a0\u00b7\u00a0${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`;
       } else if (nt.tmi && isFlightDir) {
         badge = `<span style="font-size:13px;font-weight:700;color:var(--label2);font-family:var(--font-mono);letter-spacing:0.04em;margin-left:4px">TMI\u00a0${esc(nt.tmi)}</span>`;
-      } else if (hasFiled) {
+      } else if (hasAssigned) {
         badge = `<span style="font-size:13px;font-weight:700;color:var(--sys-green);font-family:var(--font-mono);margin-left:4px">${esc(trackType)}\u00a0${esc(nt.assignedId)}</span>`;
       }
 
@@ -8307,7 +8307,7 @@ function renderEnroutePhase() {
       if (blk.tracks.length) {
         blk.tracks.forEach((tr, idx) => {
           const domId = `nat-track-${blk.dir}-${tr.id}`;
-          const isFiled = isFlightDir && (tr.assigned || tr.id === nt.assignedId);
+          const isAssigned = isFlightDir && (tr.assigned || tr.id === nt.assignedId);
           const dotCls = 'g';
           h += `<div class="notam-group"${idx===0?' style="border-top:none"':''}>`;
           h += `<div class="notam-group-hdr" onclick="(function(el){`;
@@ -8315,17 +8315,18 @@ function renderEnroutePhase() {
           h += `var ch=el.querySelector('svg');`;
           h += `if(b.hidden){b.hidden=false;ch.style.transform='rotate(90deg)';}`;
           h += `else{b.hidden=true;ch.style.transform='';}`;
-          h += `})(this)" style="${isFiled?'background:var(--sys-green-bg)':''}">`;
+          h += `})(this)" style="${isAssigned?'background:var(--sys-green-bg)':''}">`;
           h += `<span class="notam-dot ${dotCls}"></span>`;
-          h += `<span class="notam-group-label" style="${isFiled?'font-weight:700;color:var(--sys-green)':''}">`;
+          h += `<span class="notam-group-label" style="${isAssigned?'font-weight:700;color:var(--sys-green)':''}">`;
           // Row label: "NAT A" / "PAC 1" instead of "Track A"
           h += `${esc(trackType)}\u00a0${esc(tr.id)}`;
-          if (isFiled) h += ` \u2014 FILED`;
+          if (isAssigned) h += ` \u2014 FILED`;
           h += `</span>`;
           if (tr.valid) h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label3);margin-left:8px">${esc(tr.valid)}</span>`;
           h += CHEV;
           h += `</div>`;
-          h += `<div id="${domId}" class="notam-group-body" ${isFiled?'':'hidden'}>`;          if (tr.waypoints.length) {
+          h += `<div id="${domId}" class="notam-group-body" ${isAssigned?'':'hidden'}>`;
+          if (tr.waypoints.length) {
             h += `<div style="font-family:var(--font-mono);font-size:13px;color:var(--label);line-height:1.8;word-break:break-all">`;
             h += tr.waypoints.map((w,i) => {
               const isMatch = navLog.some(n => n.wpt === w);
