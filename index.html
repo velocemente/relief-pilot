@@ -2554,38 +2554,37 @@ const AIRPORT_STATUS = {
   OPEN: {
     color:       'green',
     hex:         '#00AA00',
-    label:       'OPEN',
+    label:       'OPEN',          // display verbatim per spec
     cssVar:      '--sys-green',
     emoji:       '🟢',
-    description: 'Ceiling ≥ 3,000 ft AND visibility ≥ 5 SM → OPEN',
+    ceilMinFt:   3000,            // ceiling MUST be ≥ 3,000 ft
+    visMinSm:    5,               // visibility MUST be ≥ 5 SM
+    description: 'Ceiling ≥ 3,000 ft AND visibility ≥ 5 SM → GREEN',
     displayTpl:  '🟢 OPEN — CIG {ceil} VIS {vis}',
   },
   OPERATIONAL: {
     color:       'yellow',
     hex:         '#FF9F0A',
-    label:       'OPERATIONAL',
+    label:       'OPERATIONAL',   // display verbatim per spec
     cssVar:      '--sys-yellow',
     emoji:       '⚠',
-    description: 'Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM → OPERATIONAL',
+    ceilMinFt:   1000,            // ceiling NOT less than 1,000 ft (< 3,000 ft)
+    visMinSm:    3,               // visibility NOT less than 3 SM (< 5 SM)
+    description: 'Ceiling < 3,000 ft but not < 1,000 ft, OR visibility < 5 SM but not < 3 SM → YELLOW',
     displayTpl:  '⚠ OPERATIONAL — CIG {ceil} VIS {vis}',
+    note:        'Both CIG and VIS shown as reported when this status is triggered.',
   },
-  INSTRUMENTS: {
+  RED: {
     color:       'red',
     hex:         '#FF375F',
-    label:       'INSTRUMENTS',
+    label:       'RED',           // display verbatim per spec
     cssVar:      '--sys-red',
     emoji:       '🔴',
-    description: 'Ceiling 600–999 ft OR visibility 1–2.99 SM → INSTRUMENTS',
-    displayTpl:  '🔴 INSTRUMENTS — CIG {ceil} VIS {vis}',
-  },
-  LIFR: {
-    color:       'red',
-    hex:         '#FF375F',
-    label:       '',              // no category label — show raw values only
-    cssVar:      '--sys-red',
-    emoji:       '🔴',
-    description: 'Ceiling < 600 ft OR visibility < 1 SM → LIFR (values only)',
-    displayTpl:  'CIG {ceil} VIS {vis}',
+    ceilMaxFt:   1000,            // ceiling < 1,000 ft triggers RED
+    visMaxSm:    3,               // visibility < 3 SM triggers RED
+    description: 'Ceiling < 1,000 ft OR visibility < 3 SM → RED',
+    displayTpl:  '🔴 RED — CIG {ceil} VIS {vis}',
+    note:        'Both CIG and VIS shown as reported when this status is triggered.',
   },
 };
 
@@ -2598,15 +2597,16 @@ const AIRPORT_STATUS = {
  * @returns {{ status: string, color: string, label: string, ceilCat: number, visCat: number }}
  */
 function classifyAirportStatus(ceilingFt, visSm) {
-  // Category per element: 0=OPEN  1=OPERATIONAL  2=INSTRUMENTS  3=LIFR
-  const ceilCat = ceilingFt === null ? 0 : ceilingFt >= 3000 ? 0 : ceilingFt >= 1000 ? 1 : ceilingFt >= 600 ? 2 : 3;
-  const visCat  = visSm     === null ? 0 : visSm     >= 5    ? 0 : visSm     >= 3     ? 1 : visSm     >= 1  ? 2 : 3;
-  const key     = ['OPEN', 'OPERATIONAL', 'INSTRUMENTS', 'LIFR'][Math.max(ceilCat, visCat)];
+  // Category per element: 0=open  1=operational(yellow)  2=red
+  const ceilCat = ceilingFt === null ? 0 : ceilingFt >= 3000 ? 0 : ceilingFt >= 1000 ? 1 : 2;
+  const visCat  = visSm     === null ? 0 : visSm     >= 5    ? 0 : visSm     >= 3     ? 1 : 2;
+  const worst   = Math.max(ceilCat, visCat);
+
+  const key = worst === 0 ? 'OPEN' : worst === 1 ? 'OPERATIONAL' : 'RED';
   return {
     status:  key,
     color:   AIRPORT_STATUS[key].color,
     label:   AIRPORT_STATUS[key].label,
-    cssVar:  AIRPORT_STATUS[key].cssVar,
     ceilCat,
     visCat,
   };
@@ -2675,27 +2675,26 @@ function classifyAirportStatusFromRaw(visRaw, ceilingFt) {
 }
 
 /**
- * RVR thresholds — aligned to 4-tier airport status.
- * Source: product ruleset
+ * RVR thresholds — aligned to 3-tier airport status.
+ * Source: product ruleset (RVR supporting the Open/Operational/Red classification)
  *
- * US feet:  ≥ 4000ft = open; 1600–3999ft = operational; 800–1599ft = instruments; < 800ft = lifr
- * ICAO m:   ≥ 1200m  = open; 480–1199m   = operational; 240–479m   = instruments; < 240m  = lifr
+ * US feet:  ≥ 4000ft = Open; 2400–3999ft = Operational; < 2400ft = Red
+ * ICAO m:   ≥ 1200m  = Open; 730–1199m   = Operational; < 730m   = Red
  */
 const RVR_THRESHOLDS = {
-  US_FEET:  { open: 4000, operational: 1600, instruments: 800 },
-  ICAO_M:   { open: 1200, operational: 480,  instruments: 240 },
+  US_FEET:  { open: 4000, operational: 2400 },  // < operational = RED
+  ICAO_M:   { open: 1200, operational: 730  },
 };
 
 /**
  * Classify RVR status.
  * @param {number} valueFt - RVR in feet (convert metres before calling)
- * @returns {'open'|'operational'|'instruments'|'lifr'}
+ * @returns {'open'|'operational'|'red'}
  */
 function classifyRvr(valueFt) {
-  if (valueFt >= RVR_THRESHOLDS.US_FEET.open)         return 'open';
-  if (valueFt >= RVR_THRESHOLDS.US_FEET.operational)  return 'operational';
-  if (valueFt >= RVR_THRESHOLDS.US_FEET.instruments)  return 'instruments';
-  return 'lifr';
+  if (valueFt >= RVR_THRESHOLDS.US_FEET.open)        return 'open';
+  if (valueFt >= RVR_THRESHOLDS.US_FEET.operational) return 'operational';
+  return 'red';
 }
 
 // Keep classifyFlightCategory as an alias for backward compatibility
@@ -6561,6 +6560,7 @@ const PATTERNS = {
   SLOT_TIME_NOT_BEFORE: /WHEELS\s+UP\s+NOT\s+BEFORE\s+(\d{4}Z?)/i,
   SLOT_TIME_BEFORE:     /WHEELS\s+UP\s+(?:MUST\s+BE\s+)?BEFORE\s+(\d{4}Z?)/i,
   SLOT_TIME_EARLIEST:   /EARLIEST\s+WHEELS\s+UP\s+(\d{4}Z?)/i,
+  SLOT_TIME_CURFEW:     /NO\s+EARLY\s+DEPARTURE\b[\s\S]{0,200}?CLOSED?\s+TILL?\s+(\d{1,2}:\d{2}Z?|\d{4}Z?)/i,
 
   // MEL/DDG block anchor — block ends at underline or "Flight Release"
   MEL_BLOCK:    /MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i,
@@ -7056,10 +7056,17 @@ function _ofpRulesetParse(rawText) {
   const slotNBM   = !slotWinM  && t.match(PATTERNS.SLOT_TIME_NOT_BEFORE);
   const slotBefM  = !slotNBM   && !slotWinM && t.match(PATTERNS.SLOT_TIME_BEFORE);
   const slotEarM  = !slotWinM  && !slotNBM  && !slotBefM && t.match(PATTERNS.SLOT_TIME_EARLIEST);
+  const slotCurfewM = !slotWinM && !slotNBM && !slotBefM && !slotEarM
+    && t.match(PATTERNS.SLOT_TIME_CURFEW);
   if (slotWinM)       slotTime = `${_fmtT(slotWinM[1])} – ${_fmtT(slotWinM[2])}`;
   else if (slotNBM)   slotTime = `NOT BEFORE ${_fmtT(slotNBM[1])}`;
   else if (slotBefM)  slotTime = `BEFORE ${_fmtT(slotBefM[1])}`;
   else if (slotEarM)  slotTime = `NOT BEFORE ${_fmtT(slotEarM[1])}`;
+  else if (slotCurfewM) {
+    const raw = slotCurfewM[1].replace(':','').toUpperCase();
+    const norm = raw.endsWith('Z') ? raw : raw + 'Z';
+    slotTime = `NOT BEFORE ${norm}`;
+  }
 
   // CAT II/III: build { [ICAO]: [ {cat, rwys} ] } — one entry per OFP line,
   // preserving every runway/category row so the renderer can display them individually.
@@ -10136,8 +10143,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   // FOM §7.1.31:
   //   OPEN        (GREEN)  — Ceiling ≥ 3,000 ft  AND visibility ≥ 5 SM
   //   OPERATIONAL (YELLOW) — Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM
-  //   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
-  //   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM (values only)
+  //   RED                  — Ceiling < 1,000 ft  OR visibility < 3 SM
   if (hW) {
     const relevantWx = extractEtaWindow(weatherText, etaMin, wxWindowOverride);
     const wx = relevantWx.toUpperCase();
@@ -10153,18 +10159,11 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     if (status.status !== 'OPEN') {
       const level   = status.color;
       const cls     = level === 'red' ? 'r' : 'y';
+      const pfx     = status.status === 'OPERATIONAL' ? '⚠ Operational' : '🔴 Red';
       const visStr  = vis  ? `VIS <span class="wx-val ${cls}">${vis.label}</span>`  : null;
       const cigStr  = ceil !== null ? `CIG <span class="wx-val ${cls}">${ceil}ft</span>` : null;
-      const parts   = [cigStr, visStr].filter(Boolean).join(' &nbsp;');
-      let wxText;
-      if (status.status === 'LIFR') {
-        wxText = parts;                                        // no category label — raw values only
-      } else if (status.status === 'INSTRUMENTS') {
-        wxText = `🔴 Instruments — ${parts}`;
-      } else {
-        wxText = `⚠ Operational — ${parts}`;
-      }
-      _pushWx({ level, text: wxText });
+      const parts   = [visStr, cigStr].filter(Boolean).join(' &nbsp;');
+      _pushWx({ level, text: `${pfx} — ${parts}` });
       worst = bump(worst, level);
     }
 
@@ -10172,11 +10171,9 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     if (rvrResult !== null) {
       const rvrStatus = classifyRvr(rvrResult.ft);
       if (rvrStatus !== 'open') {
-        const level  = rvrStatus === 'operational' ? 'yellow' : 'red';
+        const level  = rvrStatus === 'red' ? 'red' : 'yellow';
         const cls    = level === 'red' ? 'r' : 'y';
-        const pfx    = rvrStatus === 'operational' ? '⚠ Operational'
-                     : rvrStatus === 'instruments'  ? '🔴 Instruments'
-                     : '🔴 LIFR';
+        const pfx    = rvrStatus === 'operational' ? '⚠ Operational' : '🔴 Red';
         _pushWx({ level, text: `${pfx} — RVR <span class="wx-val ${cls}">${rvrResult.label}</span>` });
         worst = bump(worst, level);
       }
