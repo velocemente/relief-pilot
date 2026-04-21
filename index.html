@@ -5307,7 +5307,7 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
  */
 function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   if (!notams || !notams.length) {
-    return { issues: [], rwyGroups: new Map(), worst: 'unknown' };
+    return { issues: [], rwyGroups: new Map(), sidIssues: [], starIssues: [], worst: 'unknown' };
   }
 
   // Build aircraft profile — accepts string or pre-built object
@@ -5553,7 +5553,12 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   // Restore flight date global
   if (typeof window !== 'undefined' && _prevISO !== null) window._flightDateISO = _prevISO;
 
-  return { issues: collected, rwyGroups, worst };
+  const sidIssues  = collected.filter(i => i.slot === 4 && isOrig)
+    .sort((a,b) => (a.rowLabel||'').localeCompare(b.rowLabel||''));
+  const starIssues = collected.filter(i => i.slot === 5 && !isOrig)
+    .sort((a,b) => (a.rowLabel||'').localeCompare(b.rowLabel||''));
+
+  return { issues: collected, rwyGroups, sidIssues, starIssues, worst };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -10095,6 +10100,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO);
 
     rwyGroups = result.rwyGroups;
+    const sidIssues  = result.sidIssues  || [];
+    const starIssues = result.starIssues || [];
     result.issues.forEach(i => {
       if (i.level !== 'green') issues.push({ level: i.level, text: i.text });
     });
@@ -10235,7 +10242,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   }
 
   if (worst === 'unknown' && (hN || hW)) worst = 'green';
-  return { color: worst, issues, wxIssues, rwyGroups };
+  return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues };
 }
 
 
