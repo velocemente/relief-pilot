@@ -4742,7 +4742,7 @@ const NM = {
   TWY_TYPE:   /(?:B7[0-9]{2}|A3[0-9]{2}|B[0-9]{3}[A-Z]?|A[0-9]{3}[A-Z]?)\b/g,
 
   // ── ORIG slots ──
-  SID:        /\bSID\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
+  SID:        /\bSID\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
   SID_NAME:   /\bSID\s+([A-Z]+\d[A-Z]?\b)/,
 
   // TKOF_MIN: Takeoff minimums / ODP (Obstacle Departure Procedure) changes.
@@ -5488,7 +5488,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   // Items within each group are sorted alphabetically by rowLabel.
   //
   const RUNWAY_SLOTS_DEST = new Set([1, 2, 3, 4]);
-  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 5, 6]); // slot 2=TKOF_MIN, 5=approach, 6=ALT_MA
+  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 4, 5, 6]); // slot 2=TKOF_MIN, 4=SID, 5=approach, 6=ALT_MA
   const TWY_SLOTS         = new Set([3, 6]); // taxiway slots: ORIG=3, DEST=6
   const runwaySlots = isOrig ? RUNWAY_SLOTS_ORIG : RUNWAY_SLOTS_DEST;
 
@@ -5553,7 +5553,13 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   // Restore flight date global
   if (typeof window !== 'undefined' && _prevISO !== null) window._flightDateISO = _prevISO;
 
-  return { issues: collected, rwyGroups, worst };
+  // SID/STAR breakout arrays for ORIG/DEST cards
+  const sidIssues  = collected.filter(i => i.slot === 4 &&  isOrig)
+                              .sort((a,b) => (a.rowLabel||'').localeCompare(b.rowLabel||''));
+  const starIssues = collected.filter(i => i.slot === 5 && !isOrig)
+                              .sort((a,b) => (a.rowLabel||'').localeCompare(b.rowLabel||''));
+
+  return { issues: collected, rwyGroups, sidIssues, starIssues, worst };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -6560,7 +6566,6 @@ const PATTERNS = {
   SLOT_TIME_NOT_BEFORE: /WHEELS\s+UP\s+NOT\s+BEFORE\s+(\d{4}Z?)/i,
   SLOT_TIME_BEFORE:     /WHEELS\s+UP\s+(?:MUST\s+BE\s+)?BEFORE\s+(\d{4}Z?)/i,
   SLOT_TIME_EARLIEST:   /EARLIEST\s+WHEELS\s+UP\s+(\d{4}Z?)/i,
-  SLOT_TIME_CURFEW:     /NO\s+EARLY\s+DEPARTURE\b[\s\S]{0,200}?CLOSED?\s+TILL?\s+(\d{1,2}:\d{2}Z?|\d{4}Z?)/i,
 
   // MEL/DDG block anchor — block ends at underline or "Flight Release"
   MEL_BLOCK:    /MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i,
@@ -7056,17 +7061,10 @@ function _ofpRulesetParse(rawText) {
   const slotNBM   = !slotWinM  && t.match(PATTERNS.SLOT_TIME_NOT_BEFORE);
   const slotBefM  = !slotNBM   && !slotWinM && t.match(PATTERNS.SLOT_TIME_BEFORE);
   const slotEarM  = !slotWinM  && !slotNBM  && !slotBefM && t.match(PATTERNS.SLOT_TIME_EARLIEST);
-  const slotCurfewM = !slotWinM && !slotNBM && !slotBefM && !slotEarM
-    && t.match(PATTERNS.SLOT_TIME_CURFEW);
   if (slotWinM)       slotTime = `${_fmtT(slotWinM[1])} – ${_fmtT(slotWinM[2])}`;
   else if (slotNBM)   slotTime = `NOT BEFORE ${_fmtT(slotNBM[1])}`;
   else if (slotBefM)  slotTime = `BEFORE ${_fmtT(slotBefM[1])}`;
   else if (slotEarM)  slotTime = `NOT BEFORE ${_fmtT(slotEarM[1])}`;
-  else if (slotCurfewM) {
-    const raw = slotCurfewM[1].replace(':','').toUpperCase();
-    const norm = raw.endsWith('Z') ? raw : raw + 'Z';
-    slotTime = `NOT BEFORE ${norm}`;
-  }
 
   // CAT II/III: build { [ICAO]: [ {cat, rwys} ] } — one entry per OFP line,
   // preserving every runway/category row so the renderer can display them individually.
