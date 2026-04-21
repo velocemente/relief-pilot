@@ -10085,6 +10085,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   const issues = []; let worst = 'unknown';
   const wxIssues = [];          // weather-only issues (for airport card wx display)
   let   rwyGroups = new Map();  // grouped NOTAM data from evalNotams
+  let sidIssues  = [];
+  let starIssues = [];
   const hN = notamText   && notamText.trim().length > 0;
   const hW = weatherText && weatherText.trim().length > 0;
   if (!hN && !hW) return { color:'unknown', issues:[], wxIssues:[], rwyGroups };
@@ -10100,8 +10102,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO);
 
     rwyGroups = result.rwyGroups;
-    const sidIssues  = result.sidIssues  || [];
-    const starIssues = result.starIssues || [];
+    sidIssues  = result.sidIssues  || [];
+    starIssues = result.starIssues || [];
     result.issues.forEach(i => {
       if (i.level !== 'green') issues.push({ level: i.level, text: i.text });
     });
