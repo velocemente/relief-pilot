@@ -10098,6 +10098,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO);
 
     rwyGroups = result.rwyGroups;
+    sidIssues  = result.sidIssues  || [];
+    starIssues = result.starIssues || [];
     result.issues.forEach(i => {
       if (i.level !== 'green') issues.push({ level: i.level, text: i.text });
     });
@@ -10238,7 +10240,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   }
 
   if (worst === 'unknown' && (hN || hW)) worst = 'green';
-  return { color: worst, issues, wxIssues, rwyGroups };
+  return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues };
 }
 
 
