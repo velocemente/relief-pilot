@@ -4742,7 +4742,7 @@ const NM = {
   TWY_TYPE:   /(?:B7[0-9]{2}|A3[0-9]{2}|B[0-9]{3}[A-Z]?|A[0-9]{3}[A-Z]?)\b/g,
 
   // ── ORIG slots ──
-  SID:        /\bSID\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
+  SID:        /\bSID\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
   SID_NAME:   /\bSID\s+([A-Z]+\d[A-Z]?\b)/,
 
   // TKOF_MIN: Takeoff minimums / ODP (Obstacle Departure Procedure) changes.
@@ -4831,7 +4831,7 @@ const NM = {
 
   ALT_MA:     /(?:ALTN\s+PROC|ALTN\s+MA\b|ALTERNATE.*MISSED|MISSED.*APCH.*(?:PROC|CHANGE|AMDT)|ALTN.*APCH\s+PROC|MA\s+PROC\s+ALTN|ALTN.*RWY.*PROC)/i,
 
-  STAR:       /\bSTAR\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
+  STAR:       /\bSTAR\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
   STAR_NAME:  /\bSTAR\s+([A-Z]+\d[A-Z]?\b)/,
 
   // ── Unserviceability keywords (RED) ──
@@ -5552,8 +5552,11 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
 
   // Restore flight date global
   if (typeof window !== 'undefined' && _prevISO !== null) window._flightDateISO = _prevISO;
-
-  return { issues: collected, rwyGroups, worst };
+  const sidIssues  = collected.filter(i => i.slot === 4 && isOrig)
+    .sort((a,b) => (a.rowLabel||'').localeCompare(b.rowLabel||''));
+  const starIssues = collected.filter(i => i.slot === 5 && !isOrig)
+    .sort((a,b) => (a.rowLabel||'').localeCompare(b.rowLabel||''));
+  return { issues: collected, rwyGroups, sidIssues, starIssues, worst };
 }
 
 // ═══════════════════════════════════════════════════════════════
