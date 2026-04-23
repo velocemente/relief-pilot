@@ -1,38 +1,51 @@
 name: Deploy PilotBrief to GitHub Pages
-
 # Triggers: every push to main, plus manual dispatch from the Actions tab.
 # No build step — the app is a single-file PWA (index.html + sw.js + manifest.json).
-
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 # One deployment at a time. Never cancel a running deployment;
 # allow it to finish so the live site is never left in a broken state.
 concurrency:
   group: "pages"
   cancel-in-progress: false
-
 jobs:
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Validate all inline <script> blocks in index.html before touching Pages.
+      # Uses Node's built-in vm.Script — no npm install, no extra files.
+      # Any syntax error exits non-zero and the deploy steps never run.
+      - name: Validate index.html JavaScript syntax
+        run: |
+          node - << 'EOF'
+          const fs = require('fs');
+          const vm = require('vm');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const blocks = [...html.matchAll(/<script(?![^>]*\bsrc\b)[^>]*>([\s\S]*?)<\/script>/gi)];
+          if (!blocks.length) { console.error('ERROR: No inline <script> blocks found in index.html'); process.exit(1); }
+          let errors = 0;
+          blocks.forEach((m, i) => {
+            try { new vm.Script(m[1]); }
+            catch (e) { console.error(`SYNTAX ERROR in script block ${i + 1}: ${e.message}`); errors++; }
+          });
+          if (errors) { console.error(`\n${errors} block(s) failed syntax check — deploy blocked.`); process.exit(1); }
+          console.log(`✓ ${blocks.length} inline script block(s) passed syntax validation.`);
+          EOF
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-
       # Upload the repo root as the Pages artifact.
       # Excludes OFP PDFs and dev-only files via .gitignore — only
       # index.html, sw.js, manifest.json, and icons/ go to production.
@@ -40,7 +53,6 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
