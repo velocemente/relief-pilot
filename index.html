@@ -4742,7 +4742,7 @@ const NM = {
   TWY_TYPE:   /(?:B7[0-9]{2}|A3[0-9]{2}|B[0-9]{3}[A-Z]?|A[0-9]{3}[A-Z]?)\b/g,
 
   // ── ORIG slots ──
-  SID:        /\bSID\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
+  SID:        /\bSID\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
   SID_NAME:   /\bSID\s+([A-Z]+\d[A-Z]?\b)/,
 
   // TKOF_MIN: Takeoff minimums / ODP (Obstacle Departure Procedure) changes.
@@ -4831,7 +4831,7 @@ const NM = {
 
   ALT_MA:     /(?:ALTN\s+PROC|ALTN\s+MA\b|ALTERNATE.*MISSED|MISSED.*APCH.*(?:PROC|CHANGE|AMDT)|ALTN.*APCH\s+PROC|MA\s+PROC\s+ALTN|ALTN.*RWY.*PROC)/i,
 
-  STAR:       /\bSTAR\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
+  STAR:       /\bSTAR\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
   STAR_NAME:  /\bSTAR\s+([A-Z]+\d[A-Z]?\b)/,
 
   // ── Unserviceability keywords (RED) ──
@@ -5488,7 +5488,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   // Items within each group are sorted alphabetically by rowLabel.
   //
   const RUNWAY_SLOTS_DEST = new Set([1, 2, 3, 4]);
-  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 5, 6]); // slot 2=TKOF_MIN, 5=approach, 6=ALT_MA
+  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 4, 5, 6]); // slot 2=TKOF_MIN, 4=SID, 5=approach, 6=ALT_MA
   const TWY_SLOTS         = new Set([3, 6]); // taxiway slots: ORIG=3, DEST=6
   const runwaySlots = isOrig ? RUNWAY_SLOTS_ORIG : RUNWAY_SLOTS_DEST;
 
@@ -5552,8 +5552,11 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
 
   // Restore flight date global
   if (typeof window !== 'undefined' && _prevISO !== null) window._flightDateISO = _prevISO;
-
-  return { issues: collected, rwyGroups, worst };
+  const sidIssues  = collected.filter(i => i.slot === 4 && isOrig)
+                               .sort((a,b)=>(a.rowLabel||'').localeCompare(b.rowLabel||''));
+  const starIssues = collected.filter(i => i.slot === 5 && !isOrig)
+                               .sort((a,b)=>(a.rowLabel||'').localeCompare(b.rowLabel||''));
+  return { issues: collected, rwyGroups, sidIssues, starIssues, worst };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -10080,6 +10083,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   const issues = []; let worst = 'unknown';
   const wxIssues = [];          // weather-only issues (for airport card wx display)
   let   rwyGroups = new Map();  // grouped NOTAM data from evalNotams
+  let   sidIssues = [];         // SID NOTAMs (slot 4, ORIG)
+  let   starIssues = [];        // STAR/approach NOTAMs (slot 5, DEST)
   const hN = notamText   && notamText.trim().length > 0;
   const hW = weatherText && weatherText.trim().length > 0;
   if (!hN && !hW) return { color:'unknown', issues:[], wxIssues:[], rwyGroups };
@@ -10094,7 +10099,9 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     const flightISO = (typeof window !== 'undefined' && window._flightDateISO) || '';
     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO);
 
-    rwyGroups = result.rwyGroups;
+    rwyGroups  = result.rwyGroups;
+    sidIssues  = result.sidIssues  || [];
+    starIssues = result.starIssues || [];
     result.issues.forEach(i => {
       if (i.level !== 'green') issues.push({ level: i.level, text: i.text });
     });
@@ -10235,7 +10242,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   }
 
   if (worst === 'unknown' && (hN || hW)) worst = 'green';
-  return { color: worst, issues, wxIssues, rwyGroups };
+  return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues };
 }
 
 
