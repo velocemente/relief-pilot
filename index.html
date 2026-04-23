@@ -5552,6 +5552,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
 
   // Restore flight date global
   if (typeof window !== 'undefined' && _prevISO !== null) window._flightDateISO = _prevISO;
+
   const sidIssues  = collected.filter(i => i.slot === 4 && isOrig)
                                .sort((a,b)=>(a.rowLabel||'').localeCompare(b.rowLabel||''));
   const starIssues = collected.filter(i => i.slot === 5 && !isOrig)
@@ -10083,11 +10084,11 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   const issues = []; let worst = 'unknown';
   const wxIssues = [];          // weather-only issues (for airport card wx display)
   let   rwyGroups = new Map();  // grouped NOTAM data from evalNotams
-  let   sidIssues = [];         // SID NOTAMs (slot 4, ORIG)
-  let   starIssues = [];        // STAR/approach NOTAMs (slot 5, DEST)
+  let   sidIssues  = [];        // SID NOTAMs for ORIG card
+  let   starIssues = [];        // STAR NOTAMs for DEST/ALT card
   const hN = notamText   && notamText.trim().length > 0;
   const hW = weatherText && weatherText.trim().length > 0;
-  if (!hN && !hW) return { color:'unknown', issues:[], wxIssues:[], rwyGroups };
+  if (!hN && !hW) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues };
 
   const etaMin = pZM(etaZ);   // ETA/DEP as minutes-of-day, null if unknown
 
@@ -10099,8 +10100,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     const flightISO = (typeof window !== 'undefined' && window._flightDateISO) || '';
     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO);
 
-    rwyGroups  = result.rwyGroups;
-    sidIssues  = result.sidIssues  || [];
+    rwyGroups = result.rwyGroups;
+    sidIssues = result.sidIssues || [];
     starIssues = result.starIssues || [];
     result.issues.forEach(i => {
       if (i.level !== 'green') issues.push({ level: i.level, text: i.text });
