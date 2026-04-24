@@ -4742,7 +4742,7 @@ const NM = {
   TWY_TYPE:   /(?:B7[0-9]{2}|A3[0-9]{2}|B[0-9]{3}[A-Z]?|A[0-9]{3}[A-Z]?)\b/g,
 
   // ── ORIG slots ──
-  SID:        /\bSID\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/is,
+  SID:        /\bSID\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
   SID_NAME:   /\bSID\s+([A-Z]+\d[A-Z]?\b)/,
 
   // TKOF_MIN: Takeoff minimums / ODP (Obstacle Departure Procedure) changes.
@@ -4831,7 +4831,7 @@ const NM = {
 
   ALT_MA:     /(?:ALTN\s+PROC|ALTN\s+MA\b|ALTERNATE.*MISSED|MISSED.*APCH.*(?:PROC|CHANGE|AMDT)|ALTN.*APCH\s+PROC|MA\s+PROC\s+ALTN|ALTN.*RWY.*PROC)/i,
 
-  STAR:       /\bSTAR\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
+  STAR:       /\bSTAR\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
   STAR_NAME:  /\bSTAR\s+([A-Z]+\d[A-Z]?\b)/,
 
   // ── Unserviceability keywords (RED) ──
@@ -4994,14 +4994,13 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
     // Slot 4 — SID changes
     if (NM.SID.test(nu)) {
-      // Atlas Air format: departure name on its own line, e.g. "GORMAN SEVEN DEPARTURE..."
-      // Must precede SID_NAME check because SID_NAME requires a digit in the name.
-      const depLineM = nu.match(/^([A-Z][A-Z ]{2,30}?)\s+(?:DEPARTURE|TRANSITION)\b/m);
-      const depName  = depLineM ? depLineM[1].trim() : null;
-      // Standard ICAO coded name fallback, e.g. "SID GORMAN7D"
-      const stdM = !depName && nu.match(NM.SID_NAME);
-      const sid  = depName || (stdM ? stdM[1] : null) || 'SID';
-      const isUS = NM.US_WORDS.test(nu);
+      // Tier 1: ICAO coded identifier requires a digit, e.g. "SID GORMAN7D" or "SID KOKKI2AB".
+      const stdM   = nu.match(NM.SID_NAME);
+      // Tier 2: prose procedure name on its own line, e.g. "GORMAN SEVEN DEPARTURE".
+      // Also catches TRANSITION and ARRIVAL variants used in Atlas OFP NOTAM bodies.
+      const proseM = !stdM && notamRaw.match(/^([A-Z][A-Z ]+(?:DEPARTURE|TRANSITION|ARRIVAL))/m);
+      const sid    = (stdM ? stdM[1] : null) || (proseM ? proseM[1].trim() : null) || 'SID';
+      const isUS   = NM.US_WORDS.test(nu);
       return { slot: 4, level: 'yellow', label: `${sid} DEP`, keyRe: isUS ? NM.US_WORDS : NM.RESTR_WORDS };
     }
 
@@ -5235,8 +5234,11 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
   // ── DEST / ALT SLOT 5: STAR changes ──────────────────────────────────────
   if (NM.STAR.test(nu)) {
-    const sm = nu.match(NM.STAR_NAME);
-    const star = sm ? sm[1] : 'STAR';
+    // Tier 1: ICAO coded identifier requires a digit, e.g. "STAR KOKKI2A".
+    const sm     = nu.match(NM.STAR_NAME);
+    // Tier 2: prose procedure name on its own line, e.g. "LAVON TWO ARRIVAL".
+    const proseM = !sm && notamRaw.match(/^([A-Z][A-Z ]+(?:ARRIVAL|TRANSITION|DEPARTURE))/m);
+    const star   = (sm ? sm[1] : null) || (proseM ? proseM[1].trim() : null) || 'STAR';
     return { slot: 5, level: 'yellow', label: `STAR ${star} CHANGE`, keyRe: NM.RESTR_WORDS, rwy: null };
   }
 
