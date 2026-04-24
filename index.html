@@ -9772,22 +9772,67 @@ function renderNotamGroups(rwyGroups) {
 
 // ── Airport issues list renderer ──────────────────────────────────────────
 // Renders the full apt-issues-list content:
-//   1. Weather issues — flat coloured pill rows (as before)
-//   2. NOTAM groups — collapsible runway/taxiway structure from rwyGroups
-//   3. Green fallback if neither has any operational issues
+//   1. STARs group  — DEST/ALT cards: collapsible, start expanded, FIRST
+//   2. Weather issues — flat coloured pill rows
+//   3. NOTAM groups — collapsible runway/taxiway structure from rwyGroups
+//   4. SIDs group   — ORIG card only: collapsible, start expanded, LAST
+//   5. Green fallback if none of the above has any operational issues
 function renderAptIssues(status) {
+  // Chevrons: group-level starts expanded (.open); item-level starts collapsed
+  const CHEV_OPEN = `<svg class="notam-chev open" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  const CHEV      = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+
+  // Item renderer — mirrors _renderItem inside renderNotamGroups
+  function _renderSidStarItem(item) {
+    const ic  = item.level === 'red' ? 'r' : 'y';
+    const lbl = esc(item.rowLabel || item.label || '');
+    const raw = (item.notamRaw || '').trim();
+    let ih = `<div class="notam-item">`;
+    ih += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+    ih += `<span class="notam-dot ${ic}"></span>`;
+    ih += `<span class="notam-item-label">${lbl}</span>`;
+    if (raw) ih += CHEV;
+    ih += `</div>`;
+    if (raw) ih += `<pre class="notam-raw-text" hidden>${esc(raw)}</pre>`;
+    ih += `</div>`;
+    return ih;
+  }
+
+  // Group renderer — uses existing notam-group / notam-group-hdr / notam-group-body CSS
+  function _renderSidStarGroup(label, issues) {
+    let gh = `<div class="notam-groups"><div class="notam-group">`;
+    gh += `<div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+    gh += `<span class="notam-dot y"></span>`;
+    gh += `<span class="notam-group-label">${label}</span>${CHEV_OPEN}`;
+    gh += `</div>`;
+    gh += `<div class="notam-group-body">`;
+    issues.forEach(item => { gh += _renderSidStarItem(item); });
+    gh += `</div></div></div>`;
+    return gh;
+  }
+
   let h = '';
 
-  // Weather issues — flat pills
+  // 1. STARs — DEST/ALT cards only (evalAirport filters: slot===5 && !isOrig)
+  //    Renders FIRST so crew sees arrival procedure NOTAMs immediately
+  const starIssues = status.starIssues || [];
+  if (starIssues.length) h += _renderSidStarGroup('STARs', starIssues);
+
+  // 2. Weather issues — flat pills
   (status.wxIssues || []).forEach(i => {
     h += `<div class="apt-issue ${i.level.charAt(0)}">${i.text}</div>`;
   });
 
-  // NOTAM groups
+  // 3. NOTAM groups — runway / taxiway / general tree
   if (status.rwyGroups && status.rwyGroups.size) {
     const ng = renderNotamGroups(status.rwyGroups);
     if (ng) h += ng;
   }
+
+  // 4. SIDs — ORIG card only (evalAirport filters: slot===4 && isOrig)
+  //    Renders LAST, after all runway groups
+  const sidIssues = status.sidIssues || [];
+  if (sidIssues.length) h += _renderSidStarGroup('SIDs', sidIssues);
 
   return h || `<div class="apt-issue g">✓ No issues at ETA window</div>`;
 }
