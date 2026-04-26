@@ -8973,7 +8973,7 @@ function renderDescentPhase() {
         ? `<span class="ddg-tlr-badge land">*TLR Landing</span>`
         : `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
       h += `<div class="ddg-item-row">`;
-      if (item.code) h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
+      if (item.code) h += `<span class="ddg-item-code"><span onclick="navigator.clipboard.writeText(this.textContent.trim()).catch(()=>{})" style="cursor:pointer;user-select:all;-webkit-user-select:all;display:inline-flex;align-items:center;gap:4px" title="Tap to copy">${esc(item.code)} <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span></span>`;
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
@@ -9175,7 +9175,7 @@ function renderNotesSection() {
         tlrBadge = `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
       }
       h += `<div class="ddg-item-row">`;
-      if (item.code) h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
+      if (item.code) h += `<span class="ddg-item-code"><span onclick="navigator.clipboard.writeText(this.textContent.trim()).catch(()=>{})" style="cursor:pointer;user-select:all;-webkit-user-select:all;display:inline-flex;align-items:center;gap:4px" title="Tap to copy">${esc(item.code)} <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span></span>`;
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
