@@ -1000,7 +1000,7 @@ body {
 }
 /* ── Callsign note (ACMI / native Atlas ops) — child of flt-header-right ── */
 .flt-callsign-note {
-  font-family: var(--font-display); font-size: var(--type-h2); font-weight: 700;
+  font-family: var(--font); font-size: var(--type-caption); font-weight: 600;
   color: var(--label2); text-align: right;
 }
 /* ── ETOPS header block ── */
@@ -1013,16 +1013,11 @@ body {
 .etops-line { display: block; }
 /* ── Time row ── */
 .time-row {
-  display: flex; align-items: center; gap: 8px; justify-content: flex-start;
   font-family: var(--font-mono); font-size: 15px;
   line-height: 2; color: var(--label);
   margin-bottom: var(--sp1);
 }
-.etops-inline {
-  font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
-  color: var(--tint); letter-spacing: 0.04em;
-  margin-left: auto;
-}
+.time-local { color: var(--label2); }
 /* ── Data rows (Block/MIN/FRES/GA) ── */
 .data-table {
   margin: var(--sp4) 0;
@@ -4747,7 +4742,7 @@ const NM = {
   TWY_TYPE:   /(?:B7[0-9]{2}|A3[0-9]{2}|B[0-9]{3}[A-Z]?|A[0-9]{3}[A-Z]?)\b/g,
 
   // ── ORIG slots ──
-  SID:        /\bSID\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
+  SID:        /\bSID\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/is,
   SID_NAME:   /\bSID\s+([A-Z]+\d[A-Z]?\b)/,
 
   // TKOF_MIN: Takeoff minimums / ODP (Obstacle Departure Procedure) changes.
@@ -4836,7 +4831,7 @@ const NM = {
 
   ALT_MA:     /(?:ALTN\s+PROC|ALTN\s+MA\b|ALTERNATE.*MISSED|MISSED.*APCH.*(?:PROC|CHANGE|AMDT)|ALTN.*APCH\s+PROC|MA\s+PROC\s+ALTN|ALTN.*RWY.*PROC)/i,
 
-  STAR:       /\bSTAR\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
+  STAR:       /\bSTAR\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
   STAR_NAME:  /\bSTAR\s+([A-Z]+\d[A-Z]?\b)/,
 
   // ── Unserviceability keywords (RED) ──
@@ -4864,20 +4859,6 @@ const NM = {
   FICON:      /\bFICON\b/i,
   // FICON_POOR: conditions that reduce braking below "good" (ice, compacted ice, poor BA codes)
   FICON_POOR: /\bICE\b|\bICY\b|COMPACTED\s+ICE|FICON\s+[12][\/\s]|FICON\s+NIL\b/i,
-
-  // ── Approach minimums increased — CAT D/DL (DEF-PB-APM-001) ──────────────
-  // Trigger: ICAO NOTAM phrase for OCA(OCH) changes (crane works, maintenance, etc.)
-  APM_TRIGGER:    /CHANGE\s+OF\s+OPR\s+MINIMA\s+OCA\s*\(OCH\)/i,
-  // CAT D explicit entry (e.g. "CAT D 191 (203)" or "CAT D-DL INCREASED 299(310)")
-  APM_CATD:       /CAT\s+D(?:-?DL)?\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  // CAT DL explicit entry (e.g. "CAT DL 191 (203)")
-  APM_CATDL:      /CAT\s+DL\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  // CAT A-DL or A-D catch-all range (single value covers all cats, e.g. "CAT A-DL INCREASED TO 762(772)")
-  APM_CATD_RANGE: /CAT\s+[A-C][-–]D(?:L)?\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  // Approach type — first match wins (ILS CAT I/II/III, LOC, LNAV, LPV, RNP, RNAV)
-  APM_TYPE:       /\b(ILS\s+CAT\s+I{1,3}|LOC(?:ALIZER)?|LNAV|LPV|RNP(?:\s+LPV)?|RNAV)\b/i,
-  // Runway — simple single-runway extraction for APM NOTAMs
-  APM_RWY:        /RWY\s+(\d{1,2}[LCR]?)/i,
 };
 
 /**
@@ -5013,13 +4994,14 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
     // Slot 4 — SID changes
     if (NM.SID.test(nu)) {
-      // Tier 1: ICAO coded identifier requires a digit, e.g. "SID GORMAN7D" or "SID KOKKI2AB".
-      const stdM   = nu.match(NM.SID_NAME);
-      // Tier 2: prose procedure name on its own line, e.g. "GORMAN SEVEN DEPARTURE".
-      // Also catches TRANSITION and ARRIVAL variants used in Atlas OFP NOTAM bodies.
-      const proseM = !stdM && notamRaw.match(/^([A-Z][A-Z ]+(?:DEPARTURE|TRANSITION|ARRIVAL))/m);
-      const sid    = (stdM ? stdM[1] : null) || (proseM ? proseM[1].trim() : null) || 'SID';
-      const isUS   = NM.US_WORDS.test(nu);
+      // Atlas Air format: departure name on its own line, e.g. "GORMAN SEVEN DEPARTURE..."
+      // Must precede SID_NAME check because SID_NAME requires a digit in the name.
+      const depLineM = nu.match(/^([A-Z][A-Z ]{2,30}?)\s+(?:DEPARTURE|TRANSITION)\b/m);
+      const depName  = depLineM ? depLineM[1].trim() : null;
+      // Standard ICAO coded name fallback, e.g. "SID GORMAN7D"
+      const stdM = !depName && nu.match(NM.SID_NAME);
+      const sid  = depName || (stdM ? stdM[1] : null) || 'SID';
+      const isUS = NM.US_WORDS.test(nu);
       return { slot: 4, level: 'yellow', label: `${sid} DEP`, keyRe: isUS ? NM.US_WORDS : NM.RESTR_WORDS };
     }
 
@@ -5138,38 +5120,6 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
     return { slot: 2, level: 'yellow', label: 'VORTAC U/S', keyRe: NM.US_WORDS, rwy: null };
   }
 
-  // Slot 2g — Approach minimums increased — CAT D/DL (DEF-PB-APM-001)
-  // Covers crane works, maintenance, windmill obstacles raising OCA(OCH) per aircraft category.
-  // Only classifies NOTAMs relevant to CAT D or CAT DL aircraft (Atlas B744/B748/B777/B763).
-  if (NM.APM_TRIGGER.test(nu)) {
-    // Determine if this NOTAM applies to CAT D or DL aircraft
-    const isCatD  = NM.APM_CATD.test(nu) || NM.APM_CATD_RANGE.test(nu);
-    const isCatDL = NM.APM_CATDL.test(nu)
-                 || /CAT\s+[A-C][-\u2013]DL/i.test(nu)
-                 || /CAT\s+D[-\u2013]DL/i.test(nu);   // handles "CAT D-DL INCREASED" format
-    if (isCatD || isCatDL) {
-      // Extract approach type (first match wins; A0623/26 LOC+LNAV → LOC is correct)
-      const apTypeM = nu.match(NM.APM_TYPE);
-      const apType  = apTypeM ? apTypeM[1].replace(/\s+/g,' ').toUpperCase() : 'APCH';
-      // Extract runway (from the trigger line, e.g. "RWY 36C DUE TO CRANE")
-      const rwyM = nu.match(NM.APM_RWY);
-      const rwy  = rwyM ? rwyM[1] : null;
-      // Prefer CAT DL value; fall back to CAT D or range value
-      const catDM  = nu.match(NM.APM_CATD) || nu.match(NM.APM_CATD_RANGE);
-      const catDLM = nu.match(NM.APM_CATDL);
-      const minVal  = catDLM ? catDLM[1] : (catDM ? catDM[1] : null);
-      const catLabel = isCatDL ? 'CAT DL' : 'CAT D';
-      const label = [
-        apType,
-        rwy ? `RWY ${rwy}` : null,
-        'INCREASED MINIMA',
-        minVal ? `${catLabel} OCA ${minVal}` : catLabel,
-      ].filter(Boolean).join(' · ');
-      return { slot: 2, level: 'yellow', label, keyRe: NM.APM_TRIGGER, rwy };
-    }
-    // CAT A/B/C only — not relevant to this fleet; fall through to catch-all
-  }
-
   // ── DEST / ALT SLOT 3: Procedure changes and supporting equipment ─────────
 
   // Slot 3 — Approach procedure / minimums changes (IAP_CHG covers Atlas OFP format)
@@ -5285,11 +5235,8 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
   // ── DEST / ALT SLOT 5: STAR changes ──────────────────────────────────────
   if (NM.STAR.test(nu)) {
-    // Tier 1: ICAO coded identifier requires a digit, e.g. "STAR KOKKI2A".
-    const sm     = nu.match(NM.STAR_NAME);
-    // Tier 2: prose procedure name on its own line, e.g. "LAVON TWO ARRIVAL".
-    const proseM = !sm && notamRaw.match(/^([A-Z][A-Z ]+(?:ARRIVAL|TRANSITION|DEPARTURE))/m);
-    const star   = (sm ? sm[1] : null) || (proseM ? proseM[1].trim() : null) || 'STAR';
+    const sm = nu.match(NM.STAR_NAME);
+    const star = sm ? sm[1] : 'STAR';
     return { slot: 5, level: 'yellow', label: `STAR ${star} CHANGE`, keyRe: NM.RESTR_WORDS, rwy: null };
   }
 
@@ -7866,31 +7813,30 @@ function renderNote() {
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
   sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
   sh += `</div>`;
-  // Right-column: callsign only when verbalCallsign is known.
-  // ETOPS now renders inline on OUT/IN row.
-  if (S.verbalCallsign && S.fltNum) {
+  // Right-column: callsign (top) + ETOPS (bottom).
+  // Renders when either is present. Callsign block only when verbalCallsign is known.
+  // Per DBG-01/02: if no callsign available, space is left blank; ETOPS stays in column.
+  if ((S.verbalCallsign && S.fltNum) || S.etopsSpec || S.etopsEntry) {
     sh += `<div class="flt-header-right">`;
-    const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
-    const _num   = _numM ? _numM[1] : '';
-    const _heavy = S.isHeavy ? ' Heavy' : '';
-    sh += `<div class="flt-callsign-note">`;
-    sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
-    sh += `</div>`;
+    if (S.verbalCallsign && S.fltNum) {
+      const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
+      const _num   = _numM ? _numM[1] : '';
+      const _heavy = S.isHeavy ? ' Heavy' : '';
+      sh += `<div class="flt-callsign-note">`;
+      sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
+      sh += `</div>`;
+    }
+    if (S.etopsSpec || S.etopsEntry) {
+      sh += `<div class="etops-block">`;
+      if (S.etopsSpec)  sh += `<div class="etops-line">ETOPS ${esc(S.etopsSpec)}</div>`;
+      if (S.etopsEntry) sh += `<div class="etops-line">ETOPS ENTRY ${esc(S.etopsEntry)}</div>`;
+      sh += `</div>`;
+    }
     sh += `</div>`;
   }
   sh += `<div class="flt-header-actions">${renderShareButton()}</div>`;
   sh += `</div>`;
-  sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}`;
-  if (S.etopsSpec || S.etopsEntry) {
-    sh += `<span class="etops-inline">`;
-    if (S.etopsSpec)  sh += `ETOPS ${esc(S.etopsSpec)}`;
-    if (S.etopsEntry) {
-      if (S.etopsSpec) sh += ` / `;
-      sh += `ETOPS ENTRY ${esc(S.etopsEntry)}`;
-    }
-    sh += `</span>`;
-  }
-  sh += `</div>`;
+  sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}</div>`;
   sh += `<div class="phase-tabs">`;
   ['preflight','enroute','descent'].forEach(p => {
     const label = p.charAt(0).toUpperCase() + p.slice(1);
@@ -8973,7 +8919,7 @@ function renderDescentPhase() {
         ? `<span class="ddg-tlr-badge land">*TLR Landing</span>`
         : `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
       h += `<div class="ddg-item-row">`;
-      if (item.code) h += `<span class="ddg-item-code"><span onclick="navigator.clipboard.writeText(this.textContent.trim()).catch(()=>{})" style="cursor:pointer;user-select:all;-webkit-user-select:all;display:inline-flex;align-items:center;gap:4px" title="Tap to copy">${esc(item.code)} <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span></span>`;
+      if (item.code) h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
@@ -9175,7 +9121,7 @@ function renderNotesSection() {
         tlrBadge = `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
       }
       h += `<div class="ddg-item-row">`;
-      if (item.code) h += `<span class="ddg-item-code"><span onclick="navigator.clipboard.writeText(this.textContent.trim()).catch(()=>{})" style="cursor:pointer;user-select:all;-webkit-user-select:all;display:inline-flex;align-items:center;gap:4px" title="Tap to copy">${esc(item.code)} <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span></span>`;
+      if (item.code) h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
