@@ -6653,7 +6653,7 @@ const PATTERNS = {
   TAXI_TIME:    /^TAXI\s+\d+\s+(\d{2})\.(\d{2})/m,
 
   // Perishables on board
-  PERISHABLE:   /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES/i,
+  PERISHABLE:   /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES|LIVE\s+ANIMALS\s*:\s*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
 
   // DOT Special Permit Exemption (v1.9.7)
   // Format A: *OPERATING UNDER EXEMPTION DOT-SP7573*
@@ -6665,7 +6665,7 @@ const PATTERNS = {
   EXEMPTION_NO_ALT: /FLIGHT RELEASED UNDER EXEMPTION NO\s+\w+[^\n]*ALTERNATE AIRPORT REQUIRED/i,
 
   // Temperature control required (v1.9.5)
-  TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES/i,
+  TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
 
   // VZFW/CK weight limit RED alert (v1.9.5)
   VZFW_CK_LIMIT: /\*MTOW\s+LTD\s+BY\s+VZFW\/CK\s+LIMITS\*/i,
@@ -6778,7 +6778,7 @@ const WX_SECTION_LABELS = [
  * Within each section, airport sub-blocks start on METAR or SPECI lines.
  * Anchor: /^(?:METAR|SPECI)\s+([A-Z]{4})\b/mg
  */
-const WX_METAR_ANCHOR = /^(?:METAR|SPECI)\s+([A-Z]{4})\b/mg;
+const WX_METAR_ANCHOR = /^(?:METAR|SPECI|NO\s+METAR\s+REPORTS?\s+FOUND\s+FOR)\s+([A-Z]{4})\b/mg;
 
 /**
  * Within each airport sub-block, NOTAMs begin at a line matching this pattern.
