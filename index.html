@@ -5755,6 +5755,12 @@ function setTheme(mode) {
   const effective = mode === 'auto' ? (pDark ? 'dark' : 'light') : mode;
   // CSS color-scheme property drives system semantic colors
   document.documentElement.style.colorScheme = mode === 'auto' ? 'light dark' : mode;
+  // Drive html[data-theme] CSS overrides for manual light/dark selection
+  if (mode === 'auto') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', mode);
+  }
   // Update segmented control
   document.querySelectorAll('.seg-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === mode);
