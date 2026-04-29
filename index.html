@@ -1000,7 +1000,7 @@ body {
 }
 /* ── Callsign note (ACMI / native Atlas ops) — child of flt-header-right ── */
 .flt-callsign-note {
-  font-family: var(--font); font-size: var(--type-caption); font-weight: 600;
+  font-family: var(--font-display); font-size: var(--type-h2); font-weight: 700;
   color: var(--label2); text-align: right;
 }
 /* ── ETOPS header block ── */
@@ -1013,11 +1013,16 @@ body {
 .etops-line { display: block; }
 /* ── Time row ── */
 .time-row {
+  display: flex; align-items: center; gap: 8px; justify-content: flex-start;
   font-family: var(--font-mono); font-size: 15px;
   line-height: 2; color: var(--label);
   margin-bottom: var(--sp1);
 }
-.time-local { color: var(--label2); }
+.etops-inline {
+  font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
+  color: var(--tint); letter-spacing: 0.04em;
+  margin-left: auto;
+}
 /* ── Data rows (Block/MIN/FRES/GA) ── */
 .data-table {
   margin: var(--sp4) 0;
@@ -7861,30 +7866,31 @@ function renderNote() {
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
   sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
   sh += `</div>`;
-  // Right-column: callsign (top) + ETOPS (bottom).
-  // Renders when either is present. Callsign block only when verbalCallsign is known.
-  // Per DBG-01/02: if no callsign available, space is left blank; ETOPS stays in column.
-  if ((S.verbalCallsign && S.fltNum) || S.etopsSpec || S.etopsEntry) {
+  // Right-column: callsign only when verbalCallsign is known.
+  // ETOPS now renders inline on OUT/IN row.
+  if (S.verbalCallsign && S.fltNum) {
     sh += `<div class="flt-header-right">`;
-    if (S.verbalCallsign && S.fltNum) {
-      const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
-      const _num   = _numM ? _numM[1] : '';
-      const _heavy = S.isHeavy ? ' Heavy' : '';
-      sh += `<div class="flt-callsign-note">`;
-      sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
-      sh += `</div>`;
-    }
-    if (S.etopsSpec || S.etopsEntry) {
-      sh += `<div class="etops-block">`;
-      if (S.etopsSpec)  sh += `<div class="etops-line">ETOPS ${esc(S.etopsSpec)}</div>`;
-      if (S.etopsEntry) sh += `<div class="etops-line">ETOPS ENTRY ${esc(S.etopsEntry)}</div>`;
-      sh += `</div>`;
-    }
+    const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
+    const _num   = _numM ? _numM[1] : '';
+    const _heavy = S.isHeavy ? ' Heavy' : '';
+    sh += `<div class="flt-callsign-note">`;
+    sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
+    sh += `</div>`;
     sh += `</div>`;
   }
   sh += `<div class="flt-header-actions">${renderShareButton()}</div>`;
   sh += `</div>`;
-  sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}</div>`;
+  sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}`;
+  if (S.etopsSpec || S.etopsEntry) {
+    sh += `<span class="etops-inline">`;
+    if (S.etopsSpec)  sh += `ETOPS ${esc(S.etopsSpec)}`;
+    if (S.etopsEntry) {
+      if (S.etopsSpec) sh += ` / `;
+      sh += `ETOPS ENTRY ${esc(S.etopsEntry)}`;
+    }
+    sh += `</span>`;
+  }
+  sh += `</div>`;
   sh += `<div class="phase-tabs">`;
   ['preflight','enroute','descent'].forEach(p => {
     const label = p.charAt(0).toUpperCase() + p.slice(1);
