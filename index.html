@@ -158,9 +158,46 @@
   }
 }
 
-/* Override theme if manually set */
-html[data-theme="light"] { color-scheme: light; --brand-navy-adaptive: #002D62; }
-html[data-theme="dark"]  { color-scheme: dark;  --brand-navy-adaptive: #6ea8e8; --brand-gold: #d4ab12; }
+/* Override theme if manually set — full variable set so manual toggle
+   works independently of prefers-color-scheme media query             */
+html[data-theme="light"] {
+  color-scheme: light;
+  --sys-bg: #f2f2f7; --sys-bg2: #ffffff; --sys-bg3: #f2f2f7;
+  --sys-grouped: #f2f2f7; --sys-grouped2: #ffffff; --sys-grouped3: #f2f2f7;
+  --sep: rgba(60,60,67,0.29); --sep-opaque: #c6c6c8;
+  --label: #1C1C1E; --label2: #636366; --label3: #8E8E93; --label4: #C7C7CC;
+  --fill: rgba(120,120,128,0.2); --fill2: rgba(120,120,128,0.16);
+  --fill3: rgba(118,118,128,0.12); --fill4: rgba(116,116,128,0.08);
+  --tint: #007aff; --tint-bg: rgba(0,122,255,0.1);
+  --sys-green: #34c759; --sys-yellow: #ff9f0a; --sys-orange: #ff6b00; --sys-red: #FF375F;
+  --sys-green-bg: rgba(52,199,89,0.1); --sys-yellow-bg: rgba(255,159,10,0.1);
+  --sys-red-bg: rgba(255,55,95,0.1);
+  --brand-navy-adaptive: #002D62;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --sys-bg: #0C0C0E; --sys-bg2: #1c1c1e; --sys-bg3: #2c2c2e;
+  --sys-grouped: #0C0C0E; --sys-grouped2: #1c1c1e; --sys-grouped3: #2c2c2e;
+  --sep: rgba(84,84,88,0.65); --sep-opaque: #38383a;
+  --label: #F5F5F7; --label2: #939393; --label3: #636366; --label4: #48484A;
+  --fill: rgba(120,120,128,0.36); --fill2: rgba(120,120,128,0.32);
+  --fill3: rgba(118,118,128,0.24); --fill4: rgba(118,118,128,0.18);
+  --tint: #0a84ff; --tint-bg: rgba(10,132,255,0.15);
+  --sys-green: #30d158; --sys-yellow: #FF9F0A; --sys-orange: #ff6b00; --sys-red: #FF375F;
+  --sys-green-bg: rgba(48,209,88,0.15); --sys-yellow-bg: rgba(255,159,10,0.12);
+  --sys-red-bg: rgba(255,55,95,0.15);
+  --brand-navy-adaptive: #6ea8e8; --brand-gold: #d4ab12;
+}
+/* cell-icon hardcoded colours for manual dark override */
+html[data-theme="dark"] .cell-icon.blue   { background: #0a84ff; }
+html[data-theme="dark"] .cell-icon.green  { background: #30d158; }
+html[data-theme="dark"] .cell-icon.orange { background: #ff9f0a; }
+html[data-theme="dark"] .cell-icon.purple { background: #bf5af2; }
+/* cell-icon reset for manual light override (when OS may be dark) */
+html[data-theme="light"] .cell-icon.blue   { background: #007aff; }
+html[data-theme="light"] .cell-icon.green  { background: #34c759; }
+html[data-theme="light"] .cell-icon.orange { background: #ff9f0a; }
+html[data-theme="light"] .cell-icon.purple { background: #af52de; }
 
 /* ═══════════════════════════════════════════════════════
    RESET & BASE
