@@ -5077,6 +5077,13 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
       const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
       return { slot: 5, level: 'yellow', label: `ILS DME U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
     }
+    if (NM.NAVAID_US.test(nu)) {
+      const fm = nu.match(/\b([A-Z]{2,3})\s+(?:VOR|DME|NDB|TACAN)\b/);
+      const fac = fm ? fm[1] : null;
+      return { slot: 5, level: 'yellow',
+               label: fac ? `${fac} NAVAID OTS` : 'NAVAID OTS',
+               keyRe: NM.US_WORDS, rwy: null };
+    }
     if (NM.PAPI_US.test(nu)) {
       const rm = nu.match(NM.RWY_ID);
       const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
@@ -5163,7 +5170,16 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
     return { slot: 2, level: 'yellow', label: 'VORTAC U/S', keyRe: NM.US_WORDS, rwy: null };
   }
 
-  // Slot 2g — Approach minimums increased — CAT D/DL (DEF-PB-APM-001)
+  // Slot 2g — NAVAID OTS (generic VOR/DME/NDB/TACAN OTS not caught by specific checks)
+  if (NM.NAVAID_US.test(nu)) {
+    const fm = nu.match(/\b([A-Z]{2,3})\s+(?:VOR|DME|NDB|TACAN)\b/);
+    const fac = fm ? fm[1] : null;
+    return { slot: 2, level: 'yellow',
+             label: fac ? `${fac} NAVAID OTS` : 'NAVAID OTS',
+             keyRe: NM.US_WORDS, rwy: null };
+  }
+
+  // Slot 2h — Approach minimums increased — CAT D/DL (DEF-PB-APM-001)
   // Covers crane works, maintenance, windmill obstacles raising OCA(OCH) per aircraft category.
   // Only classifies NOTAMs relevant to CAT D or CAT DL aircraft (Atlas B744/B748/B777/B763).
   if (NM.APM_TRIGGER.test(nu)) {
