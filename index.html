@@ -6027,7 +6027,7 @@ const S = {
   verbalCallsign:'',  // e.g. "GIANT"    — GTI→GIANT, PAC→POLAR, CMB→CAMBER
   isHeavy:false,      // true for all B747/B777 Atlas/Polar aircraft
   hasPerishables:false,
-  hasTemperatureControl:false, // v1.9.5 — temperature control required for cargo
+  dotExemption: null,              // v1.9.7 — DOT special permit {number, restrictions}
   hasVzfwCkLimit:false,        // v1.9.5 — MTOW limited by VZFW/CK constraints (RED alert)
   slotTime:null,               // v1.9.5 — wheels-up slot time window (HHMM Z)
   catIiIiiApproaches:null,     // v1.9.5 — CAT II/III authorized approaches map { [ICAO]: string }
@@ -6091,6 +6091,7 @@ function resetStateForNewFlight() {
     zfwActual:0, zfwLimit:0, ldgwActual:0, ldgwLimit:0,
     radioCallsign:'', verbalCallsign:'', isHeavy:false,
     hasPerishables:false,
+    dotExemption: null,
     hasTemperatureControl:false, hasVzfwCkLimit:false,
     slotTime:null, catIiIiiApproaches:null, addlFfAdj:null,
     descentAirport:'',
@@ -6654,6 +6655,15 @@ const PATTERNS = {
   // Perishables on board
   PERISHABLE:   /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES/i,
 
+  // DOT Special Permit Exemption (v1.9.7)
+  // Format A: *OPERATING UNDER EXEMPTION DOT-SP7573*
+  DOT_EXEMPT:   /\*OPERATING UNDER EXEMPTION\s+(DOT-SP\d+)\*/i,
+  DOT_RESTRICT: /\*OPERATING UNDER EXEMPTION\s+DOT-SP\d+\*[^\n]*\n([^\n*]{1,200})/i,
+
+  // Format B: FLIGHT RELEASED UNDER EXEMPTION NO 18169C. ALTERNATE AIRPORT REQUIRED.
+  EXEMPTION_NO:     /FLIGHT RELEASED UNDER EXEMPTION NO\s+(\w+)/i,
+  EXEMPTION_NO_ALT: /FLIGHT RELEASED UNDER EXEMPTION NO\s+\w+[^\n]*ALTERNATE AIRPORT REQUIRED/i,
+
   // Temperature control required (v1.9.5)
   TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES/i,
 
@@ -7140,7 +7150,25 @@ function _ofpRulesetParse(rawText) {
   })();
   const hasPerishables = !!t.match(PATTERNS.PERISHABLE);
 
-  // ── Origin / Destination ──────────────────────────────────────────
+  // DOT Special Permit Exemption (v1.9.7)
+  // Format A: *OPERATING UNDER EXEMPTION DOT-SP7573*
+  // Format B: FLIGHT RELEASED UNDER EXEMPTION NO 18169C. ALTERNATE AIRPORT REQUIRED.
+  let dotExemption = null;
+  const dotExM = t.match(PATTERNS.DOT_EXEMPT);
+  if (dotExM) {
+    const dotRestM = t.match(PATTERNS.DOT_RESTRICT);
+    dotExemption = { number: dotExM[1], restrictions: dotRestM ? dotRestM[1].trim() : null, altRequired: false };
+  } else {
+    const exNoM = t.match(PATTERNS.EXEMPTION_NO);
+    if (exNoM) {
+      const altReq = !!t.match(PATTERNS.EXEMPTION_NO_ALT);
+      dotExemption = {
+        number: 'Exemption ' + exNoM[1],
+        restrictions: altReq ? "ALT REQ'D" : null,
+        altRequired: altReq,
+      };
+    }
+  }
   const origLine = parseAptLine('ORIG');
   const origIcao    = origLine ? origLine.icao : '';
   const offFromOFP  = origLine ? origLine.hhmm : '';
@@ -7750,6 +7778,7 @@ function _ofpRulesetParse(rawText) {
     ldgwActual,
     ldgwLimit,
     hasPerishables,
+    dotExemption,
     hasTemperatureControl,
     hasVzfwCkLimit,
     slotTime,
@@ -7855,6 +7884,7 @@ function parseOFP() {
     oeiData:    result.oeiData,
     oeiSelectedRwy: result.oeiData.length ? (S.oeiSelectedRwy || '') : '',
     hasPerishables: result.hasPerishables,
+    dotExemption:   result.dotExemption   || null,
     hasTemperatureControl: result.hasTemperatureControl,
     hasVzfwCkLimit: result.hasVzfwCkLimit,
     slotTime:       result.slotTime,
@@ -8597,6 +8627,27 @@ function renderEnroutePhase() {
   // NAT Track — full-width, only on Atlantic crossings
   h += renderNatTrack();
 
+  // DOT Special Permit Exemption subcard (v1.9.7)
+  if (S.dotExemption) {
+    h += `<div class="subcard" style="border-left:3px solid var(--sys-yellow)">`;
+    h += `<div class="subcard-header" style="color:var(--sys-yellow);display:flex;align-items:center;gap:6px;flex-wrap:wrap">`;
+    h += `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 110 1.5A.75.75 0 018 4zm1 8H7v-5h2v5z"/></svg>`;
+    h += `<span>${esc(S.dotExemption.number)}</span>`;
+    if (S.dotExemption.altRequired) {
+      h += `<span style="font-size:12px;font-weight:700;background:var(--sys-yellow);color:#000;border-radius:4px;padding:1px 6px;letter-spacing:0.04em">ALT REQ\'D</span>`;
+    }
+    h += `</div>`;
+    h += `<div class="subcard-body">`;
+    if (S.dotExemption.restrictions && !S.dotExemption.altRequired) {
+      h += `<div style="font-size:13px;color:var(--sys-yellow);font-family:var(--font-mono);white-space:pre-wrap;line-height:1.55">${esc(S.dotExemption.restrictions)}</div>`;
+    } else if (S.dotExemption.altRequired) {
+      h += `<div style="font-size:13px;color:var(--label2)">Alternate airport required per dispatch release. Verify with dispatcher prior to departure.</div>`;
+    } else {
+      h += `<div style="font-size:13px;color:var(--label2)">Verify exemption conditions per OFP remarks prior to departure.</div>`;
+    }
+    h += `</div></div>`;
+  }
+
   h += renderFcirSubcard();
   return h;
 }
@@ -9322,6 +9373,15 @@ function renderNotesSection() {
     h += `<div class="perishables-banner">`;
     h += `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 110 1.5A.75.75 0 018 4zm1 8H7v-5h2v5z"/></svg>`;
     h += `PERISHABLES — SEE SP</div>`;
+  }
+
+  if (S.dotExemption) {
+    h += `<div class="perishables-banner">`;
+    h += `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 110 1.5A.75.75 0 018 4zm1 8H7v-5h2v5z"/></svg>`;
+    const _exemptLabel = S.dotExemption.altRequired
+      ? `${esc(S.dotExemption.number)} — ALT REQ'D`
+      : `${esc(S.dotExemption.number)} — OPERATING UNDER DOT EXEMPTION`;
+    h += _exemptLabel + `</div>`;
   }
 
   h += `<span class="notes-sub-header">Notes</span>`;
