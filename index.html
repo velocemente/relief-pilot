@@ -9828,7 +9828,7 @@ function renderNotamGroups(rwyGroups) {
     // ── Taxiway group — flat collapsible (unchanged) ──────────────────
     if (grp.groupType === 'taxiway') {
       h += `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
-      h += `<span class="notam-dot ${dotCls}"></span>`;
+      h += `<span class="notam-dot y"></span>`;
       h += `<span class="notam-group-label">Taxiway NOTAMs</span>${CHEV}</div>`;
       h += `<div class="notam-group-body" hidden>`;
       opItems.forEach(item => { h += _renderItem(item); });
