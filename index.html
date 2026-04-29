@@ -7523,6 +7523,53 @@ function _ofpRulesetParse(rawText) {
     });
   })();
 
+  // ── E-WINS WSITAF extraction ──────────────────────────────────────
+  // Atlas Air releases flights under EWINS (Enhanced Weather Information
+  // System). When present, the WSITAF in OFP Remarks replaces the standard
+  // TAF for that airport.
+  // Format in OFP Remarks:
+  //   ***FLIGHT RELEASED UNDER E-WINS AUTHORITY FOR TAF (ICAO)
+  //   ALTERNATE AIRPORT.
+  //   WSITAF ICAO DDHHmmZ DDHH/DDHH conditions...
+  //   [continuation lines]
+  (function extractEwins() {
+    const headerRe = /\*{3}FLIGHT\s+RELEASED\s+UNDER\s+E[- ]WINS\s+AUTHORITY\s+FOR\s+TAF\s+\(([A-Z]{4})\)/g;
+    var m;
+    while ((m = headerRe.exec(t)) !== null) {
+      var icao = m[1];
+      var after = t.slice(m.index + m[0].length);
+      var lines = after.split('\n');
+      var roleLine = '';
+      var wsitafLines = [];
+      var inWsitaf = false;
+      for (var i = 0; i < Math.min(lines.length, 40); i++) {
+        var line = lines[i].trim();
+        if (i === 0) { roleLine = line; continue; }
+        if (!inWsitaf && /^WSITAF\s+[A-Z]{4}/.test(line)) {
+          inWsitaf = true;
+          wsitafLines.push(line);
+          continue;
+        }
+        if (inWsitaf) {
+          if (!line || /^\*{3}/.test(line)) break;
+          wsitafLines.push(line);
+        }
+      }
+      if (!wsitafLines.length) continue;
+      var wsitaf = wsitafLines.join('\n');
+      var ewinsRole = /ALTERNATE/i.test(roleLine) ? 'ALT'
+                    : /DESTINATION|DEST/i.test(roleLine) ? 'DEST'
+                    : 'ALT';
+      // Parse validity window from "DDHHmmZ DDHH/DDHH" → "HHMMz-HHMMZ"
+      var validM = wsitaf.match(/\d{6}Z\s+(\d{2})(\d{2})\/(\d{2})(\d{2})/);
+      var ewinsWindow = validM ? (validM[2] + '00Z-' + validM[4] + '00Z') : '';
+      if (!airportData[icao]) airportData[icao] = { weather: '', notams: '' };
+      airportData[icao].ewinsWeather = wsitaf;
+      airportData[icao].ewinsRole    = ewinsRole;
+      airportData[icao].ewinsWindow  = ewinsWindow;
+    }
+  })();
+
   // ── Enroute NOTAM sections ────────────────────────────────────────
   // Extracts ROUTE / FIR / AIRWAY / WAYPOINT / GEOGRAPHIC COMPANY NOTAM
   // blocks. Each key holds the raw text for that section.
@@ -7766,6 +7813,12 @@ function parseOFP() {
     if (!airportData[icao].weather && src.weather) airportData[icao].weather = src.weather;
     if (!airportData[icao].notams  && src.notams)  airportData[icao].notams  = src.notams;
     if (src.curfew) airportData[icao].curfew = src.curfew;
+    // E-WINS: always overwrite — WSITAF supersedes any previously stored TAF
+    if (src.ewinsWeather) {
+      airportData[icao].ewinsWeather = src.ewinsWeather;
+      airportData[icao].ewinsRole    = src.ewinsRole    || '';
+      airportData[icao].ewinsWindow  = src.ewinsWindow  || '';
+    }
   });
 
   window._flightDateISO = result.flightDateISO || '';
@@ -10261,7 +10314,17 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   let   starIssues = [];        // STAR NOTAMs for DEST/ALT card
   const hN = notamText   && notamText.trim().length > 0;
   const hW = weatherText && weatherText.trim().length > 0;
-  if (!hN && !hW) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues };
+
+  // ── E-WINS override: WSITAF supersedes standard TAF ────────────────────────
+  // If this airport was released under E-WINS authority, the WSITAF stored in
+  // airportData[icao].ewinsWeather is used in place of the OFP standard TAF.
+  var _ewRef = (typeof airportData !== 'undefined' && airportData) ? airportData[icao] : null;
+  var isEwins = !!(  _ewRef && _ewRef.ewinsWeather && _ewRef.ewinsWeather.trim());
+  var effectiveWx  = isEwins ? _ewRef.ewinsWeather : weatherText;
+  var effectiveWin = isEwins ? (_ewRef.ewinsWindow  || wxWindowOverride) : wxWindowOverride;
+  var hW_eff = !!(effectiveWx && effectiveWx.trim().length > 0);
+
+  if (!hN && !hW_eff) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
 
   const etaMin = pZM(etaZ);   // ETA/DEP as minutes-of-day, null if unknown
 
@@ -10318,8 +10381,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   //   OPERATIONAL (YELLOW) — Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM
   //   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
   //   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
-  if (hW) {
-    const relevantWx = extractEtaWindow(weatherText, etaMin, wxWindowOverride);
+  if (hW_eff) {
+    const relevantWx = extractEtaWindow(effectiveWx, etaMin, effectiveWin);
     const wx = relevantWx.toUpperCase();
 
     const ceil      = pCeil(wx);
@@ -10414,7 +10477,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     }
 
     // Open — no issues
-    if (!wxIssues.filter(i => i.level !== 'green').length && hW) {
+    if (!wxIssues.filter(i => i.level !== 'green').length && hW_eff) {
       const visStr  = vis  ? `, VIS ${vis.label}`  : '';
       const ceilStr = ceil !== null ? ` (CIG ${ceil}ft${visStr})` : '';
       const openIssue = { level:'green', text:`✓ Open — wx at or above mins${ceilStr}` };
@@ -10422,8 +10485,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     }
   }
 
-  if (worst === 'unknown' && (hN || hW)) worst = 'green';
-  return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues };
+  if (worst === 'unknown' && (hN || hW_eff)) worst = 'green';
+  return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues, isEwins: !!isEwins };
 }
 
 
