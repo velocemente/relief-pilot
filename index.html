@@ -1001,7 +1001,7 @@ body {
 /* ── Callsign note (ACMI / native Atlas ops) — child of flt-header-right ── */
 .flt-callsign-note {
   font-family: var(--font-display); font-size: var(--type-h2); font-weight: 700;
-  letter-spacing: -0.02em; color: var(--label); text-align: right;
+  color: var(--label2); text-align: right;
 }
 /* ── ETOPS header block ── */
 .etops-block {
@@ -1013,11 +1013,16 @@ body {
 .etops-line { display: block; }
 /* ── Time row ── */
 .time-row {
+  display: flex; align-items: center; gap: 8px; justify-content: flex-start;
   font-family: var(--font-mono); font-size: 15px;
   line-height: 2; color: var(--label);
   margin-bottom: var(--sp1);
 }
-.time-local { color: var(--label2); }
+.etops-inline {
+  font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
+  color: var(--tint); letter-spacing: 0.04em;
+  margin-left: auto;
+}
 /* ── Data rows (Block/MIN/FRES/GA) ── */
 .data-table {
   margin: var(--sp4) 0;
@@ -4742,7 +4747,7 @@ const NM = {
   TWY_TYPE:   /(?:B7[0-9]{2}|A3[0-9]{2}|B[0-9]{3}[A-Z]?|A[0-9]{3}[A-Z]?)\b/g,
 
   // ── ORIG slots ──
-  SID:        /\bSID\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
+  SID:        /\bSID\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED|\bNA\b)/i,
   SID_NAME:   /\bSID\s+([A-Z]+\d[A-Z]?\b)/,
 
   // TKOF_MIN: Takeoff minimums / ODP (Obstacle Departure Procedure) changes.
@@ -4831,7 +4836,7 @@ const NM = {
 
   ALT_MA:     /(?:ALTN\s+PROC|ALTN\s+MA\b|ALTERNATE.*MISSED|MISSED.*APCH.*(?:PROC|CHANGE|AMDT)|ALTN.*APCH\s+PROC|MA\s+PROC\s+ALTN|ALTN.*RWY.*PROC)/i,
 
-  STAR:       /\bSTAR\b.*?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
+  STAR:       /\bSTAR\b[\s\S]{0,600}?(?:AMDT|CHANGE|INOP|CLSD|TEMP|PROC|PROC\s+CHANGE|NOT\s+AVBL|SUSPENDED)/i,
   STAR_NAME:  /\bSTAR\s+([A-Z]+\d[A-Z]?\b)/,
 
   // ── Unserviceability keywords (RED) ──
@@ -4846,14 +4851,6 @@ const NM = {
   VOLCANIC:   /\bVOLCANIC\s+ASH\b/i,
   NAVAID_US:  /(?:VOR|NDB|DME|RNAV|TACAN).*?(?:U\/S|UNSERVICEABLE|OTS|INOP|UNUSBL|NOT\s+AVBL|UNREL)\b/i,
 
-  // ── Approach minimums increased — CAT D/DL (DEF-PB-APM-001) ──
-  APM_TRIGGER:    /CHANGE\s+OF\s+OPR\s+MINIMA\s+OCA\s*\(OCH\)/i,
-  APM_CATD:       /CAT\s+D(?:-?DL)?\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  APM_CATDL:      /CAT\s+DL\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  APM_CATD_RANGE: /CAT\s+[A-C][-\u2013]D(?:L)?\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  APM_TYPE:       /\b(ILS\s+CAT\s+I{1,3}|LOC(?:ALIZER)?|LNAV|LPV|RNP(?:\s+LPV)?|RNAV)\b/i,
-  APM_RWY:        /RWY\s+(\d{1,2}[LCR]?)/i,
-
   // ── Approach minimums / procedure changes ──
   // CAT_II_NA: Cat II or III approach explicitly unavailable → RED
   CAT_II_NA:  /CAT\s*I{2,3}[^A-Z]{0,20}(?:NOT\s+AVBL|NOT\s+AVAILABLE|\bNA\b|SUSPENDED|OTS|U\/S)/i,
@@ -4867,6 +4864,20 @@ const NM = {
   FICON:      /\bFICON\b/i,
   // FICON_POOR: conditions that reduce braking below "good" (ice, compacted ice, poor BA codes)
   FICON_POOR: /\bICE\b|\bICY\b|COMPACTED\s+ICE|FICON\s+[12][\/\s]|FICON\s+NIL\b/i,
+
+  // ── Approach minimums increased — CAT D/DL (DEF-PB-APM-001) ──────────────
+  // Trigger: ICAO NOTAM phrase for OCA(OCH) changes (crane works, maintenance, etc.)
+  APM_TRIGGER:    /CHANGE\s+OF\s+OPR\s+MINIMA\s+OCA\s*\(OCH\)/i,
+  // CAT D explicit entry (e.g. "CAT D 191 (203)" or "CAT D-DL INCREASED 299(310)")
+  APM_CATD:       /CAT\s+D(?:-?DL)?\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
+  // CAT DL explicit entry (e.g. "CAT DL 191 (203)")
+  APM_CATDL:      /CAT\s+DL\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
+  // CAT A-DL or A-D catch-all range (single value covers all cats, e.g. "CAT A-DL INCREASED TO 762(772)")
+  APM_CATD_RANGE: /CAT\s+[A-C][-–]D(?:L)?\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
+  // Approach type — first match wins (ILS CAT I/II/III, LOC, LNAV, LPV, RNP, RNAV)
+  APM_TYPE:       /\b(ILS\s+CAT\s+I{1,3}|LOC(?:ALIZER)?|LNAV|LPV|RNP(?:\s+LPV)?|RNAV)\b/i,
+  // Runway — simple single-runway extraction for APM NOTAMs
+  APM_RWY:        /RWY\s+(\d{1,2}[LCR]?)/i,
 };
 
 /**
@@ -5002,13 +5013,14 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
     // Slot 4 — SID changes
     if (NM.SID.test(nu)) {
-      // Two-tier name extraction: coded identifier → plain English → fallback
-      const smCode = nu.match(NM.SID_NAME);
-      const smPlain = !smCode && nu.match(/^([A-Z][A-Z ]+(?:DEPARTURE|TRANSITION|ARRIVAL))/m);
-      const sid = smCode ? smCode[1] : (smPlain ? smPlain[1].trim() : 'SID');
-      const isUS = NM.US_WORDS.test(nu);
-      const rowLabel = sid;
-      return { slot: 4, level: isUS ? 'red' : 'yellow', label: `SID ${sid} CHANGE`, rowLabel, keyRe: isUS ? NM.US_WORDS : NM.RESTR_WORDS };
+      // Tier 1: ICAO coded identifier requires a digit, e.g. "SID GORMAN7D" or "SID KOKKI2AB".
+      const stdM   = nu.match(NM.SID_NAME);
+      // Tier 2: prose procedure name on its own line, e.g. "GORMAN SEVEN DEPARTURE".
+      // Also catches TRANSITION and ARRIVAL variants used in Atlas OFP NOTAM bodies.
+      const proseM = !stdM && notamRaw.match(/^([A-Z][A-Z ]+(?:DEPARTURE|TRANSITION|ARRIVAL))/m);
+      const sid    = (stdM ? stdM[1] : null) || (proseM ? proseM[1].trim() : null) || 'SID';
+      const isUS   = NM.US_WORDS.test(nu);
+      return { slot: 4, level: 'yellow', label: `${sid} DEP`, keyRe: isUS ? NM.US_WORDS : NM.RESTR_WORDS };
     }
 
     // Slot 5 — Approach changes (includes Cat II/III N/A and IAP minimums raises)
@@ -5127,22 +5139,35 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   }
 
   // Slot 2g — Approach minimums increased — CAT D/DL (DEF-PB-APM-001)
+  // Covers crane works, maintenance, windmill obstacles raising OCA(OCH) per aircraft category.
+  // Only classifies NOTAMs relevant to CAT D or CAT DL aircraft (Atlas B744/B748/B777/B763).
   if (NM.APM_TRIGGER.test(nu)) {
+    // Determine if this NOTAM applies to CAT D or DL aircraft
     const isCatD  = NM.APM_CATD.test(nu) || NM.APM_CATD_RANGE.test(nu);
-    const isCatDL = NM.APM_CATDL.test(nu) || /CAT\s+[A-C][\-\u2013]DL/i.test(nu);
+    const isCatDL = NM.APM_CATDL.test(nu)
+                 || /CAT\s+[A-C][-\u2013]DL/i.test(nu)
+                 || /CAT\s+D[-\u2013]DL/i.test(nu);   // handles "CAT D-DL INCREASED" format
     if (isCatD || isCatDL) {
+      // Extract approach type (first match wins; A0623/26 LOC+LNAV → LOC is correct)
       const apTypeM = nu.match(NM.APM_TYPE);
       const apType  = apTypeM ? apTypeM[1].replace(/\s+/g,' ').toUpperCase() : 'APCH';
+      // Extract runway (from the trigger line, e.g. "RWY 36C DUE TO CRANE")
       const rwyM = nu.match(NM.APM_RWY);
       const rwy  = rwyM ? rwyM[1] : null;
+      // Prefer CAT DL value; fall back to CAT D or range value
       const catDM  = nu.match(NM.APM_CATD) || nu.match(NM.APM_CATD_RANGE);
       const catDLM = nu.match(NM.APM_CATDL);
       const minVal  = catDLM ? catDLM[1] : (catDM ? catDM[1] : null);
       const catLabel = isCatDL ? 'CAT DL' : 'CAT D';
-      const label = [apType, rwy ? `RWY ${rwy}` : null, 'INCREASED MINIMA',
-                     minVal ? `${catLabel} OCA ${minVal}` : catLabel].filter(Boolean).join(' · ');
+      const label = [
+        apType,
+        rwy ? `RWY ${rwy}` : null,
+        'INCREASED MINIMA',
+        minVal ? `${catLabel} OCA ${minVal}` : catLabel,
+      ].filter(Boolean).join(' · ');
       return { slot: 2, level: 'yellow', label, keyRe: NM.APM_TRIGGER, rwy };
     }
+    // CAT A/B/C only — not relevant to this fleet; fall through to catch-all
   }
 
   // ── DEST / ALT SLOT 3: Procedure changes and supporting equipment ─────────
@@ -5260,11 +5285,12 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
   // ── DEST / ALT SLOT 5: STAR changes ──────────────────────────────────────
   if (NM.STAR.test(nu)) {
-    const smCode = nu.match(NM.STAR_NAME);
-    const smPlain = !smCode && nu.match(/^([A-Z][A-Z ]+(?:ARRIVAL|TRANSITION|APPROACH))/m);
-    const star = smCode ? smCode[1] : (smPlain ? smPlain[1].trim() : 'STAR');
-    const rowLabel = star;
-    return { slot: 5, level: 'yellow', label: `STAR ${star} CHANGE`, rowLabel, keyRe: NM.RESTR_WORDS, rwy: null };
+    // Tier 1: ICAO coded identifier requires a digit, e.g. "STAR KOKKI2A".
+    const sm     = nu.match(NM.STAR_NAME);
+    // Tier 2: prose procedure name on its own line, e.g. "LAVON TWO ARRIVAL".
+    const proseM = !sm && notamRaw.match(/^([A-Z][A-Z ]+(?:ARRIVAL|TRANSITION|DEPARTURE))/m);
+    const star   = (sm ? sm[1] : null) || (proseM ? proseM[1].trim() : null) || 'STAR';
+    return { slot: 5, level: 'yellow', label: `STAR ${star} CHANGE`, keyRe: NM.RESTR_WORDS, rwy: null };
   }
 
   // Slot 6 — Closed / wingspan-restricted taxiways
@@ -5520,7 +5546,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   // Items within each group are sorted alphabetically by rowLabel.
   //
   const RUNWAY_SLOTS_DEST = new Set([1, 2, 3, 4]);
-  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 4, 5, 6]); // slot 2=TKOF_MIN, 4=SID, 5=approach, 6=ALT_MA
+  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 5, 6]); // slot 2=TKOF_MIN, 5=approach, 6=ALT_MA; slot 4 (SID) excluded — rendered separately via sidIssues
   const TWY_SLOTS         = new Set([3, 6]); // taxiway slots: ORIG=3, DEST=6
   const runwaySlots = isOrig ? RUNWAY_SLOTS_ORIG : RUNWAY_SLOTS_DEST;
 
@@ -7840,30 +7866,31 @@ function renderNote() {
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
   sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
   sh += `</div>`;
-  // Right-column: callsign (top) + ETOPS (bottom).
-  // Renders when either is present. Callsign block only when verbalCallsign is known.
-  // Per DBG-01/02: if no callsign available, space is left blank; ETOPS stays in column.
-  if ((S.verbalCallsign && S.fltNum) || S.etopsSpec || S.etopsEntry) {
+  // Right-column: callsign only when verbalCallsign is known.
+  // ETOPS now renders inline on OUT/IN row.
+  if (S.verbalCallsign && S.fltNum) {
     sh += `<div class="flt-header-right">`;
-    if (S.verbalCallsign && S.fltNum) {
-      const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
-      const _num   = _numM ? _numM[1] : '';
-      const _heavy = S.isHeavy ? ' Heavy' : '';
-      sh += `<div class="flt-callsign-note">`;
-      sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
-      sh += `</div>`;
-    }
-    if (S.etopsSpec || S.etopsEntry) {
-      sh += `<div class="etops-block">`;
-      if (S.etopsSpec)  sh += `<div class="etops-line">ETOPS ${esc(S.etopsSpec)}</div>`;
-      if (S.etopsEntry) sh += `<div class="etops-line">ETOPS ENTRY ${esc(S.etopsEntry)}</div>`;
-      sh += `</div>`;
-    }
+    const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
+    const _num   = _numM ? _numM[1] : '';
+    const _heavy = S.isHeavy ? ' Heavy' : '';
+    sh += `<div class="flt-callsign-note">`;
+    sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
+    sh += `</div>`;
     sh += `</div>`;
   }
   sh += `<div class="flt-header-actions">${renderShareButton()}</div>`;
   sh += `</div>`;
-  sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}${(S.etopsSpec || S.etopsEntry) ? '<span class="etops-inline"> · ETOPS ' + esc(S.etopsSpec || S.etopsEntry) + '</span>' : ''}</div>`;
+  sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}`;
+  if (S.etopsSpec || S.etopsEntry) {
+    sh += `<span class="etops-inline">`;
+    if (S.etopsSpec)  sh += `ETOPS ${esc(S.etopsSpec)}`;
+    if (S.etopsEntry) {
+      if (S.etopsSpec) sh += ` / `;
+      sh += `ETOPS ENTRY ${esc(S.etopsEntry)}`;
+    }
+    sh += `</span>`;
+  }
+  sh += `</div>`;
   sh += `<div class="phase-tabs">`;
   ['preflight','enroute','descent'].forEach(p => {
     const label = p.charAt(0).toUpperCase() + p.slice(1);
@@ -8946,7 +8973,7 @@ function renderDescentPhase() {
         ? `<span class="ddg-tlr-badge land">*TLR Landing</span>`
         : `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
       h += `<div class="ddg-item-row">`;
-      if (item.code) h += `<span class="ddg-item-code" onclick="navigator.clipboard.writeText(this.textContent.trim()).catch(()=>{})" style="cursor:pointer;user-select:all;-webkit-user-select:all" title="Tap to copy">${esc(item.code)}</span>`;
+      if (item.code) h += `<span class="ddg-item-code"><span onclick="navigator.clipboard.writeText(this.textContent.trim()).catch(()=>{})" style="cursor:pointer;user-select:all;-webkit-user-select:all;display:inline-flex;align-items:center;gap:4px" title="Tap to copy">${esc(item.code)} <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span></span>`;
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
@@ -9148,7 +9175,7 @@ function renderNotesSection() {
         tlrBadge = `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
       }
       h += `<div class="ddg-item-row">`;
-      if (item.code) h += `<span class="ddg-item-code" onclick="navigator.clipboard.writeText(this.textContent.trim()).catch(()=>{})" style="cursor:pointer;user-select:all;-webkit-user-select:all" title="Tap to copy">${esc(item.code)}</span>`;
+      if (item.code) h += `<span class="ddg-item-code"><span onclick="navigator.clipboard.writeText(this.textContent.trim()).catch(()=>{})" style="cursor:pointer;user-select:all;-webkit-user-select:all;display:inline-flex;align-items:center;gap:4px" title="Tap to copy">${esc(item.code)} <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span></span>`;
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
@@ -9804,50 +9831,74 @@ function renderNotamGroups(rwyGroups) {
 
 // ── Airport issues list renderer ──────────────────────────────────────────
 // Renders the full apt-issues-list content:
-//   1. Weather issues — flat coloured pill rows (as before)
-//   2. NOTAM groups — collapsible runway/taxiway structure from rwyGroups
-//   3. Green fallback if neither has any operational issues
-function renderAptIssues(status, role) {
-  let h = '';
-  const isOrig = (role || '').toUpperCase() === 'ORIG';
+//   1. STARs group  — DEST/ALT cards: collapsible, start expanded, FIRST
+//   2. Weather issues — flat coloured pill rows
+//   3. NOTAM groups — collapsible runway/taxiway structure from rwyGroups
+//   4. SIDs group   — ORIG card only: collapsible, start expanded, LAST
+//   5. Green fallback if none of the above has any operational issues
+function renderAptIssues(status) {
+  // Chevrons: group-level starts expanded (.open); item-level starts collapsed
+  const CHEV_OPEN = `<svg class="notam-chev open" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  const CHEV      = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
 
-  // Weather issues — flat pills
+  // Item renderer — mirrors _renderItem inside renderNotamGroups
+  function _renderSidStarItem(item) {
+    const ic  = item.level === 'red' ? 'r' : 'y';
+    const lbl = esc(item.rowLabel || item.label || '');
+    const raw = (item.notamRaw || '').trim();
+    let ih = `<div class="notam-item">`;
+    ih += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+    ih += `<span class="notam-dot ${ic}"></span>`;
+    ih += `<span class="notam-item-label">${lbl}</span>`;
+    if (raw) ih += CHEV;
+    ih += `</div>`;
+    if (raw) ih += `<pre class="notam-raw-text" hidden>${esc(raw)}</pre>`;
+    ih += `</div>`;
+    return ih;
+  }
+
+  // Group renderer — uses existing notam-group / notam-group-hdr / notam-group-body CSS
+  function _renderSidStarGroup(label, issues) {
+    let gh = `<div class="notam-groups"><div class="notam-group">`;
+    gh += `<div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+    gh += `<span class="notam-dot y"></span>`;
+    gh += `<span class="notam-group-label">${label}</span>${CHEV_OPEN}`;
+    gh += `</div>`;
+    gh += `<div class="notam-group-body">`;
+    issues.forEach(item => { gh += _renderSidStarItem(item); });
+    gh += `</div></div></div>`;
+    return gh;
+  }
+
+  let h = '';
+
+  // 1. STARs — DEST/ALT cards only (evalAirport filters: slot===5 && !isOrig)
+  //    Renders FIRST so crew sees arrival procedure NOTAMs immediately
+  const starIssues = status.starIssues || [];
+  if (starIssues.length) h += _renderSidStarGroup('STARs', starIssues);
+
+  // 2. Weather issues — flat pills
   (status.wxIssues || []).forEach(i => {
     h += `<div class="apt-issue ${i.level.charAt(0)}">${i.text}</div>`;
   });
 
-  // STARs section — DEST/ALT only, rendered BEFORE runway groups
-  if (!isOrig && status.starIssues && status.starIssues.length) {
-    h += `<div class="notam-group">`;
-    h += `<div class="notam-group-hdr" onclick="this.parentElement.classList.toggle('collapsed')" role="button">`;
-    h += `<span class="notam-dot y"></span><span class="notam-group-title">STARs</span>`;
-    h += `<svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true"><path d="M1 1l6.5 6L1 13"/></svg></div>`;
-    h += `<div class="notam-group-body">`;
-    status.starIssues.forEach(i => {
-      h += `<div class="notam-item y"><span class="notam-dot y"></span><span class="notam-item-label">${esc(i.rowLabel||'STAR')}</span>`;
-      h += `<svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true"><path d="M1 1l6.5 6L1 13"/></svg></div>`;
-    });
-    h += `</div></div>`;
-  }
-
-  // NOTAM groups
+  // 3a. Runway groups only — renders before SIDs
   if (status.rwyGroups && status.rwyGroups.size) {
-    const ng = renderNotamGroups(status.rwyGroups);
+    const rwMap  = new Map([...status.rwyGroups].filter(([, g]) => g.groupType === 'runway'));
+    const ng = renderNotamGroups(rwMap);
     if (ng) h += ng;
   }
 
-  // SIDs section — ORIG only, rendered AFTER runway groups
-  if (isOrig && status.sidIssues && status.sidIssues.length) {
-    h += `<div class="notam-group">`;
-    h += `<div class="notam-group-hdr" onclick="this.parentElement.classList.toggle('collapsed')" role="button">`;
-    h += `<span class="notam-dot y"></span><span class="notam-group-title">SIDs</span>`;
-    h += `<svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true"><path d="M1 1l6.5 6L1 13"/></svg></div>`;
-    h += `<div class="notam-group-body">`;
-    status.sidIssues.forEach(i => {
-      h += `<div class="notam-item y"><span class="notam-dot y"></span><span class="notam-item-label">${esc(i.rowLabel||'SID')}</span>`;
-      h += `<svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true"><path d="M1 1l6.5 6L1 13"/></svg></div>`;
-    });
-    h += `</div></div>`;
+  // 4. SIDs — ORIG card only (evalAirport filters: slot===4 && isOrig)
+  //    Renders immediately after last runway group, before taxiways/general
+  const sidIssues = status.sidIssues || [];
+  if (sidIssues.length) h += _renderSidStarGroup('SIDs', sidIssues);
+
+  // 3b. Non-runway groups (taxiways, general) — renders after SIDs
+  if (status.rwyGroups && status.rwyGroups.size) {
+    const restMap = new Map([...status.rwyGroups].filter(([, g]) => g.groupType !== 'runway'));
+    const ng = renderNotamGroups(restMap);
+    if (ng) h += ng;
   }
 
   return h || `<div class="apt-issue g">✓ No issues at ETA window</div>`;
@@ -9922,7 +9973,7 @@ function buildAirportCards() {
         <svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true" style="transform:rotate(90deg)"><path d="M1 1l6.5 6L1 13"/></svg>
       </div>
       <div class="apt-issues-list" id="api-${apt.icao}">
-        ${renderAptIssues(status, apt.role)}
+        ${renderAptIssues(status)}
       </div>
       ${hasCurfew ? `
       <div class="apt-curfew-row" onclick="showCurfewDetail('${apt.icao}')" role="button" aria-label="Curfew detail for ${apt.icao}" style="border-top:0.5px solid var(--sep)">
@@ -10002,7 +10053,7 @@ function refreshAptCard(icao) {
   const badge = card.querySelector('.apt-badge');
   badge.className = `apt-badge ${sc}`; badge.textContent = sl;
   const issuesList = document.getElementById(`api-${icao}`);
-  if (issuesList) issuesList.innerHTML = renderAptIssues(status, apt.role);
+  if (issuesList) issuesList.innerHTML = renderAptIssues(status);
 }
 
 // ═══════════════════════════════════════════════════════
