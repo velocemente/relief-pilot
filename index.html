@@ -2582,7 +2582,9 @@ function parseTempC(s) {
 //
 //   OPEN        (GREEN)  — Ceiling ≥ 3,000 ft  AND visibility ≥ 5 SM
 //   OPERATIONAL (YELLOW) — Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM
-//   RED                  — Ceiling < 1,000 ft  OR visibility < 3 SM
+//   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
+//   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
+//                          (no category label — raw CIG/VIS values only)
 //
 // The WORST of ceiling and visibility governs.
 // If only one element is available the available element governs.
@@ -2594,39 +2596,25 @@ function parseTempC(s) {
 
 const AIRPORT_STATUS = {
   OPEN: {
-    color:       'green',
-    hex:         '#00AA00',
-    label:       'OPEN',          // display verbatim per spec
-    cssVar:      '--sys-green',
-    emoji:       '🟢',
-    ceilMinFt:   3000,            // ceiling MUST be ≥ 3,000 ft
-    visMinSm:    5,               // visibility MUST be ≥ 5 SM
-    description: 'Ceiling ≥ 3,000 ft AND visibility ≥ 5 SM → GREEN',
-    displayTpl:  '🟢 OPEN — CIG {ceil} VIS {vis}',
+    color:  'green',
+    cssVar: '--sys-green',
+    label:  'OPEN',
   },
   OPERATIONAL: {
-    color:       'yellow',
-    hex:         '#FF9F0A',
-    label:       'OPERATIONAL',   // display verbatim per spec
-    cssVar:      '--sys-yellow',
-    emoji:       '⚠',
-    ceilMinFt:   1000,            // ceiling NOT less than 1,000 ft (< 3,000 ft)
-    visMinSm:    3,               // visibility NOT less than 3 SM (< 5 SM)
-    description: 'Ceiling < 3,000 ft but not < 1,000 ft, OR visibility < 5 SM but not < 3 SM → YELLOW',
-    displayTpl:  '⚠ OPERATIONAL — CIG {ceil} VIS {vis}',
-    note:        'Both CIG and VIS shown as reported when this status is triggered.',
+    color:  'yellow',
+    cssVar: '--sys-yellow',
+    label:  'OPERATIONAL',
   },
-  RED: {
-    color:       'red',
-    hex:         '#FF375F',
-    label:       'RED',           // display verbatim per spec
-    cssVar:      '--sys-red',
-    emoji:       '🔴',
-    ceilMaxFt:   1000,            // ceiling < 1,000 ft triggers RED
-    visMaxSm:    3,               // visibility < 3 SM triggers RED
-    description: 'Ceiling < 1,000 ft OR visibility < 3 SM → RED',
-    displayTpl:  '🔴 RED — CIG {ceil} VIS {vis}',
-    note:        'Both CIG and VIS shown as reported when this status is triggered.',
+  INSTRUMENTS: {
+    color:  'red',
+    cssVar: '--sys-red',
+    label:  'INSTRUMENTS',
+  },
+  LIFR: {
+    color:      'red',
+    cssVar:     '--sys-red',
+    label:      '',              // no category label — show raw CIG/VIS values only
+    displayTpl: 'CIG {ceil} VIS {vis}',
   },
 };
 
@@ -2636,18 +2624,17 @@ const AIRPORT_STATUS = {
  *
  * @param {number|null} ceilingFt  - ceiling AGL in feet (null = unreported = assume open)
  * @param {number|null} visSm      - visibility in statute miles (null = unreported = assume open)
- * @returns {{ status: string, color: string, label: string, ceilCat: number, visCat: number }}
+ * @returns {{ status: string, color: string, cssVar: string, label: string, ceilCat: number, visCat: number }}
  */
 function classifyAirportStatus(ceilingFt, visSm) {
-  // Category per element: 0=open  1=operational(yellow)  2=red
-  const ceilCat = ceilingFt === null ? 0 : ceilingFt >= 3000 ? 0 : ceilingFt >= 1000 ? 1 : 2;
-  const visCat  = visSm     === null ? 0 : visSm     >= 5    ? 0 : visSm     >= 3     ? 1 : 2;
-  const worst   = Math.max(ceilCat, visCat);
-
-  const key = worst === 0 ? 'OPEN' : worst === 1 ? 'OPERATIONAL' : 'RED';
+  // Category per element: 0=OPEN  1=OPERATIONAL(yellow)  2=INSTRUMENTS(red)  3=LIFR(red)
+  const ceilCat = ceilingFt === null ? 0 : ceilingFt >= 3000 ? 0 : ceilingFt >= 1000 ? 1 : ceilingFt >= 600 ? 2 : 3;
+  const visCat  = visSm     === null ? 0 : visSm     >= 5    ? 0 : visSm     >= 3     ? 1 : visSm    >= 1   ? 2 : 3;
+  const key = ['OPEN', 'OPERATIONAL', 'INSTRUMENTS', 'LIFR'][Math.max(ceilCat, visCat)];
   return {
     status:  key,
     color:   AIRPORT_STATUS[key].color,
+    cssVar:  AIRPORT_STATUS[key].cssVar,
     label:   AIRPORT_STATUS[key].label,
     ceilCat,
     visCat,
@@ -2717,26 +2704,27 @@ function classifyAirportStatusFromRaw(visRaw, ceilingFt) {
 }
 
 /**
- * RVR thresholds — aligned to 3-tier airport status.
- * Source: product ruleset (RVR supporting the Open/Operational/Red classification)
+ * RVR thresholds — aligned to 4-tier airport status.
+ * Source: product ruleset (RVR supporting OPEN/OPERATIONAL/INSTRUMENTS/LIFR)
  *
- * US feet:  ≥ 4000ft = Open; 2400–3999ft = Operational; < 2400ft = Red
- * ICAO m:   ≥ 1200m  = Open; 730–1199m   = Operational; < 730m   = Red
+ * US feet:  ≥ 4000ft = open; 1600–3999ft = operational; 800–1599ft = instruments; < 800ft = lifr
+ * ICAO m:   ≥ 1200m  = open; 480–1199m   = operational; 240–479m   = instruments; < 240m  = lifr
  */
 const RVR_THRESHOLDS = {
-  US_FEET:  { open: 4000, operational: 2400 },  // < operational = RED
-  ICAO_M:   { open: 1200, operational: 730  },
+  US_FEET: { open: 4000, operational: 1600, instruments: 800 },
+  ICAO_M:  { open: 1200, operational: 480,  instruments: 240 },
 };
 
 /**
  * Classify RVR status.
  * @param {number} valueFt - RVR in feet (convert metres before calling)
- * @returns {'open'|'operational'|'red'}
+ * @returns {'open'|'operational'|'instruments'|'lifr'}
  */
 function classifyRvr(valueFt) {
   if (valueFt >= RVR_THRESHOLDS.US_FEET.open)        return 'open';
   if (valueFt >= RVR_THRESHOLDS.US_FEET.operational) return 'operational';
-  return 'red';
+  if (valueFt >= RVR_THRESHOLDS.US_FEET.instruments) return 'instruments';
+  return 'lifr';
 }
 
 // Keep classifyFlightCategory as an alias for backward compatibility
@@ -10304,7 +10292,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   // FOM §7.1.31:
   //   OPEN        (GREEN)  — Ceiling ≥ 3,000 ft  AND visibility ≥ 5 SM
   //   OPERATIONAL (YELLOW) — Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM
-  //   RED                  — Ceiling < 1,000 ft  OR visibility < 3 SM
+  //   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
+  //   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
   if (hW) {
     const relevantWx = extractEtaWindow(weatherText, etaMin, wxWindowOverride);
     const wx = relevantWx.toUpperCase();
@@ -10318,13 +10307,17 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     // Prevailing ceiling + vis — worst governs
     const status = classifyAirportStatus(ceil, vis ? vis.sm : null);
     if (status.status !== 'OPEN') {
-      const level   = status.color;
-      const cls     = level === 'red' ? 'r' : 'y';
-      const pfx     = status.status === 'OPERATIONAL' ? '⚠ Operational' : '🔴 Red';
-      const visStr  = vis  ? `VIS <span class="wx-val ${cls}">${vis.label}</span>`  : null;
-      const cigStr  = ceil !== null ? `CIG <span class="wx-val ${cls}">${ceil}ft</span>` : null;
-      const parts   = [visStr, cigStr].filter(Boolean).join(' &nbsp;');
-      _pushWx({ level, text: `${pfx} — ${parts}` });
+      const level  = status.color;
+      const cls    = level === 'red' ? 'r' : 'y';
+      const visStr = vis  ? `VIS <span class="wx-val ${cls}">${vis.label}</span>`  : null;
+      const cigStr = ceil !== null ? `CIG <span class="wx-val ${cls}">${ceil}ft</span>` : null;
+      const parts  = [cigStr, visStr].filter(Boolean).join(' &nbsp;');
+      const text   = status.status === 'LIFR'
+                   ? `🔴 ${parts}`
+                   : status.status === 'INSTRUMENTS'
+                   ? `🔴 INSTRUMENTS — ${parts}`
+                   : `⚠ OPERATIONAL — ${parts}`;
+      _pushWx({ level, text });
       worst = bump(worst, level);
     }
 
@@ -10332,9 +10325,11 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     if (rvrResult !== null) {
       const rvrStatus = classifyRvr(rvrResult.ft);
       if (rvrStatus !== 'open') {
-        const level  = rvrStatus === 'red' ? 'red' : 'yellow';
-        const cls    = level === 'red' ? 'r' : 'y';
-        const pfx    = rvrStatus === 'operational' ? '⚠ Operational' : '🔴 Red';
+        const level = (rvrStatus === 'operational') ? 'yellow' : 'red';
+        const cls   = level === 'red' ? 'r' : 'y';
+        const pfx   = rvrStatus === 'operational' ? '⚠ OPERATIONAL'
+                    : rvrStatus === 'instruments'  ? '🔴 INSTRUMENTS'
+                    :                               '🔴';
         _pushWx({ level, text: `${pfx} — RVR <span class="wx-val ${cls}">${rvrResult.label}</span>` });
         worst = bump(worst, level);
       }
@@ -11486,7 +11481,7 @@ function loadPdfJs() {
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each airport card shows the role (ORIG, DEST, DEST ALT, EN ROUTE ALT, TKOF ALT, CFS ALT), ETA, and a colour-coded status badge from combined weather and NOTAM evaluation.</p>
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Eval Window</strong>: ±1 hour of ETA for all airports. CFS alternates use the OFP-published WX WINDOW. Origin uses OUT time.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather</strong>: Prevailing ceiling/visibility evaluated against Open / Operational / Red thresholds. TEMPO, PROB40, RVR, windshear, and freezing precipitation are evaluated separately.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather</strong>: Prevailing ceiling/visibility evaluated against Open / Operational / Instruments / LIFR thresholds. TEMPO, PROB40, RVR, windshear, and freezing precipitation are evaluated separately.</p>
 
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAMs — Runway tree</strong>: All runways appear in numerical order (04, 09, 10, 22, 27…). Each runway is a collapsible top-level entry. Within a runway, NOTAMs are organised into four priority tiers:</p>
           <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-red)">●</span> <strong>Closed</strong> — runway or airport closure</p>
