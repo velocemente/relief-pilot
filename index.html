@@ -9481,9 +9481,10 @@ function buildAptStatusLines() {
     const icaoSpan = `<span style="font-weight:600;min-width:38px;display:inline-block">${apt.icao}</span>`;
     const dot      = `<span class="apt-dot ${dotCls}" style="flex-shrink:0;margin-top:3px"></span>`;
 
+    const ewinsTag = status.isEwins ? `<span style="color:var(--label3);margin:0 3px">·</span><span style="color:var(--sys-yellow);font-weight:600;font-size:13px">EWINS AUTH</span>` : '';
     const label = badges.length
-      ? `${dot}${icaoSpan}<span style="color:var(--label3);margin:0 3px">·</span>${badges.join('<span style="color:var(--label4);margin:0 2px">/</span>')}`
-      : `${dot}${icaoSpan}`;
+      ? `${dot}${icaoSpan}<span style="color:var(--label3);margin:0 3px">·</span>${badges.join('<span style="color:var(--label4);margin:0 2px">/</span>')}${ewinsTag}`
+      : `${dot}${icaoSpan}${ewinsTag}`;
 
     lines.push(label);
   });
@@ -10083,6 +10084,7 @@ function buildAirportCards() {
           ${etaDisplay ? `<div class="apt-eta-tag">${etaDisplay}</div>` : ''}
           ${wxWindowStr ? `<div class="apt-wx-window">${wxWindowStr}</div>` : ''}
         </div>
+        ${status.isEwins ? `<div class="apt-badge" style="background:rgba(0,122,255,0.12);color:var(--tint);margin-right:4px">EWINS</div>` : ''}
         <div class="apt-badge ${sc}">${sl}</div>
         <svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true" style="transform:rotate(90deg)"><path d="M1 1l6.5 6L1 13"/></svg>
       </div>
