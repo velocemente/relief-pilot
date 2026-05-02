@@ -7061,10 +7061,16 @@ function _ofpRulesetParse(rawText) {
     //   "FO 459072 * SEN T .."           — SEN in name-field position
     //   "CA 1234567 JONES A.."           — no space before dots (PDF whitespace collapse)
     //   "CA 12 SMITH B .."               — short emp# (2-digit contract format)
-    const re = /^\*?\s*(?:SEN\s+)?(CA|FO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\-]*)\s+([A-Z])\s*\.{1,3}/mg;
+    //   "FO 456575 PANCHANGAM GURUPRASA K .." — compound last name (v1.2.0)
+    //   "FO 453979 * WAYBRIGHT JR D .."  — generational suffix token (v1.2.0)
+    //   "FO 456752 STROTHER II T .."     — generational suffix token (v1.2.0)
+    //   Roles: CA FO FO1 FO2 SO AO RO DH JS  (v1.2.0 — ETOPS augmented designations)
+    //   Lazy *? in name group forces backtracking so single-letter initial
+    //   lands in group [4], not consumed into group [3].
+    const re = /^\*?\s*(?:SEN\s+)?(CA|FO1?|FO2|SO|AO|RO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\-]*(?:\s+[A-Z][A-Z'\-]*)*?)\s+([A-Z])\s*\.{1,3}/mg;
     let m;
     while ((m = re.exec(block)) !== null) {
-      const rawName = m[3];
+      const rawName = m[3].replace(/\s+$/, '');
       if (rawName.includes('VERIFY')) continue;
       const isSen = /^\*/.test(m[0].trimStart()) || /SEN\s/i.test(m[0]);
       const displayName = isSen
@@ -8652,7 +8658,7 @@ function renderEnroutePhase() {
   return h;
 }
 // ═══════════════════════════════════════════════════════════════════
-// INFLIGHT REST MODULE  v1.1.0  (14 CFR 121.467 — Augmented Crews)
+// INFLIGHT REST MODULE  v1.2.0  (14 CFR 121.467 — Augmented Crews)
 // ═══════════════════════════════════════════════════════════════════
 
 function calcInflightRest() {
@@ -8807,6 +8813,34 @@ function renderInflightRestModule() {
           Operating Crew</div>`;
   if (!opCrew.length) {
     h += `<div style="font-size:15px;color:var(--label3);margin-bottom:var(--sp2)">No crew parsed — add manually below.</div>`;
+    // v1.2.0: bulk picker fallback — only when < 2 crew entries exist
+    if ((S.crewMembers || []).length < 2) {
+      if (_crewBulkPickerOpen) {
+        h += `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;margin-bottom:var(--sp2)">`;
+        h += `<span style="font-size:13px;color:var(--label3)">Augmented crew size:</span>`;
+        [[2,'2-Pilot'],[3,'3-Pilot'],[4,'4-Pilot']].forEach(function(pair) {
+          h += `<button onclick="addBulkCrew(${pair[0]})"
+                  style="background:var(--fill3);border:0.5px solid var(--sep-opaque);
+                    border-radius:20px;padding:4px 14px;font-size:13px;
+                    font-family:var(--font);color:var(--label2);cursor:pointer;
+                    min-height:32px;font-weight:600">${pair[1]}</button>`;
+        });
+        h += `<button onclick="closeCrewBulkPicker()"
+                style="background:none;border:none;color:var(--label3);
+                  font-size:13px;cursor:pointer;padding:2px 6px">Cancel</button>`;
+        h += `</div>`;
+      } else {
+        h += `<button onclick="openCrewBulkPicker()"
+                style="display:flex;align-items:center;gap:5px;background:var(--tint);
+                  border:none;border-radius:var(--r-sm);padding:6px 16px;
+                  font-size:13px;font-family:var(--font);color:#fff;
+                  cursor:pointer;min-height:32px;margin-bottom:var(--sp2);
+                  font-weight:600">
+                <span style="font-size:16px;line-height:1">+</span>
+                <span>Add Crew Rest</span>
+              </button>`;
+      }
+    }
   } else {
     h += `<div style="display:flex;flex-wrap:wrap;gap:var(--sp2);margin-bottom:var(--sp2)">`;
     opCrew.forEach((c, opIdx) => {
@@ -9070,6 +9104,37 @@ function copyInflightRestLog() {
   navigator.clipboard.writeText(lines.join('\n'))
     .then(() => showToast('✓ Rest schedule copied', 'ok'))
     .catch(() => showToast('Copy failed', 'err'));
+}
+
+// ── v1.2.0: Bulk crew picker handlers ──────────────────────────────
+// Fallback when parseCrew() yields 0 results — allows crew to manually
+// populate a full complement so rest calculations can proceed.
+var _crewBulkPickerOpen = false;
+function openCrewBulkPicker()  { _crewBulkPickerOpen = true;  renderNote(); }
+function closeCrewBulkPicker() { _crewBulkPickerOpen = false; renderNote(); }
+function addBulkCrew(count) {
+  _crewBulkPickerOpen = false;
+  if (!S.crewMembers) S.crewMembers = [];
+  var templates = {
+    2: [['CA','Captain'],['FO','First Officer']],
+    3: [['CA','Captain'],['FO','First Officer'],['AO','Relief Officer']],
+    4: [['CA','Captain'],['FO','First Officer'],['AO','Relief Officer'],['AO','Relief Officer']]
+  };
+  var crew = templates[count] || templates[3];
+  crew.forEach(function(pair) {
+    S.crewMembers.push({
+      role:        pair[0],
+      empNum:      '',
+      lastName:    pair[1],
+      initial:     '',
+      displayName: pair[1],
+      active:      true,
+      manual:      true,
+    });
+  });
+  S.crewVerified = false;
+  saveFlight();
+  renderNote();
 }
 
 // ── DESCENT PHASE ─────────────────────────────────────────────────────────
