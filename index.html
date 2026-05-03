@@ -8307,11 +8307,21 @@ function renderEnroutePhase() {
     // POR cluster (redispatch only)
     if (S.porOffsetMins != null) {
       const prePorWpt = wptPrePor(S.porOffsetMins);
-      events.push({
-        type:'prePor',
-        elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
-        wpt: prePorWpt ? prePorWpt.wpt : null,
-      });
+      const hasCoRptBeforePor = (() => {
+        for (let i = 1; i <= 15; i++) {
+          const t = i * 240;
+          if (t >= S.porOffsetMins - 180 && t < S.porOffsetMins) return true;
+          if (t >= S.porOffsetMins) break;
+        }
+        return false;
+      })();
+      if (!hasCoRptBeforePor) {
+        events.push({
+          type:'prePor',
+          elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
+          wpt: prePorWpt ? prePorWpt.wpt : null,
+        });
+      }
       events.push({ type:'rda', elapsed: S.porOffsetMins - 120 });
       events.push({ type:'por', elapsed: S.porOffsetMins, wpt: S.porWpt || null });
     }
@@ -8319,15 +8329,28 @@ function renderEnroutePhase() {
     // CO RPTs — 4-hr intervals, waypoint-anchored
     for (let i = 1; i <= 15; i++) {
       const targetElapsed = i * 240;
-      if (eteDest && targetElapsed > eteDest + 60) break;
-      // Suppress if within 90 min of POR cluster
+      if (eteDest && (eteDest < 240 || targetElapsed > eteDest - 240)) break;
+      // Suppress if within RDA window (120 min before POR) or after POR
       if (S.porOffsetMins != null) {
-        const d = targetElapsed - S.porOffsetMins;
-        if (d >= -90 && d <= 90) continue;
+        if (targetElapsed >= S.porOffsetMins - 120) {
+          // Switch to post-POR rolling clock
+          break;
+        }
       }
       const wpt = wptNearest(targetElapsed, 45);
       events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
                     targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
+    }
+
+    // Post-POR CO RPTs — rolling clock resets from POR
+    if (S.porOffsetMins != null && eteDest && eteDest >= 240) {
+      for (let i = 1; i <= 10; i++) {
+        const targetElapsed = S.porOffsetMins + (i * 240);
+        if (eteDest && targetElapsed > eteDest - 240) break;
+        const wpt = wptNearest(targetElapsed, 45);
+        events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                      targetElapsed, rptHours: null, wpt: wpt ? wpt.wpt : null });
+      }
     }
 
     // ETP waypoints (from CFS section)
@@ -8348,7 +8371,7 @@ function renderEnroutePhase() {
     if (evt.type === 'coRpt') {
       h += `<div style="display:flex;flex-direction:column;min-width:96px;flex-shrink:0;gap:1px">`;
       h += `<span class="enroute-label">CO RPT</span>`;
-      h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono)">${evt.rptHours} HR</span>`;
+      if (evt.rptHours) h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono)">${evt.rptHours} HR</span>`;
       h += `</div>`;
       h += `<div style="display:flex;flex-direction:column;gap:2px">`;
       if (evt.wpt) {
@@ -8378,7 +8401,7 @@ function renderEnroutePhase() {
       h += `</div>`;
 
     } else if (evt.type === 'rda') {
-      h += `<span class="enroute-label" style="color:var(--sys-yellow)">RDA</span>`;
+      h += `<span class="enroute-label" style="color:var(--sys-yellow)">RDA Window</span>`;
       h += `<div style="display:flex;flex-direction:column;gap:2px">`;
       h += `<span class="enroute-value" style="color:var(--sys-yellow)">${etaStr}</span>`;
       h += `<span style="font-size:11px;color:var(--label3)">2 hr prior to POR</span>`;
