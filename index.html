@@ -6400,6 +6400,8 @@ const S = {
   porOffsetMins:null, // OFP elapsed minutes ORIG→POR (HH.MM converted)
   porMinf:'',         // Minimum fuel required at POR (col2 of MINF line on RDA OFPs)
   etopsEntryMins:null,// OFP elapsed minutes to ETOPS entry  (HH.MM converted)
+  etopsExit:'',       // elapsed time to ETOPS airspace exit, e.g. "11:44" — from OFP header
+  etopsExitMins:null, // OFP elapsed minutes to ETOPS exit (HH:MM converted to integer)
 
   // ── Preflight / Departure ATIS + Parking (independent of Descent) ──
   preAtisLetter:'',   // Departure ATIS identifier letter, e.g. "K"
@@ -6450,7 +6452,7 @@ function resetStateForNewFlight() {
     userNotes:'', fcirNarrative:'', fcirAsap:false,
     etopsEntry:'', etopsSpec:'', etpPoints:[],
     activePhase:'preflight',
-    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null,
+    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null, etopsExit:'', etopsExitMins:null,
     preAtisLetter:'', preAtisNotes:'', preParkingNotes:'',
     descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
     enrouteScratch:'',
@@ -6963,6 +6965,7 @@ const PATTERNS = {
 
   // ETOPS
   ETOPS_ENTRY: /ETOPS\s+Entry\s+(\d{1,2}:\d{2})/i,
+  ETOPS_EXIT:  /ETOPS\s+Exit\s+(\d{1,2}:\d{2})/i,
   ETOPS_SPEC:  /Critical Fuel Scenario\s+ETOPS\s+(\d{2,3}\/\d{2,3})/i,
 
   // Point of Redispatch
@@ -7364,6 +7367,14 @@ function _ofpRulesetParse(rawText) {
     if (!etopsEntry) return null;
     const [hh, mm] = etopsEntry.split(':').map(Number);
     return hh * 60 + mm;
+  })();
+
+  // ── ETOPS Exit ──────────────────────────────────────────────────────
+  const { etopsExit, etopsExitMins } = (() => {
+    const m = t.match(PATTERNS.ETOPS_EXIT);
+    if (!m) return { etopsExit: '', etopsExitMins: null };
+    const [hh, mm] = m[1].split(':').map(Number);
+    return { etopsExit: m[1], etopsExitMins: hh * 60 + mm };
   })();
 
   // ── POR ────────────────────────────────────────────────────────────
@@ -8015,6 +8026,8 @@ function _ofpRulesetParse(rawText) {
     etopsEntry,
     etopsSpec,
     etopsEntryMins,
+    etopsExit,
+    etopsExitMins,
     porWpt,
     porOffsetMins,
     porMinf:       porMinfRaw,
@@ -8152,6 +8165,8 @@ function parseOFP() {
     etopsSpec:   result.etopsSpec,
     etpPoints:   result.etpPoints,
     etopsEntryMins: result.etopsEntryMins,
+    etopsExit:      result.etopsExit,
+    etopsExitMins:  result.etopsExitMins,
     porWpt:      result.porWpt,
     porOffsetMins: result.porOffsetMins,
     porMinf:     result.porMinf,
@@ -8554,37 +8569,38 @@ function renderEnroutePhase() {
     }
 
     // POR cluster (redispatch only)
+    //
+    // R-4 FIX: prePor is always emitted when porOffsetMins is populated.
+    // The hasCoRptBeforePor gate is removed. The PRE-POR CO RPT is an
+    // independent operational obligation — not interchangeable with a
+    // regular white CO RPT event.
+    //
     if (S.porOffsetMins != null) {
       const prePorWpt = wptPrePor(S.porOffsetMins);
-      const hasCoRptBeforePor = (() => {
-        for (let i = 1; i <= 15; i++) {
-          const t = i * 240;
-          if (t >= S.porOffsetMins - 180 && t < S.porOffsetMins) return true;
-          if (t >= S.porOffsetMins) break;
-        }
-        return false;
-      })();
-      if (!hasCoRptBeforePor) {
-        events.push({
-          type:'prePor',
-          elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
-          wpt: prePorWpt ? prePorWpt.wpt : null,
-        });
-      }
+      events.push({
+        type:'prePor',
+        elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
+        wpt: prePorWpt ? prePorWpt.wpt : null,
+      });
       events.push({ type:'rda', elapsed: S.porOffsetMins - 120 });
       events.push({ type:'por', elapsed: S.porOffsetMins, wpt: S.porWpt || null });
     }
 
     // CO RPTs — 4-hr intervals, waypoint-anchored
+    //
+    // R-3 FIX: Suppression mechanism restored to symmetric ±90-min continue.
+    // Previous code used a hard break at POR−120, silently losing CO RPTs
+    // in [POR−120, POR−90]. Corrected mechanism:
+    //   if (|d| <= 90) continue  → skip interval, loop continues
+    //   if (d > 90)    break     → cleanly hand off to post-POR loop
+    //
     for (let i = 1; i <= 15; i++) {
       const targetElapsed = i * 240;
       if (eteDest && (eteDest < 240 || targetElapsed > eteDest - 240)) break;
-      // Suppress if within RDA window (120 min before POR) or after POR
       if (S.porOffsetMins != null) {
-        if (targetElapsed >= S.porOffsetMins - 120) {
-          // Switch to post-POR rolling clock
-          break;
-        }
+        const d = targetElapsed - S.porOffsetMins;
+        if (d >= -90 && d <= 90) continue;   // within POR suppression window — skip
+        if (d > 90)              break;       // past window — hand off to post-POR loop
       }
       const wpt = wptNearest(targetElapsed, 45);
       events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
@@ -8600,6 +8616,12 @@ function renderEnroutePhase() {
         events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
                       targetElapsed, rptHours: null, wpt: wpt ? wpt.wpt : null });
       }
+    }
+
+    // G-1: E.EXIT — ETOPS airspace exit
+    // Informational milestone only. Does not affect CO RPT schedule.
+    if (S.etopsExitMins != null) {
+      events.push({ type:'etopsExit', elapsed: S.etopsExitMins });
     }
 
     // ETP waypoints (from CFS section)
@@ -8676,6 +8698,13 @@ function renderEnroutePhase() {
       h += `<div style="display:flex;flex-direction:column;gap:2px">`;
       h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
       if (S.etopsSpec) h += `<span style="font-size:11px;color:var(--label3)">ETOPS ${esc(S.etopsSpec)}</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'etopsExit') {
+      h += `<span class="enroute-label" style="color:var(--tint)">E.EXIT</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
+      h += `<span style="font-size:11px;color:var(--label3)">ETOPS airspace exit</span>`;
       h += `</div>`;
 
     } else if (evt.type === 'etp') {
