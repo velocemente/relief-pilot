@@ -9400,7 +9400,7 @@ function renderDescentPhase() {
       h += `<div class="ddg-item-row">`;
       if (item.code) {
         h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
-        h += `<button class="etp-copy-btn" onclick="navigator.clipboard.writeText('${item.code.replace(/'/g, "\\'")}').catch(()=>{})" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+        h += `<button class="etp-copy-btn" onclick="navigator.clipboard.writeText('${item.code.replace(/'/g, "\\'")}').then(()=>showToast('✓ Copied','ok')).catch(()=>{})" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
       }
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
@@ -9605,7 +9605,7 @@ function renderNotesSection() {
       h += `<div class="ddg-item-row">`;
       if (item.code) {
         h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
-        h += `<button class="etp-copy-btn" onclick="navigator.clipboard.writeText('${item.code.replace(/'/g, "\\'")}').catch(()=>{})" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+        h += `<button class="etp-copy-btn" onclick="navigator.clipboard.writeText('${item.code.replace(/'/g, "\\'")}').then(()=>showToast('✓ Copied','ok')).catch(()=>{})" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
       }
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
@@ -10612,6 +10612,7 @@ function copyAltRoute(idx, btn) {
   const txt = ta ? ta.value : ((S.altRoutes[idx] || {}).route || '');
   if (!txt.trim()) { showToast('info', 'Route is empty'); return; }
   navigator.clipboard.writeText(txt).then(() => {
+    showToast('✓ Copied', 'ok');
     const orig = btn.innerHTML;
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg>`;
     btn.style.color = 'var(--sys-green)';
@@ -10622,6 +10623,7 @@ function copyAltRoute(idx, btn) {
 function copyEtpCoord(pt, btn) {
   const txt = pt.lat + ' ' + pt.lon;
   navigator.clipboard.writeText(txt).then(() => {
+    showToast('✓ Copied', 'ok');
     const orig = btn.innerHTML;
     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg>';
     btn.style.color = 'var(--sys-green)';
@@ -11289,12 +11291,13 @@ function copyNote() {
   const body = document.getElementById('noteBody');
   const txt = body.innerText||body.textContent;
   navigator.clipboard.writeText(txt).then(() => {
+    showToast('✓ Copied', 'ok');
     const btn = document.querySelector('.icon-btn[onclick="copyNote()"]');
     const orig = btn.innerHTML;
     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg>';
     btn.style.color = 'var(--sys-green)';
     setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1600);
-  });
+  }).catch(() => showToast('err', 'Copy failed — select text manually'));
 }
 
 // ═══════════════════════════════════════════════════════════════════
