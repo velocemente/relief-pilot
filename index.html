@@ -789,8 +789,10 @@ body {
 /* Slide Over → full-landscape: extra top clearance so < Flights stays clear
    of iPad multitasking controls during the window expansion transition */
 #flightNavBar {
-  padding-top: max(calc(var(--sat) + 8px), 14px);
-  min-height: max(calc(var(--sat) + 52px), 60px);
+  padding-top: max(calc(var(--sat) + 2px), 6px);
+  padding-bottom: var(--sp2);
+  min-height: max(calc(var(--sat) + 28px), 36px);
+  align-items: center;
 }
 /* Slide Over / narrow window: two-row flight nav bar
    Row 1 — brand icon centred (full width)
@@ -799,7 +801,7 @@ body {
   #flightNavBar {
     flex-wrap: wrap;
     align-content: flex-start;
-    min-height: max(calc(var(--sat) + 96px), 104px);
+    min-height: max(calc(var(--sat) + 54px), 64px);
     padding-left:  max(calc(var(--sal) + var(--sp3)), 12px);
     padding-right: max(calc(var(--sar) + var(--sp3)), 12px);
     padding-bottom: 0;
@@ -813,7 +815,7 @@ body {
     order: -1;
     justify-content: center;
     align-items: center;
-    min-height: 44px;
+    min-height: 30px;
     padding-bottom: 0;
     padding-top: max(calc(var(--sat) + 2px), 6px);
   }
@@ -823,7 +825,7 @@ body {
     order: 1;
     align-self: center;
     padding-bottom: 0;
-    min-height: 44px;
+    min-height: 30px;
     font-size: 15px;
   }
 
@@ -831,7 +833,7 @@ body {
   #flightNavRight {
     order: 1;
     margin-left: auto;
-    min-height: 44px;
+    min-height: 30px;
     align-items: center;
   }
 
@@ -1030,12 +1032,29 @@ body {
   margin-bottom: var(--sp5);
 }
 .flt-header-left { display: flex; flex-direction: column; }
+/* ── Flight ID row: ID + share button on same line ── */
+.flt-id-row {
+  display: flex; align-items: center; gap: var(--sp2);
+}
 /* ── Right column: callsign stacked above ETOPS ── */
 .flt-header-right {
   display: flex; flex-direction: column; align-items: flex-end;
   margin-left: auto; flex-shrink: 0; gap: 2px;
 }
-/* ── Callsign note (ACMI / native Atlas ops) — child of flt-header-right ── */
+/* ── Callsign hero — large centered display above flight ID row ── */
+.flt-callsign-hero {
+  font-family: var(--font-display);
+  font-size: var(--type-h1);
+  font-weight: 700;
+  color: var(--label);
+  text-align: center;
+  display: block;
+  width: 100%;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  padding-bottom: var(--sp2);
+}
+/* ── Callsign note (ACMI / native Atlas ops) — legacy/compact fallback ── */
 .flt-callsign-note {
   font-family: var(--font-display); font-size: var(--type-h2); font-weight: 700;
   color: var(--label2); text-align: right;
@@ -8296,47 +8315,23 @@ function renderNote() {
   const inZd  = fmt(S.etaDest);                // "IN" (was ETA)
 
   // ── Sticky header: flight identity + OUT/IN always visible ──
-  const isCompact = window.innerWidth <= 400;
   let sh = '';
-  sh += `<div class="flt-header-row">`;
-  if (isCompact) {
-    // Compact layout (≤400px Slide Over / Split View):
-    // Row 1 — Callsign full width
-    if (S.verbalCallsign && S.fltNum) {
-      sh += `<div class="flt-header-right">`;
-      const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
-      const _num   = _numM ? _numM[1] : '';
-      const _heavy = S.isHeavy ? ' Heavy' : '';
-      sh += `<div class="flt-callsign-note">`;
-      sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
-      sh += `</div>`;
-      sh += `</div>`;
-    }
-    // Row 2+3 — Flight ID and operating date
-    sh += `<div class="flt-header-left">`;
-    sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
-    sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
-    sh += `</div>`;
-  } else {
-    // Standard layout (>400px): Flight ID + date left, callsign right
-    sh += `<div class="flt-header-left">`;
-    sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
-    sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
-    sh += `</div>`;
-    // Right-column: callsign only when verbalCallsign is known.
-    // ETOPS now renders inline on OUT/IN row.
-    if (S.verbalCallsign && S.fltNum) {
-      sh += `<div class="flt-header-right">`;
-      const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
-      const _num   = _numM ? _numM[1] : '';
-      const _heavy = S.isHeavy ? ' Heavy' : '';
-      sh += `<div class="flt-callsign-note">`;
-      sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
-      sh += `</div>`;
-      sh += `</div>`;
-    }
+  // Callsign hero — large, centred, above flight-ID row
+  if (S.verbalCallsign && S.fltNum) {
+    const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
+    const _num   = _numM ? _numM[1] : '';
+    const _heavy = S.isHeavy ? ' Heavy' : '';
+    sh += `<div class="flt-callsign-hero">${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}</div>`;
   }
-  sh += `<div class="flt-header-actions">${renderShareButton()}</div>`;
+  // Flight ID row: Flight ID left + share button right / Date below
+  sh += `<div class="flt-header-row">`;
+  sh += `<div class="flt-header-left">`;
+  sh += `<div class="flt-id-row">`;
+  sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
+  sh += renderShareButton();
+  sh += `</div>`;
+  sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
+  sh += `</div>`;
   sh += `</div>`;
   sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}`;
   if (S.etopsSpec || S.etopsEntry) {
