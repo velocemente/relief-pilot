@@ -1647,6 +1647,34 @@ body {
   .rest-module-regular { display: none; }
   /* 4-pilot schedule: stack halves above quarters in narrow mode */
   .rest-4pilot-grid { flex-direction: column; }
+
+  /* Compact header: callsign top, Flight ID + date + ETOPS two-column, OUT/IN below */
+  .flt-header-row {
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 6px;
+  }
+  .flt-header-left {
+    width: 100%;
+    order: 2;
+  }
+  .flt-header-right {
+    width: 100%;
+    order: 1;
+    align-items: flex-start;
+    margin-left: 0;
+  }
+  .flt-callsign-note {
+    font-size: calc(var(--type-h2) * 0.5);
+    font-weight: 700;
+    text-align: left;
+    width: 100%;
+    display: block;
+  }
+  .flt-id {
+    font-size: calc(var(--type-h2) * 0.5);
+    letter-spacing: 0;
+  }
 }
 /* Regular: show rest as its own subcard, hide inner copy */
 @media (min-width: 401px) {
@@ -8268,23 +8296,45 @@ function renderNote() {
   const inZd  = fmt(S.etaDest);                // "IN" (was ETA)
 
   // ── Sticky header: flight identity + OUT/IN always visible ──
+  const isCompact = window.innerWidth <= 400;
   let sh = '';
   sh += `<div class="flt-header-row">`;
-  sh += `<div class="flt-header-left">`;
-  sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
-  sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
-  sh += `</div>`;
-  // Right-column: callsign only when verbalCallsign is known.
-  // ETOPS now renders inline on OUT/IN row.
-  if (S.verbalCallsign && S.fltNum) {
-    sh += `<div class="flt-header-right">`;
-    const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
-    const _num   = _numM ? _numM[1] : '';
-    const _heavy = S.isHeavy ? ' Heavy' : '';
-    sh += `<div class="flt-callsign-note">`;
-    sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
+  if (isCompact) {
+    // Compact layout (≤400px Slide Over / Split View):
+    // Row 1 — Callsign full width
+    if (S.verbalCallsign && S.fltNum) {
+      sh += `<div class="flt-header-right">`;
+      const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
+      const _num   = _numM ? _numM[1] : '';
+      const _heavy = S.isHeavy ? ' Heavy' : '';
+      sh += `<div class="flt-callsign-note">`;
+      sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
+      sh += `</div>`;
+      sh += `</div>`;
+    }
+    // Row 2+3 — Flight ID and operating date
+    sh += `<div class="flt-header-left">`;
+    sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
+    sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
     sh += `</div>`;
+  } else {
+    // Standard layout (>400px): Flight ID + date left, callsign right
+    sh += `<div class="flt-header-left">`;
+    sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
+    sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
     sh += `</div>`;
+    // Right-column: callsign only when verbalCallsign is known.
+    // ETOPS now renders inline on OUT/IN row.
+    if (S.verbalCallsign && S.fltNum) {
+      sh += `<div class="flt-header-right">`;
+      const _numM  = S.fltNum.match(/^[A-Z]{2,4}(\d+)/i);
+      const _num   = _numM ? _numM[1] : '';
+      const _heavy = S.isHeavy ? ' Heavy' : '';
+      sh += `<div class="flt-callsign-note">`;
+      sh += `${esc(S.verbalCallsign)} ${esc(_num)}${esc(_heavy)}`;
+      sh += `</div>`;
+      sh += `</div>`;
+    }
   }
   sh += `<div class="flt-header-actions">${renderShareButton()}</div>`;
   sh += `</div>`;
