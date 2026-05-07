@@ -8588,19 +8588,20 @@ function renderEnroutePhase() {
 
     // CO RPTs — 4-hr intervals, waypoint-anchored
     //
-    // R-3 FIX: Suppression mechanism restored to symmetric ±90-min continue.
-    // Previous code used a hard break at POR−120, silently losing CO RPTs
-    // in [POR−120, POR−90]. Corrected mechanism:
-    //   if (|d| <= 90) continue  → skip interval, loop continues
-    //   if (d > 90)    break     → cleanly hand off to post-POR loop
+    // R-3 FIX v1.1 (PB-ENR-001): Suppression window extended to [POR−180, POR+90].
+    // v1.0 ±90 lower bound allowed CO RPTs in [POR−180, POR−90) to pass suppression
+    // and render between PRE-POR and POR (GTI8092 KORD–EDDF 06MAY26, LAX–NRT corpus).
+    // Lower bound corrected to −180 to match the PRE-POR cluster onset (R-4).
+    //   if (d >= -180 && d <= 90) continue  → skip full PRE-POR cluster window
+    //   if (d > 90)               break     → hand off to post-POR loop
     //
     for (let i = 1; i <= 15; i++) {
       const targetElapsed = i * 240;
       if (eteDest && (eteDest < 240 || targetElapsed > eteDest - 240)) break;
       if (S.porOffsetMins != null) {
         const d = targetElapsed - S.porOffsetMins;
-        if (d >= -90 && d <= 90) continue;   // within POR suppression window — skip
-        if (d > 90)              break;       // past window — hand off to post-POR loop
+        if (d >= -180 && d <= 90) continue;  // within PRE-POR cluster window — skip
+        if (d > 90)               break;     // past window — hand off to post-POR loop
       }
       const wpt = wptNearest(targetElapsed, 45);
       events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
@@ -11707,7 +11708,7 @@ function loadPdfJs() {
     <div class="cell-group" style="margin: 0 var(--sp4)">
       <div class="cell" style="cursor:default">
         <div class="cell-content">
-          <div style="font-size:17px;color:var(--label)" id="settingsVersionBadge">PilotBrief v1.9.8</div>
+          <div style="font-size:17px;color:var(--label)" id="settingsVersionBadge">PilotBrief v1.9.9</div>
         </div>
       </div>
     </div>
