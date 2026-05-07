@@ -891,7 +891,7 @@ body {
 .briefing-sticky-header {
   flex-shrink: 0;
   background: var(--sys-grouped);
-  padding: var(--sp5) calc(var(--sar)+var(--sp5)) 0 calc(var(--sal)+var(--sp5));
+  padding: var(--sp3) calc(var(--sar)+var(--sp5)) 0 calc(var(--sal)+var(--sp5));
   border-bottom: 0.5px solid var(--sep);
 }
 .briefing-scroll {
@@ -905,7 +905,7 @@ body {
 /* ── Phase tab pills ── */
 .phase-tabs {
   display: flex; gap: 6px;
-  padding: 0 0 var(--sp3);
+  padding: var(--sp2) 0 var(--sp2);
 }
 .phase-tab {
   flex: 1; height: 32px;
@@ -1029,7 +1029,7 @@ body {
 /* ── Flight header row (ID+date left, right-column right) ── */
 .flt-header-row {
   display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: var(--sp5);
+  margin-bottom: var(--sp2);
 }
 .flt-header-left { display: flex; flex-direction: column; }
 /* ── Flight ID row: ID + share button on same line ── */
@@ -1044,7 +1044,7 @@ body {
 /* ── Callsign hero — large centered display above flight ID row ── */
 .flt-callsign-hero {
   font-family: var(--font-display);
-  font-size: var(--type-h1);
+  font-size: calc(var(--type-h1) * 0.9);
   font-weight: 700;
   color: var(--label);
   text-align: center;
@@ -1052,7 +1052,7 @@ body {
   width: 100%;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  padding-bottom: var(--sp2);
+  padding-bottom: var(--sp3);
 }
 /* ── Callsign note (ACMI / native Atlas ops) — legacy/compact fallback ── */
 .flt-callsign-note {
@@ -1071,7 +1071,7 @@ body {
 .time-row {
   display: flex; align-items: center; gap: 8px; justify-content: flex-start;
   font-family: var(--font-mono); font-size: 15px;
-  line-height: 2; color: var(--label);
+  line-height: 1.35; color: var(--label);
   margin-bottom: var(--sp1);
 }
 .etops-inline {
