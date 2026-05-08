@@ -891,7 +891,7 @@ body {
 .briefing-sticky-header {
   flex-shrink: 0;
   background: var(--sys-grouped);
-  padding: var(--sp3) calc(var(--sar)+var(--sp5)) 0 calc(var(--sal)+var(--sp5));
+  padding: var(--sp1) calc(var(--sar)+var(--sp5)) 0 calc(var(--sal)+var(--sp5));
   border-bottom: 0.5px solid var(--sep);
 }
 .briefing-scroll {
@@ -905,7 +905,7 @@ body {
 /* ── Phase tab pills ── */
 .phase-tabs {
   display: flex; gap: 6px;
-  padding: var(--sp2) 0 var(--sp2);
+  padding: var(--sp1) 0 var(--sp2);
 }
 .phase-tab {
   flex: 1; height: 32px;
@@ -1004,14 +1004,29 @@ body {
 /* ── Flight header block ── */
 .flt-id {
   font-family: var(--font-display);
-  font-size: var(--type-h2); font-weight: 700; letter-spacing: -0.02em;
+  font-size: calc(15px * 1.05); font-weight: 700; letter-spacing: -0.02em;
   color: var(--label); line-height: 1.15; display: block;
 }
 .flt-date {
   font-family: var(--font);
   font-size: 15px; font-weight: 400;
   color: var(--label2); display: block;
-  margin-top: 2px;
+}
+/* ── Date row wrapper: date left + ETOPS stack right ── */
+.flt-date-row {
+  display: flex; align-items: flex-start; gap: var(--sp3);
+  margin-top: 1px;
+}
+/* ── ETOPS spec + entry stacked, right-justified on date row ── */
+.etops-date-stack {
+  display: flex; flex-direction: column; align-items: flex-end;
+  margin-left: auto; gap: 1px; flex-shrink: 0;
+}
+/* ── ETOPS spec (ID row) / entry (date row) header inline labels ── */
+.etops-hdr-inline {
+  font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
+  color: var(--tint); letter-spacing: 0.04em;
+  margin-left: auto;
 }
 /* ── Editable inline value ── */
 .ev {
@@ -1029,7 +1044,7 @@ body {
 /* ── Flight header row (ID+date left, right-column right) ── */
 .flt-header-row {
   display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: var(--sp2);
+  margin-bottom: var(--sp1);
 }
 .flt-header-left { display: flex; flex-direction: column; }
 /* ── Flight ID row: ID + share button on same line ── */
@@ -1052,7 +1067,7 @@ body {
   width: 100%;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  padding-bottom: var(--sp3);
+  padding-bottom: var(--sp1);
 }
 /* ── Callsign note (ACMI / native Atlas ops) — legacy/compact fallback ── */
 .flt-callsign-note {
@@ -1070,10 +1085,12 @@ body {
 /* ── Time row ── */
 .time-row {
   display: flex; align-items: center; gap: 8px; justify-content: flex-start;
-  font-family: var(--font-mono); font-size: 15px;
-  line-height: 1.35; color: var(--label);
-  margin-bottom: var(--sp1);
+  font-family: var(--font); font-size: 15px; font-weight: 700;
+  line-height: 1.2; color: var(--label);
+  margin-bottom: 2px;
 }
+.time-row .pb-share-btn { margin-left: auto; }
+.time-row .ev { font-weight: 700; }
 .etops-inline {
   font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
   color: var(--tint); letter-spacing: 0.04em;
@@ -8328,22 +8345,19 @@ function renderNote() {
   sh += `<div class="flt-header-left">`;
   sh += `<div class="flt-id-row">`;
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
-  sh += renderShareButton();
   sh += `</div>`;
+  sh += `<div class="flt-date-row">`;
   sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
   sh += `</div>`;
   sh += `</div>`;
-  sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}`;
   if (S.etopsSpec || S.etopsEntry) {
-    sh += `<span class="etops-inline">`;
-    if (S.etopsSpec)  sh += `ETOPS ${esc(S.etopsSpec)}`;
-    if (S.etopsEntry) {
-      if (S.etopsSpec) sh += ` / `;
-      sh += `ETOPS ENTRY ${esc(S.etopsEntry)}`;
-    }
-    sh += `</span>`;
+    sh += `<div class="etops-date-stack">`;
+    if (S.etopsSpec)  sh += `<span class="etops-hdr-inline">${esc('ETOPS ' + S.etopsSpec)}</span>`;
+    if (S.etopsEntry) sh += `<span class="etops-hdr-inline">${esc('ENTRY ' + S.etopsEntry)}</span>`;
+    sh += `</div>`;
   }
   sh += `</div>`;
+  sh += `<div class="time-row">OUT ${ev('outZ', outZd)} / IN ${ev('etaDest', inZd)}${renderShareButton()}</div>`;
   sh += `<div class="phase-tabs">`;
   ['preflight','enroute','descent'].forEach(p => {
     const label = p.charAt(0).toUpperCase() + p.slice(1);
