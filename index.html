@@ -12039,6 +12039,20 @@ function loadPdfJs() {
         // Non-fatal. App continues in online-only mode.
         console.warn('[SW] Registration failed (online-only mode):', err);
       });
+    // ── Controller-change reload ────────────────────────
+    // When a new SW takes control after activation, reload once so the
+    // active SW serves the app shell from cache on the next navigation.
+    // Guard: only reload when a controller was already present — this
+    // distinguishes a SW update from the very first install, preventing
+    // a reload loop on cold-start.
+    navigator.serviceWorker.addEventListener(
+      'controllerchange',
+      function () {
+        // New SW has taken control — reload to use cached shell
+        // Only reload if we were previously controlled (not first install)
+        if (navigator.serviceWorker.controller) window.location.reload();
+      }
+    );
     // ── Update notification listener ───────────────────
     // Receives SW_UPDATED from the service worker activate handler.
     // Shows a non-blocking, crew-dismissible banner. Safe to attach

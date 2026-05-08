@@ -172,7 +172,7 @@ self.addEventListener('fetch', event => {
       if (cached) {
         // Background revalidation — same-origin only.
         // Failure is swallowed: offline devices must not see errors.
-        if (url.origin === self.location.origin) {
+        if (url.origin === self.location.origin && self.navigator && self.navigator.onLine !== false) {
           fetch(event.request)
             .then(response => {
               if (response && response.ok) {
