@@ -1263,7 +1263,7 @@ body {
 .notam-group-label {
   flex: 1; font-size: 13px; font-weight: 600; color: var(--label);
 }
-.notam-group-body { padding: 0 0 var(--sp2) 18px; }
+.notam-group-body { padding: 0 0 var(--sp2) 18px; font-size: 13px; }
 .notam-item { margin: 1px 0; }
 .notam-item-hdr {
   display: flex; align-items: center; gap: var(--sp2);
@@ -3326,440 +3326,9 @@ function lookupAbbreviation(abbr) {
 
 
 // ═══════════════════════════════════════════════════════
-//  NOTAM RULESET  v1.9.0-r3
+//  NOTAM RULESET  v1.10.1
 //  NOTAM evaluation engine — loaded from notam-rules.js
 // ═══════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════
-// § 1 · NOTAM CLASSIFICATION SYSTEM
-//       Source: FAA AIP GEN 3.1 §5
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * NOTAM classification types per FAA AIP GEN 3.1 §5.1.
- */
-const NOTAM_CLASSES = {
-  A: {
-    label:       'International NOTAM',
-    description: 'Full information on airports, facilities, and flight procedures for international civil aviation.',
-    prefix:      'A',
-    serialFormat:'A####/YY ICAO', // e.g. A0001/84 KJFK
-  },
-  B: {
-    label:       'International Airspace NOTAM',
-    description: 'Short-term info on potentially hazardous international/domestic airspace of concern to international flights.',
-    prefix:      'A', // still uses "A" series letter
-    identifier:  'ARTCC/FIR ICAO code',
-  },
-  C: {
-    label:       'Permanent Airspace NOTAM',
-    description: 'Permanent changes to en route airway structure and aeronautical services of a general nature.',
-    prefix:      'A',
-    identifier:  'KFDC',
-  },
-  E: {
-    label:       'Domestic NOTAM',
-    description: 'Information of concern to aircraft other than international civil aviation. Local/national distribution only.',
-    prefix:      'see ENR 1.10',
-  },
-};
-
-/**
- * NOTAM action types per FAA AIP GEN 3.1 §5.2.
- */
-const NOTAM_ACTIONS = {
-  NOTAMN: { label: 'New',       description: 'NOTAM containing new information.' },
-  NOTAMC: { label: 'Cancel',    description: 'NOTAM cancelling a previous NOTAM.' },
-  NOTAMR: { label: 'Replace',   description: 'NOTAM replacing a previous NOTAM.' },
-};
-
-// ═══════════════════════════════════════════════════════════════
-// § 2 · ICAO NOTAM FORMAT (Doc 4444 Appendix 6)
-//       The international NOTAM uses a structured 7-item format
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * ICAO NOTAM items per Doc 4444 / standard international format.
- */
-const NOTAM_ITEMS = {
-  Q:    'Q-line — routing/classification code (Subject/Condition)',
-  A:    'Location indicator(s) — ICAO 4-letter code(s)',
-  B:    'Effective from — DDHHMMz',
-  C:    'Effective to — DDHHMMz or PERM',
-  D:    'Schedule (if not continuous) — day/time of activity',
-  E:    'NOTAM text — plain language description',
-  F:    'Lower limit — altitude or GND/SFC',
-  G:    'Upper limit — altitude or UNL (unlimited)',
-};
-
-/**
- * Q-line structure: Q) FIR/QCODE/TRAFFIC/PURPOSE/SCOPE/LOWER/UPPER/COORDINATES
- * Source: ICAO Doc 4444 Appendix 6
- */
-const QCODE_STRUCTURE = {
-  fields: ['FIR', 'QCODE', 'TRAFFIC', 'PURPOSE', 'SCOPE', 'LOWER', 'UPPER', 'COORDINATES'],
-  trafficCodes: {
-    I:  'IFR',
-    V:  'VFR',
-    IV: 'IFR and VFR (both)',
-    K:  'NOTAM checklist',
-  },
-  purposeCodes: {
-    N:  'NOTAM selected for immediate attention (PIB entry)',
-    B:  'Trigger NOTAM — AIRAC',
-    O:  'Flight operations',
-    M:  'Miscellaneous',
-    K:  'Checklist',
-  },
-  scopeCodes: {
-    A:  'Aerodrome',
-    E:  'En route',
-    W:  'Nav warning area',
-    AE: 'Aerodrome and en route',
-    AW: 'Aerodrome and nav warning',
-    EW: 'En route and nav warning',
-    AEW:'Aerodrome, en route, and nav warning',
-  },
-};
-
-// ═══════════════════════════════════════════════════════════════
-// § 3 · Q-CODE SUBJECT / CONDITION DECODE TABLE
-//       Source: ICAO Doc 4444 App 6 Table A6-1
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * ICAO Q-code subject (2nd & 3rd characters after the Q prefix).
- * Format: QXX where XX = subject + condition.
- * This table covers the most operationally significant codes.
- */
-const QCODE_SUBJECTS = {
-  // Airspace / Airspace Restrictions
-  'AR': 'Airspace — Restricted area',
-  'AC': 'Airspace — Class change',
-  'AD': 'Airspace — Air defense identification zone',
-  'AX': 'Airspace — Change in airspace classification',
-  'CA': 'Airspace — Controlled airspace',
-  // Communication
-  'CP': 'Communications — ATIS',
-  'CT': 'Communications — Terminal information service',
-  'CG': 'Communications — Ground/surface movement control',
-  'CR': 'Communications — Radio',
-  // Lighting
-  'LA': 'Lighting — Approach lights',
-  'LB': 'Lighting — Aerodrome beacon',
-  'LC': 'Lighting — Runway centerline lights',
-  'LE': 'Lighting — Runway edge lights',
-  'LF': 'Lighting — Runway end identifier lights (REIL)',
-  'LH': 'Lighting — High intensity runway lights',
-  'LI': 'Lighting — Runway lights (general)',
-  'LL': 'Lighting — Low intensity runway lights',
-  'LP': 'Lighting — PAPI/VASI',
-  'LT': 'Lighting — Threshold lights',
-  'LV': 'Lighting — Visual approach slope indicator',
-  'LX': 'Lighting — Taxiway centerline lights',
-  // Navigation Aids
-  'NA': 'NAVAID — All radio navaids',
-  'NB': 'NAVAID — NDB/Locator',
-  'ND': 'NAVAID — DME',
-  'NG': 'NAVAID — Glide slope/path',
-  'NI': 'NAVAID — ILS (complete)',
-  'NL': 'NAVAID — Localizer',
-  'NM': 'NAVAID — Marker beacon',
-  'NO': 'NAVAID — VOR',
-  'NT': 'NAVAID — TACAN',
-  'NV': 'NAVAID — VORTAC',
-  // Runway
-  'RA': 'Runway — All',
-  'RB': 'Runway — Braking action',
-  'RC': 'Runway — Closed',
-  'RD': 'Runway — Declared distances changed',
-  'RE': 'Runway — Arresting system',
-  'RF': 'Runway — Friction measurement',
-  'RH': 'Runway — Threshold displaced',
-  'RL': 'Runway — Load bearing capacity',
-  'RM': 'Runway — Markings',
-  'RO': 'Runway — Operations',
-  'RS': 'Runway — Surface',
-  'RT': 'Runway — Temporarily closed',
-  'RU': 'Runway — Usability',
-  // Services
-  'SA': 'Services — ATC',
-  'SC': 'Services — Customs',
-  'SE': 'Services — ATC surveillance',
-  'SF': 'Services — Flying club',
-  'SL': 'Services — Snow/ice plan',
-  'SO': 'Services — ARFF (Aircraft Rescue and Fire Fighting)',
-  'SP': 'Services — Approach control',
-  'SU': 'Services — Unserviceable',
-  // Taxiway
-  'TA': 'Taxiway — All',
-  'TC': 'Taxiway — Closed',
-  'TH': 'Taxiway — Hard surface',
-  'TL': 'Taxiway — Lighting',
-  'TM': 'Taxiway — Markings',
-  'TW': 'Taxiway — Work in progress',
-  // Obstacles
-  'OA': 'Obstacle — New',
-  'OB': 'Obstacle — Unlit',
-  'OC': 'Obstacle — Crane',
-  'OE': 'Obstacle — Building',
-  'OF': 'Obstacle — Objects on RWY or TWY',
-  'OH': 'Obstacle — Height change',
-  'OL': 'Obstacle — Lights',
-  'OW': 'Obstacle — Wind turbine',
-  // Movement area (Apron / Apron lights etc.)
-  'MA': 'Movement area — Apron',
-  'MC': 'Movement area — Checkpoint',
-  'MD': 'Movement area — Declared distances',
-  // Procedures
-  'PA': 'Procedure — Instrument approach',
-  'PB': 'Procedure — Departure',
-  'PC': 'Procedure — CVFR',
-  'PD': 'Procedure — SID',
-  'PE': 'Procedure — STAR',
-  'PF': 'Procedure — Instrument flight',
-  'PH': 'Procedure — Holding',
-  'PO': 'Procedure — Obstacle clearance altitude',
-  'PP': 'Procedure — Non-directional beacon approach',
-  'PR': 'Procedure — Radio',
-  'PU': 'Procedure — Missed approach',
-  'PX': 'Procedure — RNAV/RNP',
-  // Warnings
-  'WA': 'Warning — Air display',
-  'WB': 'Warning — Balloon flight',
-  'WC': 'Warning — Captive balloon/kite',
-  'WD': 'Warning — Demolition of explosives',
-  'WE': 'Warning — Exercises',
-  'WF': 'Warning — Air refueling',
-  'WG': 'Warning — Glider flying',
-  'WJ': 'Warning — Banner/target towing',
-  'WL': 'Warning — Laser lights',
-  'WM': 'Warning — Military exercises',
-  'WP': 'Warning — Parachute jumping/sport',
-  'WR': 'Warning — Restricted area',
-  'WS': 'Warning — Supersonic flight',
-  'WT': 'Warning — Toxic/radioactive',
-  'WU': 'Warning — Unmanned aircraft',
-  'WV': 'Warning — Formation flight',
-  'WW': 'Warning — Significant met',
-  'WX': 'Warning — SIGMET / met hazard',
-  'WZ': 'Warning — Volcanic eruption',
-};
-
-/**
- * Condition suffixes (4th/5th Q-code character).
- * Source: ICAO Doc 4444 App 6 Table A6-1
- */
-const QCODE_CONDITIONS = {
-  A:  'Available / Activated',
-  C:  'Closed',
-  D:  'Danger',
-  I:  'Inoperative / Unserviceable',
-  L:  'Limitation',
-  N:  'New',
-  O:  'Operational',
-  P:  'Prohibited',
-  R:  'Restricted',
-  S:  'Suspended',
-  T:  'Test / Temporary',
-  U:  'Unserviceable',
-  X:  'Cancelled',
-};
-
-/**
- * Decode a Q-code string into human-readable subject + condition.
- * @param {string} qcode - e.g. 'QRTCA' or 'QRC' or 'MNLC'
- * @returns {{ subject: string|null, condition: string|null, description: string }}
- */
-function interpretQCode(qcode) {
-  if (!qcode) return { subject: null, condition: null, description: 'No Q-code provided' };
-
-  // Strip leading Q if present
-  const code = qcode.toUpperCase().replace(/^Q/, '');
-
-  // Subject = first 2 chars, condition = last char(s)
-  const subject   = code.slice(0, 2);
-  const condition = code.slice(2);
-
-  const subjectDesc   = QCODE_SUBJECTS[subject]   || `Unknown subject code: ${subject}`;
-  const conditionDesc = QCODE_CONDITIONS[condition] || (condition ? `Unknown condition: ${condition}` : '');
-
-  return {
-    subject:     subject,
-    condition:   condition || null,
-    description: condition ? `${subjectDesc} — ${conditionDesc}` : subjectDesc,
-    subjectFull: subjectDesc,
-    conditionFull: conditionDesc,
-  };
-}
-
-// ═══════════════════════════════════════════════════════════════
-// § 4 · NOTAM PARSER
-//       Source: ICAO Doc 4444 App 6; FAA AIP GEN 3.1 §5
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Parse a raw NOTAM string (ICAO format) into a structured object.
- *
- * Expected format (single NOTAM):
- *   A1234/26 NOTAMN
- *   Q) KZAB/QRTCA/IV/NBO/W/000/100/3400N11200W005
- *   A) KDFW
- *   B) 2603131400
- *   C) 2603132200
- *   E) RWY 17C/35C CLSD DUE TO CONST WIP
- *   F) SFC G) 2500FT MSL
- *
- * @param {string} raw - Raw NOTAM text
- * @returns {object} Parsed NOTAM
- */
-function parseNotam(raw) {
-  if (!raw || typeof raw !== 'string') throw new Error('Invalid NOTAM input');
-
-  const result = {
-    raw,
-    number:      null,    // e.g. A1234/26
-    action:      null,    // NOTAMN | NOTAMC | NOTAMR
-    replaces:    null,    // for NOTAMR — the NOTAM it replaces
-    cancels:     null,    // for NOTAMC — the NOTAM it cancels
-    // Q-line fields
-    fir:         null,
-    qCode:       null,
-    qDecoded:    null,
-    traffic:     null,
-    purpose:     null,
-    scope:       null,
-    lowerLimit:  null,
-    upperLimit:  null,
-    coordinates: null,
-    // Items
-    location:    null,    // Item A
-    effectiveFrom: null,  // Item B — UTC DDHHMMz or 10-digit YYMMDDHHmm
-    effectiveTo:   null,  // Item C — UTC or PERM
-    schedule:      null,  // Item D
-    text:          null,  // Item E — plain language
-    lowerAlt:      null,  // Item F
-    upperAlt:      null,  // Item G
-    // Derived
-    isActive:    null,
-    classification: null,
-    keywords:    [],
-    operationalImpact: null,
-  };
-
-  const text = raw.trim();
-
-  // Number and action (first line)
-  const headerRe = /^([A-Z]\d{4}\/\d{2})\s+(NOTAM[NCR])/m;
-  const headerM  = text.match(headerRe);
-  if (headerM) {
-    result.number = headerM[1];
-    result.action = headerM[2];
-    if (result.action === 'NOTAMC') {
-      const cancelRe = /CANCELS?\s+([A-Z]\d{4}\/\d{2})/i;
-      const cancelM  = text.match(cancelRe);
-      if (cancelM) result.cancels = cancelM[1];
-    }
-    if (result.action === 'NOTAMR') {
-      const replRe = /REPLACES?\s+([A-Z]\d{4}\/\d{2})/i;
-      const replM  = text.match(replRe);
-      if (replM) result.replaces = replM[1];
-    }
-  }
-
-  // Q-line
-  const qLineRe = /Q\)\s*([A-Z]{4})\/([A-Z0-9]+)\/([IV]{1,2}|K)\/([NOBMK]+)\/([AEW]{1,3})\/(\d{3})\/(\d{3}|UNL)\/(.+?)(?:\n|$)/i;
-  const qM = text.match(qLineRe);
-  if (qM) {
-    result.fir         = qM[1];
-    result.qCode       = qM[2];
-    result.qDecoded    = interpretQCode(qM[2]);
-    result.traffic     = qM[3];
-    result.purpose     = qM[4];
-    result.scope       = qM[5];
-    result.lowerLimit  = parseInt(qM[6], 10) * 100; // FL → ft
-    result.upperLimit  = qM[7] === 'UNL' ? 'UNLIMITED' : parseInt(qM[7], 10) * 100;
-    result.coordinates = qM[8].trim();
-  }
-
-  // Item A — Location(s)
-  const aM = text.match(/A\)\s*([A-Z0-9\s]+?)(?=\s*B\))/);
-  if (aM) result.location = aM[1].trim();
-
-  // Item B — Effective from
-  const bM = text.match(/B\)\s*(\d{10}|\d{6}Z?)/);
-  if (bM) result.effectiveFrom = parseNotamTime(bM[1]);
-
-  // Item C — Effective to (or PERM)
-  const cM = text.match(/C\)\s*(PERM|\d{10}|\d{6}Z?)/);
-  if (cM) result.effectiveTo = cM[1] === 'PERM' ? { perm: true } : parseNotamTime(cM[1]);
-
-  // Item D — Schedule (optional)
-  const dM = text.match(/D\)\s*(.+?)(?=\s*E\))/s);
-  if (dM) result.schedule = dM[1].trim();
-
-  // Item E — Plain language text
-  const eM = text.match(/E\)\s*(.+?)(?=\s*(?:F\)|G\)|$))/s);
-  if (eM) result.text = eM[1].replace(/\s+/g, ' ').trim();
-
-  // Item F — Lower limit
-  const fM = text.match(/F\)\s*(.+?)(?=\s*G\)|\s*$)/);
-  if (fM) result.lowerAlt = fM[1].trim();
-
-  // Item G — Upper limit
-  const gM = text.match(/G\)\s*(.+?)(?=\s*$)/);
-  if (gM) result.upperAlt = gM[1].trim();
-
-  // Derive classification
-  result.classification = classifyNotam(result);
-
-  // Extract keywords from text for operational impact
-  if (result.text) {
-    result.keywords        = extractNotamKeywords(result.text);
-    result.operationalImpact = deriveOperationalImpact(result);
-  }
-
-  // Active status (based on current UTC time)
-  result.isActive = isNotamActive(result);
-
-  return result;
-}
-
-/**
- * Parse a NOTAM time field.
- * Formats: YYMMDDHHmm (10-digit), DDHHMMz (6+Z), DDHHMM (6)
- * @param {string} t
- * @returns {object}
- */
-function parseNotamTime(t) {
-  if (!t) return null;
-  const s = t.toUpperCase().replace('Z','');
-  if (s.length === 10) {
-    return {
-      raw:    t,
-      year:   parseInt('20' + s.slice(0,2), 10),
-      month:  parseInt(s.slice(2,4), 10),
-      day:    parseInt(s.slice(4,6), 10),
-      hourZ:  parseInt(s.slice(6,8), 10),
-      minZ:   parseInt(s.slice(8,10), 10),
-      utcStr: `${s.slice(4,6)}/${s.slice(6,8)}:${s.slice(8,10)}Z`,
-    };
-  }
-  if (s.length === 6) {
-    return {
-      raw:   t,
-      day:   parseInt(s.slice(0,2), 10),
-      hourZ: parseInt(s.slice(2,4), 10),
-      minZ:  parseInt(s.slice(4,6), 10),
-      utcStr:`${s.slice(0,2)} at ${s.slice(2,4)}:${s.slice(4,6)}Z`,
-    };
-  }
-  return { raw: t };
-}
-
-// ═══════════════════════════════════════════════════════════════
-// § 5 · NOTAM CLASSIFICATION & OPERATIONAL IMPACT
-//       Source: FAA operational practice; ICAO Doc 4444
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -3915,6 +3484,16 @@ function extractNotamKeywords(text) {
     'HIRL', 'MIRL', 'LIRL', 'RCLL', 'RCLM', 'TDZ', 'TDZL',
     // Services
     'ATC', 'ATIS', 'ARFF', 'FSS',
+    // LVP / ARFF / surface conditions / new ICAO §6 items
+    'LVP', 'LOW VISIBILITY PROCEDURES', 'RFFS', 'JET FUEL', 'SNOWTAM',
+    'BRAKING ACTION', 'RWYCC', 'FICON', 'RNP AR', 'DECLARED DISTANCES',
+    'TORA', 'TODA', 'ASDA', 'TRANSITION ALTITUDE', 'TRANSITION LEVEL',
+    // ICAO §6 / Annex 14 — additional safety-critical NOTAM keywords
+    'BIRD HAZARD', 'BIRD ACTIVITY', 'BIRD STRIKE', 'WILDLIFE',
+    'OCA', 'OCH', 'MOCA', 'MEA', 'MINIMA',
+    'CAT II', 'CAT III', 'CAT I', 'DOWNGRADED',
+    'PCR', 'PCN', 'RESA', 'RUNWAY END SAFETY AREA',
+    'DE-ICING', 'DEICING', 'ANTI-ICING', 'ROTATING BEACON', 'BEACON',
     // Alteration
     'SHORTENED', 'REDUCED', 'CHANGED', 'RAISED', 'INCREASED',
     // Military/restricted
@@ -4015,6 +3594,57 @@ function deriveOperationalImpact(notam) {
   }
   if (cat === 'WARNING') {
     return 'Airspace restriction or warning active — check applicability to planned route and time of flight.';
+  }
+  if (cat === 'LVP') {
+    return 'Low Visibility Procedures in force — Cat II/III ops eligibility affected. Verify airport LVP compliance before commencing Cat II/III approach.';
+  }
+  if (cat === 'ARFF') {
+    return 'ARFF/RFFS category reduced — B747 requires minimum Cat 9 ARFF coverage. Verify ops spec authorization or obtain dispatch approval before operating.';
+  }
+  if (cat === 'SNOWTAM') {
+    return 'Runway/taxiway surface contamination reported — verify landing distance available against actual surface condition and braking action. Check ACARS/ATIS for current RWYCC.';
+  }
+  if (cat === 'RNP_AR') {
+    return 'RNP AR approach not available — authorization-required precision approach suspended. Use alternate approach type. Verify missed approach climb gradient without RNP AR.';
+  }
+  if (cat === 'DECL_DIST') {
+    return 'Declared distances restricted — recalculate landing/departure performance against revised LDA/TORA/TODA. Verify dispatch release reflects current distances.';
+  }
+  if (cat === 'FUEL') {
+    return 'Jet fuel unavailable — coordinate alternate fueling stop or adjust fuel uplift plan with dispatch before departure.';
+  }
+  if (cat === 'TRANS_ALT') {
+    return 'Transition altitude or level changed — update altimetry procedures and QNH/QNE transition in descent briefing.';
+  }
+  if (cat === 'BIRD_HAZARD') {
+    return 'Bird/wildlife activity reported on or around AD — heightened ingestion and bird-strike risk during takeoff and landing. Brief crew on engine fail/abort considerations.';
+  }
+  if (cat === 'MINIMA_INC') {
+    return 'Operating minima raised (OCA/OCH/MOCA/DA increased) — verify current minima against approach plate and confirm landing/missed approach margin. Recheck obstacle clearance.';
+  }
+  if (cat === 'CAT_DG') {
+    return 'ILS or approach category downgraded — verify aircraft and crew authorization for the available approach category. Cat II/III ops require active LVP and serviceable equipment.';
+  }
+  if (cat === 'PCR_CHG') {
+    return 'Pavement strength rating changed — verify aircraft weight and PCR/PCN compliance against the published runway/taxiway/apron rating. Consult dispatch if margin is tight.';
+  }
+  if (cat === 'RESA_CHG') {
+    return 'Runway End Safety Area dimensions reduced — review landing performance margin under actual surface conditions. Wet/contaminated landings may require alternate runway or aircraft.';
+  }
+  if (cat === 'DEICE_LTD') {
+    return 'De-icing/anti-icing capability limited or unavailable — coordinate with dispatch for alternate de-ice arrangements, plan for delays, or divert if conditions require treatment.';
+  }
+  if (cat === 'BEACON_US') {
+    return 'Aerodrome rotating beacon out of service — night IFR identification of AD reduced. Verify alternative visual/electronic AD identification on approach.';
+  }
+  if (cat === 'NAV_FALSE_SIG') {
+    return 'Navaid transmitting erroneous signals or not approved for operations — DO NOT USE for navigation. Use alternate navaids, RNAV/GPS, or radar vectors. Crossing a final approach fix using this navaid is prohibited.';
+  }
+  if (cat === 'DISREGARD_RESTR') {
+    return 'Taxi or movement restriction exists; specific aircraft types are exempt. Verify whether your aircraft type is on the exempt list. If not listed, the restriction applies — obtain ATC clarification before using the affected taxiway or area.';
+  }
+  if (cat === 'NEW_INFRA') {
+    return 'New taxiway, runway, or stand placed in operation — not yet on all charts. ATC may issue clearances using the new designation. Verify routing with ATC and consult current airport diagram.';
   }
   return 'Review NOTAM for operational relevance to planned flight.';
 }
@@ -4771,7 +4401,10 @@ function _acftApplies(notamText, acft) {
   // ── 5. Explicit type mentions ──────────────────────────────────────────
   // Patterns: "A380 PROHIBITED", "B747 AND ABOVE PROHIBITED", "B737 AND SMALLER ONLY"
   // Type mention regex — catches B7XX, A3XX, B7XXX, MD11, DC10 etc
-  const TYPE_RE = /\b(A380|A388|B748|B744|B77[WL]|B772|B778|B779|B76[234]|B75[23]|B73[5-9]|B37M|B38M|B39M|A32[0-1]|A31[89]|A33[23]|A33[89]|A34[23456]|A35[9K]|MD11|DC10|BLCF)\b/gi;
+  // P-07: Added B773 (Boeing 777-300), A306 (Airbus A300-600), A30B (A300B)
+  // per FAA Order JO 7360.1K Aircraft Type Designators (effective 06/12/2025).
+  // B773 appears in EDDF/LCF-CHS-TAR restriction NOTAMs; A306 common in cargo ops.
+  const TYPE_RE = /\b(A380|A388|B748|B744|B773|B77[WL]|B772|B778|B779|B76[234]|B75[23]|B73[5-9]|B37M|B38M|B39M|A32[0-1]|A31[89]|A33[23]|A33[89]|A34[23456]|A35[9K]|A306|A30B|MD11|DC10|BLCF)\b/gi;
   const typeMentions = [...nu.matchAll(TYPE_RE)].map(m => m[1].toUpperCase());
   if (typeMentions.length > 0) {
     const myType = profile.type.toUpperCase();
@@ -4797,6 +4430,14 @@ function _acftApplies(notamText, acft) {
     // Type list with ONLY — applies to us only if we are in the list
     if (/\bONLY\b/i.test(nu)) {
       return typeMentions.includes(myType);
+    }
+    // P-05: DISREGARD [restriction] FOR [type list] — INVERTED applicability.
+    // The restriction is WAIVED for listed types; applies to ALL others (including us if not listed).
+    // FAA 7930.2U has no formal term for this; ICAO uses it for AIP exemption amendments.
+    // Logic: if DISREGARD + restriction noun AND we are NOT in the exempt list → applies to us.
+    if (/\bDISREGARD\b/i.test(nu) &&
+        /\b(?:RESTR(?:ICTION)?|LIMIT(?:ATION)?|PROHIBIT(?:ION)?|WINGSPAN|WS\s+LIMIT)\b/i.test(nu)) {
+      return !typeMentions.includes(myType); // restriction applies if we are NOT exempt
     }
   }
 
@@ -4824,12 +4465,18 @@ const NM = {
   AD_CLSD:    /\bAD\s+CLSD\b|\bAIRPORT\s+CLSD\b/,
   // RWY_CLSD: match explicit RWY N CLSD or RWY ALL CLSD.
   // Also catches "RWY 06L/24R CLSD" and "RWY 06L CLSD EXC..." patterns.
-  RWY_CLSD:   /\bRWY\s+(?:ALL\s+CLSD|\d{1,2}[LCRB]?(?:\s*(?:\/|AND)\s*\d{1,2}[LCRB]?)?\s+CLSD)\b/,
+  RWY_CLSD:   /\bRWY\s*(?:ALL\s+CLSD|\d{1,2}[LCRB]?(?:\s*(?:\/|AND)\s*\d{1,2}[LCRB]?)?\s+CLSD)\b/,
   RWY_ID:     /RW(?:Y)?\s*(\d{1,2}[LCRB]?(?:\s*(?:\/|AND)\s*\d{1,2}[LCRB]?)?)/,
   // RWY_ID_ALL: extract ALL runway identifiers from a NOTAM (for grouping)
   RWY_ID_ALL: /RW(?:Y)?\s*(\d{1,2}[LCRB]?)/gi,
 
-  TWY_CLSD:   /\bTWY\s+[A-Z0-9]+(?:\s*[,\/]\s*[A-Z0-9]+)*\s+CLSD\b/,
+  // ILS_RWY_EUR: Fallback runway extractor for European/ICAO AD2 format.
+  // ICAO Annex 14 AD2 NOTAMs omit the RWY keyword: "ILS 07C DOWNGRADED", "ILS 25C OUT OF SVC".
+  // Used as fallback when RWY_ID (which requires the RWY keyword) returns null.
+  // Group 1 = runway identifier (e.g. "25C", "07C", "28L").
+  ILS_RWY_EUR: /\b(?:ILS|LOC|GLS|RNAV|LNAV(?:\/VNAV)?|VOR|NDB|SRA)\s+(\d{1,2}[LCRB]?)\b/i,
+
+  TWY_CLSD:   /\bTWY\s*[A-Z0-9]+(?:\s*[,\/]\s*[A-Z0-9]+)*\s+CLSD\b|\bFLW\s+TWY\s+CLSD\b/,
   TWY_RESTR:  /\bTWY\s+[A-Z0-9]+(?:\s*[,\/]\s*[A-Z0-9]+)*.*?(?:RESTR|RESTRICTED|WIDTH\s+LTD|WS\s+LTD|WINGSPAN|ACFT\s+SPAN|SPAN\s+LTD|MAX\s+WS|WS\s+\d+M|WINGSP)/i,
   TWY_ID:     /TWY\s+([A-Z0-9]+(?:\s*[,\/]\s*[A-Z0-9]+)*)/,
   TWY_WS:     /WS\s+(\d+(?:\.\d+)?)\s*M|WIDTH\s+(\d+(?:\.\d+)?)\s*M|MAX\s+WS\s+(\d+(?:\.\d+)?)\s*M|WINGSPAN\s+(\d+(?:\.\d+)?)\s*M/i,
@@ -4849,20 +4496,24 @@ const NM = {
 
   // ── Tier 1: Precision approach / guidance equipment ─────────────────────
   // GS_US: Glide slope / glide path specifically unserviceable (ILS degrades to LOC-only)
-  // Catches: "GS U/S", "GLIDE SLOPE INOP", "G/P OTS", "GP UNSERVICEABLE"
-  GS_US:      /\b(?:G[\/\-]?[SP]|GLIDE\s+(?:SLOPE|PATH)|GLIDESLOPE)\s*(?:U\/S|UNSERVICEABLE|OTS|INOP|INOPERATIVE|NOT\s+AVBL|UNUSBL)\b/i,
+  // P-02: Added OUT OF SVC/SERVICE per ICAO/European NOTAM convention (FAA 7930.2U §5-3-6)
+  GS_US:      /\b(?:G[\/\-]?[SP]|GLIDE\s+(?:SLOPE|PATH)|GLIDESLOPE)\s*(?:U\/S|UNSERVICEABLE|OTS|INOP|INOPERATIVE|NOT\s+AVBL|UNUSBL|OUT\s+OF\s+(?:SVC|SERVICE))\b/i,
 
   // LOC_US: Localizer specifically unserviceable (named with full word)
-  // "LOC RWY 06L U/S" is caught by APCH_US, but "LOCALIZER RWY 24R INOP" is not.
-  LOC_US:     /\bLOCALIZ(?:ER|OR)\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/i,
+  // P-02: Added OUT OF SVC/SERVICE
+  LOC_US:     /\bLOCALIZ(?:ER|OR)\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL|OUT\s+OF\s+(?:SVC|SERVICE))\b/i,
 
-  // APCH_US: entire approach system unserviceable (ILS/LOC/GLS/RNAV/VOR/NDB)
-  APCH_US:    /(?:ILS|LOC|GLS|RNAV|LDA|SDF|NDB|VOR|GBAS)\s+(?:[A-Z]\s+)?(?:RWY\s+\d{2}[LCRB]?\s+)?(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL|UNRELIABLE|UNREL)\b/i,
+  // APCH_US: entire approach system unserviceable (ILS/LOC/GLS/RNAV/LNAV/SRA/VOR/NDB)
+  // P-02: Added OUT OF SVC/SERVICE (ICAO/European abbrev) + ON FLT CLBR (flight calibration
+  //       = ILS transmitting but not approved for operations — 7930.2U §5-3-6.e)
+  // P-03: European/ICAO AD2 format omits "RWY" keyword: "ILS 07C OUT OF SVC", "ILS 25C U/S"
+  //       RWY token group now optional for the approach type + bare identifier combination.
+  APCH_US:    /(?:(?:ILS(?:-LOC)?(?:,[\w-]+)*|LOC|GLS|RNAV|LNAV(?:\/VNAV)?|LNAV|LDA|SDF|NDB|VOR|GBAS|SRA)(?:\s+(?:[A-Z]\s+)?(?:(?:FOR\s+)?RWY\s+)?\d{1,2}[LCRB]?)?[,\s]+){1,4}(?:APPROACHES?\s+)?(?:(?:FOR\s+)?RWY\s+\d{1,2}[LCRB]?\s+)?(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL|UNRELIABLE|UNREL|SUSPENDED|OUT\s+OF\s+(?:SVC|SERVICE)|ON\s+FLT\s+CLB[R]?)\b/i,
 
   // ── Tier 2: DME — affects approach segments and missed approach climb ───
   // DME_US: DME unserviceable, including ILS DME, VOR/DME, standalone DME
   // Operationally: may raise DA/MDA on DME-required approaches; some Cat III require DME
-  DME_US:     /\b(?:ILS\s+)?(?:VOR\/)?DME\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL|UNREL)\b|\bDME\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/i,
+  DME_US:     /\b(?:ILS\s+)?(?:VOR\/)?DME\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL|UNREL)\b|\bDME\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/is,
 
   // VORTAC_US: VORTAC unserviceable — TACAN component used for DME ranging
   VORTAC_US:  /\bVORTAC\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/i,
@@ -4882,8 +4533,9 @@ const NM = {
   // ── Tier 5: Approach lighting — directly raises published minimums ───────
   // Source: FAA AIM §2-1-1; approach lighting categories affect ceiling/vis requirements
   // ALS_US: any approach lighting system unserviceable (raises MDA/DA by category)
-  // Catches: ALS, ALSF-1, ALSF-2, SSALS, SSALF, SSALR, MALSR, MALSF, MALS, ODALS, RAIL
-  ALS_US:     /\b(?:ALS[FR]?-?\d?|ALSF-[12]|SSALS?[FR]?|MALSR?[F]?|MALS\b|ODALS|RAIL|APPROACH\s+LIGHT(?:ING)?S?)\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/i,
+  // Catches: ALS, ALSF-1/2, SSALS/R/F, MALSR/F, MALS, ODALS, RAIL, APCH LIGHTING SYSTEM
+  // Also catches: SHORTENED (reduced), OUT OF TOLERANCE, PARTLY U/S
+  ALS_US:     /\b(?:ALS[FR]?-?\d?|ALSF-[12]|SSALS?[FR]?|MALSR?[F]?|MALS\b|ODALS|RAIL|APPROACH\s+LIGHT(?:ING)?S?|APCH\s+LIGHT(?:ING)?(?:\s+SYSTEM)?|APCH\s+LGT)\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL|SHORTENED?|OUT\s+OF\s+TOLERANCE|PARTLY\s+U\/S|REDUCED?|RESTRICTED)\b/i,
 
   // REIL_US: Runway End Identifier Lights — unserviceable
   REIL_US:    /\bREIL\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNUSBL)\b/i,
@@ -4913,7 +4565,7 @@ const NM = {
 
   // APCH_NAME: extract approach type + runway — extended to handle Atlas "ILS Z RWY 07" patterns
   // Group 1 = approach type/designator, Group 2 = runway
-  APCH_NAME:  /(?:(ILS\s*[A-Z]?|LOC|RNAV(?:\s*\([A-Z]+\))?\s*[A-Z]?|RNP\s*[A-Z]?|VOR(?:\/DME)?|NDB|LDA|GLS|GBAS))\s+(?:RWY\s+)?(\d{1,2}[LCRB]?)/i,
+  APCH_NAME:  /(?:(ILS(?:\/DME)?\s*[A-Z]?|LOC|RNAV(?:\s*\([A-Z]+\))?\s*[A-Z]?|RNP(?:\/ILS\/DME)?\s*[A-Z]?|VOR(?:\/DME)?|NDB|LDA|GLS|GBAS))\s+(?:RWY\s*)?(\d{1,2}[LCRB]?)/i,
   // APCH_RWY: extract just the runway number from an approach NOTAM (for grouping)
   APCH_RWY:   /(?:ILS|LOC|GLS|RNAV|RNP|VOR|NDB|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|APPROACH|IAP).*?RWY\s+(\d{1,2}[LCRB]?)/i,
 
@@ -4938,11 +4590,33 @@ const NM = {
   // ── Active NOTAM — generic active marker ──
   CURFEW:     /\bCURFEW\b|\bNOISE\s+ABATEMENT.*CLSD\b|\bLDG\s+CLSD\b|\bTKOF\s+CLSD\b/i,
   VOLCANIC:   /\bVOLCANIC\s+ASH\b/i,
-  NAVAID_US:  /(?:VOR|NDB|DME|RNAV|TACAN).*?(?:U\/S|UNSERVICEABLE|OTS|INOP|UNUSBL|NOT\s+AVBL|UNREL)\b/i,
+
+  // NAVAID_US: VOR/NDB/DME/TACAN/VORTAC unserviceable or restricted.
+  // P-02: Added OUT OF SVC/SERVICE (ICAO/European abbreviation).
+  // P-08: Added ON MAINT(ENANCE) — FAA 7930.2U §5-3-4: maintenance shutdown = treat as U/S.
+  // P-09: Added LTD TO USE — ICAO/Chinese format for partial navaid restriction
+  //       (e.g. "VOR/DME XLN LTD TO USE: U/S BTN RADIAL 090-185 DEG"). Shows only in
+  //       specific sectors; operationally, the navaid cannot be relied upon fully.
+  // P-09: Added NOT MNT / UNMONITORED — FAA 7930.2U §5-3-5c mandates "NOT MNT" phrase.
+  //       Unmonitored ≠ U/S, but signals may be unreliable with no auto-shutdown protection.
+  NAVAID_US:  /(?:VOR|NDB|DME|RNAV|TACAN|VORTAC|DVOR|DVOR\/DME|VOR\/DME).*?\b(?:U\/S|UNSERVICEABLE|OTS|INOP|UNUSBL|NOT\s+AVBL|UNREL|OUT\s+OF\s+(?:SVC|SERVICE)|ON\s+MAINT(?:ENANCE)?|LTD\s+TO\s+USE|NOT\s+MNT|UNMONITORED)\b/is,
+
+  // NAV_FALSE_SIG: Navaid transmitting but NOT approved for operations.
+  // P-04: Covers three distinct ICAO/FAA scenarios — all more dangerous than U/S because
+  //       the navaid emits a signal that could mislead navigation if used:
+  //   (a) "DO NOT USE" — explicit prohibition regardless of reason
+  //   (b) "FALSE INDICATIONS POSS(IBLE)" — erroneous signal detected
+  //   (c) "ON FLT CLBR" (on flight calibration) — 7930.2U §5-3-6.e: ILS/VOR under
+  //       flight inspection; approaches NOT authorised during calibration.
+  //   (d) "ON TEST" — European/ICAO: navaid undergoing commissioning tests, not operational.
+  // Severity RED — higher operational risk than standard U/S.
+  NAV_FALSE_SIG: /\bDO\s+NOT\s+USE\b|\bFALSE\s+INDICATIONS?\s+POSS(?:IBLE)?\b|\bON\s+FLT\s+CLB[R]?\b|\bON\s+TEST\b.*?\b(?:DO\s+NOT\s+USE|FALSE\s+INDICATIONS?)\b|\b(?:DO\s+NOT\s+USE|FALSE\s+INDICATIONS?)\b.*?\bON\s+(?:TEST|MAINT)\b/i,
 
   // ── Approach minimums / procedure changes ──
   // CAT_II_NA: Cat II or III approach explicitly unavailable → RED
-  CAT_II_NA:  /CAT\s*I{2,3}[^A-Z]{0,20}(?:NOT\s+AVBL|NOT\s+AVAILABLE|\bNA\b|SUSPENDED|OTS|U\/S)/i,
+  // Fixed: replaced [^A-Z]{0,20} (breaks under /i flag) with [^.]{0,30} to allow
+  // text such as "AND III APCH RWY 28" between the CAT level and the status token.
+  CAT_II_NA:  /CAT\s*I{2,3}[^.]{0,30}(?:NOT\s+AVBL|NOT\s+AVAILABLE|\bNA\b|SUSPENDED|OTS|U\/S|NOT\s+AUTH)/i,
 
   // IAP_CHG: IAP NOTAM with any amendment keyword
   IAP_CHG:    /(?:\bIAP\b|\bILS\b|\bLPV\b|\bLNAV\b|\bRNAV\b|\bRNP\b).*?(?:INCREASED\s+FR\s+\d|\bDA\b.*\/HAT|\bMDA\b.*\/HAT|\bPROC\s+NA\b|NOT\s+AVBL|AMDT\s+\d|\bDA\s+\d|\bMDA\s+\d|LPV\s+DA)/i,
@@ -4954,19 +4628,101 @@ const NM = {
   // FICON_POOR: conditions that reduce braking below "good" (ice, compacted ice, poor BA codes)
   FICON_POOR: /\bICE\b|\bICY\b|COMPACTED\s+ICE|FICON\s+[12][\/\s]|FICON\s+NIL\b/i,
 
-  // ── Approach minimums increased — CAT D/DL (DEF-PB-APM-001) ──────────────
-  // Trigger: ICAO NOTAM phrase for OCA(OCH) changes (crane works, maintenance, etc.)
-  APM_TRIGGER:    /CHANGE\s+OF\s+OPR\s+MINIMA\s+OCA\s*\(OCH\)/i,
-  // CAT D explicit entry (e.g. "CAT D 191 (203)" or "CAT D-DL INCREASED 299(310)")
-  APM_CATD:       /CAT\s+D(?:-?DL)?\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  // CAT DL explicit entry (e.g. "CAT DL 191 (203)")
-  APM_CATDL:      /CAT\s+DL\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  // CAT A-DL or A-D catch-all range (single value covers all cats, e.g. "CAT A-DL INCREASED TO 762(772)")
-  APM_CATD_RANGE: /CAT\s+[A-C][-–]D(?:L)?\s+(?:INCREASED(?:\s+TO)?\s+)?(\d+)\s*\((\d+)\)/i,
-  // Approach type — first match wins (ILS CAT I/II/III, LOC, LNAV, LPV, RNP, RNAV)
-  APM_TYPE:       /\b(ILS\s+CAT\s+I{1,3}|LOC(?:ALIZER)?|LNAV|LPV|RNP(?:\s+LPV)?|RNAV)\b/i,
-  // Runway — simple single-runway extraction for APM NOTAMs
-  APM_RWY:        /RWY\s+(\d{1,2}[LCR]?)/i,
+  // ── ICAO Doc 8126 §6 / Annex 15 Appendix 4 — additional operational patterns ─────
+
+  // LVP: Low Visibility Procedures in force — directly affects Cat II/III and all-weather ops.
+  // ICAO Doc 8126 §6.3; Annex 14 §9.9. B747 Cat II/III requires LVP to be active.
+  // Signals: "LVP IN FORCE", "LVP ACTIVATED", "LOW VIS PROC IMPLEMENTED"
+  LVP:        /\b(?:LVP|LOW\s+VIS(?:IBILITY)?\s+(?:PROC(?:EDURES?)?|OPS?|OPERATIONS?))\b.*?\b(?:IN\s+FORCE|ACTIVATED?|IMPLEMENTED?|IMPOSED|INITIATED?|NOT\s+IN\s+FORCE|CANCELLED?)\b|\bLVP\s+(?:IN\s+FORCE|ACTIVATED?|CANCELLED?|NOT\s+IN\s+FORCE)\b/i,
+
+  // ARFF_RED: ARFF/RFFS category reduced — may directly restrict B747 operations.
+  // ICAO Annex 14 Table 9-1: B747 wingspan 60–65m → ARFF Category 9 minimum required.
+  // Reduction below Cat 9 requires operator approval or prohibits operations.
+  // Captures: "ARFF DOWNGRADED", "FIRE FIGHTING REDUCED", "ACFT RESCUE FIREFIGHTING STATUS DOWNGRADED"
+  ARFF_RED:   /\b(?:ARFF|RFFS|RESCUE\s+(?:AND\s+)?FIRE\s*FIGHT(?:ING)?|FIRE\s*FIGHT(?:ING)?\s+(?:SERV(?:ICE)?|STATUS)?|CRASH\s+(?:FIRE|RESCUE)|AIRCRAFT\s+RESCUE|ACFT\s+RESCUE\s+FIRE\s*FIGHT(?:ING)?(?:\s+STATUS)?)\b.*?\b(?:REDUCED?|DECREASED?|CAT(?:EGORY)?\s*[1-8]\b|NIL|UNAVBL|NOT\s+AVBL|U\/S|DOWNGRADED?|LIMITED|SUSPENDED|DEGRADED)\b/i,
+
+  // SNOWTAM_BA: SNOWTAM / GRF (Global Reporting Format) / braking action — landing performance.
+  // ICAO Annex 15 Amendment 40 (Nov 2021): GRF replaced SNOWTAM field-condition reporting.
+  // Covers: SNOWTAM header, RWYCC codes 0–3 (poor), BA POOR/NIL/FAIR, MU values, contamination.
+  // Atlas Air OFP format: FICON N/N/N codes (e.g. "FICON 5/5/5 100 PCT DRY SN")
+  SNOWTAM_BA: /\bSNOWTAM\b|\bBRAKING\s+ACTION\b.*?\b(?:POOR|NIL|FAIR|MEDIUM|GOOD|UNRELIABLE)\b|\bBA\b\s+(?:POOR|NIL|FAIR|MEDIUM|GOOD)\b|\bRWYCC\b\s+[0-3]\/|\bGRF\b.*RWY|\bMU\s*(?:VALUE)?[=:]?\s*\d+|\bSLIPPERY\b|\bCONTAMINATED\s+RUNWAY\b|\bRUNWAY\s+CONTAMINATED\b|\bRUNWAY\s+CONDITION\b.*?(?:POOR|NIL|ICE|SNOW|SLUSH|COMPACTED)|\bFICON\b\s+\d\/\d\/\d|\bFICON\b.*?(?:SN|ICE|ICY|SLUSH|COMPACTED|WET|DAMP)/i,
+
+  // SNOWTAM_POOR: severity qualifier — RWYCC 0–2, BA NIL/POOR, or MU ≤ 40 → RED
+  SNOWTAM_POOR: /\bRWYCC\s+[012]\/|\bBA\s+(?:NIL|POOR)\b|\bBRAKING\s+ACTION\b.*?\b(?:NIL|POOR)\b|\bMU\s*(?:VALUE)?[=:]?\s*(?:[0-3]\d)\b/i,
+
+  // RNP_AR: RNP Authorization Required approach not available.
+  // RNP AR is distinct from generic RNAV/RNP — requires special operator authorization.
+  // Suspension directly eliminates precision approach capability for authorized operators.
+  RNP_AR:     /\bRNP\s+AR\b.*?\b(?:NA\b|NOT\s+AVBL|NOT\s+AVAILABLE|SUSPENDED|OTS|U\/S|UNAVBL)\b|\bRNP\s+APCH?\b.*?\bAR\b.*?\b(?:NA\b|SUSPENDED|NOT\s+AVBL)\b/i,
+
+  // DECL_DIST: Declared distances changed — affects departure/landing performance calculations.
+  // ICAO Annex 14 §2.9. LDA reduction affects landing distances; TORA/TODA affect dep perf.
+  // Also captures: RJAA "RESTRICTED AVBL RWY LENGTH FOR TKOF" / EHAM "TORA SIGN NOT AVBL"
+  DECL_DIST:  /\b(?:DECLARED\s+DISTANCES?|TORA|TODA|ASDA|LDA)\b.*?\b(?:CHANGED?|REDUCED?|AMENDED?|REVISED?|NOW\s+[0-9]+|IS\s+[0-9]+\s*M|NOT\s+AVBL)\b|\bLDA\s+(?:REDUCED?|NOW|IS)\s+[0-9]+|\bRESTRICTED\s+AVBL\s+RWY\s+LENGTH\s+FOR\s+TKOF|\bAVBL\s+RWY\s+LENGTH\b.*?(?:REDUCED?|RESTRICTED|[0-9]+M)\b|\bTORA\s+SIGN\b.*?\bNOT\s+AVBL\b/i,
+
+  // TRANS_ALT: Transition altitude or transition level change — affects altimetry procedures.
+  // ICAO Doc 8126 §6 / Annex 15 Appendix 4 Part 1 §1.4. Affects QNH/QNE transition.
+  TRANS_ALT:  /\b(?:TRANSITION\s+ALTITUDE?|TRANSITION\s+LEVEL)\b.*?\b(?:CHANGED?|AMENDED?|FROM\s+[0-9]+|NOW\s+(?:FL\s*)?\d+|IS\s+(?:FL\s*)?\d+)\b/i,
+
+  // DISREGARD_RESTR: "DISREGARD [RESTRICTION/LIMITATION] FOR [type list]" — P-05
+  // Semantic: the restriction EXISTS but is WAIVED for the listed types.
+  // Aircraft NOT in the list (including ours) are still subject to the restriction.
+  // This is an inverted-applicability construct — distinct from PROHIBITED/NOT AUTH.
+  // Pattern fires when the NOTAM contains DISREGARD + a restriction noun + aircraft/type context.
+  // _acftApplies() handles the type-list inversion check separately.
+  DISREGARD_RESTR: /\bDISREGARD\b.*?\b(?:TAXI\s+RESTR(?:ICTION)?|LIMIT(?:ATION)?|PROHIB(?:ITION)?|WING\s*SPAN|WS\s+LIMIT|PCN\s+LIMIT)\b|\bDISREGARD\b.*?\b(?:FOR\s+ACFT|FOR\s+[A-Z][0-9]|EXEMPT(?:ION)?\s+FOR)\b/i,
+
+  // NEW_INFRA: New infrastructure placed in operation — P-06
+  // ICAO Annex 15 PERM NOTAMs announcing new taxiways, runways, or stands.
+  // Operationally relevant: ATC uses new infra in clearances; crew must know routing.
+  // "NEW TWY S19 SOUTH OF TWY S IN OPR" / "NEW RWY 15/33 IN OPR"
+  NEW_INFRA:  /\bNEW\s+(?:TWY|TAXIWAY|RWY|RUNWAY|ACFT\s+STAND|STAND)\s+[A-Z0-9]+\b.*?\bIN\s+OPR\b|\bNEW\s+(?:TWY|TAXIWAY|RWY|RUNWAY)\s+[A-Z0-9]+\b.*?\bOPENED?\b/i,
+
+  // FUEL_UNAV: Jet fuel unavailable or severely restricted.
+  // Critical for cargo operations at remote/single-source fueling stations.
+  // Affects alternate fuel planning and dispatch release.
+  // Also captures: "AD AP FUEL NOT AVBL" (KMIA) / "FUEL 100LL NOT AVBL" (CYYT — non-jet but flagged)
+  FUEL_UNAV:  /\b(?:JET\s+(?:FUEL|A-?1?)|JET-?A[1]?|AVJET|JETA[1]?|FUEL\s+\d{2,3}LL)\b.*?\b(?:NOT\s+AVBL|NOT\s+AVAILABLE|UNAVBL|UNAVAILABLE|SHORTAGE|RESTRICTED|SUSPENDED|NIL)\b|\bAD\s+AP\s+FUEL\s+NOT\s+AVBL\b/i,
+
+  // BIRD_HAZARD: Bird activity / migration / strike hazard at AD.
+  // ICAO Annex 14 §9.4 / Doc 8126 §6.5. Operationally significant for B747 — engine
+  // ingestion risk during takeoff/landing, especially at coastal/agricultural AD.
+  // Patterns: "BIRD ACT", "BIRD FLOCKS", "INCREASED BIRD", "BIRD STRIKE HAZARD", "MIGRATION"
+  BIRD_HAZARD:/\bBIRD\s+(?:ACT(?:IVITY|IVITIES)?|FLOCKS?|STRIKES?|HAZARD|CONCENTRATION|MIGRATION)\b|\bINCREASED\s+BIRD\b|\bACTIVIT(?:Y|IES)\s+OF\s+BIRD\b|\bBIRD\s+STRIKE\s+HAZARD\b|\bWILDLIFE\s+(?:ACT(?:IVITY)?|HAZARD|ON\s+(?:AND\s+)?AROUND)\b/i,
+
+  // MINIMA_INC: Operating minima raised — OCA/OCH/MOCA/MEA/DA increased due to obstacles.
+  // ICAO Doc 8168 PANS-OPS / Doc 8126 §6.4. Directly affects approach minima and
+  // landing decision altitude. Common at AD with active construction.
+  // Patterns: "OCA(H) RAISED/INCREASED", "MOCA INCREASED", "DA INCREASED", "MINIMA INCREASED"
+  // Also captures intervening segment description: "MOCA ON ... SEGMENT ... INCREASED TO"
+  MINIMA_INC: /\b(?:OCA\s*\(?\s*[HO]?\s*\)?|OCH|MOCA|MEA|DA\b|MDA|MINIMA?)\s*(?:[\w\s\.,()\/-]+?)?\s+(?:VALUES?\s+)?(?:RAISED|INCREASED|AMENDED?|REVISED?|CHANGED?)\b|\bCHANGE\s+OF\s+OPR\s+MINIMA\b|\b(?:CAT\s+[A-D](?:-[A-D]L?)?)\s+INCREASED\s+TO\b|\bINCREASE\s+(?:LPV|LNAV(?:\/VNAV)?|S-ILS|S-LOC|RNP)\b|\b(?:MOCA|MEA|OCA|OCH)\b[^.]*?\bINCREASED\s+TO\b/i,
+
+  // CAT_DG: ILS/Cat capability downgraded (Cat III→II, Cat II→I, etc).
+  // Directly affects authorized approach category. ICAO Annex 10 / Doc 8168.
+  // B747 with Atlas Air OpsSpec C060 must verify Cat II/III capability before approach.
+  // Patterns: "ILS RWY xx DOWNGRADED", "CAT III/II/I U/S", "CAT II AND III NOT AUTH"
+  // Fixed 4th alt: allow "APCH RWY XX" between CAT level and NOT AUTH using [^.]{0,30}
+  CAT_DG:     /\bILS\s+RWY\s*\d{1,2}[LCRB]?\s+DOWNGRADED\b|\bCAT\s+(?:I{1,3}|[123])\s+(?:AND\s+)?(?:I{1,3}|[123])\s+(?:APCH\b\s+)?(?:U\/S|UNSERVICEABLE|NOT\s+AUTH|NOT\s+AVBL|SUSPENDED)\b|\bDOWNGRADED\s+TO\s+(?:CAT\s+)?(?:I{1,3}|[123])\b|\bCAT\s+I{2,3}\s+(?:AND\s+I{2,3}\s+)?(?:OPS?|APCH)?[^.]{0,30}(?:NOT\s+AUTH|U\/S|SUSPENDED)/i,
+
+  // PCR/PCN: Pavement strength rating change.
+  // ICAO Annex 14 Vol I §2.6 (PCN) and Amdt 17-B (PCR, effective Nov 2024).
+  // PCR replaced PCN in 2024 ICAO methodology. Affects max allowable aircraft weight.
+  // Patterns: "RWY PCR/PCN CHANGED", "PCR/PCN [number]/[code]"
+  PCR_CHG:    /\bPC[RN]\b\s+(?:CHANGED?|REVISED?|AMENDED?|REDUCED?|TO\s+READ|IS\s+NOW)\b|\bRWY\s*\d{1,2}[LCRB]?(?:\s*\/\s*\d{1,2}[LCRB]?)?\s+PC[RN]\b|\bPC[RN]\s+\d+\/[A-Z]\/[A-Z]\/[A-Z]\/[A-Z]\b/i,
+
+  // RESA: Runway End Safety Area dimensions changed.
+  // ICAO Annex 14 §3.5. RESA shorter than published affects landing performance margin
+  // and may restrict operations under wet/contaminated conditions.
+  RESA_CHG:   /\bRESA\b\s+(?:DIMENSIONS?\s+)?(?:CHANGED?|REDUCED?|AMENDED?|REVISED?|SHORTENED?|LENGTH\s+\d+M)\b|\bRUNWAY\s+END\s+SAFETY\s+AREA\b.*?(?:CHANGED?|REDUCED?|AMENDED?)/i,
+
+  // DEICE_LTD: De-icing/anti-icing capability limited or unavailable.
+  // ICAO Doc 9640 / FAA AC 120-58. Affects winter operations dispatch and turnaround.
+  // For Atlas Air ground handling — CYZF/PAED/PANC frequently affected.
+  DEICE_LTD:  /\b(?:DE-?ICING|ANTI-?ICING|DEICE|ANTIICE)\b.*?\b(?:NOT\s+AVBL|UNAVBL|REDUCED?|LIMITED|LTD|NIL|U\/S|UNAVAILABLE|SUSPENDED|NO\s+(?:TRANSIENT\s+)?(?:DE-?ICING|CAPAB))\b|\bNO\s+(?:TRANSIENT\s+)?DE-?ICING\s+(?:CAPAB|AVBL)/i,
+
+  // BEACON_US: Aerodrome rotating beacon out of service.
+  // ICAO Annex 14 §5.3.3. Required for night ops at uncontrolled AD; signals AD position.
+  BEACON_US:  /\b(?:ROTATING\s+BEACON|AERODROME\s+BEACON|AD\s+BEACON|ABN)\b.*?\b(?:U\/S|UNSERVICEABLE|OTS|OUT\s+OF\s+(?:SVC|SERVICE)|INOP|NOT\s+AVBL|UNUSBL)\b/i,
 };
 
 /**
@@ -5047,6 +4803,52 @@ function _twyApplies(notamText, acftType) {
  * @param {boolean} active  - Is this NOTAM active during the ETA/dep window?
  * @returns {{ slot:number, level:string, label:string, keyRe:RegExp|null }}
  */
+
+/**
+ * Extract approach type(s) from a NOTAM string for use in labels.
+ * Returns concise approach type string (e.g. "ILS", "LPV", "LOC/LNAV",
+ * "ILS CAT II/III", "LNAV/VNAV") or null if not identifiable.
+ * @param {string} nu - Upper-cased NOTAM text
+ * @returns {string|null}
+ */
+function _apchTypeLabel(nu) {
+  // Pre-normalize compound patterns
+  const norm = nu
+    .replace(/\bILS-LOC\b/gi, 'ILS')
+    .replace(/\b(ILS\s+CAT\s+I{1,3})\s+AND\s+(I{1,3})\b/gi, (_, a, b) => `${a} ILS CAT ${b}`);
+
+  const re = /\b(RNAV\s*\(\s*RNP\s*\)|RNAV\s*\(\s*GPS\s*\)|RNP\s+AR|RNP\s+ILS\/DME|ILS\s*(?:\/\s*DME\s*)?(?:OR\s+LOC\s*)?(?:CAT\s+I{1,3})?|ILS|LNAV\/VNAV|LNAV|LPV|LOC|SRA|GLS|GBAS|VOR(?:\/DME)?|NDB|LDA|RNP)\b/ig;
+
+  const seen = new Set(), tokens = [];
+  let m;
+  while ((m = re.exec(norm)) !== null) {
+    const tok = m[1].replace(/\s+/g, ' ').trim().toUpperCase();
+    if (!seen.has(tok)) { seen.add(tok); tokens.push(tok); }
+  }
+
+  // Collapse multiple ILS CAT variants into single compound token
+  const ilsCats = tokens.filter(t => /^ILS CAT/.test(t));
+  let collapsed = [...tokens];
+  if (ilsCats.length > 1) {
+    const nums = ilsCats.map(t => t.replace('ILS CAT ', ''))
+                        .map(r => r === 'III' ? 3 : r === 'II' ? 2 : 1).sort();
+    const suffix = nums.map(n => n === 3 ? 'III' : n === 2 ? 'II' : 'I').join('/');
+    collapsed = tokens.filter(t => !/^ILS CAT/.test(t));
+    collapsed.unshift(`ILS CAT ${suffix}`);
+  }
+
+  // Remove redundancies
+  if (collapsed.some(t => /^ILS CAT/.test(t))) collapsed = collapsed.filter(t => t !== 'ILS');
+  if (collapsed.includes('LNAV/VNAV'))          collapsed = collapsed.filter(t => t !== 'LNAV');
+
+  const top = collapsed[0] || null;
+  if (!top) return null;
+  // If top type already contains "/" (compound), return it alone — avoids over-long labels
+  if (top.includes('/')) return top;
+  const second = collapsed[1];
+  return second ? `${top}/${second}` : top;
+}
+
 function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   const isOrig = role === 'ORIG';
   // Zero-pad single-digit runway designators: '6L' → '06L', '9' → '09'
@@ -5104,19 +4906,27 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
     if (NM.SID.test(nu)) {
       // Tier 1: ICAO coded identifier requires a digit, e.g. "SID GORMAN7D" or "SID KOKKI2AB".
       const stdM   = nu.match(NM.SID_NAME);
-      // Tier 2: prose procedure name on its own line, e.g. "GORMAN SEVEN DEPARTURE".
-      // Also catches TRANSITION and ARRIVAL variants used in Atlas OFP NOTAM bodies.
-      const proseM = !stdM && notamRaw.match(/^([A-Z][A-Z ]+(?:DEPARTURE|TRANSITION|ARRIVAL))/m);
+      // Tier 2: prose procedure name — two formats observed in OFPs:
+      //   (a) Name on its own line: "TURNAGAIN EIGHT DEPARTURE" (PANC / RJAA format)
+      //   (b) Name on same line after airport ID period: "LOS ANGELES, CA. CATALINA EIGHT DEPARTURE"
+      //       (FAA FDC format — commas in location string break ^[A-Z ]+ anchor)
+      // Requires ≥2 words before DEPARTURE/TRANSITION/ARRIVAL to prevent
+      // bare keyword self-match ("DEPARTURE PROC..." → no match). \b at end
+      // prevents "DEPARTURES" from matching as "DEPARTURE".
+      const proseM = !stdM && notamRaw.match(
+        /(?:^|\.\s+)([A-Z][A-Z]+(?: [A-Z]+)+\s+(?:DEPARTURE|TRANSITION|ARRIVAL))\b/m
+      );
       const sid    = (stdM ? stdM[1] : null) || (proseM ? proseM[1].trim() : null) || 'SID';
       const isUS   = NM.US_WORDS.test(nu);
-      return { slot: 4, level: 'yellow', label: `${sid} DEP`, keyRe: isUS ? NM.US_WORDS : NM.RESTR_WORDS };
+      return { slot: 4, level: 'yellow', label: `${sid} DEP`, keyRe: isUS ? NM.US_WORDS : NM.RESTR_WORDS, category: 'SID' };
     }
 
     // Slot 5 — Approach changes (includes Cat II/III N/A and IAP minimums raises)
     if (NM.CAT_II_NA.test(nu)) {
-      const am = nu.match(NM.APCH_NAME);
-      const rwy = am ? _pad2(am[2]) : null;
-      const apch = am ? `${am[1].trim()} RWY ${_pad2(am[2])}` : 'APCH';
+      const rm    = nu.match(NM.RWY_ID);
+      const rwy   = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      const apchT = _apchTypeLabel(nu);
+      const apch  = apchT ? (rwy ? `${apchT} RWY ${rwy}` : apchT) : (rwy ? `APCH RWY ${rwy}` : 'APCH');
       return { slot: 5, level: 'red', label: `${apch} CAT II/III N/A`, keyRe: NM.CAT_II_NA, rwy };
     }
     if (NM.GS_US.test(nu)) {
@@ -5126,9 +4936,10 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
       return { slot: 5, level: 'red', label: `ILS GS U/S${rwylabel} (LOC ONLY)`, keyRe: NM.US_WORDS, rwy };
     }
     if (NM.APCH_CHG.test(nu) || NM.APCH_MIN.test(nu) || NM.IAP_CHG.test(nu)) {
-      const am = nu.match(NM.APCH_NAME);
-      const rwy = am ? _pad2(am[2]) : null;
-      const apch = am ? `${am[1].trim()} RWY ${_pad2(am[2])}` : 'APCH';
+      const rm    = nu.match(NM.RWY_ID) || nu.match(NM.APCH_RWY);
+      const rwy   = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+      const apchT = _apchTypeLabel(nu);
+      const apch  = apchT ? (rwy ? `${apchT} RWY ${rwy}` : apchT) : (rwy ? `APCH RWY ${rwy}` : 'APCH');
       return { slot: 5, level: 'yellow', label: `${apch} CHANGE`, keyRe: NM.RESTR_WORDS, rwy };
     }
     if (NM.APCH_TYPE_NA.test(nu)) {
@@ -5140,13 +4951,6 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
       const rm = nu.match(NM.APCH_RWY) || nu.match(NM.RWY_ID);
       const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
       return { slot: 5, level: 'yellow', label: `ILS DME U/S${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.US_WORDS, rwy };
-    }
-    if (NM.NAVAID_US.test(nu)) {
-      const fm = nu.match(/\b([A-Z]{2,3})\s+(?:VOR|DME|NDB|TACAN)\b/);
-      const fac = fm ? fm[1] : null;
-      return { slot: 5, level: 'yellow',
-               label: fac ? `${fac} NAVAID OTS` : 'NAVAID OTS',
-               keyRe: NM.US_WORDS, rwy: null };
     }
     if (NM.PAPI_US.test(nu)) {
       const rm = nu.match(NM.RWY_ID);
@@ -5167,8 +4971,8 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
     }
 
     // Slot 6 — FICON (surface conditions affect departure performance)
-    if (NM.FICON.test(nu)) {
-      const isPoor  = NM.FICON_POOR.test(nu);
+    if (NM.FICON.test(nu) || NM.SNOWTAM_BA.test(nu)) {
+      const isPoor  = NM.FICON_POOR.test(nu) || NM.SNOWTAM_POOR.test(nu);
       const isTwy   = /\bTWY\b/i.test(nu);
       const isAPN   = /\b(?:APN|RAMP)\b/i.test(nu);
       if (isTwy || isAPN) {
@@ -5180,6 +4984,17 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
       const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
       return { slot: 2, level: isPoor ? 'red' : 'yellow',
                label: `RWY${rwy ? ' ' + rwy : ''} FICON`, keyRe: NM.FICON, rwy };
+    }
+
+    // Slot 6b — LVP in force — directly affects Cat II/III ops eligibility (ORIG role)
+    if (NM.LVP.test(nu)) {
+      const isNotInForce = /NOT\s+IN\s+FORCE|CANCELLED/i.test(nu);
+      return { slot: 6, level: isNotInForce ? 'yellow' : 'red', label: isNotInForce ? 'LVP CANCELLED' : 'LVP IN FORCE', keyRe: NM.RESTR_WORDS };
+    }
+
+    // Slot 6c — ARFF/RFFS category reduction — may restrict B747 operations
+    if (NM.ARFF_RED.test(nu)) {
+      return { slot: 6, level: 'red', label: 'ARFF/RFFS DOWNGRADED', keyRe: NM.US_WORDS };
     }
 
     // Slot 7 (active) / Slot 8 (other) — catch-all
@@ -5215,9 +5030,11 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
   // Slot 2d — Full approach system U/S (ILS/LOC/RNAV/VOR/NDB/GLS)
   if (NM.APCH_US.test(nu)) {
-    const am = nu.match(NM.APCH_NAME);
-    const rwy = am ? _pad2(am[2]) : null;
-    const apch = am ? `${am[1].trim()} RWY ${_pad2(am[2])}` : 'APCH';
+    // ILS_RWY_EUR fallback: ICAO AD2 format omits RWY keyword ("ILS 25C OUT OF SVC")
+    const rm = nu.match(NM.RWY_ID) || nu.match(NM.ILS_RWY_EUR);
+    const rwy  = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    const apchT = _apchTypeLabel(nu);
+    const apch  = apchT ? (rwy ? `${apchT} RWY ${rwy}` : apchT) : (rwy ? `APCH RWY ${rwy}` : 'APCH');
     return { slot: 2, level: 'red', label: `${apch} U/S`, keyRe: NM.US_WORDS, rwy };
   }
 
@@ -5232,47 +5049,6 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   // Slot 2f — VORTAC U/S (TACAN DME component)
   if (NM.VORTAC_US.test(nu)) {
     return { slot: 2, level: 'yellow', label: 'VORTAC U/S', keyRe: NM.US_WORDS, rwy: null };
-  }
-
-  // Slot 2g — NAVAID OTS (generic VOR/DME/NDB/TACAN OTS not caught by specific checks)
-  if (NM.NAVAID_US.test(nu)) {
-    const fm = nu.match(/\b([A-Z]{2,3})\s+(?:VOR|DME|NDB|TACAN)\b/);
-    const fac = fm ? fm[1] : null;
-    return { slot: 2, level: 'yellow',
-             label: fac ? `${fac} NAVAID OTS` : 'NAVAID OTS',
-             keyRe: NM.US_WORDS, rwy: null };
-  }
-
-  // Slot 2h — Approach minimums increased — CAT D/DL (DEF-PB-APM-001)
-  // Covers crane works, maintenance, windmill obstacles raising OCA(OCH) per aircraft category.
-  // Only classifies NOTAMs relevant to CAT D or CAT DL aircraft (Atlas B744/B748/B777/B763).
-  if (NM.APM_TRIGGER.test(nu)) {
-    // Determine if this NOTAM applies to CAT D or DL aircraft
-    const isCatD  = NM.APM_CATD.test(nu) || NM.APM_CATD_RANGE.test(nu);
-    const isCatDL = NM.APM_CATDL.test(nu)
-                 || /CAT\s+[A-C][-\u2013]DL/i.test(nu)
-                 || /CAT\s+D[-\u2013]DL/i.test(nu);   // handles "CAT D-DL INCREASED" format
-    if (isCatD || isCatDL) {
-      // Extract approach type (first match wins; A0623/26 LOC+LNAV → LOC is correct)
-      const apTypeM = nu.match(NM.APM_TYPE);
-      const apType  = apTypeM ? apTypeM[1].replace(/\s+/g,' ').toUpperCase() : 'APCH';
-      // Extract runway (from the trigger line, e.g. "RWY 36C DUE TO CRANE")
-      const rwyM = nu.match(NM.APM_RWY);
-      const rwy  = rwyM ? rwyM[1] : null;
-      // Prefer CAT DL value; fall back to CAT D or range value
-      const catDM  = nu.match(NM.APM_CATD) || nu.match(NM.APM_CATD_RANGE);
-      const catDLM = nu.match(NM.APM_CATDL);
-      const minVal  = catDLM ? catDLM[1] : (catDM ? catDM[1] : null);
-      const catLabel = isCatDL ? 'CAT DL' : 'CAT D';
-      const label = [
-        apType,
-        rwy ? `RWY ${rwy}` : null,
-        'INCREASED MINIMA',
-        minVal ? `${catLabel} OCA ${minVal}` : catLabel,
-      ].filter(Boolean).join(' · ');
-      return { slot: 2, level: 'yellow', label, keyRe: NM.APM_TRIGGER, rwy };
-    }
-    // CAT A/B/C only — not relevant to this fleet; fall through to catch-all
   }
 
   // ── DEST / ALT SLOT 3: Procedure changes and supporting equipment ─────────
@@ -5390,12 +5166,9 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
 
   // ── DEST / ALT SLOT 5: STAR changes ──────────────────────────────────────
   if (NM.STAR.test(nu)) {
-    // Tier 1: ICAO coded identifier requires a digit, e.g. "STAR KOKKI2A".
-    const sm     = nu.match(NM.STAR_NAME);
-    // Tier 2: prose procedure name on its own line, e.g. "LAVON TWO ARRIVAL".
-    const proseM = !sm && notamRaw.match(/^([A-Z][A-Z ]+(?:ARRIVAL|TRANSITION|DEPARTURE))/m);
-    const star   = (sm ? sm[1] : null) || (proseM ? proseM[1].trim() : null) || 'STAR';
-    return { slot: 5, level: 'yellow', label: `STAR ${star} CHANGE`, keyRe: NM.RESTR_WORDS, rwy: null };
+    const sm = nu.match(NM.STAR_NAME);
+    const star = sm ? sm[1] : 'STAR';
+    return { slot: 5, level: 'yellow', label: `STAR ${star} CHANGE`, keyRe: NM.RESTR_WORDS, rwy: null, category: 'STAR' };
   }
 
   // Slot 6 — Closed / wingspan-restricted taxiways
@@ -5412,8 +5185,8 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   }
 
   // Slot 6b — FICON (surface conditions affect landing/rollout/taxi ops)
-  if (NM.FICON.test(nu)) {
-    const isPoor  = NM.FICON_POOR.test(nu);
+  if (NM.FICON.test(nu) || NM.SNOWTAM_BA.test(nu)) {
+    const isPoor  = NM.FICON_POOR.test(nu) || NM.SNOWTAM_POOR.test(nu);
     const isTwy   = /\bTWY\b/i.test(nu);
     const isAPN   = /\b(?:APN|RAMP)\b/i.test(nu);
     if (isTwy || isAPN) {
@@ -5427,12 +5200,166 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
              label: `RWY${rwy ? ' ' + rwy : ''} FICON`, keyRe: NM.FICON, rwy };
   }
 
+  // Slot 3n — LVP in force — directly affects Cat II/III ops eligibility
+  if (NM.LVP.test(nu)) {
+    const isNotInForce = /NOT\s+IN\s+FORCE|CANCELLED/i.test(nu);
+    return { slot: 3, level: isNotInForce ? 'yellow' : 'red', label: isNotInForce ? 'LVP CANCELLED' : 'LVP IN FORCE', keyRe: NM.RESTR_WORDS };
+  }
+
+  // Slot 3o — ARFF/RFFS category reduction — B747 requires Cat 9 minimum
+  if (NM.ARFF_RED.test(nu)) {
+    return { slot: 3, level: 'red', label: 'ARFF/RFFS DOWNGRADED', keyRe: NM.US_WORDS };
+  }
+
+  // Slot 3p — RNP AR not available — eliminates authorization-required precision approach
+  if (NM.RNP_AR.test(nu)) {
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    return { slot: 3, level: 'yellow', label: `RNP AR N/A${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
+  }
+
+  // Slot 3q — Declared distances restricted — affects landing/dep performance calc
+  if (NM.DECL_DIST.test(nu)) {
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    return { slot: 3, level: 'yellow', label: `DECL DIST${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESTR_WORDS, rwy };
+  }
+
+  // Slot 3r — Fuel unavailable — affects alternate and dispatch planning
+  if (NM.FUEL_UNAV.test(nu)) {
+    return { slot: 3, level: 'red', label: 'JET FUEL UNAVBL', keyRe: NM.US_WORDS };
+  }
+
+  // Slot 3s — Transition altitude/level changed — affects altimetry
+  // category:'INFO' → renders in General Information section, not STAR card
+  if (NM.TRANS_ALT.test(nu)) {
+    return { slot: 5, level: 'yellow', label: 'TRANS ALT/LVL CHANGED', keyRe: NM.RESTR_WORDS, category: 'INFO' };
+  }
+
+  // Slot 3t — Bird/wildlife hazard at AD — engine ingestion risk on TO/landing
+  // category:'INFO' → renders in General Information section, not STAR card
+  if (NM.BIRD_HAZARD.test(nu)) {
+    return { slot: 5, level: 'yellow', label: 'BIRD/WILDLIFE HAZARD', keyRe: NM.BIRD_HAZARD, category: 'INFO' };
+  }
+
+  // Slot 3u — Operating minima raised (OCA/MOCA/DA increased) — affects approach
+  if (NM.MINIMA_INC.test(nu)) {
+    const rm     = nu.match(NM.RWY_ID);
+    const rwy    = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    const apchT  = _apchTypeLabel(nu);
+    const rwySfx = rwy ? ` RWY ${rwy}` : '';
+    return { slot: 3, level: 'yellow', label: `${apchT ? apchT + ' ' : ''}MINIMA RAISED${rwySfx}`, keyRe: NM.MINIMA_INC, rwy };
+  }
+
+  // Slot 3v — ILS Cat downgraded — directly affects authorized approach category
+  if (NM.CAT_DG.test(nu)) {
+    // ILS_RWY_EUR fallback: ICAO AD2 format omits RWY keyword ("ILS 07C DOWNGRADED TO CAT I")
+    const rm     = nu.match(NM.RWY_ID) || nu.match(NM.ILS_RWY_EUR);
+    const rwy    = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    const apchT  = _apchTypeLabel(nu);
+    const rwySfx = rwy ? ` RWY ${rwy}` : '';
+    return { slot: 3, level: 'red', label: `${apchT ? apchT + ' ' : ''}DOWNGRADED${rwySfx}`, keyRe: NM.CAT_DG, rwy };
+  }
+
+  // Slot 3w — Pavement strength rating changed (PCR/PCN) — may restrict max weight
+  if (NM.PCR_CHG.test(nu)) {
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    return { slot: 3, level: 'yellow', label: `PCR/PCN CHANGED${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.PCR_CHG, rwy };
+  }
+
+  // Slot 3x — Runway End Safety Area dimensions reduced — affects landing margin
+  if (NM.RESA_CHG.test(nu)) {
+    const rm = nu.match(NM.RWY_ID);
+    const rwy = rm ? _pad2(rm[1].replace(/\s+/g,'')) : null;
+    return { slot: 3, level: 'yellow', label: `RESA REDUCED${rwy ? ' RWY ' + rwy : ''}`, keyRe: NM.RESA_CHG, rwy };
+  }
+
+  // Slot 3y — De-icing/anti-icing limited — winter ops dispatch impact
+  if (NM.DEICE_LTD.test(nu)) {
+    return { slot: 5, level: 'yellow', label: 'DE-ICING LIMITED', keyRe: NM.DEICE_LTD, category: 'INFO' };
+  }
+
+  // Slot 3z — Aerodrome rotating beacon U/S — night ops impact
+  // category:'INFO' → General Information section, not STAR card
+  if (NM.BEACON_US.test(nu)) {
+    return { slot: 5, level: 'yellow', label: 'AD BEACON U/S', keyRe: NM.BEACON_US, category: 'INFO' };
+  }
+
+  // Slot 2-prime — Navaid transmitting false / not approved for ops (P-04)
+  // Severity RED — more dangerous than U/S; erroneous signal may mislead navigation.
+  // "DO NOT USE", "FALSE INDICATIONS POSS", "ON FLT CLBR", "ON TEST…DO NOT USE"
+  if (NM.NAV_FALSE_SIG.test(nu)) {
+    // Extract navaid identifier if present for the label
+    const navM = nu.match(/\b(VOR|VORTAC|TACAN|NDB|DVOR|ILS|DME|DVOR\/DME|VOR\/DME)\b/i);
+    const navId = navM ? navM[1].toUpperCase() : 'NAV';
+    return { slot: 2, level: 'red', label: `${navId} DO NOT USE`, keyRe: NM.NAV_FALSE_SIG };
+  }
+
+  // Slot 3-alpha — DISREGARD restriction (restriction applies to non-listed types) (P-05)
+  // "DISREGARD TAXI RESTRICTION FOR A346, B773..." means restriction APPLIES to B744.
+  if (NM.DISREGARD_RESTR.test(nu)) {
+    const twM = nu.match(/TWY\s+([A-Z0-9]+)/i);
+    const twy = twM ? twM[1] : null;
+    return { slot: 3, level: 'yellow',
+             label: twy ? `TWY ${twy} RESTR (VERIFY)` : 'TAXI RESTR (VERIFY)',
+             keyRe: NM.DISREGARD_RESTR };
+  }
+
+  // Slot 5-alpha — New infrastructure in operation (P-06)
+  // PERM NOTAMs for new taxiways/runways that ATC uses in clearances (crew must know).
+  // category:'INFO' → General Information section, not STAR card
+  if (NM.NEW_INFRA.test(nu)) {
+    const rm = nu.match(/\b(TWY|TAXIWAY|RWY|RUNWAY)\s+([A-Z0-9]+)/i);
+    const infra = rm ? `${rm[1].toUpperCase()} ${rm[2].toUpperCase()}` : 'INFRA';
+    return { slot: 5, level: 'yellow', label: `NEW ${infra} IN OPR`, keyRe: NM.NEW_INFRA, category: 'INFO' };
+  }
+
   // Slot 7 — active during period / slot 8 — all other
   return { slot: active ? activeSlotBase : otherSlot, level: 'yellow', label: null, keyRe: null };
 }
 
 /**
  * Universal NOTAM evaluator — the core engine for airport card display.
+ *
+ * ─── INTEGRATION CONTRACT (binding requirements for index.html) ───────────
+ *
+ * 1. WEATHER FIRST — mandatory display order:
+ *    The weather section (METAR, TAF, SIGMET, PIREP) MUST be rendered BEFORE
+ *    all NOTAM group sections on every airport card type. starIssues, sidIssues,
+ *    infoIssues, and the issues list must never push weather below the fold.
+ *    Order: Airport header → Weather → rwyGroups → issues → sidIssues/starIssues
+ *           → infoIssues (General Information)
+ *
+ * 2. rwyGroups rendered on ALL card types — mandatory:
+ *    The rwyGroups runway-status block MUST be rendered on every airport card
+ *    regardless of role: ORIG, DEST, ALT, and CFS/ETP alternates.
+ *    rwyGroups contains runway-specific safety-critical items: ILS U/S, CAT II/III
+ *    not authorised, declared distance changes, and FICON surface conditions.
+ *    Omitting rwyGroups from alternate or ETP card templates silently drops
+ *    approach-critical status. FICON items with RWY references (e.g. "RWY 33
+ *    FICON 5/5/5") route exclusively to rwyGroups — they will not appear in
+ *    the general issues list.
+ *    Verified failure case: CYYT E1560/26 (ILS CAT II/III RWY 28 NOT AUTH)
+ *    present in rwyGroups['28'] but not rendered on ETP alternate card.
+ *
+ * 3. role parameter — correct assignment required:
+ *    CFS (ETP/ETOPS) alternates → role = 'ALT'
+ *    Destination alternates     → role = 'ALT' or 'DEST'
+ *    Departure airport          → role = 'ORIG'
+ *    NEVER pass role = 'ORIG' for an alternate or ETP airport. Incorrect role
+ *    routes CAT_II_NA and APCH_CHG to slot 5 (ORIG approach path) instead of
+ *    slot 3 (DEST runway path), misplacing the items and breaking rwyGroups
+ *    population for approach-critical NOTAMs.
+ *
+ * 4. Return object — all keys must be consumed by the renderer:
+ *    { issues, rwyGroups, sidIssues, starIssues, infoIssues, worst }
+ *    sidIssues  → SID procedure changes (departure card only)
+ *    starIssues → STAR procedure changes (arrival/alternate card only)
+ *    infoIssues → General Information collapsible section (all card types):
+ *                 BIRD_HAZARD, NEW_INFRA, DEICE_LTD, BEACON_US, TRANS_ALT
+ *                 These must NOT appear in the STAR card or main issues list.
+ * ─────────────────────────────────────────────────────────────────────────
  *
  * @param {string[]} notams        - Individual NOTAM strings (from _splitNotams)
  * @param {string}   role          - 'ORIG' | 'DEST' | 'ALT' | any alternate role
@@ -5544,21 +5471,34 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
       }
     }
 
-    // ── OFP daily time-window schedule: "HHMM-HHMM" alone on a line ──────
-    // When no day-range prefix is present, the NOTAM is active only during
-    // that time window on every day within the validity period.
-    // e.g. "1410-2030" — RWY closed daily only between 1410Z and 2030Z.
+    // ── OFP daily time-window schedule (ICAO Annex 15 / FAA 7930.2U) ─────
+    // Handles all observed variants in the corpus:
+    //   "2100-0300"           — bare HHMM-HHMM on its own line (legacy)
+    //   "DLY 2100-0300"       — DLY-prefixed (most common Atlas/ICAO format)
+    //   "DLY 2145 - 0215"     — spaces around the dash
+    //   "DLY 1100-1600, 1800-2300" — multiple windows (NOTAM active in either)
+    //   "DLY 0400-1000. PLEASE CTC..." — trailing qualifier after period
+    // Non-numeric DLY lines ("DLY SS PLUS30-2200", "DLY NORTH ATLANTIC ADVRY")
+    // do not start with \d{4} and are safely ignored (conservative: show NOTAM).
     if (active !== false && etaMin !== null) {
       const hasDayRangeSched = /^\s*(?:\d{2}-\d{2}\s+)+\d{4}-\d{4}\s*$/m.test(notamRaw);
       if (!hasDayRangeSched) {
-        const tSchedM = notamRaw.match(/^\s*(\d{4})-(\d{4})\s*$/m);
-        if (tSchedM) {
-          const startT = parseInt(tSchedM[1].slice(0, 2)) * 60 + parseInt(tSchedM[1].slice(2));
-          const endT   = parseInt(tSchedM[2].slice(0, 2)) * 60 + parseInt(tSchedM[2].slice(2));
-          const timeOk = endT >= startT
-            ? (etaMin >= startT && etaMin <= endT)
-            : (etaMin >= startT || etaMin <= endT); // cross-midnight
-          active = timeOk;
+        // Match DLY-prefixed or bare HHMM-HHMM schedule line (with optional multiple windows)
+        const dlyLine = notamRaw.match(/^\s*(?:DLY\s+)?(\d{4}\s*-\s*\d{4}(?:\s*,\s*\d{4}\s*-\s*\d{4})*)/m);
+        if (dlyLine) {
+          // Extract all HHMM-HHMM window pairs from the line
+          const pairs = [...dlyLine[1].matchAll(/(\d{4})\s*-\s*(\d{4})/g)];
+          if (pairs.length > 0) {
+            const timeOk = pairs.some(([, s, e]) => {
+              const startT = parseInt(s.slice(0, 2)) * 60 + parseInt(s.slice(2));
+              const endT   = parseInt(e.slice(0, 2)) * 60 + parseInt(e.slice(2));
+              // Cross-midnight: e.g. DLY 2100-0300 → active if etaMin>=2100 OR <=300
+              return endT >= startT
+                ? (etaMin >= startT && etaMin <= endT)
+                : (etaMin >= startT || etaMin <= endT);
+            });
+            active = timeOk;
+          }
         }
       }
     }
@@ -5568,7 +5508,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
     // we conservatively include the NOTAM.
     if (active === false) continue;
 
-    const { slot, level, label, keyRe, rwy } =
+    const { slot, level, label, keyRe, rwy, category } =
       _classifyNotamSlot(nu, notamRaw, role, acftProfile.type || '', active);
 
     // ── Build display text ────────────────────────────────────────────────
@@ -5612,7 +5552,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
     const rowLabel = label || shortLine.slice(0, 60);
 
     collected.push({ slot, level, active, text: displayText, notamRaw,
-                     rwy: rwy || null, label: label || null, rowLabel });
+                     rwy: rwy || null, label: label || null, rowLabel, category: category || null });
     _bumpW(level);
   }
 
@@ -5651,7 +5591,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   // Items within each group are sorted alphabetically by rowLabel.
   //
   const RUNWAY_SLOTS_DEST = new Set([1, 2, 3, 4]);
-  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 5, 6]); // slot 2=TKOF_MIN, 5=approach, 6=ALT_MA; slot 4 (SID) excluded — rendered separately via sidIssues
+  const RUNWAY_SLOTS_ORIG = new Set([1, 2, 5, 6]); // slot 2=TKOF_MIN, 5=approach, 6=ALT_MA
   const TWY_SLOTS         = new Set([3, 6]); // taxiway slots: ORIG=3, DEST=6
   const runwaySlots = isOrig ? RUNWAY_SLOTS_ORIG : RUNWAY_SLOTS_DEST;
 
@@ -5716,11 +5656,17 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
   // Restore flight date global
   if (typeof window !== 'undefined' && _prevISO !== null) window._flightDateISO = _prevISO;
 
-  const sidIssues  = collected.filter(i => i.slot === 4 && isOrig)
+  // category:'SID'  → procedure changes on departure card only
+  // category:'STAR' → procedure changes on arrival/alternate card only
+  // category:'INFO' → General Information section (BIRD_HAZARD, NEW_INFRA,
+  //                   DEICE_LTD, BEACON_US, TRANS_ALT) — not STAR, not issues
+  const sidIssues  = collected.filter(i => i.category === 'SID')
                                .sort((a,b)=>(a.rowLabel||'').localeCompare(b.rowLabel||''));
-  const starIssues = collected.filter(i => i.slot === 5 && !isOrig)
+  const starIssues = collected.filter(i => i.category === 'STAR')
                                .sort((a,b)=>(a.rowLabel||'').localeCompare(b.rowLabel||''));
-  return { issues: collected, rwyGroups, sidIssues, starIssues, worst };
+  const infoIssues = collected.filter(i => i.category === 'INFO')
+                               .sort((a,b)=>(a.label||'').localeCompare(b.label||''));
+  return { issues: collected, rwyGroups, sidIssues, starIssues, infoIssues, worst };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -7073,14 +7019,15 @@ const PATTERNS = {
   // Perishables on board
   PERISHABLE:   /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES|LIVE\s+ANIMALS\s*:\s*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
 
-  // DOT Special Permit Exemption (v1.9.7)
   // Format A: *OPERATING UNDER EXEMPTION DOT-SP7573*
   DOT_EXEMPT:   /\*OPERATING UNDER EXEMPTION\s+(DOT-SP\d+)\*/i,
-  DOT_RESTRICT: /\*OPERATING UNDER EXEMPTION\s+DOT-SP\d+\*[^\n]*\n([^\n*]{1,200})/i,
+  DOT_RESTRICT: /\*OPERATING UNDER EXEMPTION\s+DOT-SP\d+\*[^\n]*\nRESTRICTIONS:\s*([^\n]+(?:\n(?![\n\-\*])[^\n]+)?)/i,
 
-  // Format B: FLIGHT RELEASED UNDER EXEMPTION NO 18169C. ALTERNATE AIRPORT REQUIRED.
-  EXEMPTION_NO:     /FLIGHT RELEASED UNDER EXEMPTION NO\s+(\w+)/i,
-  EXEMPTION_NO_ALT: /FLIGHT RELEASED UNDER EXEMPTION NO\s+\w+[^\n]*ALTERNATE AIRPORT REQUIRED/i,
+  // Format B/C: trigger is "EXEMPTION NO" — company prefix
+  // (e.g. "POLAR") is optional. Number includes revision
+  // letter suffix (e.g. 18486C, 18169A).
+  EXEMPTION_NO:     /EXEMPTION NO\s+(\d+[A-Z]?)/i,
+  EXEMPTION_NO_ALT: /EXEMPTION NO\s+\d+[A-Z]?[^\n]*ALTERNATE AIRPORT REQUIRED/i,
 
   // Temperature control required (v1.9.5)
   TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
@@ -7934,6 +7881,57 @@ function _ofpRulesetParse(rawText) {
     });
   })();
 
+  // ── Airport operational notes from OFP Remarks ───────────────────
+  (function extractAptOpsNotes() {
+    const txt = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    // Constrain search to remarks section — stop before Company NOTAM section which uses the same dash format
+    const notamStart = txt.search(COMPANY_NOTAM.SECTION_ANCHOR);
+    const searchTxt  = notamStart > -1 ? txt.slice(0, notamStart) : txt;
+    const delimRe = /^(?:-{10,}|(?:-\s){5,}-)\s*$/mg;
+    const bounds = [];
+    let dm;
+    while ((dm = delimRe.exec(searchTxt)) !== null) {
+      bounds.push(dm.index + dm[0].length);
+    }
+    for (let i = 0; i < bounds.length - 1; i++) {
+      let block = searchTxt.slice(bounds[i], bounds[i + 1]).trim();
+      if (!block || /^[-\s]+$/.test(block)) continue;
+      block = block.replace(/^-\s*\n/, '').replace(/\n-\s*$/, '').trim();
+      const lines = block.split('\n');
+      const foundIcaos = [];
+      let headerLine = '';
+      let headerIdx  = 0;
+      for (let li = 0; li < Math.min(lines.length, 3); li++) {
+        const clean = lines[li].replace(/\*{1,4}|\*\*/g, ' ');
+        const codes = clean.match(/\b([A-Z]{4})\b/g) || [];
+        for (const code of codes) {
+          if (releaseIcaos.has(code) && !foundIcaos.includes(code)) {
+            foundIcaos.push(code);
+          }
+        }
+        if (foundIcaos.length) {
+          headerLine = lines[li].replace(/\*{1,4}|\*\*/g, '').trim();
+          headerIdx  = li;
+          break;
+        }
+      }
+      if (!foundIcaos.length) continue;
+      const body = lines.slice(headerIdx + 1)
+        .join('\n')
+        .replace(/^PAGE \d+ OF \d+\s*$/mg, '')
+        .trim();
+      if (!body) continue;
+      for (const icao of foundIcaos) {
+        if (!airportData[icao]) {
+          airportData[icao] = { weather:'', notams:'', opsNotes:null };
+        }
+        if (!airportData[icao].opsNotes) {
+          airportData[icao].opsNotes = { header: headerLine, body };
+        }
+      }
+    }
+  })();
+
   // ── Company NOTAM curfews ─────────────────────────────────────────
   (function extractCurfews() {
     const stationStart = t.search(COMPANY_NOTAM.SECTION_ANCHOR);
@@ -8174,6 +8172,7 @@ function parseOFP() {
     if (!airportData[icao].weather && src.weather) airportData[icao].weather = src.weather;
     if (!airportData[icao].notams  && src.notams)  airportData[icao].notams  = src.notams;
     if (src.curfew) airportData[icao].curfew = src.curfew;
+    if (src.opsNotes && !airportData[icao].opsNotes) airportData[icao].opsNotes = src.opsNotes;
     // E-WINS: always overwrite — WSITAF supersedes any previously stored TAF
     if (src.ewinsWeather) {
       airportData[icao].ewinsWeather = src.ewinsWeather;
@@ -8899,15 +8898,12 @@ function renderEnroutePhase() {
     h += `<div class="subcard-header" style="color:var(--sys-yellow);display:flex;align-items:center;gap:6px;flex-wrap:wrap">`;
     h += `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 110 1.5A.75.75 0 018 4zm1 8H7v-5h2v5z"/></svg>`;
     h += `<span>${esc(S.dotExemption.number)}</span>`;
-    if (S.dotExemption.altRequired) {
-      h += `<span style="font-size:12px;font-weight:700;background:var(--sys-yellow);color:#000;border-radius:4px;padding:1px 6px;letter-spacing:0.04em">ALT REQ\'D</span>`;
-    }
     h += `</div>`;
     h += `<div class="subcard-body">`;
-    if (S.dotExemption.restrictions && !S.dotExemption.altRequired) {
+    if (S.dotExemption.altRequired) {
+      h += `<div style="font-size:13px;color:var(--sys-yellow);font-weight:600;line-height:1.55">ALTERNATE AIRPORT REQUIRED</div>`;
+    } else if (S.dotExemption.restrictions) {
       h += `<div style="font-size:13px;color:var(--sys-yellow);font-family:var(--font-mono);white-space:pre-wrap;line-height:1.55">${esc(S.dotExemption.restrictions)}</div>`;
-    } else if (S.dotExemption.altRequired) {
-      h += `<div style="font-size:13px;color:var(--label2)">Alternate airport required per dispatch release. Verify with dispatcher prior to departure.</div>`;
     } else {
       h += `<div style="font-size:13px;color:var(--label2)">Verify exemption conditions per OFP remarks prior to departure.</div>`;
     }
@@ -10404,6 +10400,48 @@ function renderAptIssues(status) {
   return h || `<div class="apt-issue g">✓ No issues at ETA window</div>`;
 }
 
+function renderAptOpsNotes(icao) {
+  const note = (airportData[icao] || {}).opsNotes;
+  if (!note) return '';
+  
+  // Parse body into lines, skip empty and punctuation-only lines
+  const lines = (note.body || '')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !/^[-\s]*$/.test(l));
+  
+  const bodyRows = lines
+    .map(line => `
+      <div class="notam-item">
+        <div class="notam-item-hdr">
+          <span class="notam-dot y"></span>
+          <span class="notam-item-label">${esc(line)}</span>
+        </div>
+      </div>`)
+    .join('');
+  
+  const bodyHtml = bodyRows ? `<div class="notam-group-body">${bodyRows}</div>` : '';
+  
+  return `
+    <div class="apt-ops-note collapsed"
+         style="border-top:0.5px solid var(--sep)">
+      <div class="notam-group-hdr"
+           onclick="this.parentElement.classList.toggle('collapsed')"
+           role="button" aria-expanded="false">
+        <span class="notam-dot y"></span>
+        <span class="notam-group-label"
+              style="color:var(--sys-yellow)">
+          Company Remarks
+        </span>
+        <svg class="cell-chevron" viewBox="0 0 9 14"
+             aria-hidden="true">
+          <path d="M1 1l6.5 6L1 13"/>
+        </svg>
+      </div>
+      ${bodyHtml}
+    </div>`;
+}
+
 function buildAirportCards() {
   const grid = document.getElementById('airportGrid');
   const empty = document.getElementById('emptyAirports');
@@ -10416,7 +10454,7 @@ function buildAirportCards() {
   [...grid.querySelectorAll('.apt-card')].forEach(c=>c.remove());
 
   apts.forEach(apt => {
-    if (!airportData[apt.icao]) airportData[apt.icao]={notams:'',weather:''};
+    if (!airportData[apt.icao]) airportData[apt.icao]={notams:'',weather:'',opsNotes:null};
     const data = airportData[apt.icao];
     const status = evalAirport(apt.icao, apt.eta, data.notams, data.weather, apt.wxWindow, apt.role, S.acftType);
     const sc = {green:'g',yellow:'y',red:'r',unknown:'u'}[status.color];
@@ -10485,6 +10523,7 @@ function buildAirportCards() {
         <span class="apt-curfew-delta">${esc(curfewDeltaStr)}</span>
         <svg viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:7px;height:11px;flex-shrink:0;color:var(--label3)"><path d="M1 1l6.5 6L1 13"/></svg>
       </div>` : ''}
+      ${renderAptOpsNotes(apt.icao)}
       <div class="apt-inputs" id="api-in-${apt.icao}">
         <div class="apt-input-row">
           <div class="apt-input-label">NOTAM</div>
