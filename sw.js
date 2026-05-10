@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-//  PilotBrief — Service Worker  v1.9.6
+//  PilotBrief — Service Worker  v1.9.7
 //
 //  Strategy: Offline-first (cache-first for everything)
 //  ─────────────────────────────────────────────────────
@@ -56,7 +56,7 @@
 // ═══════════════════════════════════════════════════════
 'use strict';
 
-const CACHE_NAME    = 'pb-v1.9.9';
+const CACHE_NAME    = 'pb-v1.9.10';
 const PDFJS_VERSION = '3.11.174';
 
 // ── Mandatory shell ────────────────────────────────────
