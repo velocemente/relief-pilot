@@ -7169,7 +7169,7 @@ const WX_PAGE_HEADER  = /^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg;
 const CAT_II_III_PATTERNS = {
   SECTION_ANCHOR: /^AUTHORIZED\s+CAT\s+II\/III\s+APPROACHES/m,
   // "ICAO CAT II/III - RWY runway_list" — captures [1]=ICAO [2]=cat level [3]=rwy list
-  AIRPORT_ENTRY:  /^([A-Z]{4})\s+CAT\s+(II\/III|II|III)\s*-\s*RWY\s+([A-Z0-9\/]+)/,
+  AIRPORT_ENTRY:  /^([A-Z]{4})\s+CAT\s+(II\/III|II|III)\s*-\s*(?:ALL\s+RWY|RWY\s+([A-Z0-9\/]+))/,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -7598,7 +7598,7 @@ function _ofpRulesetParse(rawText) {
     for (const line of secText.split('\n')) {
       const lm = line.match(CAT_II_III_PATTERNS.AIRPORT_ENTRY);
       if (!lm) continue;
-      const icao = lm[1], cat = lm[2], rwys = lm[3].trim();
+      const icao = lm[1], cat = lm[2], rwys = lm[3] ? lm[3].trim() : 'ALL RUNWAYS';
       if (!catMap[icao]) catMap[icao] = [];
       catMap[icao].push({ cat, rwys });
     }
@@ -9592,14 +9592,19 @@ function renderDescentAirportSummary() {
   // CAT II/III rows — one per entry, separated by a light rule
   if (catRows.length) {
     h += `<div style="padding-left:18px;padding-top:var(--sp2);display:flex;flex-direction:column;gap:3px;border-top:0.5px solid var(--sep);margin-top:var(--sp2);padding-top:var(--sp2)">`;
+    const isUS = /^[KP]/.test(selApt.icao);
     catRows.forEach(row => {
-      const label = row.legacy
-        ? row.legacy
-        : `CAT ${row.cat} — RWY ${row.rwys}`;
-      h += `<div style="display:flex;align-items:baseline;gap:var(--sp2)">`;
-      h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0;min-width:62px">CAT ${row.cat || 'II/III'}</span>`;
-      h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint)">${esc(row.rwys || row.legacy || '')}</span>`;
-      h += `</div>`;
+      if (isUS) {
+        h += `<div style="display:flex;align-items:baseline;gap:var(--sp2)">`;
+        h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--sys-red);text-transform:uppercase;letter-spacing:0.04em">NOT AUTHORIZED</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--sys-red);opacity:0.7">OpSpec C060 — US airports</span>`;
+        h += `</div>`;
+      } else {
+        h += `<div style="display:flex;align-items:baseline;gap:var(--sp2);flex-wrap:wrap">`;
+        h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0;min-width:62px">CAT ${row.cat || 'II/III'}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint);word-break:break-all;overflow-wrap:anywhere">${esc(row.rwys || row.legacy || '')}</span>`;
+        h += `</div>`;
+      }
     });
     h += `</div>`;
   }
