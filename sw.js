@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-//  PilotBrief — Service Worker  v1.9.7
+//  PilotBrief — Service Worker  v2.0.0
 //
 //  Strategy: Offline-first (cache-first for everything)
 //  ─────────────────────────────────────────────────────
@@ -56,7 +56,7 @@
 // ═══════════════════════════════════════════════════════
 'use strict';
 
-const CACHE_NAME    = 'pb-v1.9.10';
+const CACHE_NAME    = 'pb-v2.0.0';
 const PDFJS_VERSION = '3.11.174';
 
 // ── Mandatory shell ────────────────────────────────────
@@ -162,6 +162,30 @@ self.addEventListener('fetch', event => {
 
   // All remaining non-GET requests pass through unintercepted.
   if (event.request.method !== 'GET') return;
+
+  // ── Navigation requests → app shell ──────────────────
+  // iOS Home Screen PWA cold-start navigates to the stored start_url.
+  // caches.match(event.request) performs an exact-URL lookup: if iOS
+  // appends a timestamp query-param, or canonicalises the URL
+  // differently from what was cached at install time, the lookup misses,
+  // the fetch falls through to the network, and offline cold-start fails
+  // with "Connect to Wi-Fi or cellular".
+  //
+  // Fix: for any in-scope navigate-mode request, serve ./index.html
+  // from the cache by name — bypassing URL matching entirely.
+  // Fallback chain: ./index.html → ./ → network → 503 stub.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('./index.html')
+        .then(r => r || caches.match('./'))
+        .then(r => r || fetch(event.request))
+        .catch(() => new Response(
+          'Offline — PilotBrief is loading. Flight data in localStorage is intact.',
+          { status: 503, headers: { 'Content-Type': 'text/plain' } }
+        ))
+    );
+    return;
+  }
 
   // ── Cache-first GET ──────────────────────────────────
   // Serve from cache immediately; revalidate same-origin assets
