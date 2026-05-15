@@ -6374,7 +6374,7 @@ const S = {
   //   coChartNote: crew-entered text for "SEE CO CHART" runways (SPECIAL + no proc)
   oeiData:[], oeiSelectedRwy:'',
   blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
-  crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
+  crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
   // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
   //   code: ATA number string e.g. "36-12-02-01"
   //   desc: full description string (may be multi-line joined)
@@ -6447,7 +6447,7 @@ function resetStateForNewFlight() {
     oeiVal:'', stabTrim:'', gaFuel:'',
     oeiData:[], oeiSelectedRwy:'',
     blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
-    crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
+    crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
     navLog:[], enrouteNotams:null, natTrack:null,
@@ -7444,7 +7444,7 @@ function _ofpRulesetParse(rawText) {
     //   Roles: CA FO FO1 FO2 SO AO RO DH JS  (v1.2.0 — ETOPS augmented designations)
     //   Lazy *? in name group forces backtracking so single-letter initial
     //   lands in group [4], not consumed into group [3].
-    var re = /^\*?\s*(?:SEN\s+)?(CA|FO1?|FO2|SO|AO|RO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\-]*(?:\s+[A-Z][A-Z'\-]*)*?)\s+([A-Z])\s*\.{1,3}/mg;
+    var re = /^\*?\s*(?:SEN\s+)?(CA|FO1?|FO2|SO|AO|RO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\u2019\-]*(?:\s+[A-Z][A-Z'\u2019\-]*)*?)\s+([A-Z])\s*\.{1,3}/mg;
     var m;
     while ((m = re.exec(block)) !== null) {
       var rawName = m[3].replace(/\s+$/, '');
@@ -8954,14 +8954,16 @@ function calcInflightRest() {
     .filter(c => c.role !== 'JS' && c.role !== 'DH' && c.active !== false).length;
   if (operatingCount < 3) return null;
   function buildBlocks(n) {
-    const base = Math.floor(totalMins / n);
-    const rem  = totalMins - base * n;
+    const gapMins = S.restGapMins || 0;
+    const avail   = totalMins - (n - 1) * gapMins;
+    const base = Math.floor(avail / n);
+    const rem  = avail - base * n;
     const blocks = []; let cursor = tocZ;
     for (let i = 0; i < n; i++) {
-      const dur = base + (i === n - 1 ? rem : 0);
+      const dur  = base + (i === n - 1 ? rem : 0);
       const endZ = addM(cursor, dur);
       blocks.push({ label: `Rest ${i+1}`, startZ: cursor, endZ, durationMins: dur });
-      cursor = endZ;
+      cursor = addM(endZ, gapMins);
     }
     return blocks;
   }
@@ -8975,9 +8977,10 @@ function calcInflightRest() {
   };
 }
 
-function renderBlockList(blocks, fmtZ, fmtDur) {
+function renderBlockList(blocks, fmtZ, fmtDur, gapMins) {
+  gapMins = gapMins || 0;
   let h = `<div style="display:flex;flex-direction:column;gap:var(--sp2)">`;
-  blocks.forEach(b => {
+  blocks.forEach((b, i) => {
     h += `<div style="display:grid;grid-template-columns:48px 1fr auto;align-items:center;
             gap:var(--sp3);background:var(--fill4);border-radius:var(--r-sm);
             padding:var(--sp2) var(--sp3)">`;
@@ -8990,13 +8993,25 @@ function renderBlockList(blocks, fmtZ, fmtDur) {
             font-weight:600;white-space:nowrap;text-align:right">
             ${fmtDur(b.durationMins)}</span>`;
     h += `</div>`;
+    if (gapMins > 0 && i < blocks.length - 1) {
+      h += `<div style="display:grid;grid-template-columns:48px 1fr auto;align-items:center;
+              gap:var(--sp3);padding:2px var(--sp3)">`;
+      h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label4);
+              text-transform:uppercase;letter-spacing:0.04em">BUFFER</span>`;
+      h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label4)">
+              ${fmtZ(b.endZ)}&thinsp;→&thinsp;${fmtZ(blocks[i+1].startZ)}</span>`;
+      h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label4);
+              text-align:right">${fmtDur(gapMins)}</span>`;
+      h += `</div>`;
+    }
   });
   h += `</div>`;
   return h;
 }
 
-function renderBlockColumn(title, blocks, fmtZ, fmtDur) {
+function renderBlockColumn(title, blocks, fmtZ, fmtDur, gapMins) {
   if (!blocks) return '';
+  gapMins = gapMins || 0;
   let h = `<div style="background:var(--fill4);border-radius:var(--r-md);padding:var(--sp3)">`;
   h += `<div style="display:flex;align-items:baseline;justify-content:space-between;
           margin-bottom:var(--sp3)">`;
@@ -9005,7 +9020,7 @@ function renderBlockColumn(title, blocks, fmtZ, fmtDur) {
   h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint);
           font-weight:600">${fmtDur(blocks[0].durationMins)}</span>`;
   h += `</div>`;
-  blocks.forEach(b => {
+  blocks.forEach((b, i) => {
     h += `<div style="border-top:0.5px solid var(--sep);padding:var(--sp2) 0">`;
     h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
             text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px">
@@ -9017,6 +9032,15 @@ function renderBlockColumn(title, blocks, fmtZ, fmtDur) {
     h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label2);
             white-space:nowrap">${fmtDur(b.durationMins)}</span>`;
     h += `</div></div>`;
+    if (gapMins > 0 && i < blocks.length - 1) {
+      h += `<div style="border-top:0.5px solid var(--sep);padding:2px 0">`;
+      h += `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:4px">`;
+      h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label4);
+              text-transform:uppercase;letter-spacing:0.04em">BUFFER</span>`;
+      h += `<span style="font-family:var(--font-mono);font-size:11px;color:var(--label4);
+              white-space:nowrap">${fmtDur(gapMins)}</span>`;
+      h += `</div></div>`;
+    }
   });
   h += `</div>`;
   return h;
@@ -9242,6 +9266,19 @@ function renderInflightRestModule() {
                   background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
                   cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
       h += `</div>`;
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-top:var(--sp2)">`;
+      h += `<span style="font-size:13px;color:var(--label3)">Buffer</span>`;
+      h += `<button onclick="adjustGap(-5)" aria-label="Decrease gap"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>`;
+      h += `<span style="font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--tint);
+                min-width:52px;text-align:center">${S.restGapMins || 0}min</span>`;
+      h += `<button onclick="adjustGap(+5)" aria-label="Increase gap"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
+      h += `</div>`;
     }
   }
   h += `</div>`;
@@ -9282,12 +9319,12 @@ function renderInflightRestModule() {
 
       // ── Schedule blocks ──
       if (data.operatingCount === 3) {
-        h += renderBlockList(data.blocks3, fmtZ, fmtDur);
+        h += renderBlockList(data.blocks3, fmtZ, fmtDur, S.restGapMins || 0);
       } else {
         if (sv === 'halves') {
-          h += renderBlockColumn('Halves', data.blocksH, fmtZ, fmtDur);
+          h += renderBlockColumn('Halves', data.blocksH, fmtZ, fmtDur, S.restGapMins || 0);
         } else {
-          h += renderBlockColumn('Quarters', data.blocksQ, fmtZ, fmtDur);
+          h += renderBlockColumn('Quarters', data.blocksQ, fmtZ, fmtDur, S.restGapMins || 0);
         }
       }
 
@@ -9325,6 +9362,11 @@ function adjustBuffer(deltaMins) {
   if (next < 0 || next > 180) return;
   S.crewRestBuffer = next; saveFlight(); renderNote();
 }
+function adjustGap(deltaMins) {
+  const next = (S.restGapMins || 0) + deltaMins;
+  if (next < 0 || next > 40) return;
+  S.restGapMins = next; saveFlight(); renderNote();
+}
 var _crewPickerOpen = false;
 function openCrewPicker()  { _crewPickerOpen = true;  renderNote(); }
 function closeCrewPicker() { _crewPickerOpen = false; renderNote(); }
@@ -9352,17 +9394,27 @@ function copyInflightRestLog() {
     `TOC: ${fmtZ(data.tocZ)}  End: ${fmtZ(data.restEndZ)}  Total: ${fmtDur(data.totalMins)}`,
     `Pre-landing buffer: ${S.crewRestBuffer}min`, '',
   ];
+  const _gap = S.restGapMins || 0;
   if (data.operatingCount === 3) {
     lines.push(`THIRDS — ${fmtDur(data.blocks3[0].durationMins)}/crew`);
-    data.blocks3.forEach(b =>
-      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+    data.blocks3.forEach((b, i) => {
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`);
+      if (_gap > 0 && i < data.blocks3.length - 1)
+        lines.push(`  BUFFER  ${fmtDur(_gap)}`);
+    });
   } else {
     lines.push(`HALVES — ${fmtDur(data.blocksH[0].durationMins)}/crew`);
-    data.blocksH.forEach(b =>
-      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+    data.blocksH.forEach((b, i) => {
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`);
+      if (_gap > 0 && i < data.blocksH.length - 1)
+        lines.push(`  BUFFER  ${fmtDur(_gap)}`);
+    });
     lines.push('', `QUARTERS — ${fmtDur(data.blocksQ[0].durationMins)}/crew`);
-    data.blocksQ.forEach(b =>
-      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+    data.blocksQ.forEach((b, i) => {
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`);
+      if (_gap > 0 && i < data.blocksQ.length - 1)
+        lines.push(`  BUFFER  ${fmtDur(_gap)}`);
+    });
   }
   navigator.clipboard.writeText(lines.join('\n'))
     .then(() => showToast('✓ Rest schedule copied', 'ok'))
