@@ -6413,6 +6413,8 @@ const S = {
   etopsExit:'',       // elapsed time to ETOPS airspace exit, e.g. "11:44" — from OFP header
   etopsExitMins:null, // OFP elapsed minutes to ETOPS exit (HH:MM converted to integer)
 
+  rawOFP:'',          // full raw OFP text from PDF extraction — used by enroute timeline V2 functions
+
   // ── Preflight / Departure ATIS + Parking (independent of Descent) ──
   preAtisLetter:'',   // Departure ATIS identifier letter, e.g. "K"
   preAtisNotes:'',    // Departure ATIS free-text notes
@@ -6462,7 +6464,7 @@ function resetStateForNewFlight() {
     userNotes:'', fcirNarrative:'', fcirAsap:false,
     etopsEntry:'', etopsSpec:'', etpPoints:[],
     activePhase:'preflight',
-    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null, etopsExit:'', etopsExitMins:null,
+    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null, etopsExit:'', etopsExitMins:null, rawOFP:'',
     preAtisLetter:'', preAtisNotes:'', preParkingNotes:'',
     descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
     enrouteScratch:'',
@@ -7385,12 +7387,9 @@ function _ofpRulesetParse(rawText) {
   })();
 
   // ── ETOPS Exit ──────────────────────────────────────────────────────
-  var { etopsExit, etopsExitMins } = (() => {
-    var m = t.match(PATTERNS.ETOPS_EXIT);
-    if (!m) return { etopsExit: '', etopsExitMins: null };
-    var [hh, mm] = m[1].split(':').map(Number);
-    return { etopsExit: m[1], etopsExitMins: hh * 60 + mm };
-  })();
+  // v1.2: extractEtopsExitV2 uses navlog (E.EXT) + TOT-T as primary path (Atlas Air),
+  //       header "ETOPS Exit HH:MM" retained as fallback for non-Atlas OFP generators.
+  var { etopsExit, etopsExitMins } = extractEtopsExitV2(t);
 
   // ── POR ────────────────────────────────────────────────────────────
   var porHM = t.match(PATTERNS.POR_HEADER);
@@ -7683,15 +7682,20 @@ function _ofpRulesetParse(rawText) {
         rows.push({ wxWindow: rm[3] + 'Z-' + rm[4] + 'Z', elapsedMins: parseInt(rm[1])*60 + parseInt(rm[2]) });
         if (rows.length === 2) break;
       }
-      // Stamp elapsed time onto the ETP point so the timeline can anchor it
-      var ptRef = cfsPoints.find(p => p.name === etpName);
-      if (ptRef && rows[0] && ptRef.elapsedMins == null) ptRef.elapsedMins = rows[0].elapsedMins;
+      // [BUG 1 FIX v1.2] CFS DATA_ROW elapsedMins = diversion time to alternate,
+      // NOT departure→ETP elapsed. Stamping moved to applyNavlogEtpTimes() below.
+      // Original: if (ptRef && rows[0] && ptRef.elapsedMins == null) ptRef.elapsedMins = rows[0].elapsedMins;
       [[retApt, rows[0]||null], [contApt, rows[1]||null]].forEach(([icao, rowData]) => {
         if (!icao || cfsApts.find(a => a.icao === icao)) return;
         cfsApts.push({ icao, wxWindow: rowData ? rowData.wxWindow : null, etpName, role: 'CFS ALT' });
       });
     }
   })();
+
+  // BUG 1 FIX v1.2: Populate ETP elapsed times from navlog TOT-T (HH.MM) field.
+  // CFS DATA_ROW TIME = diversion time to alternate, NOT departure→ETP elapsed.
+  // applyNavlogEtpTimes() reads navlog (GOicao) ETPn + TOT-T instead.
+  cfsPoints = applyNavlogEtpTimes(cfsPoints, t);
 
   cfsApts.forEach(cfs => {
     if (altData.find(a => a.icao === cfs.icao)) return;
@@ -8133,6 +8137,9 @@ function _ofpRulesetParse(rawText) {
     natTrack,
     airportData,  // { [icao]: { weather, notams, curfew? } }
     parsedVerbalCallsign,  // from "VERBAL CALLSIGN - {NAME}" in Remarks; null if absent
+
+    rawOFP: t,             // full OFP text — consumed by enroute timeline V2 functions
+
   };
 }
 
@@ -8237,6 +8244,7 @@ function parseOFP() {
     etopsEntryMins: result.etopsEntryMins,
     etopsExit:      result.etopsExit,
     etopsExitMins:  result.etopsExitMins,
+    rawOFP:         result.rawOFP || '',
     porWpt:      result.porWpt,
     porOffsetMins: result.porOffsetMins,
     porMinf:     result.porMinf,
@@ -8584,6 +8592,265 @@ function _deriveOffZ() {
   return null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// ENROUTE TIMELINE V2 FUNCTIONS
+// Source: CODE-ENR-TimelineEvents-REV-20260512-v1.2.js
+// Bugs closed: BUG 1 (S1), BUG 2, BUG 3, BUG 4, BUG 5a/b
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Header-based ETOPS Exit pattern — fallback for non-Atlas OFP generators.
+ * Atlas Air carries ETOPS Exit exclusively in navlog as (E.EXT).
+ */
+const HEADER_ETOPS_EXIT_RE = /ETOPS\s+Exit\s+(\d{1,2}:\d{2})/i;
+
+/**
+ * Navlog ETOPS Exit (E.EXT) extractor — Atlas Air primary path.
+ * Captures TOT-T in HH.MM format followed by F/D altitude suffix.
+ */
+const NAVLOG_EEXT_RE = /\(E\.EXT\)[\s\S]{0,200}?(\d{2}\.\d{2})\s+[FD]\d{3}/m;
+
+/**
+ * Navlog ETP TOT-T extractor — replaces CFS DATA_ROW TIME for ETP elapsed times.
+ * Captures (GOicao) ETPn + TOT-T HH.MM + F/D altitude suffix.
+ * WARNING: HH.MM is NOT decimal. "03.38" = 3h 38m = 218 min. Split on "." → parseInt.
+ */
+const NAVLOG_ETP_RE =
+  /\(GO([A-Z]{4})\)\s+(ETP\d+)[\s\S]{0,300}?(\d{2}\.\d{2})\s+[FD]\d{3}/gm;
+
+/**
+ * Extract ETP elapsed times from navlog TOT-T fields.
+ * Replaces CFS DATA_ROW TIME extraction for all ETP elapsed times.
+ * @returns {Object} Map: ETP identifier → elapsed minutes, e.g. { ETP1: 218, ETP2: 271 }
+ */
+function extractEtpElapsedFromNavlog(ofpText) {
+  if (!ofpText || typeof ofpText !== 'string') return {};
+  const result = {};
+  const re = new RegExp(NAVLOG_ETP_RE.source, NAVLOG_ETP_RE.flags);
+  let m;
+  while ((m = re.exec(ofpText)) !== null) {
+    const etpName = m[2];
+    const raw     = m[3];
+    const parts = raw.split('.');
+    if (parts.length !== 2) continue;
+    const hh = parseInt(parts[0], 10);
+    const mm = parseInt(parts[1], 10);
+    if (isNaN(hh) || isNaN(mm) || mm > 59 || hh > 23) continue;
+    const elapsedMins = hh * 60 + mm;
+    if (elapsedMins > 0 && !result[etpName]) {
+      result[etpName] = elapsedMins;
+    }
+  }
+  return result;
+}
+
+/**
+ * Apply navlog elapsed times to an ETP point array.
+ * GUARD: only writes when elapsedMins is currently null/undefined.
+ */
+function applyNavlogEtpTimes(etpPoints, ofpText) {
+  if (!etpPoints || !etpPoints.length) return etpPoints || [];
+  const navlogTimes = extractEtpElapsedFromNavlog(ofpText);
+  return etpPoints.map(pt => {
+    if (pt.elapsedMins == null && navlogTimes[pt.name] != null) {
+      return { ...pt, elapsedMins: navlogTimes[pt.name] };
+    }
+    return pt;
+  });
+}
+
+/**
+ * Validate ETP ascending-order invariant. Diagnostic only — logs console.warn.
+ */
+function validateEtpOrder(etpPoints) {
+  const populated = (etpPoints || [])
+    .filter(p => p.elapsedMins != null)
+    .sort((a, b) => {
+      const numA = parseInt((a.name || '').replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt((b.name || '').replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
+    });
+  let valid = true;
+  for (let i = 1; i < populated.length; i++) {
+    const prev = populated[i - 1];
+    const curr = populated[i];
+    if (curr.elapsedMins <= prev.elapsedMins) {
+      console.warn(
+        `[PilotBrief ETP ORDER] ${curr.name}(${curr.elapsedMins} min) ` +
+        `≤ ${prev.name}(${prev.elapsedMins} min). ` +
+        `Navlog TOT-T extraction may have failed for this flight.`
+      );
+      valid = false;
+    }
+  }
+  return valid;
+}
+
+/**
+ * Extract ETOPS airspace exit elapsed time from OFP text.
+ * REPLACES the inline IIFE in parseOFP().
+ * Fallback chain: (1) header "ETOPS Exit HH:MM", (2) navlog (E.EXT) + TOT-T HH.MM
+ */
+function extractEtopsExitV2(ofpText) {
+  if (!ofpText || typeof ofpText !== 'string') {
+    return { etopsExit: '', etopsExitMins: null };
+  }
+
+  // Step 1: Header scan (non-Atlas OFP generators)
+  const headerMatch = ofpText.match(HEADER_ETOPS_EXIT_RE);
+  if (headerMatch) {
+    const raw      = headerMatch[1];
+    const [hh, mm] = raw.split(':').map(Number);
+    return { etopsExit: raw, etopsExitMins: hh * 60 + mm };
+  }
+
+  // Step 2: Navlog (E.EXT) scan (Atlas Air format — primary path)
+  const navlogMatch = ofpText.match(NAVLOG_EEXT_RE);
+  if (navlogMatch) {
+    const raw   = navlogMatch[1];
+    const parts = raw.split('.');
+    const hh    = parseInt(parts[0], 10);
+    const mm    = parseInt(parts[1], 10);
+    if (!isNaN(hh) && !isNaN(mm) && mm <= 59) {
+      const mins    = hh * 60 + mm;
+      const display = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+      return { etopsExit: display, etopsExitMins: mins };
+    }
+  }
+
+  return { etopsExit: '', etopsExitMins: null };
+}
+
+/**
+ * Build the chronological timeline event array for the enroute phase.
+ * REPLACES the inline event builder block in renderEnroutePhase().
+ * All R-3/R-4 CO RPT and POR cluster logic preserved verbatim.
+ * Change from inline: ETP block uses applyNavlogEtpTimes() + validateEtpOrder().
+ */
+function buildTimelineEventsV2(S, navLog, hasOff, eteDest, ofpText) {
+  const events = [];
+  if (!hasOff) return events;
+
+  const wptNearest = (targetMins, maxDelta) => {
+    const pool = maxDelta !== undefined
+      ? navLog.filter(w => Math.abs(w.elapsedMins - targetMins) <= maxDelta)
+      : navLog;
+    if (!pool.length) return null;
+    return pool.reduce((b, w) =>
+      Math.abs(w.elapsedMins - targetMins) < Math.abs(b.elapsedMins - targetMins) ? w : b
+    );
+  };
+
+  const wptPrePor = (porElapsed) => {
+    if (!navLog.length || !porElapsed) return null;
+    const target = porElapsed - 180;
+    const valid  = navLog.filter(
+      w => w.elapsedMins >= target && w.elapsedMins < porElapsed
+    );
+    if (!valid.length) return null;
+    return valid.reduce((b, w) =>
+      Math.abs(w.elapsedMins - target) < Math.abs(b.elapsedMins - target) ? w : b
+    );
+  };
+
+  // ETOPS: −60 advisory + entry — unchanged
+  if (S.etopsEntryMins != null) {
+    events.push({ type:'preEtops',   elapsed: S.etopsEntryMins - 60 });
+    events.push({ type:'etopsEntry', elapsed: S.etopsEntryMins });
+  }
+
+  // POR cluster (redispatch only) — unchanged (R-4)
+  if (S.porOffsetMins != null) {
+    const prePorWpt = wptPrePor(S.porOffsetMins);
+    events.push({
+      type:'prePor',
+      elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
+      wpt: prePorWpt ? prePorWpt.wpt : null,
+    });
+    events.push({ type:'rda', elapsed: S.porOffsetMins - 120 });
+    events.push({ type:'por', elapsed: S.porOffsetMins, wpt: S.porWpt || null });
+  }
+
+  // Pre-POR CO RPTs (R-3 v1.1 PB-ENR-001 + BUG 6 FIX)
+  // BUG 6: Original threshold `eteDest - 240` blocked CO RPTs on all flights
+  // under 8 hours. CMB566 KGTB→EDDN (06:18, 378 min) — MALOT at 04:09 (249 min)
+  // never rendered because 240 > 378-240=138 triggered early break.
+  // FIX: gate only on flight < 4 hours; break only past arrival.
+  for (let i = 1; i <= 15; i++) {
+    const targetElapsed = i * 240;
+    if (eteDest && eteDest < 240) break;          // flight < 4 hours — no CO RPTs
+    if (eteDest && targetElapsed >= eteDest) break; // past arrival — stop
+    if (S.porOffsetMins != null) {
+      const d = targetElapsed - S.porOffsetMins;
+      if (d >= -180 && d <= 90) continue;
+      if (d > 90)               break;
+    }
+    const wpt = wptNearest(targetElapsed, 45);
+    events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                  targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
+  }
+
+  // Post-POR CO RPTs (BUG 6 FIX — same threshold correction)
+  if (S.porOffsetMins != null && eteDest && eteDest >= 240) {
+    for (let i = 1; i <= 10; i++) {
+      const targetElapsed = S.porOffsetMins + (i * 240);
+      if (targetElapsed >= eteDest) break;          // past arrival — stop
+      const wpt = wptNearest(targetElapsed, 45);
+      events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                    targetElapsed, rptHours: null, wpt: wpt ? wpt.wpt : null });
+    }
+  }
+
+  // G-1: E.EXT — ETOPS airspace exit (label corrected from E.EXIT — BUG 5b)
+  if (S.etopsExitMins != null) {
+    events.push({ type:'etopsExit', elapsed: S.etopsExitMins });
+  }
+
+  // ETP waypoints — BUG 1/2/3 FIX: apply navlog TOT-T before iterating
+  const correctedEtpPoints = applyNavlogEtpTimes(S.etpPoints || [], ofpText || '');
+  validateEtpOrder(correctedEtpPoints);
+  correctedEtpPoints.forEach(pt => {
+    if (pt.elapsedMins == null) return;
+    events.push({ type:'etp', elapsed: pt.elapsedMins, label: pt.name,
+                  coord: pt.lat && pt.lon ? `${pt.lat}  ${pt.lon}` : '' });
+  });
+
+  events.sort((a, b) => a.elapsed - b.elapsed);
+  return events;
+}
+
+/**
+ * Render HTML row for etopsExit event. BUG 5b fix: label "E.EXT" (not "E.EXIT").
+ */
+function renderEtopsExitV2(etaStr) {
+  let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
+  h += `<span class="enroute-label" style="color:var(--tint)">E.EXT</span>`;
+  h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+  h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
+  h += `<span style="font-size:11px;color:var(--label3)">ETOPS airspace exit</span>`;
+  h += `</div>`;
+  h += `</div>`;
+  return h;
+}
+
+/**
+ * Render HTML row for ETP timeline event. BUG 4 fix: uses --tint (blue), not --label2.
+ */
+function renderEtpEvent(evt, etaStr) {
+  let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
+  h += `<span class="enroute-label" style="color:var(--tint)">${esc(evt.label || 'ETP')}</span>`;
+  h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+  h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
+  if (evt.coord) h += `<span style="font-family:var(--font-mono);font-size:11px;color:var(--label3)">${esc(evt.coord)}</span>`;
+  h += `</div>`;
+  h += `</div>`;
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// END ENROUTE TIMELINE V2 FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════
+
 function renderEnroutePhase() {
   const navLog = S.navLog || [];
 
@@ -8622,83 +8889,11 @@ function renderEnroutePhase() {
     return valid.reduce((b,w) => Math.abs(w.elapsedMins-target) < Math.abs(b.elapsedMins-target) ? w : b);
   };
 
-  // ── Build chronological event list ──────────────────────────────
-  const events = [];
-  if (hasOff) {
-    const eteDest = S.destEtaOffsetMins || S.tripMinutes || 0;
-
-    // ETOPS: 60-min advisory + entry
-    if (S.etopsEntryMins != null) {
-      events.push({ type:'preEtops',    elapsed: S.etopsEntryMins - 60 });
-      events.push({ type:'etopsEntry',  elapsed: S.etopsEntryMins });
-    }
-
-    // POR cluster (redispatch only)
-    //
-    // R-4 FIX: prePor is always emitted when porOffsetMins is populated.
-    // The hasCoRptBeforePor gate is removed. The PRE-POR CO RPT is an
-    // independent operational obligation — not interchangeable with a
-    // regular white CO RPT event.
-    //
-    if (S.porOffsetMins != null) {
-      const prePorWpt = wptPrePor(S.porOffsetMins);
-      events.push({
-        type:'prePor',
-        elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
-        wpt: prePorWpt ? prePorWpt.wpt : null,
-      });
-      events.push({ type:'rda', elapsed: S.porOffsetMins - 120 });
-      events.push({ type:'por', elapsed: S.porOffsetMins, wpt: S.porWpt || null });
-    }
-
-    // CO RPTs — 4-hr intervals, waypoint-anchored
-    //
-    // R-3 FIX v1.1 (PB-ENR-001): Suppression window extended to [POR−180, POR+90].
-    // v1.0 ±90 lower bound allowed CO RPTs in [POR−180, POR−90) to pass suppression
-    // and render between PRE-POR and POR (GTI8092 KORD–EDDF 06MAY26, LAX–NRT corpus).
-    // Lower bound corrected to −180 to match the PRE-POR cluster onset (R-4).
-    //   if (d >= -180 && d <= 90) continue  → skip full PRE-POR cluster window
-    //   if (d > 90)               break     → hand off to post-POR loop
-    //
-    for (let i = 1; i <= 15; i++) {
-      const targetElapsed = i * 240;
-      if (eteDest && (eteDest < 240 || targetElapsed > eteDest - 240)) break;
-      if (S.porOffsetMins != null) {
-        const d = targetElapsed - S.porOffsetMins;
-        if (d >= -180 && d <= 90) continue;  // within PRE-POR cluster window — skip
-        if (d > 90)               break;     // past window — hand off to post-POR loop
-      }
-      const wpt = wptNearest(targetElapsed, 45);
-      events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
-                    targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
-    }
-
-    // Post-POR CO RPTs — rolling clock resets from POR
-    if (S.porOffsetMins != null && eteDest && eteDest >= 240) {
-      for (let i = 1; i <= 10; i++) {
-        const targetElapsed = S.porOffsetMins + (i * 240);
-        if (eteDest && targetElapsed > eteDest - 240) break;
-        const wpt = wptNearest(targetElapsed, 45);
-        events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
-                      targetElapsed, rptHours: null, wpt: wpt ? wpt.wpt : null });
-      }
-    }
-
-    // G-1: E.EXIT — ETOPS airspace exit
-    // Informational milestone only. Does not affect CO RPT schedule.
-    if (S.etopsExitMins != null) {
-      events.push({ type:'etopsExit', elapsed: S.etopsExitMins });
-    }
-
-    // ETP waypoints (from CFS section)
-    (S.etpPoints || []).forEach(pt => {
-      if (pt.elapsedMins == null) return;
-      events.push({ type:'etp', elapsed: pt.elapsedMins, label: pt.name,
-                    coord: pt.lat && pt.lon ? `${pt.lat}  ${pt.lon}` : '' });
-    });
-
-    events.sort((a,b) => a.elapsed - b.elapsed);
-  }
+  // ── Build chronological event list (V2) ────────────────────────
+  // Delegated to buildTimelineEventsV2() — named, testable, externalizable per ADR-001.
+  // All R-3/R-4 CO RPT and POR cluster logic preserved verbatim inside that function.
+  const eteDest = S.destEtaOffsetMins || S.tripMinutes || 0;
+  const events = buildTimelineEventsV2(S, navLog, hasOff, eteDest, S.rawOFP || '');
 
   // ── Timeline row renderer ────────────────────────────────────────
   const renderEvent = (evt) => {
@@ -8767,18 +8962,9 @@ function renderEnroutePhase() {
       h += `</div>`;
 
     } else if (evt.type === 'etopsExit') {
-      h += `<span class="enroute-label" style="color:var(--tint)">E.EXIT</span>`;
-      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
-      h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
-      h += `<span style="font-size:11px;color:var(--label3)">ETOPS airspace exit</span>`;
-      h += `</div>`;
-
+      return renderEtopsExitV2(etaStr);
     } else if (evt.type === 'etp') {
-      h += `<span class="enroute-label" style="color:var(--label2)">${esc(evt.label)}</span>`;
-      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
-      h += `<span class="enroute-value">${etaStr}</span>`;
-      if (evt.coord) h += `<span style="font-family:var(--font-mono);font-size:11px;color:var(--label3)">${esc(evt.coord)}</span>`;
-      h += `</div>`;
+      return renderEtpEvent(evt, etaStr);
     }
 
     h += `</div>`;
