@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#0C0C0E" media="(prefers-color-scheme: dark)">
 <title>PilotBrief</title>
 <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAE8klEQVR42u3dwXETSxQFUM2UEiAQfiCwIwRYsCCev2CBQ2AHgeBACMEsKBUqEEYaTXe/9/rctS25pDPXV5ZmvByi5OXbp4PkzePDEuHHWACWSsAXiKUS7gViqYR7AVkqwV5AlkqwV5hlaHY2s4Asldp6hVkqtfUKs1RCvYAslSbICrNUausVZqmEeoVZKqFePVpSKeveR4jIyJZeYZZKqFeYpRJqG1om2dDaWRK29AqzVEJtckjxyaGdJXFLa2gp3NDaWZK3tIaW4htapARoc0MKzA4NLSaHSGzQ5kbzPH375EHoMDs0tJgcop2BFrC7gLafpdCO1tBicoiZAbQADrQI0AK0mBdAiwAtmhtoEaC1MNAiQIsGB1oEaO0rQEuzfHn/GWip0eQnzNFQAy13N/OX95/DwAZa65aaIEDLrmhHowZadm/gkRMEaBOl2ZwYgRpo+7n5gdATNtDSpWl7oQZaukHsgRpoU6UrwNYTBGj7uczBArQMmwevP75pcruLa9vFa+Xlv3cwb8wRy3jT4vw+euOO+Ak6oAtt5NP9jm7tDO1sciR9odcKd+apAXQyxK1xV8BsciRFvPfezr6bgS4AOdPe7tXOU06O2d4A+RfuKlNjKtDexbuMuxrm0pMD4ucfk6//v6h50FZqaIi3pQXuEe1cBjTIsWCPwpwaNMQxcY/EnG5DQ9wvrz58T7m3wzc0xHmae3Q7hwYNci7YETCHAw1xzkR6Z3I4aIjh3jNOwZJSAVqAFgFaBGgRoAVoEaBFgBYBWgRomTGuy7Exv39m4d7PpOx9e0DL1dj+9jV7Irx0n5AD3QTvqPs8/7rTJQjOzyyRyUFnvaLn+fU0Lp1BMjPyI7x5Mf8tMyM/wrvv/bbcufdc6WgW5Ed45/35L50XmP2F59GTX2dq3JPTSa7Z/7pyhBfmLc9FVORHeGPv6B6Yt1yCICryFea5s+f1NCI8lz7LEfhgrnj9ZqDtZpiBzj2jKv0TH6Al1W4GWp5tcVMD6FTb1W4GujuoPWDduqPtZqCbtmM1YDO0M9D/wNsLtakBdDdMLbBdOvMEZqC7NeNWdKPfCbShYS6Fb7Z2PhwmPKcwCkxTQ0MPR7QXQpiBDoPo1tv5fUdX/afxQCf+9R55T8/czlOAboUvIurZMZcH3RpdJNQwFwcd6V2+0262n4FO0Vijm1o7TzI5IqD2Jzqgy6BufYVQmCcEPQr1pWZ26Vug0ze1dga69N7cAzjMQKfFCzPQU7S0AN0VtXYGugzqazDfCh5moMsggRnoYVhuaV5bGujpGlA7Az0MzpbGfe57YAa6TBvCDPRQSPfsYVt6vyyHl2+fPAx/ZuRnnLWzhi6DCmagy+CCGWjIBGgHDtCwwQw01DADbRYI0DlRO0BagH58WDwM/SHC3CCPD4uGHgAS5nY5egj2QX3NW+UgA50O9yXYIPfLr/3sQ0qSfD//fFEoUihAS1HQ/nwnyeeGhhaTQyQPaLNDEs8NDS0TTA4tLUnbWUPLJC8KtbQkbOfnGxpqSYbZ5JBJJoeWloTtfF1DQy1JMF8/OaCWBJhtaJlsQ2tpSdTOtzc01BIY87bJAbUExXw4nJ9TuCXOQ5QgkPd5UaitJRDm+0FDLYEw3z85TBAJAnm/htbWEshMO4DaWgaUX/tGBVs6/hbvOxHghrhxxm1euCEuBRpwgBvkB0VuYbC09WVZAAAAAElFTkSuQmCC">
+<link rel="manifest" href="manifest.json">
 
 <!--
   DESIGN PRINCIPLES APPLIED
@@ -6374,7 +6375,7 @@ const S = {
   //   coChartNote: crew-entered text for "SEE CO CHART" runways (SPECIAL + no proc)
   oeiData:[], oeiSelectedRwy:'',
   blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
-  crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
+  crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
   // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
   //   code: ATA number string e.g. "36-12-02-01"
   //   desc: full description string (may be multi-line joined)
@@ -6413,8 +6414,6 @@ const S = {
   etopsExit:'',       // elapsed time to ETOPS airspace exit, e.g. "11:44" — from OFP header
   etopsExitMins:null, // OFP elapsed minutes to ETOPS exit (HH:MM converted to integer)
 
-  rawOFP:'',          // full raw OFP text from PDF extraction — used by enroute timeline V2 functions
-
   // ── Preflight / Departure ATIS + Parking (independent of Descent) ──
   preAtisLetter:'',   // Departure ATIS identifier letter, e.g. "K"
   preAtisNotes:'',    // Departure ATIS free-text notes
@@ -6449,7 +6448,7 @@ function resetStateForNewFlight() {
     oeiVal:'', stabTrim:'', gaFuel:'',
     oeiData:[], oeiSelectedRwy:'',
     blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
-    crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
+    crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
     navLog:[], enrouteNotams:null, natTrack:null,
@@ -6464,7 +6463,7 @@ function resetStateForNewFlight() {
     userNotes:'', fcirNarrative:'', fcirAsap:false,
     etopsEntry:'', etopsSpec:'', etpPoints:[],
     activePhase:'preflight',
-    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null, etopsExit:'', etopsExitMins:null, rawOFP:'',
+    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null, etopsExit:'', etopsExitMins:null,
     preAtisLetter:'', preAtisNotes:'', preParkingNotes:'',
     descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
     enrouteScratch:'',
@@ -6954,7 +6953,7 @@ const OFP_FORMAT = 'atlas-v2';
  *   APT_LINE      — airport header line (ORIG/DEST/PALT etc.) anchor
  *                   (built dynamically from APT_LINE_TEMPLATE)
  */
-var PATTERNS = {
+const PATTERNS = {
   // Flight identification
   FLIGHT_ID:     /\b([A-Z]{2,3}\d{3,5})\s*\/\s*(\d{2})\b/,
   FLIGHT_ID_ALT: /[.\s]([A-Z]{2,3}\d{3,5})\s*\/[\x00-\x1f]/,
@@ -7047,10 +7046,6 @@ var PATTERNS = {
   SLOT_TIME_BEFORE:     /WHEELS\s+UP\s+(?:MUST\s+BE\s+)?BEFORE\s+(\d{4}Z?)/i,
   SLOT_TIME_EARLIEST:   /EARLIEST\s+WHEELS\s+UP\s+(\d{4}Z?)/i,
   SLOT_TIME_CURFEW:     /NO\s+EARLY\s+DEPARTURE\b[\s\S]{0,200}?CLOSED?\s+TILL?\s+(\d{1,2}:\d{2}Z?|\d{4}Z?)/i,
-  // Format F: bare wheels-up time — "WHEELS UP 0433Z"
-  // Confirmed real-world: "PCF FOR ROUTE DEVIATIONS WHEELS UP 0433Z"
-  // Runs LAST in the slot time chain — fallback only.
-  SLOT_TIME_AT: /\bWHEELS\s+UP\s+(\d{4}Z?)\b/i,
 
   // MEL/DDG block anchor — block ends at underline or "Flight Release"
   MEL_BLOCK:    /MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i,
@@ -7091,7 +7086,7 @@ var PATTERNS = {
  * To add a new alternate type (e.g. company-specific "XALT"):
  * add { key: 'XALT', role: 'XTRA ALT' } here.
  */
-var ALT_PATTERNS = [
+const ALT_PATTERNS = [
   { key: 'PALT', role: 'DEST ALT'      },
   { key: 'SALT', role: 'DEST ALT'      },
   { key: 'RALT', role: 'EN ROUTE ALT'  },
@@ -7107,7 +7102,7 @@ var ALT_PATTERNS = [
 /**
  * CFS block boundaries.
  */
-var CFS_PATTERNS = {
+const CFS_PATTERNS = {
   // Block start anchor
   BLOCK_START:  /^Critical Fuel Scenario\b/m,
   // Block end: "END OF OFP" or underline of 40+ chars
@@ -7137,7 +7132,7 @@ var CFS_PATTERNS = {
  * Matched as full-line anchors (^LABEL$).
  * Order matters — labels that are substrings of others must come first.
  */
-var WX_SECTION_LABELS = [
+const WX_SECTION_LABELS = [
   'ORIGIN',
   'DESTINATION ALTERNATE',
   'DESTINATION',
@@ -7149,19 +7144,19 @@ var WX_SECTION_LABELS = [
  * Within each section, airport sub-blocks start on METAR or SPECI lines.
  * Anchor: /^(?:METAR|SPECI)\s+([A-Z]{4})\b/mg
  */
-var WX_METAR_ANCHOR = /^(?:METAR|SPECI|NO\s+METAR\s+REPORTS?\s+FOUND\s+FOR)\s+([A-Z]{4})\b/mg;
+const WX_METAR_ANCHOR = /^(?:METAR|SPECI|NO\s+METAR\s+REPORTS?\s+FOUND\s+FOR)\s+([A-Z]{4})\b/mg;
 
 /**
  * Within each airport sub-block, NOTAMs begin at a line matching this pattern.
  * Atlas/Polar format: "- ICAO ..." — hyphen then 4-letter ICAO.
  */
-var WX_NOTAM_START  = /^- [A-Z]{4}\b/m;
+const WX_NOTAM_START  = /^- [A-Z]{4}\b/m;
 
 /**
  * Page header lines to strip when extracting weather/NOTAM blocks.
  * Matches: "ATLAS AIR BRIEF PAGE 12 OF 96"
  */
-var WX_PAGE_HEADER  = /^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg;
+const WX_PAGE_HEADER  = /^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg;
 
 // ═══════════════════════════════════════════════════════════════
 // § 6.5 · CAT II/III AUTHORIZED APPROACHES (v1.9.5)
@@ -7172,7 +7167,7 @@ var WX_PAGE_HEADER  = /^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg;
 //           VHHH CAT III - RWY 07L/25C
 // ═══════════════════════════════════════════════════════════════
 
-var CAT_II_III_PATTERNS = {
+const CAT_II_III_PATTERNS = {
   SECTION_ANCHOR: /^AUTHORIZED\s+CAT\s+II\/III\s+APPROACHES/m,
   // "ICAO CAT II/III - RWY runway_list" — captures [1]=ICAO [2]=cat level [3]=rwy list
   AIRPORT_ENTRY:  /^([A-Z]{4})\s+CAT\s+(II\/III|II|III)\s*-\s*(?:ALL\s+RWY|RWY\s+([A-Z0-9\/]+))/,
@@ -7186,7 +7181,7 @@ var CAT_II_III_PATTERNS = {
  * The STATION COMPANY NOTAMS section block.
  * Contains per-ICAO curfew and closure data.
  */
-var COMPANY_NOTAM = {
+const COMPANY_NOTAM = {
   SECTION_ANCHOR: /^STATION COMPANY NOTAMS\s*$/m,
   SECTION_END:    /^(?:ROUTE|FIR|ADMIN|RELEASE|FLTNUM|AIRWAY|WAYPOINT|GEOGRAPHIC)\s+COMPANY NOTAMS\s*$/m,
   // Per-ICAO sub-section header: "ICAO COMPANY NOTAMS"
@@ -7205,7 +7200,7 @@ var COMPANY_NOTAM = {
 /**
  * TLR structural anchors.
  */
-var TLR_PATTERNS = {
+const TLR_PATTERNS = {
   SECTION_START:    /TAKEOFF AND LANDING REPORT/,
   SECTION_END:      /^END TAKEOFF AND LANDING REPORT/m,
   TKOFF_SECTION:    /\/\/\/ TAKEOFF DATA \/\/\//,
@@ -7231,7 +7226,7 @@ var TLR_PATTERNS = {
 /**
  * Alternate route section patterns.
  */
-var ALT_ROUTE_PATTERNS = {
+const ALT_ROUTE_PATTERNS = {
   // Outer loop: each bounded by underlines, with a recognised title
   SECTION_RE: /_{10,}\n((?:Destination Primary Alternate Route|Initial Airport Route|Initial Alternate Route))\n([\s\S]*?)(?=_{10,}|\nEND OF OFP|\nPAGE \d)/g,
   // MORA line terminates the route string
@@ -7246,11 +7241,11 @@ var ALT_ROUTE_PATTERNS = {
  * Month name ↔ index map for date parsing.
  * Used with DATE_PLAIN pattern captures.
  */
-var MONTHS = {
+const MONTHS = {
   JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5,
   JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11,
 };
-var MON_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const MON_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
 /**
  * Convert an OFP POR elapsed time token "HH.MM" to total minutes.
@@ -7270,9 +7265,9 @@ function elapsedToMins(hh, mm) {
  * @returns {string}
  */
 function wxWindowMidpoint(startHHMM, endHHMM) {
-  var s = parseInt(startHHMM.slice(0,2))*60 + parseInt(startHHMM.slice(2,4));
-  var e = parseInt(endHHMM.slice(0,2))*60   + parseInt(endHHMM.slice(2,4));
-  var mid = s + Math.round((e >= s ? e - s : e + 1440 - s) / 2);
+  const s = parseInt(startHHMM.slice(0,2))*60 + parseInt(startHHMM.slice(2,4));
+  const e = parseInt(endHHMM.slice(0,2))*60   + parseInt(endHHMM.slice(2,4));
+  let mid = s + Math.round((e >= s ? e - s : e + 1440 - s) / 2);
   if (mid >= 1440) mid -= 1440;
   return String(Math.floor(mid/60)).padStart(2,'0') + String(mid%60).padStart(2,'0');
 }
@@ -7307,127 +7302,130 @@ function normalizeWaypointCoord(token) {
  * @returns {object|null}  — structured OFP data, or null if text is empty
  */
 function _ofpRulesetParse(rawText) {
-  var t = rawText;
+  const t = rawText;
   if (!t || typeof t !== 'string' || !t.trim()) return null;
 
   // ── Helper: parse airport header line ──────────────────────────────
   function parseAptLine(keyword) {
-    var re = PATTERNS.APT_LINE_TEMPLATE(keyword);
-    var m = t.match(re);
+    const re = PATTERNS.APT_LINE_TEMPLATE(keyword);
+    const m = t.match(re);
     if (!m) return null;
     return { icao: m[1], hhmm: m[2] };
   }
 
   // ── Flight identification ──────────────────────────────────────────
-  var fltNum = '';
-  var fltM = t.match(PATTERNS.FLIGHT_ID);
+  let fltNum = '';
+  const fltM = t.match(PATTERNS.FLIGHT_ID);
   if (fltM) {
     fltNum = fltM[1] + '/' + fltM[2];
   } else {
-    var fltAlt = t.match(PATTERNS.FLIGHT_ID_ALT);
+    const fltAlt = t.match(PATTERNS.FLIGHT_ID_ALT);
     if (fltAlt) fltNum = fltAlt[1];
     if (!fltNum) {
-      var fltFPL = t.match(PATTERNS.FLIGHT_ID_FPL);
+      const fltFPL = t.match(PATTERNS.FLIGHT_ID_FPL);
       if (fltFPL) fltNum = fltFPL[1];
     }
   }
 
   // ── Aircraft type ──────────────────────────────────────────────────
-  var acftType = '';
-  var acftM = t.match(PATTERNS.AIRCRAFT_TYPE);
+  let acftType = '';
+  const acftM = t.match(PATTERNS.AIRCRAFT_TYPE);
   if (acftM) acftType = acftM[1];
 
   // ── Heavy flag — from FPL field 9 wake turbulence category ─────────
   // /H = Heavy (B744, B748, B777, B767…); /J = Super (A380, A225)
-  var wakeM = t.match(PATTERNS.FPL_WAKE);
-  var isHeavy = wakeM ? /^[HJ]$/i.test(wakeM[1]) : false;
+  const wakeM = t.match(PATTERNS.FPL_WAKE);
+  const isHeavy = wakeM ? /^[HJ]$/i.test(wakeM[1]) : false;
 
   // ── Weight unit (KGS / LBS) ─────────────────────────────────────────
   // Parsed from OFP narrative header field 3: "B747-400F / CF680C2B1F / KGS / IFR"
   // Defaults to KGS (Atlas Air standard) when unreadable.
-  var weightUnit = 'KGS';
-  var wuM = t.match(PATTERNS.WEIGHT_UNIT);
+  let weightUnit = 'KGS';
+  const wuM = t.match(PATTERNS.WEIGHT_UNIT);
   if (wuM) {
-    var wu = wuM[1].toUpperCase();
+    const wu = wuM[1].toUpperCase();
     weightUnit = wu.startsWith('K') ? 'KGS' : 'LBS';
   }
 
   // ── Date ───────────────────────────────────────────────────────────
-  var dateStr = '';
-  var flightDateISO = '';
-  var dofM = t.match(PATTERNS.DATE_DOF);
+  let dateStr = '';
+  let flightDateISO = '';
+  const dofM = t.match(PATTERNS.DATE_DOF);
   if (dofM) {
-    var yy = 2000 + parseInt(dofM[1], 10);
-    var mo = parseInt(dofM[2], 10) - 1;
-    var dd = parseInt(dofM[3], 10);
+    const yy = 2000 + parseInt(dofM[1], 10);
+    const mo = parseInt(dofM[2], 10) - 1;
+    const dd = parseInt(dofM[3], 10);
     flightDateISO = `${yy}-${String(mo+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
     dateStr = `${String(dd).padStart(2,'0')} ${MON_NAMES[mo]} ${String(yy).slice(-2)}`;
   }
   if (!flightDateISO) {
-    var pd = t.match(PATTERNS.DATE_PLAIN);
+    const pd = t.match(PATTERNS.DATE_PLAIN);
     if (pd) {
-      var yy = parseInt(pd[3], 10);
+      let yy = parseInt(pd[3], 10);
       if (yy < 100) yy += 2000;
-      var mo = MONTHS[pd[2].toUpperCase()];
-      var dd = parseInt(pd[1], 10);
+      const mo = MONTHS[pd[2].toUpperCase()];
+      const dd = parseInt(pd[1], 10);
       flightDateISO = `${yy}-${String(mo+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
       dateStr = `${String(dd).padStart(2,'0')} ${pd[2].toUpperCase()} ${String(yy).slice(-2)}`;
     }
   }
 
   // ── ETOPS ──────────────────────────────────────────────────────────
-  var etopsEntryM = t.match(PATTERNS.ETOPS_ENTRY);
-  var etopsEntry  = etopsEntryM ? etopsEntryM[1] : '';
-  var etopsSpecM  = t.match(PATTERNS.ETOPS_SPEC);
-  var etopsSpec   = etopsSpecM  ? etopsSpecM[1]  : '';
-  var etopsEntryMins = (() => {
+  const etopsEntryM = t.match(PATTERNS.ETOPS_ENTRY);
+  const etopsEntry  = etopsEntryM ? etopsEntryM[1] : '';
+  const etopsSpecM  = t.match(PATTERNS.ETOPS_SPEC);
+  const etopsSpec   = etopsSpecM  ? etopsSpecM[1]  : '';
+  const etopsEntryMins = (() => {
     if (!etopsEntry) return null;
-    var [hh, mm] = etopsEntry.split(':').map(Number);
+    const [hh, mm] = etopsEntry.split(':').map(Number);
     return hh * 60 + mm;
   })();
 
   // ── ETOPS Exit ──────────────────────────────────────────────────────
-  // v1.2: extractEtopsExitV2 uses navlog (E.EXT) + TOT-T as primary path (Atlas Air),
-  //       header "ETOPS Exit HH:MM" retained as fallback for non-Atlas OFP generators.
-  var { etopsExit, etopsExitMins } = extractEtopsExitV2(t);
+  const { etopsExit, etopsExitMins } = (() => {
+    const m = t.match(PATTERNS.ETOPS_EXIT);
+    if (!m) return { etopsExit: '', etopsExitMins: null };
+    const [hh, mm] = m[1].split(':').map(Number);
+    return { etopsExit: m[1], etopsExitMins: hh * 60 + mm };
+  })();
 
   // ── POR ────────────────────────────────────────────────────────────
-  var porHM = t.match(PATTERNS.POR_HEADER);
-  var porRM = !porHM && t.match(PATTERNS.POR_ROUTE);
-  var porWpt = porHM
+  const porHM = t.match(PATTERNS.POR_HEADER);
+  const porRM = !porHM && t.match(PATTERNS.POR_ROUTE);
+  const porWpt = porHM
     ? normalizeWaypointCoord(porHM[1])
     : (porRM ? porRM[1] : '');
 
-  var porOffsetMins = (() => {
+  const porOffsetMins = (() => {
     if (porHM) return elapsedToMins(porHM[2], porHM[3]);
-    var idx = t.indexOf('(POR) AT ');
+    const idx = t.indexOf('(POR) AT ');
     if (idx === -1) return null;
-    var after = t.slice(idx, idx + 400);
-    var em = after.match(PATTERNS.POR_ELAPSED);
+    const after = t.slice(idx, idx + 400);
+    const em = after.match(PATTERNS.POR_ELAPSED);
     return em ? elapsedToMins(em[1], em[2]) : null;
   })();
 
   // ── Fuel ───────────────────────────────────────────────────────────
   function extractFuelField(pattern) {
-    var m = t.match(pattern);
+    const m = t.match(pattern);
     if (!m) return '';
-    var raw = m[1] || m[2] || '';
-    var n = parseInt(raw, 10);
+    const raw = m[1] || m[2] || '';
+    const n = parseInt(raw, 10);
     return isNaN(n) ? '' : String(n);
   }
 
-  var blockFuelRaw = extractFuelField(PATTERNS.BLOCK_FUEL);
-  var minfFuelRaw  = extractFuelField(PATTERNS.MINF_FUEL);
-  var fresFuelRaw  = extractFuelField(PATTERNS.FRES_FUEL);
-  var ballastM     = t.match(PATTERNS.BALLAST_FUEL);
-  var ballastFuel  = ballastM ? parseInt(ballastM[1], 10) : null;
+  const blockFuelRaw = extractFuelField(PATTERNS.BLOCK_FUEL);
+  const minfFuelRaw  = extractFuelField(PATTERNS.MINF_FUEL);
+  const fresFuelRaw  = extractFuelField(PATTERNS.FRES_FUEL);
+  const ballastM     = t.match(PATTERNS.BALLAST_FUEL);
+  const ballastFuel  = ballastM ? parseInt(ballastM[1], 10) : null;
 
   // ── Crew Members (Fit for Duty section) ──────────────────────────
-  var crewMembers = [];
+  const crewMembers = [];
   (function parseCrew() {
-    var _ffSearch = t.search(/Fit\s+for\s+Duty\s+Affirmation/i);
+    const _ffSearch = t.search(/Fit\s+for\s+Duty\s+Affirmation/i);
     if (_ffSearch === -1) return;
-    var block = t.slice(_ffSearch, Math.min(_ffSearch + 5000, t.length));
+    const block = t.slice(_ffSearch, Math.min(_ffSearch + 5000, t.length));
     // Handles all observed Atlas Air crew line formats:
     //   "CA 448229 MAGGIO M .."          — standard 6-digit emp#
     //   "CA 751 REDFORD D .."            — 3-digit emp#
@@ -7443,13 +7441,13 @@ function _ofpRulesetParse(rawText) {
     //   Roles: CA FO FO1 FO2 SO AO RO DH JS  (v1.2.0 — ETOPS augmented designations)
     //   Lazy *? in name group forces backtracking so single-letter initial
     //   lands in group [4], not consumed into group [3].
-    var re = /^\*?\s*(?:SEN\s+)?(CA|FO1?|FO2|SO|AO|RO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\u2019\-]*(?:\s+[A-Z][A-Z'\u2019\-]*)*?)\s+([A-Z])\s*\.{1,3}/mg;
-    var m;
+    const re = /^\*?\s*(?:SEN\s+)?(CA|FO1?|FO2|SO|AO|RO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\-]*(?:\s+[A-Z][A-Z'\-]*)*?)\s+([A-Z])\s*\.{1,3}/mg;
+    let m;
     while ((m = re.exec(block)) !== null) {
-      var rawName = m[3].replace(/\s+$/, '');
+      const rawName = m[3].replace(/\s+$/, '');
       if (rawName.includes('VERIFY')) continue;
-      var isSen = /^\*/.test(m[0].trimStart()) || /SEN\s/i.test(m[0]);
-      var displayName = isSen
+      const isSen = /^\*/.test(m[0].trimStart()) || /SEN\s/i.test(m[0]);
+      const displayName = isSen
         ? `★ SEN ${m[4]}`
         : `${rawName} ${m[4]}`;
       crewMembers.push({
@@ -7465,85 +7463,85 @@ function _ofpRulesetParse(rawText) {
   })();
 
   // ── TOC Elapsed Time ─────────────────────────────────────────────
-  var tocOffsetMins = null;
+  let tocOffsetMins = null;
   (function parseTOC() {
-    var re = /\b(?:[A-Z]\d*\s+|DCT\s+)?TOC\b\s*\r?\n[^\r\n]+\r?\n[^\r\n]*?\b(\d{2})\.(\d{2})\b/;
-    var m = t.match(re);
+    const re = /\b(?:[A-Z]\d*\s+|DCT\s+)?TOC\b\s*\r?\n[^\r\n]+\r?\n[^\r\n]*?\b(\d{2})\.(\d{2})\b/;
+    const m = t.match(re);
     if (m) tocOffsetMins = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
   })();
-  var alt1FuelRaw  = (() => {
-    var m = t.match(PATTERNS.ALT1_FUEL);
+  const alt1FuelRaw  = (() => {
+    const m = t.match(PATTERNS.ALT1_FUEL);
     return m ? String(parseInt(m[1], 10)) : '';
   })();
-  var destRemfRaw  = (() => {
-    var m = t.match(PATTERNS.REMF_DEST);
+  const destRemfRaw  = (() => {
+    const m = t.match(PATTERNS.REMF_DEST);
     return m ? String(parseInt(m[1], 10)) : '';
   })();
-  var porMinfRaw   = (() => {
-    var m = t.match(PATTERNS.POR_MINF);
+  const porMinfRaw   = (() => {
+    const m = t.match(PATTERNS.POR_MINF);
     return m ? String(parseInt(m[1], 10)) : '';
   })();
 
   // ── TOGW ───────────────────────────────────────────────────────────
-  var togwActual = 0, togwLimit = 0;
-  var twM = t.match(PATTERNS.TOGW);
+  let togwActual = 0, togwLimit = 0;
+  const twM = t.match(PATTERNS.TOGW);
   if (twM) { togwActual = parseInt(twM[1], 10); togwLimit = parseInt(twM[2], 10); }
 
   // ── ZFW ────────────────────────────────────────────────────────────
-  var zfwActual = 0, zfwLimit = 0;
-  var zfwM = t.match(PATTERNS.ZFW);
+  let zfwActual = 0, zfwLimit = 0;
+  const zfwM = t.match(PATTERNS.ZFW);
   if (zfwM) { zfwActual = parseInt(zfwM[1], 10); zfwLimit = parseInt(zfwM[2], 10); }
 
   // ── LDGW ───────────────────────────────────────────────────────────
-  var ldgwActual = 0, ldgwLimit = 0;
-  var ldgwM = t.match(PATTERNS.LDGW);
+  let ldgwActual = 0, ldgwLimit = 0;
+  const ldgwM = t.match(PATTERNS.LDGW);
   if (ldgwM) { ldgwActual = parseInt(ldgwM[1], 10); ldgwLimit = parseInt(ldgwM[2], 10); }
 
   // ── Trip time ─────────────────────────────────────────────────────
-  var tripM = t.match(PATTERNS.TRIP_TIME);
-  var tripMinutes = tripM ? elapsedToMins(tripM[1], tripM[2]) : null;
-  var taxiM = t.match(PATTERNS.TAXI_TIME);
-  var taxiMins = taxiM ? parseInt(taxiM[1],10)*60 + parseInt(taxiM[2],10) : null;
+  const tripM = t.match(PATTERNS.TRIP_TIME);
+  const tripMinutes = tripM ? elapsedToMins(tripM[1], tripM[2]) : null;
+  const taxiM = t.match(PATTERNS.TAXI_TIME);
+  const taxiMins = taxiM ? parseInt(taxiM[1],10)*60 + parseInt(taxiM[2],10) : null;
 
   // ── Nav log waypoints ─────────────────────────────────────────────
   // Extract ordered {wpt, elapsedMins} from nav log rows.
   // Atlas/Polar format: fix name at line start, cumulative elapsed HH+MM.
   // Longest-monotonically-increasing-run isolates the real nav log
   // from other text containing similar elapsed-time tokens.
-  var navLog = [];
+  const navLog = [];
   (function parseNavLog() {
-    var rowRe = /^([A-Z][A-Z0-9]{1,5})\s+\S[^\n]*?\b(\d{1,3})\+(\d{2})\b/mg;
-    var candidates = [];
-    var m;
+    const rowRe = /^([A-Z][A-Z0-9]{1,5})\s+\S[^\n]*?\b(\d{1,3})\+(\d{2})\b/mg;
+    const candidates = [];
+    let m;
     while ((m = rowRe.exec(t)) !== null) {
-      var elapsed = parseInt(m[2]) * 60 + parseInt(m[3]);
+      const elapsed = parseInt(m[2]) * 60 + parseInt(m[3]);
       if (elapsed > 1440) continue;
       candidates.push({ wpt: m[1], elapsedMins: elapsed });
     }
     if (!candidates.length) return;
-    var bestStart = 0, bestLen = 1, curStart = 0, curLen = 1;
-    for (var i = 1; i < candidates.length; i++) {
+    let bestStart = 0, bestLen = 1, curStart = 0, curLen = 1;
+    for (let i = 1; i < candidates.length; i++) {
       if (candidates[i].elapsedMins > candidates[i-1].elapsedMins) {
         curLen++;
         if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
       } else { curStart = i; curLen = 1; }
     }
-    for (var i = bestStart; i < bestStart + bestLen; i++) navLog.push(candidates[i]);
+    for (let i = bestStart; i < bestStart + bestLen; i++) navLog.push(candidates[i]);
   })();
-  var hasPerishables = !!t.match(PATTERNS.PERISHABLE);
+  const hasPerishables = !!t.match(PATTERNS.PERISHABLE);
 
   // DOT Special Permit Exemption (v1.9.7)
   // Format A: *OPERATING UNDER EXEMPTION DOT-SP7573*
   // Format B: FLIGHT RELEASED UNDER EXEMPTION NO 18169C. ALTERNATE AIRPORT REQUIRED.
-  var dotExemption = null;
-  var dotExM = t.match(PATTERNS.DOT_EXEMPT);
+  let dotExemption = null;
+  const dotExM = t.match(PATTERNS.DOT_EXEMPT);
   if (dotExM) {
-    var dotRestM = t.match(PATTERNS.DOT_RESTRICT);
+    const dotRestM = t.match(PATTERNS.DOT_RESTRICT);
     dotExemption = { number: dotExM[1], restrictions: dotRestM ? dotRestM[1].trim() : null, altRequired: false };
   } else {
-    var exNoM = t.match(PATTERNS.EXEMPTION_NO);
+    const exNoM = t.match(PATTERNS.EXEMPTION_NO);
     if (exNoM) {
-      var altReq = !!t.match(PATTERNS.EXEMPTION_NO_ALT);
+      const altReq = !!t.match(PATTERNS.EXEMPTION_NO_ALT);
       dotExemption = {
         number: 'Exemption ' + exNoM[1],
         restrictions: altReq ? "ALT REQ'D" : null,
@@ -7551,42 +7549,39 @@ function _ofpRulesetParse(rawText) {
       };
     }
   }
-  var origLine = parseAptLine('ORIG');
-  var origIcao    = origLine ? origLine.icao : '';
-  var offFromOFP  = origLine ? origLine.hhmm : '';
+  const origLine = parseAptLine('ORIG');
+  const origIcao    = origLine ? origLine.icao : '';
+  const offFromOFP  = origLine ? origLine.hhmm : '';
 
-  var destLine = parseAptLine('DEST');
-  var destIcao = destLine ? destLine.icao : '';
-  var etaDest  = destLine ? destLine.hhmm : '';
+  const destLine = parseAptLine('DEST');
+  const destIcao = destLine ? destLine.icao : '';
+  const etaDest  = destLine ? destLine.hhmm : '';
 
   // ── v1.9.5 fields — parsed AFTER destIcao (required by CAT II/III lookup) ──
-  var hasTemperatureControl = !!t.match(PATTERNS.TEMPERATURE_CONTROL);
-  var hasVzfwCkLimit        = !!t.match(PATTERNS.VZFW_CK_LIMIT);
+  const hasTemperatureControl = !!t.match(PATTERNS.TEMPERATURE_CONTROL);
+  const hasVzfwCkLimit        = !!t.match(PATTERNS.VZFW_CK_LIMIT);
 
   // Additional fuel flow adjustment (CDL/MEL penalty)
-  var addlFfAdj = null;
-  var ffAdjM = t.match(PATTERNS.ADDL_FF_ADJ);
+  let addlFfAdj = null;
+  const ffAdjM = t.match(PATTERNS.ADDL_FF_ADJ);
   if (ffAdjM) addlFfAdj = ffAdjM[1]; // e.g. "+2.22"
 
   // Wheels-up slot time: normalise HHMM → HH:MMZ and build display string
-  var _fmtT = s => s ? s.replace(/z$/i, 'Z').toUpperCase() : s; // keep HHMM, uppercase Z
-  var slotTime = null;
-  var slotWinM  = t.match(PATTERNS.SLOT_TIME_WINDOW);
-  var slotNBM   = !slotWinM  && t.match(PATTERNS.SLOT_TIME_NOT_BEFORE);
-  var slotBefM  = !slotNBM   && !slotWinM && t.match(PATTERNS.SLOT_TIME_BEFORE);
-  var slotEarM  = !slotWinM  && !slotNBM  && !slotBefM && t.match(PATTERNS.SLOT_TIME_EARLIEST);
-  var slotCurfewM = !slotWinM && !slotNBM && !slotBefM && !slotEarM
+  const _fmtT = s => s ? s.replace(/z$/i, 'Z').toUpperCase() : s; // keep HHMM, uppercase Z
+  let slotTime = null;
+  const slotWinM  = t.match(PATTERNS.SLOT_TIME_WINDOW);
+  const slotNBM   = !slotWinM  && t.match(PATTERNS.SLOT_TIME_NOT_BEFORE);
+  const slotBefM  = !slotNBM   && !slotWinM && t.match(PATTERNS.SLOT_TIME_BEFORE);
+  const slotEarM  = !slotWinM  && !slotNBM  && !slotBefM && t.match(PATTERNS.SLOT_TIME_EARLIEST);
+  const slotCurfewM = !slotWinM && !slotNBM && !slotBefM && !slotEarM
     && t.match(PATTERNS.SLOT_TIME_CURFEW);
-  var slotAtM = !slotWinM && !slotNBM && !slotBefM
-    && !slotEarM && t.match(PATTERNS.SLOT_TIME_AT);
   if (slotWinM)       slotTime = `${_fmtT(slotWinM[1])} – ${_fmtT(slotWinM[2])}`;
   else if (slotNBM)   slotTime = `NOT BEFORE ${_fmtT(slotNBM[1])}`;
   else if (slotBefM)  slotTime = `BEFORE ${_fmtT(slotBefM[1])}`;
   else if (slotEarM)  slotTime = `NOT BEFORE ${_fmtT(slotEarM[1])}`;
-  else if (slotAtM)   slotTime = 'AT ' + _fmtT(slotAtM[1]);
   else if (slotCurfewM) {
-    var raw = slotCurfewM[1].replace(':','').toUpperCase();
-    var norm = raw.endsWith('Z') ? raw : raw + 'Z';
+    const raw = slotCurfewM[1].replace(':','').toUpperCase();
+    const norm = raw.endsWith('Z') ? raw : raw + 'Z';
     slotTime = `NOT BEFORE ${norm}`;
   }
 
@@ -7595,16 +7590,16 @@ function _ofpRulesetParse(rawText) {
   // Format in OFP (may have separate CAT II and CAT III lines per airport):
   //   KORD CAT II  - RWY 09C/27C/09R/27L
   //   KORD CAT III - RWY 09C/27C
-  var catIiIiiApproaches = null;
-  var catAnchorM = t.match(CAT_II_III_PATTERNS.SECTION_ANCHOR);
+  let catIiIiiApproaches = null;
+  const catAnchorM = t.match(CAT_II_III_PATTERNS.SECTION_ANCHOR);
   if (catAnchorM) {
-    var secStart = t.indexOf(catAnchorM[0]);
-    var secText  = t.slice(secStart, Math.min(secStart + 5000, t.length));
-    var catMap   = {}; // { [ICAO]: [ {cat, rwys} ] }
-    for (var line of secText.split('\n')) {
-      var lm = line.match(CAT_II_III_PATTERNS.AIRPORT_ENTRY);
+    const secStart = t.indexOf(catAnchorM[0]);
+    const secText  = t.slice(secStart, Math.min(secStart + 5000, t.length));
+    const catMap   = {}; // { [ICAO]: [ {cat, rwys} ] }
+    for (const line of secText.split('\n')) {
+      const lm = line.match(CAT_II_III_PATTERNS.AIRPORT_ENTRY);
       if (!lm) continue;
-      var icao = lm[1], cat = lm[2], rwys = lm[3] ? lm[3].trim() : 'ALL RUNWAYS';
+      const icao = lm[1], cat = lm[2], rwys = lm[3] ? lm[3].trim() : 'ALL RUNWAYS';
       if (!catMap[icao]) catMap[icao] = [];
       catMap[icao].push({ cat, rwys });
     }
@@ -7612,30 +7607,30 @@ function _ofpRulesetParse(rawText) {
   }
 
   // ── ETA offsets ───────────────────────────────────────────────────
-  var ofpOffMin = (offFromOFP.length === 4)
+  const ofpOffMin = (offFromOFP.length === 4)
     ? parseInt(offFromOFP.slice(0,2),10)*60 + parseInt(offFromOFP.slice(2,4),10)
     : null;
 
-  var destEtaOffsetMins = null;
+  let destEtaOffsetMins = null;
   if (etaDest.length === 4 && ofpOffMin !== null) {
-    var eMin = parseInt(etaDest.slice(0,2),10)*60 + parseInt(etaDest.slice(2,4),10);
-    var off = eMin - ofpOffMin;
+    const eMin = parseInt(etaDest.slice(0,2),10)*60 + parseInt(etaDest.slice(2,4),10);
+    let off = eMin - ofpOffMin;
     if (off < 0) off += 1440;
     destEtaOffsetMins = off;
   }
 
   // ── Alternates ────────────────────────────────────────────────────
-  var altData = [];
+  const altData = [];
   ALT_PATTERNS.forEach(({ key, role }) => {
-    var line = parseAptLine(key);
+    const line = parseAptLine(key);
     if (!line) return;
-    var { icao, hhmm: ofpEta } = line;
+    const { icao, hhmm: ofpEta } = line;
     if (altData.find(a => a.icao === icao)) return;
 
-    var ofpOffsetMins = null;
+    let ofpOffsetMins = null;
     if (ofpEta.length === 4 && ofpOffMin !== null) {
-      var etaMin = parseInt(ofpEta.slice(0,2),10)*60 + parseInt(ofpEta.slice(2,4),10);
-      var offset = etaMin - ofpOffMin;
+      const etaMin = parseInt(ofpEta.slice(0,2),10)*60 + parseInt(ofpEta.slice(2,4),10);
+      let offset = etaMin - ofpOffMin;
       if (offset < 0) offset += 1440;
       ofpOffsetMins = offset;
     } else if (tripMinutes !== null) {
@@ -7645,46 +7640,46 @@ function _ofpRulesetParse(rawText) {
   });
 
   // ── CFS / ETOPS alternates ────────────────────────────────────────
-  var cfsApts   = [];
-  var cfsPoints = [];
+  const cfsApts   = [];
+  const cfsPoints = [];
 
   (function parseCFS() {
-    var cfStart = t.search(CFS_PATTERNS.BLOCK_START);
+    const cfStart = t.search(CFS_PATTERNS.BLOCK_START);
     if (cfStart === -1) return;
-    var endOFP = t.indexOf(CFS_PATTERNS.BLOCK_END_OFP, cfStart);
-    var cfEnd  = endOFP !== -1
+    const endOFP = t.indexOf(CFS_PATTERNS.BLOCK_END_OFP, cfStart);
+    const cfEnd  = endOFP !== -1
       ? endOFP
       : (() => {
-          var ub = t.slice(cfStart + 100).search(CFS_PATTERNS.BLOCK_END_UNDERLINE);
+          const ub = t.slice(cfStart + 100).search(CFS_PATTERNS.BLOCK_END_UNDERLINE);
           return ub !== -1 ? cfStart + 100 + ub : t.length;
         })();
 
-    var block = t.slice(cfStart, cfEnd);
-    var etpRe = CFS_PATTERNS.ETP_LINE;
+    const block = t.slice(cfStart, cfEnd);
+    const etpRe = CFS_PATTERNS.ETP_LINE;
     etpRe.lastIndex = 0;
-    var em;
+    let em;
     while ((em = etpRe.exec(block)) !== null) {
-      var etpName = em[2], retApt = em[3], contApt = em[4];
-      var lat = em[5] || null, lon = em[6] || null;
+      const etpName = em[2], retApt = em[3], contApt = em[4];
+      const lat = em[5] || null, lon = em[6] || null;
       if (lat && lon && !cfsPoints.find(p => p.name === etpName)) {
         cfsPoints.push({ name: etpName, lat, lon });
       }
-      var tableHdr = block.indexOf(CFS_PATTERNS.DATA_HDR, em.index + em[0].length);
+      const tableHdr = block.indexOf(CFS_PATTERNS.DATA_HDR, em.index + em[0].length);
       if (tableHdr === -1) continue;
-      var dataStart = block.indexOf('\n', tableHdr) + 1;
-      var dataSlice = block.slice(dataStart, dataStart + 400);
-      var rowRe = CFS_PATTERNS.DATA_ROW;
+      const dataStart = block.indexOf('\n', tableHdr) + 1;
+      const dataSlice = block.slice(dataStart, dataStart + 400);
+      const rowRe = CFS_PATTERNS.DATA_ROW;
       rowRe.lastIndex = 0;
-      var rows = [];
-      var rm;
+      const rows = [];
+      let rm;
       while ((rm = rowRe.exec(dataSlice)) !== null) {
         // [1]=HH [2]=MM elapsed dep→ETP; [3][4]=WX window HHMM
         rows.push({ wxWindow: rm[3] + 'Z-' + rm[4] + 'Z', elapsedMins: parseInt(rm[1])*60 + parseInt(rm[2]) });
         if (rows.length === 2) break;
       }
-      // [BUG 1 FIX v1.2] CFS DATA_ROW elapsedMins = diversion time to alternate,
-      // NOT departure→ETP elapsed. Stamping moved to applyNavlogEtpTimes() below.
-      // Original: if (ptRef && rows[0] && ptRef.elapsedMins == null) ptRef.elapsedMins = rows[0].elapsedMins;
+      // Stamp elapsed time onto the ETP point so the timeline can anchor it
+      const ptRef = cfsPoints.find(p => p.name === etpName);
+      if (ptRef && rows[0] && ptRef.elapsedMins == null) ptRef.elapsedMins = rows[0].elapsedMins;
       [[retApt, rows[0]||null], [contApt, rows[1]||null]].forEach(([icao, rowData]) => {
         if (!icao || cfsApts.find(a => a.icao === icao)) return;
         cfsApts.push({ icao, wxWindow: rowData ? rowData.wxWindow : null, etpName, role: 'CFS ALT' });
@@ -7692,16 +7687,11 @@ function _ofpRulesetParse(rawText) {
     }
   })();
 
-  // BUG 1 FIX v1.2: Populate ETP elapsed times from navlog TOT-T (HH.MM) field.
-  // CFS DATA_ROW TIME = diversion time to alternate, NOT departure→ETP elapsed.
-  // applyNavlogEtpTimes() reads navlog (GOicao) ETPn + TOT-T instead.
-  cfsPoints = applyNavlogEtpTimes(cfsPoints, t);
-
   cfsApts.forEach(cfs => {
     if (altData.find(a => a.icao === cfs.icao)) return;
-    var currentEta = null;
+    let currentEta = null;
     if (cfs.wxWindow) {
-      var wm = cfs.wxWindow.match(/^(\d{4})Z-(\d{4})Z$/);
+      const wm = cfs.wxWindow.match(/^(\d{4})Z-(\d{4})Z$/);
       if (wm) currentEta = wxWindowMidpoint(wm[1], wm[2]);
     }
     altData.push({
@@ -7712,16 +7702,16 @@ function _ofpRulesetParse(rawText) {
   });
 
   // ── MEL / DDG ─────────────────────────────────────────────────────
-  var melBlock = (() => {
-    var m = t.match(PATTERNS.MEL_BLOCK);
+  const melBlock = (() => {
+    const m = t.match(PATTERNS.MEL_BLOCK);
     return m ? m[1] : '';
   })();
 
-  var ddgItems = [];
+  const ddgItems = [];
   if (melBlock) {
-    var ataRe = PATTERNS.ATA_CODE;
-    var curCode = null, curDescLines = [];
-    var flush = () => {
+    const ataRe = PATTERNS.ATA_CODE;
+    let curCode = null, curDescLines = [];
+    const flush = () => {
       if (curCode) {
         ddgItems.push({ code: curCode, desc: curDescLines.map(l=>l.trim()).filter(Boolean).join(' '), tlr:'' });
       }
@@ -7730,55 +7720,55 @@ function _ofpRulesetParse(rawText) {
     // OFP page-footer lines that may appear inside the MEL block
     // (e.g. "ATLAS AIR BRIEF PAGE 2 OF 65" / "PAGE 2 OF 65").
     // Reject these so they are not captured as part of a DDG description.
-    var PAGE_FOOTER_RE = /^(?:[A-Z ]+\s+)?PAGE\s+\d+\s+OF\s+\d+\s*$/i;
-    for (var line of melBlock.split(/\r?\n/)) {
-      var trimmed = line.trim();
+    const PAGE_FOOTER_RE = /^(?:[A-Z ]+\s+)?PAGE\s+\d+\s+OF\s+\d+\s*$/i;
+    for (const line of melBlock.split(/\r?\n/)) {
+      const trimmed = line.trim();
       if (!trimmed) continue;
       if (ataRe.test(trimmed)) { flush(); curCode = trimmed; }
       else if (curCode && !PAGE_FOOTER_RE.test(trimmed)) curDescLines.push(trimmed);
     }
     flush();
     // Deduplicate code+desc
-    var seen = new Set();
-    for (var i = ddgItems.length - 1; i >= 0; i--) {
-      var key = ddgItems[i].code + '|' + ddgItems[i].desc;
+    const seen = new Set();
+    for (let i = ddgItems.length - 1; i >= 0; i--) {
+      const key = ddgItems[i].code + '|' + ddgItems[i].desc;
       if (seen.has(key)) { ddgItems.splice(i,1); } else { seen.add(key); }
     }
   }
 
   // TLR cross-reference
   (function crossRefTlrRmks() {
-    var tlrStart = t.search(TLR_PATTERNS.SECTION_START);
+    const tlrStart = t.search(TLR_PATTERNS.SECTION_START);
     if (tlrStart === -1) return;
-    var tlrBlock = t.slice(tlrStart);
-    var tkOffIdx = tlrBlock.search(TLR_PATTERNS.TKOFF_SECTION);
-    var landIdx  = tlrBlock.search(TLR_PATTERNS.LAND_SECTION);
-    var endIdx   = tlrBlock.search(TLR_PATTERNS.SECTION_END);
-    var tkOffSection = tkOffIdx !== -1
+    const tlrBlock = t.slice(tlrStart);
+    const tkOffIdx = tlrBlock.search(TLR_PATTERNS.TKOFF_SECTION);
+    const landIdx  = tlrBlock.search(TLR_PATTERNS.LAND_SECTION);
+    const endIdx   = tlrBlock.search(TLR_PATTERNS.SECTION_END);
+    const tkOffSection = tkOffIdx !== -1
       ? tlrBlock.slice(tkOffIdx, landIdx !== -1 ? landIdx : (endIdx !== -1 ? endIdx : tlrBlock.length))
       : '';
-    var landSection = landIdx !== -1
+    const landSection = landIdx !== -1
       ? tlrBlock.slice(landIdx, endIdx !== -1 ? endIdx : tlrBlock.length)
       : '';
 
-    var rmksRe = PATTERNS.TLR_RMKS_ATA;
-    var tkOffAtas = new Set(), landAtas = new Set();
-    var m;
+    const rmksRe = PATTERNS.TLR_RMKS_ATA;
+    const tkOffAtas = new Set(), landAtas = new Set();
+    let m;
     rmksRe.lastIndex = 0;
     while ((m = rmksRe.exec(tkOffSection)) !== null) tkOffAtas.add(m[1]);
     rmksRe.lastIndex = 0;
     while ((m = rmksRe.exec(landSection))  !== null) landAtas.add(m[1]);
-    for (var item of ddgItems) {
-      var t_ = tkOffAtas.has(item.code), l_ = landAtas.has(item.code);
+    for (const item of ddgItems) {
+      const t_ = tkOffAtas.has(item.code), l_ = landAtas.has(item.code);
       item.tlr = t_ && l_ ? 'both' : t_ ? 'takeoff' : l_ ? 'landing' : '';
     }
   })();
 
-  var melItems = ddgItems.map(i => i.code + ' ' + i.desc).join(' | ').substring(0, 600);
+  const melItems = ddgItems.map(i => i.code + ' ' + i.desc).join(' | ').substring(0, 600);
 
   // ── Overflight permits ────────────────────────────────────────────
-  var permM = t.match(PATTERNS.OVERFLIGHT);
-  var overflightPerms = (permM && permM[1].trim())
+  const permM = t.match(PATTERNS.OVERFLIGHT);
+  const overflightPerms = (permM && permM[1].trim())
     ? permM[1].replace(/\s+/g,' ').trim().substring(0, 300)
     : '';
 
@@ -7786,54 +7776,54 @@ function _ofpRulesetParse(rawText) {
   // Explicit format in Remarks block:
   //   ICAO - THY = IATA - TK = VERBAL CALLSIGN - TURKISH
   // Pattern: "VERBAL CALLSIGN - {NAME}"
-  var parsedVerbalCallsign = null;
+  let parsedVerbalCallsign = null;
   (function parseVerbalCallsign() {
-    var m = t.match(/VERBAL\s+CALLSIGN\s*[-\u2013]\s*([A-Z]+)/i);
+    const m = t.match(/VERBAL\s+CALLSIGN\s*[-\u2013]\s*([A-Z]+)/i);
     if (m) parsedVerbalCallsign = m[1].toUpperCase();
   })();
 
   // ── Alternate routes ──────────────────────────────────────────────
-  var altRoutes = [];
-  var altRouteSeen = new Set();
-  var arrRe = ALT_ROUTE_PATTERNS.SECTION_RE;
+  const altRoutes = [];
+  const altRouteSeen = new Set();
+  const arrRe = ALT_ROUTE_PATTERNS.SECTION_RE;
   arrRe.lastIndex = 0;
-  var arm;
+  let arm;
   while ((arm = arrRe.exec(t)) !== null) {
-    var title = arm[1].trim();
-    var block = arm[2];
-    var moraM = block.match(ALT_ROUTE_PATTERNS.MORA_LINE);
-    var mora  = moraM ? moraM[1] : '';
-    var routeRaw = moraM ? block.slice(0, block.indexOf(moraM[0])) : block;
-    var route = routeRaw.replace(/\n+/g,' ').replace(/\s+/g,' ').trim();
+    const title = arm[1].trim();
+    const block = arm[2];
+    const moraM = block.match(ALT_ROUTE_PATTERNS.MORA_LINE);
+    const mora  = moraM ? moraM[1] : '';
+    const routeRaw = moraM ? block.slice(0, block.indexOf(moraM[0])) : block;
+    const route = routeRaw.replace(/\n+/g,' ').replace(/\s+/g,' ').trim();
     if (!route) continue;
-    var dedupeKey = title + '|' + route;
+    const dedupeKey = title + '|' + route;
     if (altRouteSeen.has(dedupeKey)) continue;
     altRouteSeen.add(dedupeKey);
     altRoutes.push({ title, route, mora });
   }
 
   // ── TLR / OEI data ────────────────────────────────────────────────
-  var oeiData = [];
+  const oeiData = [];
   (function parseTLR() {
-    var tlrStart = t.search(TLR_PATTERNS.SECTION_START);
+    const tlrStart = t.search(TLR_PATTERNS.SECTION_START);
     if (tlrStart === -1) return;
-    var tlrBlock = t.slice(tlrStart, tlrStart + 15000);
-    var rwEfp = {};
-    var riM = tlrBlock.match(TLR_PATTERNS.RUNWAY_INFO_HDR);
+    const tlrBlock = t.slice(tlrStart, tlrStart + 15000);
+    const rwEfp = {};
+    const riM = tlrBlock.match(TLR_PATTERNS.RUNWAY_INFO_HDR);
     if (riM) {
-      for (var line of riM[1].split('\n')) {
-        var m = line.match(TLR_PATTERNS.RUNWAY_INFO_LINE);
+      for (const line of riM[1].split('\n')) {
+        const m = line.match(TLR_PATTERNS.RUNWAY_INFO_LINE);
         if (m) rwEfp[m[1].trim()] = m[2].trim();
       }
     }
-    var specProc = {};
-    var sfM = tlrBlock.match(TLR_PATTERNS.SPECIAL_EFP_HDR);
+    const specProc = {};
+    const sfM = tlrBlock.match(TLR_PATTERNS.SPECIAL_EFP_HDR);
     if (sfM) {
-      var curRwy = null, curParts = [];
-      for (var line of sfM[1].split('\n')) {
-        var trimmed = line.trim();
+      let curRwy = null, curParts = [];
+      for (const line of sfM[1].split('\n')) {
+        const trimmed = line.trim();
         if (!trimmed) continue;
-        var rwM = trimmed.match(TLR_PATTERNS.SPECIAL_EFP_LINE);
+        const rwM = trimmed.match(TLR_PATTERNS.SPECIAL_EFP_LINE);
         if (rwM) {
           if (curRwy) specProc[curRwy] = curParts.join(' ').trim();
           curRwy = rwM[1].trim(); curParts = rwM[2].trim() ? [rwM[2].trim()] : [];
@@ -7841,50 +7831,50 @@ function _ofpRulesetParse(rawText) {
       }
       if (curRwy) specProc[curRwy] = curParts.join(' ').trim();
     }
-    var seen = new Set();
+    const seen = new Set();
     Object.keys(rwEfp).forEach(rwy => {
-      var base = rwy.replace(TLR_PATTERNS.SHIPS_SUFFIX, '').trim();
+      const base = rwy.replace(TLR_PATTERNS.SHIPS_SUFFIX, '').trim();
       if (seen.has(base)) return;
       seen.add(base);
-      var efp    = rwEfp[rwy] || rwEfp[base] || '';
-      var isSpec = efp === 'SPECIAL';
-      var proc   = specProc[base] || specProc[rwy] || '';
+      const efp    = rwEfp[rwy] || rwEfp[base] || '';
+      const isSpec = efp === 'SPECIAL';
+      const proc   = specProc[base] || specProc[rwy] || '';
       oeiData.push({ rwy: base, efp, special: isSpec, proc, coChart: isSpec && !proc, coChartNote: '' });
     });
   })();
 
   // ── Weather / NOTAM extraction ─────────────────────────────────────
-  var releaseIcaos = new Set([origIcao, destIcao, ...altData.map(a=>a.icao)].filter(Boolean));
-  var airportData = {}; // { [icao]: { weather, notams } }
+  const releaseIcaos = new Set([origIcao, destIcao, ...altData.map(a=>a.icao)].filter(Boolean));
+  const airportData = {}; // { [icao]: { weather, notams } }
 
   (function extractAptWx() {
-    var secRe = new RegExp('^(' + WX_SECTION_LABELS.map(l => l.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')\\s*$', 'mg');
-    var hits = [];
-    var sm;
+    const secRe = new RegExp('^(' + WX_SECTION_LABELS.map(l => l.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')\\s*$', 'mg');
+    const hits = [];
+    let sm;
     while ((sm = secRe.exec(t)) !== null) {
       hits.push({ label: sm[1], start: sm.index + sm[0].length + 1 });
     }
     hits.forEach((hit, i) => {
-      var end = i + 1 < hits.length
+      const end = i + 1 < hits.length
         ? hits[i+1].start - hits[i+1].label.length - 2
         : t.length;
-      var block = t.slice(hit.start, end);
-      var metarRe = new RegExp(WX_METAR_ANCHOR.source, 'mg');
-      var metarBounds = [];
-      var mr;
+      const block = t.slice(hit.start, end);
+      const metarRe = new RegExp(WX_METAR_ANCHOR.source, 'mg');
+      const metarBounds = [];
+      let mr;
       while ((mr = metarRe.exec(block)) !== null) {
         metarBounds.push({ icao: mr[1], pos: mr.index });
       }
       if (!metarBounds.length) return;
       metarBounds.forEach((mb, mi) => {
-        var icao = mb.icao;
+        const icao = mb.icao;
         if (!releaseIcaos.has(icao)) return;
-        var subEnd = mi + 1 < metarBounds.length ? metarBounds[mi+1].pos : block.length;
-        var sub = block.slice(mb.pos, subEnd);
-        var notamIdx = sub.search(WX_NOTAM_START);
-        var wxRaw  = notamIdx > -1 ? sub.slice(0, notamIdx) : sub;
-        var notRaw = notamIdx > -1 ? sub.slice(notamIdx)    : '';
-        var strip = s => s.replace(WX_PAGE_HEADER, '').trim();
+        const subEnd = mi + 1 < metarBounds.length ? metarBounds[mi+1].pos : block.length;
+        const sub = block.slice(mb.pos, subEnd);
+        const notamIdx = sub.search(WX_NOTAM_START);
+        const wxRaw  = notamIdx > -1 ? sub.slice(0, notamIdx) : sub;
+        const notRaw = notamIdx > -1 ? sub.slice(notamIdx)    : '';
+        const strip = s => s.replace(WX_PAGE_HEADER, '').trim();
         if (!airportData[icao]) airportData[icao] = { weather:'', notams:'' };
         if (!airportData[icao].weather && wxRaw)  airportData[icao].weather = strip(wxRaw);
         if (!airportData[icao].notams  && notRaw) airportData[icao].notams  = strip(notRaw);
@@ -7894,28 +7884,28 @@ function _ofpRulesetParse(rawText) {
 
   // ── Airport operational notes from OFP Remarks ───────────────────
   (function extractAptOpsNotes() {
-    var txt = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const txt = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     // Constrain search to remarks section — stop before Company NOTAM section which uses the same dash format
-    var notamStart = txt.search(COMPANY_NOTAM.SECTION_ANCHOR);
-    var searchTxt  = notamStart > -1 ? txt.slice(0, notamStart) : txt;
-    var delimRe = /^(?:-{10,}|(?:-\s){5,}-)\s*$/mg;
-    var bounds = [];
-    var dm;
+    const notamStart = txt.search(COMPANY_NOTAM.SECTION_ANCHOR);
+    const searchTxt  = notamStart > -1 ? txt.slice(0, notamStart) : txt;
+    const delimRe = /^(?:-{10,}|(?:-\s){5,}-)\s*$/mg;
+    const bounds = [];
+    let dm;
     while ((dm = delimRe.exec(searchTxt)) !== null) {
       bounds.push(dm.index + dm[0].length);
     }
-    for (var i = 0; i < bounds.length - 1; i++) {
-      var block = searchTxt.slice(bounds[i], bounds[i + 1]).trim();
+    for (let i = 0; i < bounds.length - 1; i++) {
+      let block = searchTxt.slice(bounds[i], bounds[i + 1]).trim();
       if (!block || /^[-\s]+$/.test(block)) continue;
       block = block.replace(/^-\s*\n/, '').replace(/\n-\s*$/, '').trim();
-      var lines = block.split('\n');
-      var foundIcaos = [];
-      var headerLine = '';
-      var headerIdx  = 0;
-      for (var li = 0; li < Math.min(lines.length, 3); li++) {
-        var clean = lines[li].replace(/\*{1,4}|\*\*/g, ' ');
-        var codes = clean.match(/\b([A-Z]{4})\b/g) || [];
-        for (var code of codes) {
+      const lines = block.split('\n');
+      const foundIcaos = [];
+      let headerLine = '';
+      let headerIdx  = 0;
+      for (let li = 0; li < Math.min(lines.length, 3); li++) {
+        const clean = lines[li].replace(/\*{1,4}|\*\*/g, ' ');
+        const codes = clean.match(/\b([A-Z]{4})\b/g) || [];
+        for (const code of codes) {
           if (releaseIcaos.has(code) && !foundIcaos.includes(code)) {
             foundIcaos.push(code);
           }
@@ -7927,12 +7917,12 @@ function _ofpRulesetParse(rawText) {
         }
       }
       if (!foundIcaos.length) continue;
-      var body = lines.slice(headerIdx + 1)
+      const body = lines.slice(headerIdx + 1)
         .join('\n')
         .replace(/^PAGE \d+ OF \d+\s*$/mg, '')
         .trim();
       if (!body) continue;
-      for (var icao of foundIcaos) {
+      for (const icao of foundIcaos) {
         if (!airportData[icao]) {
           airportData[icao] = { weather:'', notams:'', opsNotes:null };
         }
@@ -7945,41 +7935,41 @@ function _ofpRulesetParse(rawText) {
 
   // ── Company NOTAM curfews ─────────────────────────────────────────
   (function extractCurfews() {
-    var stationStart = t.search(COMPANY_NOTAM.SECTION_ANCHOR);
+    const stationStart = t.search(COMPANY_NOTAM.SECTION_ANCHOR);
     if (stationStart === -1) return;
-    var endM = t.slice(stationStart).search(COMPANY_NOTAM.SECTION_END);
-    var stationBlock = t.slice(stationStart, endM === -1 ? t.length : stationStart + endM);
-    var icaoRe = new RegExp(COMPANY_NOTAM.ICAO_SECTION.source, 'mg');
-    var hits = [];
-    var m;
+    const endM = t.slice(stationStart).search(COMPANY_NOTAM.SECTION_END);
+    const stationBlock = t.slice(stationStart, endM === -1 ? t.length : stationStart + endM);
+    const icaoRe = new RegExp(COMPANY_NOTAM.ICAO_SECTION.source, 'mg');
+    const hits = [];
+    let m;
     while ((m = icaoRe.exec(stationBlock)) !== null) {
       hits.push({ icao: m[1], start: m.index + m[0].length });
     }
     hits.forEach((hit, i) => {
-      var icao = hit.icao;
-      var end = i + 1 < hits.length
+      const icao = hit.icao;
+      const end = i + 1 < hits.length
         ? hits[i+1].start - hits[i+1].icao.length - ' COMPANY NOTAMS'.length - 2
         : stationBlock.length;
-      var block = stationBlock.slice(hit.start, end);
-      var entryRe = new RegExp(COMPANY_NOTAM.ENTRY_HEADER.source, 'mg');
-      var entryHits = [];
-      var em;
+      const block = stationBlock.slice(hit.start, end);
+      const entryRe = new RegExp(COMPANY_NOTAM.ENTRY_HEADER.source, 'mg');
+      const entryHits = [];
+      let em;
       while ((em = entryRe.exec(block)) !== null) entryHits.push(em.index);
       entryHits.forEach((eStart, ei) => {
-        var eEnd = ei + 1 < entryHits.length ? entryHits[ei+1] : block.length;
-        var entry = block.slice(eStart, eEnd);
+        const eEnd = ei + 1 < entryHits.length ? entryHits[ei+1] : block.length;
+        const entry = block.slice(eStart, eEnd);
         if (!COMPANY_NOTAM.CURFEW_KEYWORDS.test(entry) && !COMPANY_NOTAM.RWY_CLOSED.test(entry)) return;
-        var lines = entry.split('\n').map(l=>l.trim()).filter(Boolean);
-        var curfewLines = [];
+        const lines = entry.split('\n').map(l=>l.trim()).filter(Boolean);
+        const curfewLines = [];
         lines.forEach(line => {
           if (/^[A-Z]{4}-\S+\s+Oper:|^VALID FROM:|^-{4,}|^\*{4,}/.test(line)) return;
-          var seasonM = line.match(/(?:SUMMER|WINTER)[^0-9]*(\d{4})Z?[-–](\d{4})Z?/i);
+          const seasonM = line.match(/(?:SUMMER|WINTER)[^0-9]*(\d{4})Z?[-–](\d{4})Z?/i);
           if (seasonM) { curfewLines.push(line.trim()); return; }
-          var rwyCls = line.match(/(\w{2,5}\/\w{2,5})\s*=\s*CLSD\s*(\d{4})\s*[-–]\s*(\d{4})Z?\s*\(([^)]+)\)/i);
+          const rwyCls = line.match(/(\w{2,5}\/\w{2,5})\s*=\s*CLSD\s*(\d{4})\s*[-–]\s*(\d{4})Z?\s*\(([^)]+)\)/i);
           if (rwyCls) { curfewLines.push(`${rwyCls[1]} CLSD ${rwyCls[2]}–${rwyCls[3]}Z (${rwyCls[4]})`); return; }
-          var simM = line.match(/CLOSED?\s+(.+?)\s*(\d{4})Z?\s*[-–]\s*(\d{4})Z?/i);
+          const simM = line.match(/CLOSED?\s+(.+?)\s*(\d{4})Z?\s*[-–]\s*(\d{4})Z?/i);
           if (simM) { curfewLines.push(`CLSD ${simM[2]}–${simM[3]}Z (${simM[1].trim().replace(/:$/,'')})`); return; }
-          var genM = line.match(/(\d{4})Z?\s*[-–]\s*(\d{4})Z/i);
+          const genM = line.match(/(\d{4})Z?\s*[-–]\s*(\d{4})Z/i);
           if (genM) { curfewLines.push(line.trim()); return; }
         });
         if (curfewLines.length) {
@@ -8002,7 +7992,7 @@ function _ofpRulesetParse(rawText) {
   //   WSITAF ICAO DDHHmmZ DDHH/DDHH conditions...
   //   [continuation lines]
   (function extractEwins() {
-    var headerRe = /\*{3}FLIGHT\s+RELEASED\s+UNDER\s+E[- ]WINS\s+AUTHORITY\s+FOR\s+TAF\s+\(([A-Z]{4})\)/g;
+    const headerRe = /\*{3}FLIGHT\s+RELEASED\s+UNDER\s+E[- ]WINS\s+AUTHORITY\s+FOR\s+TAF\s+\(([A-Z]{4})\)/g;
     var m;
     while ((m = headerRe.exec(t)) !== null) {
       var icao = m[1];
@@ -8042,41 +8032,41 @@ function _ofpRulesetParse(rawText) {
   // ── Enroute NOTAM sections ────────────────────────────────────────
   // Extracts ROUTE / FIR / AIRWAY / WAYPOINT / GEOGRAPHIC COMPANY NOTAM
   // blocks. Each key holds the raw text for that section.
-  var enrouteNotams = { route:'', fir:'', airway:'', waypoint:'', geographic:'' };
+  const enrouteNotams = { route:'', fir:'', airway:'', waypoint:'', geographic:'' };
   (function extractEnrouteNotams() {
-    var SECTIONS = [
+    const SECTIONS = [
       { re: /^ROUTE\s+COMPANY\s+NOTAMS\s*$/m,      key: 'route'      },
       { re: /^FIR\s+COMPANY\s+NOTAMS\s*$/m,        key: 'fir'        },
       { re: /^AIRWAY\s+COMPANY\s+NOTAMS\s*$/m,     key: 'airway'     },
       { re: /^WAYPOINT\s+COMPANY\s+NOTAMS\s*$/m,   key: 'waypoint'   },
       { re: /^GEOGRAPHIC\s+COMPANY\s+NOTAMS\s*$/m, key: 'geographic' },
     ];
-    var ANY_HDR = /^(?:STATION|ROUTE|FIR|AIRWAY|WAYPOINT|GEOGRAPHIC|ADMIN|RELEASE|FLTNUM)\s+COMPANY\s+NOTAMS\s*$/m;
-    var stripPage = s => s.replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '');
+    const ANY_HDR = /^(?:STATION|ROUTE|FIR|AIRWAY|WAYPOINT|GEOGRAPHIC|ADMIN|RELEASE|FLTNUM)\s+COMPANY\s+NOTAMS\s*$/m;
+    const stripPage = s => s.replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '');
 
     // Atlas Air briefs are issued in two identical copies (e.g. 63-page brief = 2×~31 pages).
     // The first STATION COMPANY NOTAMS header marks the boundary between enroute content
     // (Route/FIR/Airway/Waypoint/Geographic NOTAMs) and station-level content in Copy 1.
     // Scoping the search to text before that boundary prevents the parser matching the
     // second copy's section — which may be truncated — and returning an empty block.
-    var firstStationM = t.match(/^STATION\s+COMPANY\s+NOTAMS\s*$/m);
-    var searchScope = firstStationM && firstStationM.index > 0
+    const firstStationM = t.match(/^STATION\s+COMPANY\s+NOTAMS\s*$/m);
+    const searchScope = firstStationM && firstStationM.index > 0
       ? t.slice(0, firstStationM.index)
       : t;
 
     SECTIONS.forEach(({ re, key }) => {
-      var m = searchScope.match(re);
+      const m = searchScope.match(re);
       if (!m) return;
-      var start = m.index + m[0].length;
-      var rest  = searchScope.slice(start);
-      var nextM = rest.search(ANY_HDR);
-      var block = stripPage(nextM > -1 ? rest.slice(0, nextM) : rest).trim();
+      const start = m.index + m[0].length;
+      const rest  = searchScope.slice(start);
+      const nextM = rest.search(ANY_HDR);
+      const block = stripPage(nextM > -1 ? rest.slice(0, nextM) : rest).trim();
       if (block) enrouteNotams[key] = block;
     });
   })();
 
   // ── NAT Track Message — delegated to nat-rules.js v1.1.0 (Atlantic only)
-  var natTrack = (typeof window.parseNatTrack === 'function')
+  const natTrack = (typeof window.parseNatTrack === 'function')
     ? window.parseNatTrack(t, origIcao, destIcao)
     : null;
 
@@ -8137,9 +8127,6 @@ function _ofpRulesetParse(rawText) {
     natTrack,
     airportData,  // { [icao]: { weather, notams, curfew? } }
     parsedVerbalCallsign,  // from "VERBAL CALLSIGN - {NAME}" in Remarks; null if absent
-
-    rawOFP: t,             // full OFP text — consumed by enroute timeline V2 functions
-
   };
 }
 
@@ -8244,7 +8231,6 @@ function parseOFP() {
     etopsEntryMins: result.etopsEntryMins,
     etopsExit:      result.etopsExit,
     etopsExitMins:  result.etopsExitMins,
-    rawOFP:         result.rawOFP || '',
     porWpt:      result.porWpt,
     porOffsetMins: result.porOffsetMins,
     porMinf:     result.porMinf,
@@ -8592,265 +8578,6 @@ function _deriveOffZ() {
   return null;
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// ENROUTE TIMELINE V2 FUNCTIONS
-// Source: CODE-ENR-TimelineEvents-REV-20260512-v1.2.js
-// Bugs closed: BUG 1 (S1), BUG 2, BUG 3, BUG 4, BUG 5a/b
-// ═══════════════════════════════════════════════════════════════════════
-
-/**
- * Header-based ETOPS Exit pattern — fallback for non-Atlas OFP generators.
- * Atlas Air carries ETOPS Exit exclusively in navlog as (E.EXT).
- */
-const HEADER_ETOPS_EXIT_RE = /ETOPS\s+Exit\s+(\d{1,2}:\d{2})/i;
-
-/**
- * Navlog ETOPS Exit (E.EXT) extractor — Atlas Air primary path.
- * Captures TOT-T in HH.MM format followed by F/D altitude suffix.
- */
-const NAVLOG_EEXT_RE = /\(E\.EXT\)[\s\S]{0,200}?(\d{2}\.\d{2})\s+[FD]\d{3}/m;
-
-/**
- * Navlog ETP TOT-T extractor — replaces CFS DATA_ROW TIME for ETP elapsed times.
- * Captures (GOicao) ETPn + TOT-T HH.MM + F/D altitude suffix.
- * WARNING: HH.MM is NOT decimal. "03.38" = 3h 38m = 218 min. Split on "." → parseInt.
- */
-const NAVLOG_ETP_RE =
-  /\(GO([A-Z]{4})\)\s+(ETP\d+)[\s\S]{0,300}?(\d{2}\.\d{2})\s+[FD]\d{3}/gm;
-
-/**
- * Extract ETP elapsed times from navlog TOT-T fields.
- * Replaces CFS DATA_ROW TIME extraction for all ETP elapsed times.
- * @returns {Object} Map: ETP identifier → elapsed minutes, e.g. { ETP1: 218, ETP2: 271 }
- */
-function extractEtpElapsedFromNavlog(ofpText) {
-  if (!ofpText || typeof ofpText !== 'string') return {};
-  const result = {};
-  const re = new RegExp(NAVLOG_ETP_RE.source, NAVLOG_ETP_RE.flags);
-  let m;
-  while ((m = re.exec(ofpText)) !== null) {
-    const etpName = m[2];
-    const raw     = m[3];
-    const parts = raw.split('.');
-    if (parts.length !== 2) continue;
-    const hh = parseInt(parts[0], 10);
-    const mm = parseInt(parts[1], 10);
-    if (isNaN(hh) || isNaN(mm) || mm > 59 || hh > 23) continue;
-    const elapsedMins = hh * 60 + mm;
-    if (elapsedMins > 0 && !result[etpName]) {
-      result[etpName] = elapsedMins;
-    }
-  }
-  return result;
-}
-
-/**
- * Apply navlog elapsed times to an ETP point array.
- * GUARD: only writes when elapsedMins is currently null/undefined.
- */
-function applyNavlogEtpTimes(etpPoints, ofpText) {
-  if (!etpPoints || !etpPoints.length) return etpPoints || [];
-  const navlogTimes = extractEtpElapsedFromNavlog(ofpText);
-  return etpPoints.map(pt => {
-    if (pt.elapsedMins == null && navlogTimes[pt.name] != null) {
-      return { ...pt, elapsedMins: navlogTimes[pt.name] };
-    }
-    return pt;
-  });
-}
-
-/**
- * Validate ETP ascending-order invariant. Diagnostic only — logs console.warn.
- */
-function validateEtpOrder(etpPoints) {
-  const populated = (etpPoints || [])
-    .filter(p => p.elapsedMins != null)
-    .sort((a, b) => {
-      const numA = parseInt((a.name || '').replace(/\D/g, ''), 10) || 0;
-      const numB = parseInt((b.name || '').replace(/\D/g, ''), 10) || 0;
-      return numA - numB;
-    });
-  let valid = true;
-  for (let i = 1; i < populated.length; i++) {
-    const prev = populated[i - 1];
-    const curr = populated[i];
-    if (curr.elapsedMins <= prev.elapsedMins) {
-      console.warn(
-        `[PilotBrief ETP ORDER] ${curr.name}(${curr.elapsedMins} min) ` +
-        `≤ ${prev.name}(${prev.elapsedMins} min). ` +
-        `Navlog TOT-T extraction may have failed for this flight.`
-      );
-      valid = false;
-    }
-  }
-  return valid;
-}
-
-/**
- * Extract ETOPS airspace exit elapsed time from OFP text.
- * REPLACES the inline IIFE in parseOFP().
- * Fallback chain: (1) header "ETOPS Exit HH:MM", (2) navlog (E.EXT) + TOT-T HH.MM
- */
-function extractEtopsExitV2(ofpText) {
-  if (!ofpText || typeof ofpText !== 'string') {
-    return { etopsExit: '', etopsExitMins: null };
-  }
-
-  // Step 1: Header scan (non-Atlas OFP generators)
-  const headerMatch = ofpText.match(HEADER_ETOPS_EXIT_RE);
-  if (headerMatch) {
-    const raw      = headerMatch[1];
-    const [hh, mm] = raw.split(':').map(Number);
-    return { etopsExit: raw, etopsExitMins: hh * 60 + mm };
-  }
-
-  // Step 2: Navlog (E.EXT) scan (Atlas Air format — primary path)
-  const navlogMatch = ofpText.match(NAVLOG_EEXT_RE);
-  if (navlogMatch) {
-    const raw   = navlogMatch[1];
-    const parts = raw.split('.');
-    const hh    = parseInt(parts[0], 10);
-    const mm    = parseInt(parts[1], 10);
-    if (!isNaN(hh) && !isNaN(mm) && mm <= 59) {
-      const mins    = hh * 60 + mm;
-      const display = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-      return { etopsExit: display, etopsExitMins: mins };
-    }
-  }
-
-  return { etopsExit: '', etopsExitMins: null };
-}
-
-/**
- * Build the chronological timeline event array for the enroute phase.
- * REPLACES the inline event builder block in renderEnroutePhase().
- * All R-3/R-4 CO RPT and POR cluster logic preserved verbatim.
- * Change from inline: ETP block uses applyNavlogEtpTimes() + validateEtpOrder().
- */
-function buildTimelineEventsV2(S, navLog, hasOff, eteDest, ofpText) {
-  const events = [];
-  if (!hasOff) return events;
-
-  const wptNearest = (targetMins, maxDelta) => {
-    const pool = maxDelta !== undefined
-      ? navLog.filter(w => Math.abs(w.elapsedMins - targetMins) <= maxDelta)
-      : navLog;
-    if (!pool.length) return null;
-    return pool.reduce((b, w) =>
-      Math.abs(w.elapsedMins - targetMins) < Math.abs(b.elapsedMins - targetMins) ? w : b
-    );
-  };
-
-  const wptPrePor = (porElapsed) => {
-    if (!navLog.length || !porElapsed) return null;
-    const target = porElapsed - 180;
-    const valid  = navLog.filter(
-      w => w.elapsedMins >= target && w.elapsedMins < porElapsed
-    );
-    if (!valid.length) return null;
-    return valid.reduce((b, w) =>
-      Math.abs(w.elapsedMins - target) < Math.abs(b.elapsedMins - target) ? w : b
-    );
-  };
-
-  // ETOPS: −60 advisory + entry — unchanged
-  if (S.etopsEntryMins != null) {
-    events.push({ type:'preEtops',   elapsed: S.etopsEntryMins - 60 });
-    events.push({ type:'etopsEntry', elapsed: S.etopsEntryMins });
-  }
-
-  // POR cluster (redispatch only) — unchanged (R-4)
-  if (S.porOffsetMins != null) {
-    const prePorWpt = wptPrePor(S.porOffsetMins);
-    events.push({
-      type:'prePor',
-      elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
-      wpt: prePorWpt ? prePorWpt.wpt : null,
-    });
-    events.push({ type:'rda', elapsed: S.porOffsetMins - 120 });
-    events.push({ type:'por', elapsed: S.porOffsetMins, wpt: S.porWpt || null });
-  }
-
-  // Pre-POR CO RPTs (R-3 v1.1 PB-ENR-001 + BUG 6 FIX)
-  // BUG 6: Original threshold `eteDest - 240` blocked CO RPTs on all flights
-  // under 8 hours. CMB566 KGTB→EDDN (06:18, 378 min) — MALOT at 04:09 (249 min)
-  // never rendered because 240 > 378-240=138 triggered early break.
-  // FIX: gate only on flight < 4 hours; break only past arrival.
-  for (let i = 1; i <= 15; i++) {
-    const targetElapsed = i * 240;
-    if (eteDest && eteDest < 240) break;          // flight < 4 hours — no CO RPTs
-    if (eteDest && targetElapsed >= eteDest) break; // past arrival — stop
-    if (S.porOffsetMins != null) {
-      const d = targetElapsed - S.porOffsetMins;
-      if (d >= -180 && d <= 90) continue;
-      if (d > 90)               break;
-    }
-    const wpt = wptNearest(targetElapsed, 45);
-    events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
-                  targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
-  }
-
-  // Post-POR CO RPTs (BUG 6 FIX — same threshold correction)
-  if (S.porOffsetMins != null && eteDest && eteDest >= 240) {
-    for (let i = 1; i <= 10; i++) {
-      const targetElapsed = S.porOffsetMins + (i * 240);
-      if (targetElapsed >= eteDest) break;          // past arrival — stop
-      const wpt = wptNearest(targetElapsed, 45);
-      events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
-                    targetElapsed, rptHours: null, wpt: wpt ? wpt.wpt : null });
-    }
-  }
-
-  // G-1: E.EXT — ETOPS airspace exit (label corrected from E.EXIT — BUG 5b)
-  if (S.etopsExitMins != null) {
-    events.push({ type:'etopsExit', elapsed: S.etopsExitMins });
-  }
-
-  // ETP waypoints — BUG 1/2/3 FIX: apply navlog TOT-T before iterating
-  const correctedEtpPoints = applyNavlogEtpTimes(S.etpPoints || [], ofpText || '');
-  validateEtpOrder(correctedEtpPoints);
-  correctedEtpPoints.forEach(pt => {
-    if (pt.elapsedMins == null) return;
-    events.push({ type:'etp', elapsed: pt.elapsedMins, label: pt.name,
-                  coord: pt.lat && pt.lon ? `${pt.lat}  ${pt.lon}` : '' });
-  });
-
-  events.sort((a, b) => a.elapsed - b.elapsed);
-  return events;
-}
-
-/**
- * Render HTML row for etopsExit event. BUG 5b fix: label "E.EXT" (not "E.EXIT").
- */
-function renderEtopsExitV2(etaStr) {
-  let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
-  h += `<span class="enroute-label" style="color:var(--tint)">E.EXT</span>`;
-  h += `<div style="display:flex;flex-direction:column;gap:2px">`;
-  h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
-  h += `<span style="font-size:11px;color:var(--label3)">ETOPS airspace exit</span>`;
-  h += `</div>`;
-  h += `</div>`;
-  return h;
-}
-
-/**
- * Render HTML row for ETP timeline event. BUG 4 fix: uses --tint (blue), not --label2.
- */
-function renderEtpEvent(evt, etaStr) {
-  let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
-  h += `<span class="enroute-label" style="color:var(--tint)">${esc(evt.label || 'ETP')}</span>`;
-  h += `<div style="display:flex;flex-direction:column;gap:2px">`;
-  h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
-  if (evt.coord) h += `<span style="font-family:var(--font-mono);font-size:11px;color:var(--label3)">${esc(evt.coord)}</span>`;
-  h += `</div>`;
-  h += `</div>`;
-  return h;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// END ENROUTE TIMELINE V2 FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════
-
 function renderEnroutePhase() {
   const navLog = S.navLog || [];
 
@@ -8889,11 +8616,83 @@ function renderEnroutePhase() {
     return valid.reduce((b,w) => Math.abs(w.elapsedMins-target) < Math.abs(b.elapsedMins-target) ? w : b);
   };
 
-  // ── Build chronological event list (V2) ────────────────────────
-  // Delegated to buildTimelineEventsV2() — named, testable, externalizable per ADR-001.
-  // All R-3/R-4 CO RPT and POR cluster logic preserved verbatim inside that function.
-  const eteDest = S.destEtaOffsetMins || S.tripMinutes || 0;
-  const events = buildTimelineEventsV2(S, navLog, hasOff, eteDest, S.rawOFP || '');
+  // ── Build chronological event list ──────────────────────────────
+  const events = [];
+  if (hasOff) {
+    const eteDest = S.destEtaOffsetMins || S.tripMinutes || 0;
+
+    // ETOPS: 60-min advisory + entry
+    if (S.etopsEntryMins != null) {
+      events.push({ type:'preEtops',    elapsed: S.etopsEntryMins - 60 });
+      events.push({ type:'etopsEntry',  elapsed: S.etopsEntryMins });
+    }
+
+    // POR cluster (redispatch only)
+    //
+    // R-4 FIX: prePor is always emitted when porOffsetMins is populated.
+    // The hasCoRptBeforePor gate is removed. The PRE-POR CO RPT is an
+    // independent operational obligation — not interchangeable with a
+    // regular white CO RPT event.
+    //
+    if (S.porOffsetMins != null) {
+      const prePorWpt = wptPrePor(S.porOffsetMins);
+      events.push({
+        type:'prePor',
+        elapsed: prePorWpt ? prePorWpt.elapsedMins : S.porOffsetMins - 180,
+        wpt: prePorWpt ? prePorWpt.wpt : null,
+      });
+      events.push({ type:'rda', elapsed: S.porOffsetMins - 120 });
+      events.push({ type:'por', elapsed: S.porOffsetMins, wpt: S.porWpt || null });
+    }
+
+    // CO RPTs — 4-hr intervals, waypoint-anchored
+    //
+    // R-3 FIX v1.1 (PB-ENR-001): Suppression window extended to [POR−180, POR+90].
+    // v1.0 ±90 lower bound allowed CO RPTs in [POR−180, POR−90) to pass suppression
+    // and render between PRE-POR and POR (GTI8092 KORD–EDDF 06MAY26, LAX–NRT corpus).
+    // Lower bound corrected to −180 to match the PRE-POR cluster onset (R-4).
+    //   if (d >= -180 && d <= 90) continue  → skip full PRE-POR cluster window
+    //   if (d > 90)               break     → hand off to post-POR loop
+    //
+    for (let i = 1; i <= 15; i++) {
+      const targetElapsed = i * 240;
+      if (eteDest && (eteDest < 240 || targetElapsed > eteDest - 240)) break;
+      if (S.porOffsetMins != null) {
+        const d = targetElapsed - S.porOffsetMins;
+        if (d >= -180 && d <= 90) continue;  // within PRE-POR cluster window — skip
+        if (d > 90)               break;     // past window — hand off to post-POR loop
+      }
+      const wpt = wptNearest(targetElapsed, 45);
+      events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                    targetElapsed, rptHours: i*4, wpt: wpt ? wpt.wpt : null });
+    }
+
+    // Post-POR CO RPTs — rolling clock resets from POR
+    if (S.porOffsetMins != null && eteDest && eteDest >= 240) {
+      for (let i = 1; i <= 10; i++) {
+        const targetElapsed = S.porOffsetMins + (i * 240);
+        if (eteDest && targetElapsed > eteDest - 240) break;
+        const wpt = wptNearest(targetElapsed, 45);
+        events.push({ type:'coRpt', elapsed: wpt ? wpt.elapsedMins : targetElapsed,
+                      targetElapsed, rptHours: null, wpt: wpt ? wpt.wpt : null });
+      }
+    }
+
+    // G-1: E.EXIT — ETOPS airspace exit
+    // Informational milestone only. Does not affect CO RPT schedule.
+    if (S.etopsExitMins != null) {
+      events.push({ type:'etopsExit', elapsed: S.etopsExitMins });
+    }
+
+    // ETP waypoints (from CFS section)
+    (S.etpPoints || []).forEach(pt => {
+      if (pt.elapsedMins == null) return;
+      events.push({ type:'etp', elapsed: pt.elapsedMins, label: pt.name,
+                    coord: pt.lat && pt.lon ? `${pt.lat}  ${pt.lon}` : '' });
+    });
+
+    events.sort((a,b) => a.elapsed - b.elapsed);
+  }
 
   // ── Timeline row renderer ────────────────────────────────────────
   const renderEvent = (evt) => {
@@ -8962,9 +8761,18 @@ function renderEnroutePhase() {
       h += `</div>`;
 
     } else if (evt.type === 'etopsExit') {
-      return renderEtopsExitV2(etaStr);
+      h += `<span class="enroute-label" style="color:var(--tint)">E.EXIT</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
+      h += `<span style="font-size:11px;color:var(--label3)">ETOPS airspace exit</span>`;
+      h += `</div>`;
+
     } else if (evt.type === 'etp') {
-      return renderEtpEvent(evt, etaStr);
+      h += `<span class="enroute-label" style="color:var(--label2)">${esc(evt.label)}</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value">${etaStr}</span>`;
+      if (evt.coord) h += `<span style="font-family:var(--font-mono);font-size:11px;color:var(--label3)">${esc(evt.coord)}</span>`;
+      h += `</div>`;
     }
 
     h += `</div>`;
@@ -9140,16 +8948,14 @@ function calcInflightRest() {
     .filter(c => c.role !== 'JS' && c.role !== 'DH' && c.active !== false).length;
   if (operatingCount < 3) return null;
   function buildBlocks(n) {
-    const gapMins = S.restGapMins || 0;
-    const avail   = totalMins - (n - 1) * gapMins;
-    const base = Math.floor(avail / n);
-    const rem  = avail - base * n;
+    const base = Math.floor(totalMins / n);
+    const rem  = totalMins - base * n;
     const blocks = []; let cursor = tocZ;
     for (let i = 0; i < n; i++) {
-      const dur  = base + (i === n - 1 ? rem : 0);
+      const dur = base + (i === n - 1 ? rem : 0);
       const endZ = addM(cursor, dur);
       blocks.push({ label: `Rest ${i+1}`, startZ: cursor, endZ, durationMins: dur });
-      cursor = addM(endZ, gapMins);
+      cursor = endZ;
     }
     return blocks;
   }
@@ -9163,10 +8969,9 @@ function calcInflightRest() {
   };
 }
 
-function renderBlockList(blocks, fmtZ, fmtDur, gapMins) {
-  gapMins = gapMins || 0;
+function renderBlockList(blocks, fmtZ, fmtDur) {
   let h = `<div style="display:flex;flex-direction:column;gap:var(--sp2)">`;
-  blocks.forEach((b, i) => {
+  blocks.forEach(b => {
     h += `<div style="display:grid;grid-template-columns:48px 1fr auto;align-items:center;
             gap:var(--sp3);background:var(--fill4);border-radius:var(--r-sm);
             padding:var(--sp2) var(--sp3)">`;
@@ -9179,25 +8984,13 @@ function renderBlockList(blocks, fmtZ, fmtDur, gapMins) {
             font-weight:600;white-space:nowrap;text-align:right">
             ${fmtDur(b.durationMins)}</span>`;
     h += `</div>`;
-    if (gapMins > 0 && i < blocks.length - 1) {
-      h += `<div style="display:grid;grid-template-columns:48px 1fr auto;align-items:center;
-              gap:var(--sp3);padding:2px var(--sp3)">`;
-      h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label4);
-              text-transform:uppercase;letter-spacing:0.04em">BUFFER</span>`;
-      h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label4)">
-              ${fmtZ(b.endZ)}&thinsp;→&thinsp;${fmtZ(blocks[i+1].startZ)}</span>`;
-      h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label4);
-              text-align:right">${fmtDur(gapMins)}</span>`;
-      h += `</div>`;
-    }
   });
   h += `</div>`;
   return h;
 }
 
-function renderBlockColumn(title, blocks, fmtZ, fmtDur, gapMins) {
+function renderBlockColumn(title, blocks, fmtZ, fmtDur) {
   if (!blocks) return '';
-  gapMins = gapMins || 0;
   let h = `<div style="background:var(--fill4);border-radius:var(--r-md);padding:var(--sp3)">`;
   h += `<div style="display:flex;align-items:baseline;justify-content:space-between;
           margin-bottom:var(--sp3)">`;
@@ -9206,7 +8999,7 @@ function renderBlockColumn(title, blocks, fmtZ, fmtDur, gapMins) {
   h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint);
           font-weight:600">${fmtDur(blocks[0].durationMins)}</span>`;
   h += `</div>`;
-  blocks.forEach((b, i) => {
+  blocks.forEach(b => {
     h += `<div style="border-top:0.5px solid var(--sep);padding:var(--sp2) 0">`;
     h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
             text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px">
@@ -9218,15 +9011,6 @@ function renderBlockColumn(title, blocks, fmtZ, fmtDur, gapMins) {
     h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label2);
             white-space:nowrap">${fmtDur(b.durationMins)}</span>`;
     h += `</div></div>`;
-    if (gapMins > 0 && i < blocks.length - 1) {
-      h += `<div style="border-top:0.5px solid var(--sep);padding:2px 0">`;
-      h += `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:4px">`;
-      h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label4);
-              text-transform:uppercase;letter-spacing:0.04em">BUFFER</span>`;
-      h += `<span style="font-family:var(--font-mono);font-size:11px;color:var(--label4);
-              white-space:nowrap">${fmtDur(gapMins)}</span>`;
-      h += `</div></div>`;
-    }
   });
   h += `</div>`;
   return h;
@@ -9452,19 +9236,6 @@ function renderInflightRestModule() {
                   background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
                   cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
       h += `</div>`;
-      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-top:var(--sp2)">`;
-      h += `<span style="font-size:13px;color:var(--label3)">Buffer</span>`;
-      h += `<button onclick="adjustGap(-5)" aria-label="Decrease gap"
-                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
-                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
-                  cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>`;
-      h += `<span style="font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--tint);
-                min-width:52px;text-align:center">${S.restGapMins || 0}min</span>`;
-      h += `<button onclick="adjustGap(+5)" aria-label="Increase gap"
-                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
-                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
-                  cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
-      h += `</div>`;
     }
   }
   h += `</div>`;
@@ -9505,12 +9276,12 @@ function renderInflightRestModule() {
 
       // ── Schedule blocks ──
       if (data.operatingCount === 3) {
-        h += renderBlockList(data.blocks3, fmtZ, fmtDur, S.restGapMins || 0);
+        h += renderBlockList(data.blocks3, fmtZ, fmtDur);
       } else {
         if (sv === 'halves') {
-          h += renderBlockColumn('Halves', data.blocksH, fmtZ, fmtDur, S.restGapMins || 0);
+          h += renderBlockColumn('Halves', data.blocksH, fmtZ, fmtDur);
         } else {
-          h += renderBlockColumn('Quarters', data.blocksQ, fmtZ, fmtDur, S.restGapMins || 0);
+          h += renderBlockColumn('Quarters', data.blocksQ, fmtZ, fmtDur);
         }
       }
 
@@ -9548,11 +9319,6 @@ function adjustBuffer(deltaMins) {
   if (next < 0 || next > 180) return;
   S.crewRestBuffer = next; saveFlight(); renderNote();
 }
-function adjustGap(deltaMins) {
-  const next = (S.restGapMins || 0) + deltaMins;
-  if (next < 0 || next > 40) return;
-  S.restGapMins = next; saveFlight(); renderNote();
-}
 var _crewPickerOpen = false;
 function openCrewPicker()  { _crewPickerOpen = true;  renderNote(); }
 function closeCrewPicker() { _crewPickerOpen = false; renderNote(); }
@@ -9580,27 +9346,17 @@ function copyInflightRestLog() {
     `TOC: ${fmtZ(data.tocZ)}  End: ${fmtZ(data.restEndZ)}  Total: ${fmtDur(data.totalMins)}`,
     `Pre-landing buffer: ${S.crewRestBuffer}min`, '',
   ];
-  const _gap = S.restGapMins || 0;
   if (data.operatingCount === 3) {
     lines.push(`THIRDS — ${fmtDur(data.blocks3[0].durationMins)}/crew`);
-    data.blocks3.forEach((b, i) => {
-      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`);
-      if (_gap > 0 && i < data.blocks3.length - 1)
-        lines.push(`  BUFFER  ${fmtDur(_gap)}`);
-    });
+    data.blocks3.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
   } else {
     lines.push(`HALVES — ${fmtDur(data.blocksH[0].durationMins)}/crew`);
-    data.blocksH.forEach((b, i) => {
-      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`);
-      if (_gap > 0 && i < data.blocksH.length - 1)
-        lines.push(`  BUFFER  ${fmtDur(_gap)}`);
-    });
+    data.blocksH.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
     lines.push('', `QUARTERS — ${fmtDur(data.blocksQ[0].durationMins)}/crew`);
-    data.blocksQ.forEach((b, i) => {
-      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`);
-      if (_gap > 0 && i < data.blocksQ.length - 1)
-        lines.push(`  BUFFER  ${fmtDur(_gap)}`);
-    });
+    data.blocksQ.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
   }
   navigator.clipboard.writeText(lines.join('\n'))
     .then(() => showToast('✓ Rest schedule copied', 'ok'))
