@@ -56,7 +56,7 @@
 // ═══════════════════════════════════════════════════════
 'use strict';
 
-const CACHE_NAME    = 'pb-v2.0.0';
+const CACHE_NAME    = 'pb-v1.9.9';
 const PDFJS_VERSION = '3.11.174';
 
 // ── Mandatory shell ────────────────────────────────────
