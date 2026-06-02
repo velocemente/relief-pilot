@@ -1396,6 +1396,15 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .etp-copy-btn:active { background: var(--fill3); color: var(--label); }
+.pb-copy-active { opacity:0.45; transition:opacity 0.15s; }
+.pb-copy-feedback {
+  font-size:10px; font-weight:600;
+  color:var(--sys-green); letter-spacing:0.06em;
+  animation:_pbFadeOut 1s forwards; pointer-events:none;
+}
+@keyframes _pbFadeOut {
+  0%,70% { opacity:1; } 100% { opacity:0; }
+}
 .apt-eta-tag {
   font-family: var(--font-mono); font-size: var(--type-overline);
   color: var(--label2); white-space: nowrap;
@@ -6879,6 +6888,42 @@ window.processPDFFromNative = async function(base64, fileName) {
   }
 };
 
+function _pbFeedback(el) {
+  if (!el) return;
+  el.classList.add('pb-copy-active');
+  var fb = document.createElement('span');
+  fb.className = 'pb-copy-feedback';
+  fb.textContent = 'COPIED';
+  el.parentNode.insertBefore(fb, el.nextSibling);
+  setTimeout(function() {
+    el.classList.remove('pb-copy-active');
+    fb.remove();
+  }, 1000);
+}
+
+function _pbCopy(text, el) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(function() { _pbFeedback(el); })
+      .catch(function() { _pbCopyFallback(text, el); });
+  } else {
+    _pbCopyFallback(text, el);
+  }
+}
+
+function _pbCopyFallback(text, el) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    var ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) _pbFeedback(el);
+  } catch(e) {}
+}
+
 function showToast(typeOrMsg, msg) {
   // Support both showToast('type','msg') and showToast('msg') 
   let type, message;
@@ -9374,9 +9419,8 @@ function copyInflightRestLog() {
     data.blocksQ.forEach(b =>
       lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
   }
-  navigator.clipboard.writeText(lines.join('\n'))
-    .then(() => showToast('✓ Rest schedule copied', 'ok'))
-    .catch(() => showToast('Copy failed', 'err'));
+  const btn = document.querySelector('button[onclick="copyRestSchedule()"]');
+  _pbCopy(lines.join('\n'), btn);
 }
 
 // ── v1.2.0: Bulk crew picker handlers ──────────────────────────────
@@ -9472,7 +9516,7 @@ function renderDescentPhase() {
       h += `<div class="ddg-item-row">`;
       if (item.code) {
         h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
-        h += `<button class="etp-copy-btn" onclick="navigator.clipboard.writeText('${item.code.replace(/'/g, "\\'")}').then(()=>showToast('✓ Copied','ok')).catch(()=>{})" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+        h += `<button class="etp-copy-btn" onclick="_pbCopy('${item.code.replace(/'/g, "\\'")}', this)" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
       }
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
@@ -9682,7 +9726,7 @@ function renderNotesSection() {
       h += `<div class="ddg-item-row">`;
       if (item.code) {
         h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
-        h += `<button class="etp-copy-btn" onclick="navigator.clipboard.writeText('${item.code.replace(/'/g, "\\'")}').then(()=>showToast('✓ Copied','ok')).catch(()=>{})" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+        h += `<button class="etp-copy-btn" onclick="_pbCopy('${item.code.replace(/'/g, "\\'")}', this)" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
       }
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
@@ -10731,24 +10775,12 @@ function copyAltRoute(idx, btn) {
   const ta = document.getElementById(`ar-ta-${idx}`);
   const txt = ta ? ta.value : ((S.altRoutes[idx] || {}).route || '');
   if (!txt.trim()) { showToast('info', 'Route is empty'); return; }
-  navigator.clipboard.writeText(txt).then(() => {
-    showToast('✓ Copied', 'ok');
-    const orig = btn.innerHTML;
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg>`;
-    btn.style.color = 'var(--sys-green)';
-    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1600);
-  }).catch(() => showToast('err', 'Copy failed — select text manually'));
+  _pbCopy(txt, btn);
 }
 
 function copyEtpCoord(pt, btn) {
   const txt = pt.lat + ' ' + pt.lon;
-  navigator.clipboard.writeText(txt).then(() => {
-    showToast('✓ Copied', 'ok');
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg>';
-    btn.style.color = 'var(--sys-green)';
-    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1600);
-  }).catch(() => showToast('err', 'Copy failed — select text manually'));
+  _pbCopy(txt, btn);
 }
 
 // ── Evaluation engine (v1.9.0-r3) ────────────────────────────────────────────
@@ -11399,25 +11431,16 @@ function copyFcirNarrative() {
   const pad = document.getElementById('fcirNarrativePad');
   const txt = pad ? pad.value : (S.fcirNarrative || '');
   if (!txt.trim()) { showToast('info', 'Narrative is empty'); return; }
-  navigator.clipboard.writeText(txt).then(() => {
-    showToast('ok', '✓ Narrative copied');
-  }).catch(() => {
-    showToast('err', 'Copy failed — select text manually');
-  });
+  const btn = document.querySelector('button[onclick="copyFcirNarrative()"]');
+  _pbCopy(txt, btn);
 }
 
 // Copy note
 function copyNote() {
   const body = document.getElementById('noteBody');
   const txt = body.innerText||body.textContent;
-  navigator.clipboard.writeText(txt).then(() => {
-    showToast('✓ Copied', 'ok');
-    const btn = document.querySelector('.icon-btn[onclick="copyNote()"]');
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg>';
-    btn.style.color = 'var(--sys-green)';
-    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1600);
-  }).catch(() => showToast('err', 'Copy failed — select text manually'));
+  const btn = document.querySelector('button[onclick="copyNote()"]');
+  _pbCopy(txt, btn);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -11616,9 +11639,10 @@ function shareNote() {
 
   // Clipboard fallback — in-browser Safari / desktop
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text)
-      .then(() => { showToast('ok', '\u2713 Briefing copied to clipboard'); _flashShareButton(); })
-      .catch(() => showToast('err', 'Copy failed \u2014 select text manually'));
+    const btn = document.querySelector('button[onclick*="shareNote"]');
+    _pbCopy(text, btn);
+    showToast('ok', '\u2713 Briefing copied to clipboard');
+    _flashShareButton();
     return;
   }
 
