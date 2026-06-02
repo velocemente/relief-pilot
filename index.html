@@ -8478,7 +8478,7 @@ function renderPreflightPhase() {
   let bClass = '';
   if (S.togwActual && S.togwLimit) {
     const m = S.togwLimit - S.togwActual;
-    bClass = m > 1000 ? 'c-green' : m >= 500 ? 'c-yellow' : 'c-red';
+    bClass = m > 2000 ? 'c-green' : m >= 1000 ? 'c-yellow' : 'c-red';
   }
 
   let h = '';
@@ -8533,11 +8533,11 @@ function renderPreflightPhase() {
   // ── "OFP Fuel & Weight Summary" subcard ──
   // Weight unit sourced from OFP narrative header (e.g. "/ KGS /"), stored in S.weightUnit
   const _wtUnit = S.weightUnit || 'KGS';
-  // Margin colour: >1000 green, 500–1000 yellow, <500 red (same threshold for both units)
+  // Margin colour: >2000 green, 1000–2000 yellow, <1000 red (same threshold for both units)
   const wClass = (actual, limit) => {
     if (!actual || !limit) return '';
     const m = limit - actual;
-    return m > 1000 ? 'c-green' : m >= 500 ? 'c-yellow' : 'c-red';
+    return m > 2000 ? 'c-green' : m >= 1000 ? 'c-yellow' : 'c-red';
   };
   const fmtWt = n => n ? n.toLocaleString() : '—';
 
