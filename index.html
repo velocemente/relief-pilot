@@ -6472,7 +6472,7 @@ const S = {
   ddgItems:[], melItems:'', overflightPerms:'',
   altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
   acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
-  zfwActual:0,  zfwLimit:0,   // parsed from OFP weight table
+  zfwActual:0,  zfwLimit:0, zfwOFP:0,  // zfwOFP: immutable OFP baseline for MINF delta
   ldgwActual:0, ldgwLimit:0,  // parsed from OFP weight table
   radioCallsign:'',   // e.g. "GTI8993"  — derived from fltNum prefix
   verbalCallsign:'',  // e.g. "GIANT"    — GTI→GIANT, PAC→POLAR, CMB→CAMBER
@@ -6549,7 +6549,7 @@ function resetStateForNewFlight() {
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
     navLog:[], enrouteNotams:null, natTrack:null,
-    zfwActual:0, zfwLimit:0, ldgwActual:0, ldgwLimit:0,
+    zfwActual:0, zfwLimit:0, zfwOFP:0, ldgwActual:0, ldgwLimit:0,
     radioCallsign:'', verbalCallsign:'', isHeavy:false,
     hasPerishables:false,
     dotExemption: null,
@@ -8350,6 +8350,7 @@ function parseOFP() {
     togwActual: result.togwActual,
     togwLimit:  result.togwLimit,
     zfwActual:  result.zfwActual,
+    zfwOFP:     result.zfwActual,   // immutable — MINF delta baseline
     zfwLimit:   result.zfwLimit,
     ldgwActual: result.ldgwActual,
     ldgwLimit:  result.ldgwLimit,
@@ -8664,7 +8665,14 @@ function renderPreflightPhase() {
   const _bClass = wClass(_togwEff, S.togwLimit);
   const _blockDisp = S.blockFuelRaw ? _fuelDisp(_blockEff) : (S.blockFuel||'___');
   h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${_bClass}">${ev('blockFuel', _blockDisp)}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value">${ev('minfFuel', S.minfFuel||'___')}</span></div>`;
+  // MINF adjustment — computed early so both Fuel and Weight columns can use it
+  const _minfZfwDelta = S.zfwActual - S.zfwOFP;
+  const _hasMinfAdj   = _minfZfwDelta > 0 && S.zfwIncrFactor;
+  const _minfAdj      = _hasMinfAdj ? (_minfZfwDelta / 1000) * S.zfwIncrFactor : 0;
+  const _adjustedMinf = S.minfFuelRaw + _minfAdj;
+  const _minfDisp = _hasMinfAdj ? _fuelDisp(Math.round(_adjustedMinf)) : (S.minfFuel||'___');
+  const _minfStyle = _hasMinfAdj ? ' style="color:var(--sys-yellow);font-weight:600"' : '';
+  h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value"${_minfStyle}>${ev('minfFuel', _minfDisp)}</span></div>`;
   // PATCH 4 — REMF: cascade effective value
   const _remfDisp = S.blockFuelRaw ? _fuelDisp(_remfEff) : (S.destRemf||'___');
   h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${S.blockFuelRaw ? _remfDisp : ev('destRemf', S.destRemf||'___')}</span></div>`;
@@ -8694,10 +8702,8 @@ function renderPreflightPhase() {
   const _zfwDisp = S.zfwActual ? (S.showWeightRaw ? String(_zfwEff) : _zfwEff.toLocaleString()) : '___';
   h += `<div class="data-row"><span class="data-label">ZFW</span>`;
   h += `<span class="data-value ${_zClass}">${ev('zfwActual', _zfwDisp)}</span></div>`;
-  // PATCH 3 — MINF ADJ row (shown when zfwDelta > 0 and zfwIncrFactor present)
-  if (_zfwDelta > 0 && S.zfwIncrFactor) {
-    const _minfAdj     = (_zfwDelta / 1000) * S.zfwIncrFactor;
-    const _adjustedMinf = S.minfFuelRaw + _minfAdj;
+  // PATCH 3 — MINF ADJ row (shown when ZFW increased from OFP)
+  if (_hasMinfAdj) {
     h += `<div class="data-row">`;
     h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:600">MINF ADJ</span>`;
     h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:600">+${(_minfAdj/1000).toFixed(1)}</span>`;
