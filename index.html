@@ -331,12 +331,6 @@ body {
 }
 .help-btn:active { background: var(--fill); }
 .help-btn svg { width: 22px; height: 22px; }
-.field-editable {
-  border-bottom: 1.5px solid var(--tint);
-  padding-bottom: 1px;
-  cursor: pointer;
-}
-.field-editable:active { opacity: 0.6; }
 .nav-large-title {
   font-family: var(--font-display);
   font-size: 34px;
@@ -2034,10 +2028,11 @@ body {
     </span>
     <!-- Right cluster: Help → FCIR -->
     <div id="flightNavRight" style="display:flex;align-items:center;gap:0;margin-left:auto">
-      <button class="icon-btn" onclick="push('screen-settings')" aria-label="Settings">
+      <button class="help-btn" onclick="push('screen-help')" aria-label="Help and instructions">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          <circle cx="12" cy="12" r="9.5"/>
+          <path d="M12 17v-4.5M9.5 9.5a2.5 2.5 0 115 0c0 1.5-2.5 2-2.5 3.5"/>
+          <circle cx="12" cy="19" r="0.5" fill="currentColor"/>
         </svg>
       </button>
       <div class="fcir-toggle-row">
@@ -6319,6 +6314,80 @@ function loadOFPPanel() {
         const total = pdf.numPages;
         if (counter) counter.textContent = `${total} pages`;
         const dpr = window.devicePixelRatio || 1;
+
+        // ── PDF Bookmark Subcards (S-OFP-01) ──────────────────────────
+        // Atlas/Polar OFPs nest section bookmarks under a root entry:
+        //   outline[0] = { title: "NNF/GTI/...", items: [sections...] }
+        const _bmMap = [
+          { re: /^Flight Plan$/i,             label: 'OFP' },
+          { re: /^TLR$/i,                     label: 'TLR' },
+          { re: /Company\s*Notam/i,           label: 'INTAMS' },
+          { re: /Weather|^Wx/i,               label: 'WX/NOTAMS' },
+          { re: /Maps|Charts|Company\s*Docs/i,label: 'CHARTS' },
+        ];
+        pdf.getOutline().then(function(outline) {
+          if (!outline || !outline.length) return;
+          // Flatten: collect items from root and all top-level children
+          var items = [];
+          outline.forEach(function(entry) {
+            if (entry.items && entry.items.length) {
+              items = items.concat(entry.items);
+            }
+          });
+          if (!items.length) return;
+          // Resolve destinations to page numbers
+          var pending = items.map(function(item) {
+            var dest = item.dest;
+            var p = (typeof dest === 'string')
+              ? pdf.getDestination(dest).then(function(d) { return d ? pdf.getPageIndex(d[0]) : -1; })
+              : (Array.isArray(dest) && dest[0])
+                ? pdf.getPageIndex(dest[0])
+                : Promise.resolve(-1);
+            return p.then(function(pageIdx) {
+              return { title: item.title, pageNum: pageIdx + 1 }; // 1-based
+            }).catch(function() { return null; });
+          });
+          Promise.all(pending).then(function(resolved) {
+            var pills = [];
+            resolved.forEach(function(r) {
+              if (!r) return;
+              for (var i = 0; i < _bmMap.length; i++) {
+                if (_bmMap[i].re.test(r.title)) {
+                  pills.push({ label: _bmMap[i].label, pageNum: r.pageNum });
+                  break;
+                }
+              }
+            });
+            if (!pills.length) return;
+            // Render scrollable pill row at top of container
+            var row = document.createElement('div');
+            row.className = 'pb-bookmark-pills';
+            row.style.cssText = 'display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px 4px 12px;position:sticky;top:0;z-index:2;background:var(--sys-bg)';
+            pills.forEach(function(pill) {
+              var btn = document.createElement('button');
+              btn.textContent = pill.label;
+              btn.style.cssText = 'flex-shrink:0;padding:5px 12px;border-radius:14px;border:1.5px solid var(--tint);background:transparent;color:var(--tint);font-size:12px;font-weight:600;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;font-family:inherit';
+              btn.addEventListener('click', function() {
+                // Direct scrollTop on container — reliable in nested iOS scroll contexts
+                var wraps = container.querySelectorAll('div[style*="position:relative"]');
+                var idx = pill.pageNum - 1;
+                if (wraps[idx]) {
+                  container.scrollTop = wraps[idx].offsetTop - row.offsetHeight - 8;
+                  // Highlight active pill
+                  row.querySelectorAll('button').forEach(function(b) {
+                    b.style.background = 'transparent';
+                    b.style.color = 'var(--tint)';
+                  });
+                  btn.style.background = 'var(--tint)';
+                  btn.style.color = '#fff';
+                }
+              });
+              row.appendChild(btn);
+            });
+            container.insertBefore(row, container.firstChild);
+          });
+        }).catch(function() {}); // outline extraction non-fatal
+
         const renderPage = (n) => {
           pdf.getPage(n).then(pg => {
             const viewerW = container.clientWidth || (window.innerWidth - 32);
@@ -6398,7 +6467,6 @@ const S = {
   altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
   acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
   zfwActual:0,  zfwLimit:0,   // parsed from OFP weight table
-  zfwOFP:0,                   // original OFP ZFW — immutable after parse (for MINF delta)
   ldgwActual:0, ldgwLimit:0,  // parsed from OFP weight table
   radioCallsign:'',   // e.g. "GTI8993"  — derived from fltNum prefix
   verbalCallsign:'',  // e.g. "GIANT"    — GTI→GIANT, PAC→POLAR, CMB→CAMBER
@@ -6475,7 +6543,7 @@ function resetStateForNewFlight() {
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
     navLog:[], enrouteNotams:null, natTrack:null,
-    zfwActual:0, zfwLimit:0, zfwOFP:0, ldgwActual:0, ldgwLimit:0,
+    zfwActual:0, zfwLimit:0, ldgwActual:0, ldgwLimit:0,
     radioCallsign:'', verbalCallsign:'', isHeavy:false,
     hasPerishables:false,
     dotExemption: null,
@@ -8276,7 +8344,6 @@ function parseOFP() {
     togwActual: result.togwActual,
     togwLimit:  result.togwLimit,
     zfwActual:  result.zfwActual,
-    zfwOFP:     result.zfwActual,   // immutable — MINF delta baseline
     zfwLimit:   result.zfwLimit,
     ldgwActual: result.ldgwActual,
     ldgwLimit:  result.ldgwLimit,
@@ -8591,15 +8658,7 @@ function renderPreflightPhase() {
   const _bClass = wClass(_togwEff, S.togwLimit);
   const _blockDisp = S.blockFuelRaw ? _fuelDisp(_blockEff) : (S.blockFuel||'___');
   h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${_bClass}">${ev('blockFuel', _blockDisp)}</span></div>`;
-  // MINF adjustment — computed early so both Fuel and Weight columns can use it
-  const _minfZfwDelta = S.zfwActual - S.zfwOFP;
-  const _hasMinfAdj   = _minfZfwDelta > 0 && S.zfwIncrFactor;
-  const _minfAdj      = _hasMinfAdj ? (_minfZfwDelta / 1000) * S.zfwIncrFactor : 0;
-  const _adjustedMinf = S.minfFuelRaw + _minfAdj;
-  // Display: show adjusted MINF in yellow when active, OFP value otherwise
-  const _minfDisp = _hasMinfAdj ? _fuelDisp(Math.round(_adjustedMinf)) : (S.minfFuel||'___');
-  const _minfStyle = _hasMinfAdj ? ' style="color:var(--sys-yellow);font-weight:600"' : '';
-  h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value"${_minfStyle}>${ev('minfFuel', _minfDisp)}</span></div>`;
+  h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value">${ev('minfFuel', S.minfFuel||'___')}</span></div>`;
   // PATCH 4 — REMF: cascade effective value
   const _remfDisp = S.blockFuelRaw ? _fuelDisp(_remfEff) : (S.destRemf||'___');
   h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${S.blockFuelRaw ? _remfDisp : ev('destRemf', S.destRemf||'___')}</span></div>`;
@@ -8629,8 +8688,10 @@ function renderPreflightPhase() {
   const _zfwDisp = S.zfwActual ? (S.showWeightRaw ? String(_zfwEff) : _zfwEff.toLocaleString()) : '___';
   h += `<div class="data-row"><span class="data-label">ZFW</span>`;
   h += `<span class="data-value ${_zClass}">${ev('zfwActual', _zfwDisp)}</span></div>`;
-  // PATCH 3 — MINF ADJ row (shows delta when ZFW increased from OFP)
-  if (_hasMinfAdj) {
+  // PATCH 3 — MINF ADJ row (shown when zfwDelta > 0 and zfwIncrFactor present)
+  if (_zfwDelta > 0 && S.zfwIncrFactor) {
+    const _minfAdj     = (_zfwDelta / 1000) * S.zfwIncrFactor;
+    const _adjustedMinf = S.minfFuelRaw + _minfAdj;
     h += `<div class="data-row">`;
     h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:600">MINF ADJ</span>`;
     h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:600">+${(_minfAdj/1000).toFixed(1)}</span>`;
@@ -9926,7 +9987,7 @@ function wireNotePads() {
 // Editable value span
 // Editable value span — works with both tap (finger) and Apple Pencil
 function ev(field, displayVal) {
-  return `<span class="ev field-editable" role="button" tabindex="0" aria-label="Edit ${field}"
+  return `<span class="ev" role="button" tabindex="0" aria-label="Edit ${field}"
     onclick="openEdit('${field}')"
     onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('${field}')}"
     >${esc(displayVal)}</span>`;
