@@ -6428,6 +6428,8 @@ const S = {
   // ── Arrival fuel (parsed + carried-over) ──
   alt1Fuel:'',        // ALT1 fuel from OFP fuel summary
   destRemf:'',        // REMF at destination from OFP
+  zfwIncrFactor: null,// ZFW increment factor for MINF adjustment
+  taxiFuel:'',        // Taxi fuel from OFP
 };
 let airportData = {};   // icao → { notams:'', weather:'' }
 let pdfRawText    = '';
@@ -6468,6 +6470,7 @@ function resetStateForNewFlight() {
     descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
     enrouteScratch:'',
     alt1Fuel:'', destRemf:'',
+    zfwIncrFactor: null, taxiFuel:'',
   });
   airportData = {};
   pdfRawText = '';
@@ -6993,6 +6996,7 @@ const PATTERNS = {
   BLOCK_FUEL: /(?:^BLOCK\n(\d{5,7})|BLOCK\s+(\d{5,7}))/im,
   MINF_FUEL:  /(?:^MINF\n(\d{5,7})|MINF\s+(\d{5,7}))/im,
   FRES_FUEL:  /(?:^FRES\n(\d{5,7})|FRES\s+(\d{5,7}))/im,
+  TAXI_FUEL:  /(?:^TAXI\n(\d{3,7})|TAXI\s+(\d{3,7}))/im,
   BALLAST_FUEL: /^BALLAST\s+(\d{3,7})/im,
 
   // ALT1 fuel: "ALT1 (004016 00.23 0092)" or "ALT1 004016 00.23 0092"
@@ -7012,6 +7016,9 @@ const PATTERNS = {
   ZFW:          /^ZFW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})/m,
   // LDGW: "LDGW 287690        S302092"  — dots often absent
   LDGW:         /^LDGW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})/m,
+
+  // ZFW increment factor for MINF adjustment calculation
+  ZFW_INCR_FACTOR: /ZFW\s+INCR\/1000\s+X\s+(\d+)\s+MINF\s+ADJ/i,
 
   // Trip time: "TRIP 158000 13.44" → captures HH and MM
   TRIP_TIME:    /TRIP\s+\d+\s+(\d{2})\.(\d{2})/,
@@ -7417,6 +7424,10 @@ function _ofpRulesetParse(rawText) {
   const blockFuelRaw = extractFuelField(PATTERNS.BLOCK_FUEL);
   const minfFuelRaw  = extractFuelField(PATTERNS.MINF_FUEL);
   const fresFuelRaw  = extractFuelField(PATTERNS.FRES_FUEL);
+  var zfwIncrM = t.match(PATTERNS.ZFW_INCR_FACTOR);
+  var zfwIncrFactor = zfwIncrM
+    ? parseInt(zfwIncrM[1], 10) : null;
+  var taxiFuelRaw = extractFuelField(PATTERNS.TAXI_FUEL);
   const ballastM     = t.match(PATTERNS.BALLAST_FUEL);
   const ballastFuel  = ballastM ? parseInt(ballastM[1], 10) : null;
 
@@ -8127,6 +8138,8 @@ function _ofpRulesetParse(rawText) {
     natTrack,
     airportData,  // { [icao]: { weather, notams, curfew? } }
     parsedVerbalCallsign,  // from "VERBAL CALLSIGN - {NAME}" in Remarks; null if absent
+    zfwIncrFactor,
+    taxiFuelRaw,
   };
 }
 
@@ -8251,6 +8264,9 @@ function parseOFP() {
       verbalCallsign: result.parsedVerbalCallsign,
     } : {}),
   });
+  if (result.zfwIncrFactor != null)
+    S.zfwIncrFactor = result.zfwIncrFactor;
+  S.taxiFuel = fuelK(result.taxiFuelRaw);
   // Preserve crewVerified across re-imports; reset buffer only on first import
   if (!S.crewVerified) S.crewRestBuffer = 60;
 
