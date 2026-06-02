@@ -6464,7 +6464,7 @@ const S = {
   //   coChartNote: crew-entered text for "SEE CO CHART" runways (SPECIAL + no proc)
   oeiData:[], oeiSelectedRwy:'',
   blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
-  crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
+  crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
   // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
   //   code: ATA number string e.g. "36-12-02-01"
   //   desc: full description string (may be multi-line joined)
@@ -6545,7 +6545,7 @@ function resetStateForNewFlight() {
     oeiVal:'', stabTrim:'', gaFuel:'',
     oeiData:[], oeiSelectedRwy:'',
     blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
-    crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restSchedView:'halves', restCardCollapsed:false,
+    crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
     navLog:[], enrouteNotams:null, natTrack:null,
@@ -9143,14 +9143,19 @@ function calcInflightRest() {
     .filter(c => c.role !== 'JS' && c.role !== 'DH' && c.active !== false).length;
   if (operatingCount < 3) return null;
   function buildBlocks(n) {
-    const base = Math.floor(totalMins / n);
-    const rem  = totalMins - base * n;
+    const gapMins = (typeof S.restGapMins === 'number' && S.restGapMins >= 0) ? S.restGapMins : 0;
+    const gapOverhead = (n - 1) * gapMins;
+    const availableMins = totalMins - gapOverhead;
+    if (availableMins <= 0) return null;
+    const base = Math.floor(availableMins / n);
+    const rem  = availableMins - base * n;
     const blocks = []; let cursor = tocZ;
     for (let i = 0; i < n; i++) {
-      const dur = base + (i === n - 1 ? rem : 0);
+      const isLast = (i === n - 1);
+      const dur = base + (isLast ? rem : 0);
       const endZ = addM(cursor, dur);
       blocks.push({ label: `Rest ${i+1}`, startZ: cursor, endZ, durationMins: dur });
-      cursor = endZ;
+      cursor = isLast ? endZ : addM(endZ, gapMins);
     }
     return blocks;
   }
@@ -9431,6 +9436,21 @@ function renderInflightRestModule() {
                   background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
                   cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
       h += `</div>`;
+      // Gap between periods adjuster row
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-top:var(--sp3)">`;
+      h += `<span style="font-size:13px;color:var(--label3)">Gap between periods</span>`;
+      h += `<button onclick="adjustGap(-5)" aria-label="Decrease gap"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>`;
+      h += `<span class="ev" role="button" tabindex="0" onclick="openEdit('restGapMins')"
+              style="font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--tint);
+                min-width:52px;text-align:center">${S.restGapMins}m</span>`;
+      h += `<button onclick="adjustGap(+5)" aria-label="Increase gap"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
+      h += `</div>`;
     }
   }
   h += `</div>`;
@@ -9439,6 +9459,12 @@ function renderInflightRestModule() {
   if (hasOff && hasTOC && hasEnough) {
     const data = calcInflightRest();
     if (data) {
+      // Guard: gap setting may exceed rest window, making blocks null
+      if (!data.blocks3) {
+        h += `<div style="border-top:0.5px solid var(--sep);padding:var(--sp3)">`;
+        h += `<span style="font-size:13px;color:var(--sys-yellow)">⚠ Gap setting exceeds rest window — reduce gap.</span>`;
+        h += `</div>`;
+      } else {
       const sv = S.restSchedView === 'quarters' ? 'quarters' : 'halves';
 
       h += `<div style="border-top:0.5px solid var(--sep);padding-top:var(--sp3)">`;
@@ -9481,6 +9507,7 @@ function renderInflightRestModule() {
       }
 
       h += `</div>`;
+      } // end blocks3 null guard
     }
   }
 
@@ -9513,6 +9540,11 @@ function adjustBuffer(deltaMins) {
   const next = (S.crewRestBuffer || 60) + deltaMins;
   if (next < 0 || next > 180) return;
   S.crewRestBuffer = next; saveFlight(); renderNote();
+}
+function adjustGap(deltaMins) {
+  const next = (S.restGapMins || 0) + deltaMins;
+  if (next < 0 || next > 20) return;
+  S.restGapMins = next; saveFlight(); renderNote();
 }
 var _crewPickerOpen = false;
 function openCrewPicker()  { _crewPickerOpen = true;  renderNote(); }
@@ -10218,6 +10250,7 @@ const FIELD_LABELS = {
   descAtisLetter:'Arrival ATIS Letter',
   destRemf:'REMF at Destination', alt1Fuel:'ALT 1 Fuel',
   crewRestBuffer:'Pre-landing buffer (minutes, 0–180)',
+  restGapMins:'Gap between rest periods (minutes, 0–20)',
   tocZOverride:'TOC Time (HHMM Z) — overrides computed TOC',
   zfwActual:'ZFW — Actual (raw weight)',
   togwActual:'TOGW — Actual (raw weight)',
@@ -10299,6 +10332,11 @@ function confirmEdit() {
   if (_editField === 'crewRestBuffer') {
     const parsed = parseInt(val.replace(/\D/g,''), 10);
     if (!isNaN(parsed) && parsed >= 0 && parsed <= 180) S.crewRestBuffer = parsed;
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
+  if (_editField === 'restGapMins') {
+    const parsed = parseInt(val.replace(/\D/g,''), 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 20) S.restGapMins = Math.round(parsed / 5) * 5;
     cancelEdit(); renderNote(); saveFlight(); return;
   }
   if (_editField === 'tocZOverride') {
