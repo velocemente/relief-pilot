@@ -6393,6 +6393,7 @@ const S = {
   altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
   acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
   zfwActual:0,  zfwLimit:0,   // parsed from OFP weight table
+  zfwOFP:0,                   // original OFP ZFW — immutable after parse (for MINF delta)
   ldgwActual:0, ldgwLimit:0,  // parsed from OFP weight table
   radioCallsign:'',   // e.g. "GTI8993"  — derived from fltNum prefix
   verbalCallsign:'',  // e.g. "GIANT"    — GTI→GIANT, PAC→POLAR, CMB→CAMBER
@@ -6439,6 +6440,12 @@ const S = {
   destRemf:'',        // REMF at destination from OFP
   zfwIncrFactor: null,// ZFW increment factor for MINF adjustment
   taxiFuel:'',        // Taxi fuel from OFP
+  // ── Raw fuel integers (lbs×10 or kgs×10, from parse) ──
+  blockFuelRaw:0, minfFuelRaw:0, destRemfRaw:0, taxiFuelRaw:0,
+  // ── Crew override entries (null = use OFP value) ──
+  blockFuelEntered:null, zfwEntered:null, togwEntered:null,
+  // ── Column raw-tap display flags ──
+  showFuelRaw:false, showWeightRaw:false,
 };
 let airportData = {};   // icao → { notams:'', weather:'' }
 let pdfRawText    = '';
@@ -6463,7 +6470,7 @@ function resetStateForNewFlight() {
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
     navLog:[], enrouteNotams:null, natTrack:null,
-    zfwActual:0, zfwLimit:0, ldgwActual:0, ldgwLimit:0,
+    zfwActual:0, zfwLimit:0, zfwOFP:0, ldgwActual:0, ldgwLimit:0,
     radioCallsign:'', verbalCallsign:'', isHeavy:false,
     hasPerishables:false,
     dotExemption: null,
@@ -6480,6 +6487,9 @@ function resetStateForNewFlight() {
     enrouteScratch:'',
     alt1Fuel:'', destRemf:'',
     zfwIncrFactor: null, taxiFuel:'',
+    blockFuelRaw:0, minfFuelRaw:0, destRemfRaw:0, taxiFuelRaw:0,
+    blockFuelEntered:null, zfwEntered:null, togwEntered:null,
+    showFuelRaw:false, showWeightRaw:false,
   });
   airportData = {};
   pdfRawText = '';
@@ -8261,6 +8271,7 @@ function parseOFP() {
     togwActual: result.togwActual,
     togwLimit:  result.togwLimit,
     zfwActual:  result.zfwActual,
+    zfwOFP:     result.zfwActual,   // immutable — MINF delta baseline
     zfwLimit:   result.zfwLimit,
     ldgwActual: result.ldgwActual,
     ldgwLimit:  result.ldgwLimit,
@@ -8312,6 +8323,13 @@ function parseOFP() {
   if (result.zfwIncrFactor != null)
     S.zfwIncrFactor = result.zfwIncrFactor;
   S.taxiFuel = fuelK(result.taxiFuelRaw);
+  // Raw integer fuel values for cascade arithmetic
+  S.blockFuelRaw = parseInt((result.blockFuelRaw||'').replace(/[^0-9]/g,''),10) || 0;
+  S.minfFuelRaw  = parseInt((result.minfFuelRaw||'').replace(/[^0-9]/g,''),10) || 0;
+  S.destRemfRaw  = parseInt((result.destRemf||'').replace(/[^0-9]/g,''),10) || 0;
+  S.taxiFuelRaw  = parseInt((result.taxiFuelRaw||'').replace(/[^0-9]/g,''),10) || 0;
+  // Reset override entries on each new OFP import
+  S.blockFuelEntered = null; S.zfwEntered = null; S.togwEntered = null;
   // Preserve crewVerified across re-imports; reset buffer only on first import
   if (!S.crewVerified) S.crewRestBuffer = 60;
 
@@ -8474,13 +8492,6 @@ function renderAtisParking(idSuffix) {
 }
 
 function renderPreflightPhase() {
-  // TOGW → block fuel color
-  let bClass = '';
-  if (S.togwActual && S.togwLimit) {
-    const m = S.togwLimit - S.togwActual;
-    bClass = m > 2000 ? 'c-green' : m >= 1000 ? 'c-yellow' : 'c-red';
-  }
-
   let h = '';
 
   // ── "Departure" subcard (ATIS + Parking + OEI + STAB) ──
@@ -8541,6 +8552,21 @@ function renderPreflightPhase() {
   };
   const fmtWt = n => n ? n.toLocaleString() : '—';
 
+  // ── Fuel/Weight Cascade (PATCH 2) ──
+  // Trip fuel is FIXED from OFP (block − REMF_OFP). All downstream values cascade from overrides.
+  const _tripFuel   = S.blockFuelRaw - S.destRemfRaw;                            // fixed
+  const _blockEff   = S.blockFuelEntered != null ? S.blockFuelEntered : S.blockFuelRaw;
+  const _zfwEff     = S.zfwEntered     != null ? S.zfwEntered     : S.zfwActual;
+  const _zfwDelta   = _zfwEff - S.zfwActual;
+  const _blockDelta = _blockEff - S.blockFuelRaw;
+  const _togwBase   = S.togwActual + _blockDelta + _zfwDelta;
+  const _togwEff    = S.togwEntered   != null ? S.togwEntered   : _togwBase;
+  const _ldgwEff    = _togwEff - _tripFuel;
+  const _remfEff    = _blockEff - _tripFuel;
+  // Display helpers
+  const _fuelDisp   = (raw) => S.showFuelRaw ? String(raw) : fuelK(String(raw));
+  const _wtDisp     = (raw) => S.showWeightRaw ? String(raw) : raw.toLocaleString();
+
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">OFP Fuel &amp; Weight Summary</div>`;
   h += `<div class="subcard-body">`;
@@ -8549,12 +8575,29 @@ function renderPreflightPhase() {
   h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp4);align-items:start">`;
 
   // ── Left: Fuel ──
+  // PATCH 6 — FUEL column header tap toggles raw display (8s auto-dismiss)
+  const _fuelHdrStyle = S.showFuelRaw
+    ? 'cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--tint)'
+    : 'cursor:pointer';
   h += `<div>`;
-  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">Fuel</div>`;
+  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2);${_fuelHdrStyle}" onclick="S.showFuelRaw=!S.showFuelRaw;renderNote();if(S.showFuelRaw){clearTimeout(window._fuelRawTimer);window._fuelRawTimer=setTimeout(function(){S.showFuelRaw=false;renderNote();},8000);}">Fuel</div>`;
   h += `<div class="data-table data-table-lg">`;
-  h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${bClass}">${ev('blockFuel', S.blockFuel||'___')}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value">${ev('minfFuel', S.minfFuel||'___')}</span></div>`;
-  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${ev('destRemf', S.destRemf||'___')}</span></div>`;
+  // PATCH 4 — Block fuel: cascade effective value
+  const _bClass = wClass(_togwEff, S.togwLimit);
+  const _blockDisp = S.blockFuelRaw ? _fuelDisp(_blockEff) : (S.blockFuel||'___');
+  h += `<div class="data-row"><span class="data-label">Block</span><span class="data-value ${_bClass}">${ev('blockFuel', _blockDisp)}</span></div>`;
+  // MINF adjustment — computed early so both Fuel and Weight columns can use it
+  const _minfZfwDelta = S.zfwActual - S.zfwOFP;
+  const _hasMinfAdj   = _minfZfwDelta > 0 && S.zfwIncrFactor;
+  const _minfAdj      = _hasMinfAdj ? (_minfZfwDelta / 1000) * S.zfwIncrFactor : 0;
+  const _adjustedMinf = S.minfFuelRaw + _minfAdj;
+  // Display: show adjusted MINF in yellow when active, OFP value otherwise
+  const _minfDisp = _hasMinfAdj ? _fuelDisp(Math.round(_adjustedMinf)) : (S.minfFuel||'___');
+  const _minfStyle = _hasMinfAdj ? ' style="color:var(--sys-yellow);font-weight:600"' : '';
+  h += `<div class="data-row"><span class="data-label">MIN</span><span class="data-value"${_minfStyle}>${ev('minfFuel', _minfDisp)}</span></div>`;
+  // PATCH 4 — REMF: cascade effective value
+  const _remfDisp = S.blockFuelRaw ? _fuelDisp(_remfEff) : (S.destRemf||'___');
+  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${S.blockFuelRaw ? _remfDisp : ev('destRemf', S.destRemf||'___')}</span></div>`;
   if (S.ballastFuel) {
     h += `<div class="data-row" style="margin-top:var(--sp2);background:rgba(255,204,0,0.10);border-radius:6px;padding:var(--sp2) var(--sp3)">`;
     h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">BALLAST</span>`;
@@ -8569,21 +8612,40 @@ function renderPreflightPhase() {
   h += `</div>`;
 
   // ── Right: Weights ──
+  // PATCH 6 — WEIGHT column header tap toggles raw display (8s auto-dismiss)
+  const _wtHdrStyle = S.showWeightRaw
+    ? 'cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--tint)'
+    : 'cursor:pointer';
   h += `<div>`;
-  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">Weight (${_wtUnit})</div>`;
+  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2);${_wtHdrStyle}" onclick="S.showWeightRaw=!S.showWeightRaw;renderNote();if(S.showWeightRaw){clearTimeout(window._wtRawTimer);window._wtRawTimer=setTimeout(function(){S.showWeightRaw=false;renderNote();},8000);}">Weight (${_wtUnit})</div>`;
   h += `<div class="data-table data-table-lg">`;
-  // ZFW
-  const _zClass = wClass(S.zfwActual, S.zfwLimit);
+  // PATCH 4 — ZFW: cascade effective value
+  const _zClass = wClass(_zfwEff, S.zfwLimit);
+  const _zfwDisp = S.zfwActual ? (S.showWeightRaw ? String(_zfwEff) : _zfwEff.toLocaleString()) : '___';
   h += `<div class="data-row"><span class="data-label">ZFW</span>`;
-  h += `<span class="data-value ${_zClass}">${ev('zfwActual', S.zfwActual ? S.zfwActual.toLocaleString() : '___')}</span></div>`;
-  // TOGW
-  const _tClass = wClass(S.togwActual, S.togwLimit);
+  h += `<span class="data-value ${_zClass}">${ev('zfwActual', _zfwDisp)}</span></div>`;
+  // PATCH 3 — MINF ADJ row (shows delta when ZFW increased from OFP)
+  if (_hasMinfAdj) {
+    h += `<div class="data-row">`;
+    h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:600">MINF ADJ</span>`;
+    h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:600">+${(_minfAdj/1000).toFixed(1)}</span>`;
+    h += `</div>`;
+    if (_adjustedMinf > _blockEff || _adjustedMinf < S.taxiFuelRaw) {
+      h += `<div class="data-row">`;
+      h += `<span class="data-value" style="color:var(--sys-red);font-weight:700;font-size:13px">⚠ CHECK BLOCK FUEL</span>`;
+      h += `</div>`;
+    }
+  }
+  // PATCH 4/7 — TOGW: cascade effective value, editable (PATCH 7)
+  const _tClass = wClass(_togwEff, S.togwLimit);
+  const _togwDisp = S.togwActual ? (S.showWeightRaw ? String(_togwEff) : _togwEff.toLocaleString()) : '___';
   h += `<div class="data-row"><span class="data-label">TOGW</span>`;
-  h += `<span class="data-value ${_tClass}">${ev('togwActual', S.togwActual ? S.togwActual.toLocaleString() : '___')}</span></div>`;
-  // LDGW — display only (limit enforced by TOGW planning, not pilot-adjustable)
-  const _lClass = wClass(S.ldgwActual, S.ldgwLimit);
+  h += `<span class="data-value ${_tClass}">${ev('togwActual', _togwDisp)}</span></div>`;
+  // PATCH 4 — LDGW: cascade effective value (display only)
+  const _lClass = wClass(_ldgwEff, S.ldgwLimit);
+  const _ldgwDisp = S.togwActual ? (S.showWeightRaw ? String(_ldgwEff) : _ldgwEff.toLocaleString()) : '—';
   h += `<div class="data-row"><span class="data-label">LDGW</span>`;
-  h += `<span class="data-value ${_lClass}">${S.ldgwActual ? S.ldgwActual.toLocaleString() : '—'}</span></div>`;
+  h += `<span class="data-value ${_lClass}">${_ldgwDisp}</span></div>`;
   if (S.hasVzfwCkLimit) {
     h += `<div class="data-row" style="padding-top:var(--sp2)"><span class="data-value" style="font-size:12px;font-weight:600;color:var(--sys-red)">⚠ MTOW LTD BY VZFW/CK</span></div>`;
   }
@@ -9457,6 +9519,18 @@ function addBulkCrew(count) {
 // ── DESCENT PHASE ─────────────────────────────────────────────────────────
 function renderDescentPhase() {
   let h = '';
+  // PATCH 5 — Recompute cascade for descent display
+  const _dTripFuel = S.blockFuelRaw - S.destRemfRaw;
+  const _dBlockEff = S.blockFuelEntered != null ? S.blockFuelEntered : S.blockFuelRaw;
+  const _dZfwEff   = S.zfwEntered     != null ? S.zfwEntered     : S.zfwActual;
+  const _dZfwDelta  = _dZfwEff - S.zfwActual;
+  const _dBlockDelta= _dBlockEff - S.blockFuelRaw;
+  const _dTogwBase  = S.togwActual + _dBlockDelta + _dZfwDelta;
+  const _dTogwEff   = S.togwEntered  != null ? S.togwEntered  : _dTogwBase;
+  const _dLdgwEff   = _dTogwEff - _dTripFuel;
+  const _dRemfEff   = _dBlockEff - _dTripFuel;
+  // Use cascaded REMF if we have raw parse data, otherwise fall back to S.destRemf
+  const _descRemfDisp = S.blockFuelRaw ? fuelK(String(_dRemfEff)) : (S.destRemf||'___');
 
   // ── Airport summary (TOP — matches preflight summary style) ──
   h += renderDescentAirportSummary();
@@ -9473,17 +9547,19 @@ function renderDescentPhase() {
   h += `<div class="subcard-header">Arrival Fuel</div>`;
   h += `<div class="subcard-body">`;
   h += `<div class="data-table data-table-lg">`;
-  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${ev('destRemf', S.destRemf||'___')}</span></div>`;
+  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${S.blockFuelRaw ? _descRemfDisp : ev('destRemf', S.destRemf||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">ALT 1</span><span class="data-value">${ev('alt1Fuel', S.alt1Fuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">FRES</span><span class="data-value">${ev('fresFuel', S.fresFuel||'___')}</span></div>`;
   h += `<div class="data-row"><span class="data-label">GA</span><span class="data-value">${ev('gaFuel', S.gaFuel||'___')}</span></div>`;
 
-  // MLDW / MAX LDG FUEL — shown only when LDGW ≤ 3000 from limit
-  // MAX LDG FUEL = LDGW_LIMIT − ZFW_ACTUAL (max fuel permissible at landing)
+  // MLDW / MAX LDG FUEL — shown only when cascaded LDGW ≤ 3000 from limit
+  // MAX LDG FUEL = LDGW_LIMIT − ZFW_EFF (max fuel permissible at landing)
   // Displayed in ×1000 format (xx.x or xxx.x) to match fuel card convention
-  if (S.ldgwActual && S.ldgwLimit && S.zfwActual &&
-      (S.ldgwLimit - S.ldgwActual) <= 3000) {
-    const _maxLdgFuelRaw = S.ldgwLimit - S.zfwActual;
+  const _dLdgwForCheck = S.blockFuelRaw ? _dLdgwEff : S.ldgwActual;
+  if (_dLdgwForCheck && S.ldgwLimit && (S.zfwEntered != null ? S.zfwEntered : S.zfwActual) &&
+      (S.ldgwLimit - _dLdgwForCheck) <= 3000) {
+    const _dZfwForCalc   = S.zfwEntered != null ? S.zfwEntered : S.zfwActual;
+    const _maxLdgFuelRaw = S.ldgwLimit - _dZfwForCalc;
     const _maxLdgFuelStr = (_maxLdgFuelRaw / 1000).toFixed(1);
     const _mldwStr       = S.ldgwLimit.toLocaleString();
     const _wtUnit        = S.weightUnit || 'KGS';
