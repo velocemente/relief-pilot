@@ -6368,19 +6368,24 @@ function loadOFPPanel() {
               btn.textContent = pill.label;
               btn.style.cssText = 'flex-shrink:0;padding:5px 12px;border-radius:14px;border:1.5px solid var(--tint);background:transparent;color:var(--tint);font-size:12px;font-weight:600;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;font-family:inherit';
               btn.addEventListener('click', function() {
-                // Direct scrollTop on container — reliable in nested iOS scroll contexts
-                var wraps = container.querySelectorAll('div[style*="position:relative"]');
-                var idx = pill.pageNum - 1;
-                if (wraps[idx]) {
-                  container.scrollTop = wraps[idx].offsetTop - row.offsetHeight - 8;
-                  // Highlight active pill
-                  row.querySelectorAll('button').forEach(function(b) {
-                    b.style.background = 'transparent';
-                    b.style.color = 'var(--tint)';
-                  });
-                  btn.style.background = 'var(--tint)';
-                  btn.style.color = '#fff';
+                var target = container.querySelector('[data-page="' + pill.pageNum + '"]');
+                if (!target) return;
+                // Scroll the container directly — offsetTop is relative to offsetParent
+                // Walk up to accumulate offset if offsetParent !== container
+                var scrollY = 0;
+                var el = target;
+                while (el && el !== container) {
+                  scrollY += el.offsetTop;
+                  el = el.offsetParent;
                 }
+                container.scrollTo({ top: Math.max(0, scrollY - 52), behavior: 'smooth' });
+                // Highlight active pill
+                row.querySelectorAll('button').forEach(function(b) {
+                  b.style.background = 'transparent';
+                  b.style.color = 'var(--tint)';
+                });
+                btn.style.background = 'var(--tint)';
+                btn.style.color = '#fff';
               });
               row.appendChild(btn);
             });
@@ -6394,6 +6399,7 @@ function loadOFPPanel() {
             const vp0 = pg.getViewport({scale: 1});
             const vp  = pg.getViewport({scale: (viewerW / vp0.width) * dpr});
             const wrap = document.createElement('div');
+            wrap.setAttribute('data-page', String(n));
             wrap.style.cssText = 'position:relative;margin:0 auto 16px;max-width:100%';
             const canvas = document.createElement('canvas');
             canvas.width  = Math.max(1, Math.round(vp.width));
