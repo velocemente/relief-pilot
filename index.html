@@ -7369,7 +7369,7 @@ const TLR_PATTERNS = {
  */
 const ALT_ROUTE_PATTERNS = {
   // Outer loop: each bounded by underlines, with a recognised title
-  SECTION_RE: /_{10,}\n((?:Destination Primary Alternate Route|Initial Airport Route|Initial Alternate Route))\n([\s\S]*?)(?=_{10,}|\nEND OF OFP|\nPAGE \d)/g,
+  SECTION_RE: /_{10,}\n((?:Destination Primary Alternate Route|Initial Airport Route|Initial Alternate Route))\n([\s\S]*?)(?=_{10,}|\nEND OF OFP)/g,
   // MORA line terminates the route string
   MORA_LINE:  /\nMORA\s+(\d+)/i,
 };
@@ -7930,12 +7930,13 @@ function _ofpRulesetParse(rawText) {
   // ── Alternate routes ──────────────────────────────────────────────
   const altRoutes = [];
   const altRouteSeen = new Set();
+  const _stripAltPage = s => s.replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '');
   const arrRe = ALT_ROUTE_PATTERNS.SECTION_RE;
   arrRe.lastIndex = 0;
   let arm;
   while ((arm = arrRe.exec(t)) !== null) {
     const title = arm[1].trim();
-    const block = arm[2];
+    const block = _stripAltPage(arm[2]);
     const moraM = block.match(ALT_ROUTE_PATTERNS.MORA_LINE);
     const mora  = moraM ? moraM[1] : '';
     const routeRaw = moraM ? block.slice(0, block.indexOf(moraM[0])) : block;
