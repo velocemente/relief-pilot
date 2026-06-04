@@ -1119,6 +1119,12 @@ body {
 .data-value.c-green  { color: var(--sys-green); font-weight: 600; }
 .data-value.c-yellow { color: var(--sys-yellow); font-weight: 600; }
 .data-value.c-red    { color: var(--sys-red);    font-weight: 600; }
+.field-editable {
+  border-bottom: 1.5px solid var(--tint);
+  padding-bottom: 1px;
+  cursor: pointer;
+}
+.field-editable:active { opacity: 0.6; }
 /* ── Divider ── */
 .note-rule {
   height: 0.5px; background: var(--sep); margin: var(--sp4) 0;
@@ -2026,13 +2032,26 @@ body {
       </span>
       <span class="nb-label">PilotBrief</span>
     </span>
-    <!-- Right cluster: Help → FCIR -->
+    <!-- Right cluster: Settings → FCIR -->
     <div id="flightNavRight" style="display:flex;align-items:center;gap:0;margin-left:auto">
-      <button class="help-btn" onclick="push('screen-help')" aria-label="Help and instructions">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9.5"/>
-          <path d="M12 17v-4.5M9.5 9.5a2.5 2.5 0 115 0c0 1.5-2.5 2-2.5 3.5"/>
-          <circle cx="12" cy="19" r="0.5" fill="currentColor"/>
+      <button class="icon-btn" onclick="push('screen-settings')" aria-label="Settings">
+        <svg viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0
+            010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0
+            00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4
+            0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33
+            l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0
+            004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09
+            A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06
+            -.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68
+            a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65
+            0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0
+            012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65
+            0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0
+            00-1.51 1z"/>
         </svg>
       </button>
       <div class="fcir-toggle-row">
@@ -7188,6 +7207,9 @@ const PATTERNS = {
   SLOT_TIME_BEFORE:     /WHEELS\s+UP\s+(?:MUST\s+BE\s+)?BEFORE\s+(\d{4}Z?)/i,
   SLOT_TIME_EARLIEST:   /EARLIEST\s+WHEELS\s+UP\s+(\d{4}Z?)/i,
   SLOT_TIME_CURFEW:     /NO\s+EARLY\s+DEPARTURE\b[\s\S]{0,200}?CLOSED?\s+TILL?\s+(\d{1,2}:\d{2}Z?|\d{4}Z?)/i,
+  // Format F: bare wheels-up time — "WHEELS UP 0433Z"
+  // Negative lookahead prevents match when qualifier tokens follow
+  SLOT_TIME_AT:         /\bWHEELS\s+UP\s+(\d{4}Z?)\b(?!\s*(?:MUST|NOT|BEFORE|BETWEEN))/i,
 
   // MEL/DDG block anchor — block ends at underline or "Flight Release"
   MEL_BLOCK:    /MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i,
@@ -7583,9 +7605,11 @@ function _ofpRulesetParse(rawText) {
     //   Roles: CA FO FO1 FO2 SO AO RO DH JS  (v1.2.0 — ETOPS augmented designations)
     //   Lazy *? in name group forces backtracking so single-letter initial
     //   lands in group [4], not consumed into group [3].
-    const re = /^\*?\s*(?:SEN\s+)?(CA|FO1?|FO2|SO|AO|RO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\-]*(?:\s+[A-Z][A-Z'\-]*)*?)\s+([A-Z])\s*\.{1,3}/mg;
+    const re = /^\*?\s*(?:SEN\s+)?(CA|FO1?|FO2|SO|AO|RO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\u2019\-]*(?:\s+[A-Z][A-Z'\u2019\-]*)*?)\s+([A-Z])\s*\.{1,3}/mg;
     let m;
-    while ((m = re.exec(block)) !== null) {
+    // Normalize curly apostrophes from PDF extraction
+    const _crewBlock = block.replace(/\u2019/g, "'");
+    while ((m = re.exec(_crewBlock)) !== null) {
       const rawName = m[3].replace(/\s+$/, '');
       if (rawName.includes('VERIFY')) continue;
       const isSen = /^\*/.test(m[0].trimStart()) || /SEN\s/i.test(m[0]);
@@ -7715,12 +7739,17 @@ function _ofpRulesetParse(rawText) {
   const slotNBM   = !slotWinM  && t.match(PATTERNS.SLOT_TIME_NOT_BEFORE);
   const slotBefM  = !slotNBM   && !slotWinM && t.match(PATTERNS.SLOT_TIME_BEFORE);
   const slotEarM  = !slotWinM  && !slotNBM  && !slotBefM && t.match(PATTERNS.SLOT_TIME_EARLIEST);
-  const slotCurfewM = !slotWinM && !slotNBM && !slotBefM && !slotEarM
+  const slotAtM   = !slotWinM && !slotNBM && !slotBefM && !slotEarM
+    && t.match(PATTERNS.SLOT_TIME_AT);
+  const slotCurfewM = !slotWinM && !slotNBM && !slotBefM && !slotEarM && !slotAtM
     && t.match(PATTERNS.SLOT_TIME_CURFEW);
   if (slotWinM)       slotTime = `${_fmtT(slotWinM[1])} – ${_fmtT(slotWinM[2])}`;
   else if (slotNBM)   slotTime = `NOT BEFORE ${_fmtT(slotNBM[1])}`;
   else if (slotBefM)  slotTime = `BEFORE ${_fmtT(slotBefM[1])}`;
   else if (slotEarM)  slotTime = `NOT BEFORE ${_fmtT(slotEarM[1])}`;
+  else if (slotAtM) {
+    slotTime = 'AT ' + slotAtM[1];
+  }
   else if (slotCurfewM) {
     const raw = slotCurfewM[1].replace(':','').toUpperCase();
     const norm = raw.endsWith('Z') ? raw : raw + 'Z';
@@ -10195,7 +10224,7 @@ function wireNotePads() {
 // Editable value span
 // Editable value span — works with both tap (finger) and Apple Pencil
 function ev(field, displayVal) {
-  return `<span class="ev" role="button" tabindex="0" aria-label="Edit ${field}"
+  return `<span class="ev field-editable" role="button" tabindex="0" aria-label="Edit ${field}"
     onclick="openEdit('${field}')"
     onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('${field}')}"
     >${esc(displayVal)}</span>`;
