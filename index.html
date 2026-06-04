@@ -12269,10 +12269,9 @@ function loadPdfJs() {
       <div class="section-header">Importing an OFP</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label)">Tap <strong>＋</strong> on the Flights screen to open the import screen. Three methods are supported:</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label)">Tap <strong>＋</strong> on the Flights screen to open the import screen. Two methods are supported:</p>
           <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>① PDF File:</strong> Tap the drop zone or drag an OFP PDF onto it. The app extracts and parses text using PDF.js.</p>
-          <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>② iOS Share:</strong> Install PilotBrief to your Home Screen first. Then in Files or Mail, open the OFP PDF → tap Share ↑ → select <em>PilotBrief</em>. The app opens automatically and loads the OFP. Home Screen installation is required — this method is not available from a browser tab.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>③ Paste Text:</strong> Copy OFP text from any source and paste it into the text area at the bottom of the import screen, then tap Import Text.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>② Paste Text:</strong> Copy OFP text from any source and paste it into the text area at the bottom of the import screen, then tap Import Text.</p>
         </div>
       </div>
     </div>
@@ -12301,133 +12300,146 @@ function loadPdfJs() {
 
           <div style="display:flex;align-items:flex-start;gap:12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><line x1="6" y1="8" x2="12" y2="16"/><line x1="18" y1="8" x2="12" y2="16"/><line x1="6" y1="8" x2="6" y2="11"/><line x1="18" y1="8" x2="18" y2="11"/></svg>
-            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Alternates</p><p style="margin:0;font-size:13px;color:var(--label2)">Alternate routes parsed from the OFP. Routes are editable and can each be copied to clipboard. ETP coordinates appear at the bottom for ETOPS flights.</p></div>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Alternates</p><p style="margin:0;font-size:13px;color:var(--label2)">Alternate routes parsed from the OFP. Routes and ETP coordinates are populated in the card. They can be edited and copied to paste into FDPro.</p></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- PREFLIGHT PHASE -->
+    <!-- BRIEFING CARD -->
     <div class="section">
-      <div class="section-header">Briefing — Preflight Phase</div>
+      <div class="section-header">Briefing Card</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Flight Header</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Flight ID</strong>: Carrier + flight number + "/" + release date day. Turns <span style="color:var(--sys-yellow)">yellow</span> when FCIR/ASAP is active.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Radio Callsign</strong>: Displayed immediately below the Flight ID when a verbal callsign is known. Format: <em>GIANT 7134 Heavy</em>. Native Atlas/Polar/Camber callsigns are derived from the flight number prefix (GTI→GIANT, PAC→POLAR, CMB→CAMBER). ACMI and wet-lease operations use the verbal callsign from the OFP Remarks field (<em>VERBAL CALLSIGN - TURKISH</em>). The Heavy suffix is determined from the ICAO FPL field 9 wake turbulence category (<em>/H</em> or <em>/J</em>).</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OUT / IN</strong>: OUT is the OFP scheduled off-block time. Editing OUT recalculates all downstream ETAs. IN recalculates when the actual OFF time is entered on the Enroute phase.</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>ETOPS block</strong> (ETOPS flights only): Shows ETOPS authorisation and elapsed time to ETOPS airspace entry, both parsed from the OFP.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Flight ID:</strong> Off of the OFP. This is highlighted yellow when FCIR/ASAP is active.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Radio Callsign:</strong> Displayed immediately below the Flight ID when a verbal callsign is known. The default is GIANT, but will change as appropriate for a customer (e.g.: CAMBER, QANTAS, TURKISH).</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OUT / IN:</strong> OUT is the OFP scheduled off-block time. Editing OUT recalculates all downstream ETAs, CO RPTS, Crew Rest if applicable, and the EVAL windows for all airports listed in the OFP. When the actual OFF time is entered on the Enroute phase, the IN and all applicable EVAL windows, CO RPTS and Crew Rest are recalculated as required.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ETOPS block</strong> (ETOPS flights only): Shows ETOPS authorization and elapsed time to ETOPS airspace entry.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">The Share icon exports all of the data from the Preflight, Enroute and Descent subcards.</p>
 
-          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Departure</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ATIS / PARK</strong>: Departure ATIS letter (tap to enter) and parking/gate notepad.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OEI</strong>: One Engine Inoperative takeoff procedure. When a TLR is parsed, tap to select the departure runway from the picker. All runway variants are shown including noise-restricted and obstacle-limited designations (e.g. <em>16R-N390M</em>, <em>34L CRANE</em>). SPECIAL runways show the full EFP text; SEE CO CHART runways open a notepad for crew entry.</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>STAB</strong>: Stabilizer trim setting. Always crew-entered.</p>
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Preflight Subcard</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ATIS / PARK:</strong> Departure ATIS letter (tap to enter) and parking/gate notepad.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OEI:</strong> One Engine Inoperative takeoff procedure. When a TLR is parsed, tap to select the departure runway from the picker. All runway variants are shown including noise-restricted and obstacle-limited designations (e.g. <em>16R-N390M</em>, <em>34L CRANE</em>). SPECIAL runways show the full EFP text; SEE CO CHART runways open a notepad for crew entry.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>STAB:</strong> Stabilizer trim setting. Always crew-entered.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Slot Time</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">When the OFP contains a wheels-up slot constraint, a <strong>Slot Time</strong> subcard appears. Four OFP remark formats are recognised: <em>EARLIEST WHEELS UP 2247Z DUE TO ANC PARKING</em>, <em>WHEELS UP NOT BEFORE 0737Z</em>, <em>WHEELS UP BEFORE 0807Z</em>, and <em>WHEELS UP MUST BE BETWEEN 0737Z AND 0807Z</em>. All display as a <strong>NOT BEFORE</strong> or window constraint in the card.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">When the OFP contains a wheels-up slot constraint, a Slot Time section appears.</p>
 
-          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">OFP Fuel</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Block</strong>: Total fuel at departure. Colour-coded by TOGW margin: <span style="color:var(--sys-green)">green</span> &gt;1,000 · <span style="color:var(--sys-yellow)">yellow</span> 500–1,000 · <span style="color:var(--sys-red)">red</span> &lt;500 from structural limit.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>MIN / REMF</strong>: Minimum dispatch fuel and planned remaining fuel at destination.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FF ADJ</strong>: Appears when a CDL or MEL item carries an additional fuel flow adjustment (e.g. <em>+2.22%</em>). Shown in <span style="color:var(--sys-yellow)">yellow</span> for a penalty, green for a benefit.</p>
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">OFP Fuel and Weights</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Limits:</strong> Total fuel at departure. Color-coded by TOGW margin: <span style="color:var(--sys-green)">green</span> &gt;2,000 · <span style="color:var(--sys-yellow)">yellow</span> 2,000–1,000 · <span style="color:var(--sys-red)">red</span> &lt;1,000 from OFP limits.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Weights:</strong> Editing the ZFW with the actual ZFW will automatically apply the MINF ADJ factor and compensate the MINF. The TOGW and Block Fuel can also be edited and will reflect the appropriate adjustments.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>MIN / REMF:</strong> Minimum dispatch fuel and planned remaining fuel at destination.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FF ADJ:</strong> Appears when a CDL or MEL item carries an additional fuel flow adjustment (e.g. <em>+2.22%</em>). Shown in <span style="color:var(--sys-yellow)">yellow</span> for a penalty, green for a benefit.</p>
           <p style="margin:0 0 14px;font-size:15px;color:var(--sys-red);font-weight:600">⚠ MTOW LTD BY VZFW/CK: Appears in red when the OFP indicates takeoff weight is limited by Zero Fuel Weight or Centre of Gravity constraints. Confirm with dispatch before departure.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">NOTES Section</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Airport status</strong>: One compact row per airport (origin, destination, alternates, CFS alternates). Each row shows a colour dot and badge category labels evaluated within the departure/arrival window: <strong>NOTAM</strong>, <strong>WX</strong>, <strong>CURFEW</strong>.</p>
-          <p style="margin:0 0 3px;font-size:15px"><span style="color:var(--sys-green)">●</span> <strong>Green</strong> — no issues · <span style="color:var(--sys-yellow)">●</span> <strong>Yellow</strong> — advisory · <span style="color:var(--sys-red)">●</span> <strong>Red</strong> — possible conflict</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2);margin-top:5px"><strong>DDG / CDL</strong>: MEL and CDL items parsed from the OFP. 25-series (NEF/cabin) items are filtered out. CDL items (C-prefix ATA codes) are marked with a <span style="color:var(--sys-green);font-weight:600">CDL</span> badge. Items with a TLR Takeoff or Both cross-reference carry a coloured TLR badge.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Overflights</strong>: Permit numbers parsed from the release. Only shown when present.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Curfews</strong>: Airports within 90 minutes of a curfew window listed in yellow or red. Parsed from Company NOTAMs.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Notes</strong>: Free-text notepad. Accepts keyboard and Apple Pencil Scribble.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Airport status:</strong> One compact row per airport (origin, destination, alternates, CFS alternates). Each row shows a colour dot and badge category labels evaluated within the departure/arrival window: <strong>NOTAM</strong>, <strong>WX</strong>, <strong>CURFEW</strong>.</p>
+          <p style="margin:0 0 3px;font-size:15px"><span style="color:var(--sys-green)">●</span> <strong>Green</strong> — no issues · <span style="color:var(--sys-yellow)">●</span> <strong>Yellow</strong> — advisory · <span style="color:var(--sys-red)">●</span> <strong>Red</strong> — closure or curfew issue</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2);margin-top:5px"><strong>DDG / CDL:</strong> MEL and CDL items parsed from the OFP. 25-series (NEF/cabin) items are filtered out. CDL items (C-prefix ATA codes) are marked with a <span style="color:var(--sys-green);font-weight:600">CDL</span> badge. Items with a TLR Takeoff or Both cross-reference carry a coloured TLR badge. DDG Number strings can be copied for easy searching in the DDG.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Overflights:</strong> Permit numbers parsed from the release. Only shown when present.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Curfews:</strong> Airports within 90 minutes of a curfew window listed in yellow or red. Parsed from Company NOTAMs.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Notes:</strong> Free-text notepad. Accepts keyboard and Apple Pencil Scribble.</p>
         </div>
       </div>
     </div>
 
-    <!-- ENROUTE PHASE -->
+    <!-- ENROUTE SUBCARD -->
     <div class="section">
-      <div class="section-header">Briefing — Enroute Phase</div>
+      <div class="section-header">Enroute Subcard</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Enter the actual <strong>OFF</strong> time (wheels-up) to activate the enroute timeline. All computed times update from that moment.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Default OFF is the OUT from the OFP plus the taxi time from the OFP. Entering the actual OFF time recalculates all downline items: EVAL window for all airport WX, NOTAM, Curfews, Enroute timeline, and Crew Rest.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>E.ENT -60:</strong> Displays the 60 min window prior to E.ENT.</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>E.ENT</strong> (ETOPS flights): Computed ETOPS airspace entry time based on OFF + OFP elapsed time.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>RDA / POR</strong> (redispatch flights): Redispatch Action time (2 hrs before POR) and Point of Redispatch with its MINF fuel requirement, both computed from OFF time.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>CO RPT</strong>: Company position report schedule computed at 4-hour intervals from OFF. Reports that fall within the POR action window are struck through and annotated.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ETP:</strong> Time displayed for flights with an ETP.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>RDA / POR</strong> (redispatch flights): A position report "CO RPT PRE-RDA" populates 90 min from the POR, "POR WINDOW" displays the opening of the RDA window, "POR" provides ETA and MINF from OFP at the POR.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>CO RPT:</strong> Company position report schedule computed at 4-hour intervals from OFF. Reports that fall within the POR action window are not displayed.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">In-Flight Rest</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">The crew rest schedule activates automatically when <strong>3 or more operating crew members</strong> (CA or FO) are parsed from the OFP Fit for Duty section. Operating crew are identified by position (<em>CA</em> or <em>FO</em>), employee number (3–6 digits), and last name/initial. An asterisk (<em>*</em>) adjacent to the employee number or name indicates an unusual circumstance and does not exclude the crew member. Deadhead (<em>DH</em>) and jump-seat (<em>JS</em>) crew do not count toward the operating total.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Rest periods are divided into equal halves (or quarters for 4-pilot operations) across the available enroute time. The pre-landing buffer (default 60 min) is adjustable. Tap any crew row to adjust individual rest slots.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">The crew rest schedule activates automatically when <strong>3 or more operating crew members</strong> (CA or FO) are parsed from the OFP Fit for Duty section. Operating crew are identified by position (CA or FO).</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">Rest periods are divided into thirds for 3 pilot operations and selectable for halves or quarters for 4-pilots. The rest period is calculated from TOC to the pre-landing buffer. The pre-landing buffer (default 60 min) is adjustable. Tap any crew row to adjust individual rest slots.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">The rest buffer is adjustable in 5 min increments from 0-20 min to allow for time from wakeup to switchover. (default is 0 min).</p>
 
-          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">NAT / PACOTS Track Message</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">On North Atlantic and Pacific oceanic crossings, the OFP includes an organized track message. PilotBrief renders <strong>both</strong> the eastbound and westbound track sets, with the <strong>flight direction block displayed first</strong>. Each direction appears as a separate subcard.</p>
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">The subcard header shows the TMI and assigned track combined: <em>TMI 071 · NAT T</em> (Atlantic) or <em>PAC A</em> / <em>PAC 1</em> (Pacific). The assigned track row is highlighted in yellow and expanded by default. Waypoints that appear on the filed route are shown in <span style="color:var(--tint)">tint colour</span>.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Supported formats: NAT letter tracks (<em>TRACK A</em>), PACOTS alpha tracks (<em>PAC A</em>), and PACOTS numeric tracks (<em>PAC 1</em>, <em>PAC 14</em>). ACMI/wet-lease flights over the North Atlantic (e.g. THY operated by GTI) and all native Atlas/Polar Pacific crossings (GTI, PAC) are supported.</p>
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">NAT Track</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">On North Atlantic oceanic crossings, the OFP includes an organized track message. PilotBrief renders both the eastbound and westbound track sets, with the flight direction block displayed first. Each direction appears as a separate subcard.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">The subcard header shows the TMI and filed track. The assigned track row is highlighted in green and expanded by default.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">All other Tracks and Track comments are expandable so only one track is displayed in the event of a reroute.</p>
 
-          <p style="margin:0;font-size:15px;color:var(--label2)">A free-text <strong>Scratchpad</strong> occupies the right column for calculations, clearances, or ATC instructions.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Scratchpad:</strong> A free-text Scratchpad occupies the right column for calculations, clearances, or ATC instructions.</p>
         </div>
       </div>
     </div>
 
-    <!-- DESCENT PHASE -->
+    <!-- DESCENT SUBCARD -->
     <div class="section">
-      <div class="section-header">Briefing — Descent Phase</div>
+      <div class="section-header">Descent Subcard</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Airport</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">Displayed at the top of the descent card. Shows the selected airport's colour-coded status (dot + NOTAM/WX badge summary). When the release includes alternates, a <strong>chevron ▾</strong> opens a picker to switch between destination and any alternate.</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>CAT II/III</strong>: If the OFP authorises CAT II or III approaches for the selected airport, the applicable runway list is shown below the status row (e.g. <em>CAT III - RWY 09C/27C</em>).</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>CAT II/III:</strong> If the OFP authorises CAT II or III approaches for the selected airport, the applicable runway list is shown below the status row (e.g. <em>CAT III - RWY 09C/27C</em>).</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Arrival</p>
           <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">Arrival ATIS letter (tap to enter) and parking/gate notepad, independent of the Preflight departure ATIS.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Arrival Fuel</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">REMF (planned remaining fuel at destination), ALT 1 fuel, FRES (final reserve), and GA fuel. All parsed from the OFP. GA is crew-entered.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">REMF (planned remaining fuel at destination), ALT 1 fuel, FRES (final reserve), and GA fuel. All parsed from the OFP. GA is crew-entered. When close to Max Landing Weight, the Max Landing Weight from the OFP will be displayed as well as maximum landing fuel.</p>
 
           <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">DDG — Landing</p>
-          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">DDG/MEL items that carry a TLR <span style="color:var(--tint);font-weight:600">Landing</span> or <span style="color:var(--sys-orange);font-weight:600">Takeoff &amp; Landing</span> cross-reference are pulled out of the full DDG list and displayed here as an arrival-specific reminder. CDL items are marked with a <span style="color:var(--sys-green);font-weight:600">CDL</span> badge.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">DDG/MEL items that carry a TLR <span style="color:var(--tint);font-weight:600">Landing</span> or <span style="color:var(--sys-orange);font-weight:600">Takeoff &amp; Landing</span> cross-reference are pulled out of the full DDG list and displayed here as an arrival-specific reminder. CDL items are marked with a <span style="color:var(--sys-green);font-weight:600">CDL</span> badge.</p>
 
-          <p style="margin:0;font-size:15px;color:var(--label2)">A free-text <strong>Scratchpad</strong> is available for arrival calculations, clearance, or gate notes.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Scratchpad:</strong> A free-text Scratchpad is available for arrival calculations, clearance, or gate notes.</p>
         </div>
       </div>
     </div>
 
-    <!-- AIRPORTS TAB -->
+    <!-- AIRPORTS CARD -->
     <div class="section">
-      <div class="section-header">Airports Tab — Detail</div>
+      <div class="section-header">Airports Card</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each airport card shows the role (ORIG, DEST, DEST ALT, EN ROUTE ALT, TKOF ALT, CFS ALT), ETA, and a colour-coded status badge from combined weather and NOTAM evaluation.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Eval Window</strong>: ±1 hour of ETA for all airports. CFS alternates use the OFP-published WX WINDOW. Origin uses OUT time.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather</strong>: Prevailing ceiling/visibility evaluated against Open / Operational / Instruments / LIFR thresholds. TEMPO, PROB40, RVR, windshear, and freezing precipitation are evaluated separately.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each airport card shows the role (ORIG, DEST, DEST ALT, EN ROUTE ALT, TKOF ALT, CFS ALT), ETA, and a colour-coded status badge from combined WX, NOTAM evaluation and Curfew. Chevron ▾ expands to the raw data WX and NOTAMS.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Eval Window:</strong> ±1 hour of ETA for all airports. CFS alternates use the OFP-published WX WINDOW. Origin uses OUT time. All other Airports are updated as the OUT and OFF times are updated to re-evaluate WX, NOTAMS and curfew compliance.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather Status:</strong> Prevailing ceiling/visibility evaluated against Open / Operational / Instruments / LIFR thresholds. TEMPO, PROB40, RVR, windshear, and freezing precipitation are evaluated separately.</p>
 
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAMs — Runway tree</strong>: All runways appear in numerical order (04, 09, 10, 22, 27…). Each runway is a collapsible top-level entry. Within a runway, NOTAMs are organised into four priority tiers:</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAMs —</strong> All runways appear in numerical order (04, 09, 10, 22, 27…). Each runway is a collapsible top-level entry. Within a runway, NOTAMs are organised into four priority tiers:</p>
           <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-red)">●</span> <strong>Closed</strong> — runway or airport closure</p>
           <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-red)">●</span> <strong>Approach / Navaid</strong> — ILS, GS, LOC, RNAV, GPS/GNSS, DME, marker beacons</p>
           <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-yellow)">●</span> <strong>Runway Lighting</strong> — PAPI, VASI, ALS, REIL, RCLL, TDZ, HIRL, MIRL, lead-off lights</p>
           <p style="margin:0 0 8px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-yellow)">●</span> <strong>Procedure Changes</strong> — IAP amendments, minimums raised, missed approach, STAR/SID changes</p>
           <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">When two or more NOTAMs fall in the same tier, they collapse under a count label (e.g. <em>Approach / Navaid (3)</em>). Tap to expand and reveal individual items. Tap any item to show the raw NOTAM text.</p>
 
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FICON</strong>: Field Condition NOTAMs are classified and grouped automatically. Runway FICONs (e.g. <em>RWY 33 FICON 5/5/5 100 PCT WET</em>) appear within the applicable runway group. Taxiway and ramp FICONs appear under the <strong>Taxiway NOTAMs</strong> group. Severity: conditions involving ice, compacted ice, or braking codes 1–2 are shown in <span style="color:var(--sys-red)">red</span>; wet, slush, and compacted snow in <span style="color:var(--sys-yellow)">yellow</span>.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FICON:</strong> Field Condition NOTAMs are classified and grouped automatically. Runway FICONs (e.g. <em>RWY 33 FICON 5/5/5 100 PCT WET</em>) appear within the applicable runway group. Taxiway and ramp FICONs appear under the <strong>Taxiway NOTAMs</strong> group. Severity: conditions involving ice, compacted ice, or braking codes 1–2 are shown in <span style="color:var(--sys-red)">red</span>; wet, slush, and compacted snow in <span style="color:var(--sys-yellow)">yellow</span>.</p>
 
-          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAM scheduling</strong>: Atlas Air OFP NOTAMs may include schedule lines immediately after the NOTAM header. Two formats are handled: <em>day-range + time window</em> (e.g. <em>08-09 13-17 20-24 1510-2020</em> — active only on those calendar days between 1510–2020Z) and <em>daily time window alone</em> (e.g. <em>1410-2030</em> — active every day only during that period). NOTAMs outside the window relative to the departure or arrival time are suppressed.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAM Scheduling:</strong> NOTAMs may include schedule lines immediately after the NOTAM header. Two formats are handled: <em>day-range + time window</em> (e.g. <em>08-09 13-17 20-24 1510-2020</em> — active only on those calendar days between 1510–2020Z) and <em>daily time window alone</em> (e.g. <em>1410-2030</em> — active every day only during that period). NOTAMs outside the window relative to the departure or arrival time are suppressed, but remain available in the RAW NOTAMS.</p>
 
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Multi-year NOTAMs</strong>: NOTAMs issued in one year but valid through a future year (e.g. <em>A4133/25 22OCT1455-22OCT1454 2027 EST</em>) are resolved using the NOTAM ID issuance year (<em>/25</em>) to anchor the start date. All approach procedure amendments, CAT authorisation changes, and other long-duration NOTAMs with explicit trailing years are evaluated correctly.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Editing:</strong> Tap the card header to expand the NOTAM and WX text areas. Paste or edit data here to supplement OFP-extracted content.</p>
 
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Editing</strong>: Tap the card header to expand the NOTAM and WX text areas. Paste or edit data here to supplement OFP-extracted content.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Curfew row</strong>: Appears when Company NOTAMs contain a curfew window. Shows window times and proximity to ETA, colour-coded.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Curfew Row:</strong> Appears when an airport has a curfew window. Shows window times and proximity to ETA, colour-coded.</p>
         </div>
       </div>
     </div>
 
-    <!-- ETOPS / CFS -->
+    <!-- OFP CARD -->
     <div class="section">
-      <div class="section-header">ETOPS &amp; Critical Fuel Scenario</div>
+      <div class="section-header">OFP Card</div>
       <div class="cell-group">
         <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">On ETOPS flights the OFP contains a <strong>Critical Fuel Scenario (CFS)</strong> section listing ETOPS alternates with ETP pairs and WX windows. These airports are automatically added and receive full airport cards.</p>
-          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each CFS airport uses the OFP-published WX WINDOW. The Enroute phase shows E.ENT (ETOPS entry time) computed from the actual OFF time.</p>
-          <p style="margin:0;font-size:15px;color:var(--label2)">ETP coordinates (e.g. ETP1 N59 42.2 W036 03.6) are listed on the Alternates tab with a copy-to-clipboard button for each point.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">Has the OFP in original .pdf format for reference. Bookmarks will link to the appropriate section of the OFP.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALTERNATES CARD -->
+    <div class="section">
+      <div class="section-header">Alternates Card</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">Alternate routings for each alternate are listed. Routings can be edited and copied to paste into FDPro.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">ETP coordinates, if in the OFP, are listed here and can be copied to inserted into FDPro.</p>
         </div>
       </div>
     </div>
