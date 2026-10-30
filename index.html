@@ -3817,8 +3817,10 @@ function xNW_standalone(notamText, flightDateISO) {
   }
 
   // ── DDMMMHHmm-DDMMMHHmm (standard Atlas inline) ──────────────────────
-  // Optionally followed by a 4-digit trailing year on the end token
-  const inlineRe = /(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})-(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)(?:\s+(\d{4}))?/i;
+  // Optionally followed by a 4-digit trailing year on the SAME line only.
+  // [ \t]+ (not \s+) prevents crossing a newline; 20\d{2} rejects pre-2000
+  // values such as schedule times ("1410-2030") that appear on the next line.
+  const inlineRe = /(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})-(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)(?:[ \t]+(20\d{2})\b)?/i;
   const inM = tu.match(inlineRe);
   if (inM) {
     const endToken      = inM[2];
@@ -3836,29 +3838,35 @@ function xNW_standalone(notamText, flightDateISO) {
     const flightMo = iso ? parseInt(iso.slice(5, 7)) - 1 : new Date().getUTCMonth();
     const endYear   = trailingYear ||
                       (endMo < startMo && endMo < flightMo ? baseYear + 1 : baseYear);
-    let startYear = (endMo < startMo) ? endYear - 1 : endYear;
+    // R2: when NOTAM ID carries /YY, start year = latest Y in [2000+YY, endYear]
+    // such that start(Y) ≤ end.  No /YY → original cross-month heuristic.
+    const idM    = tu.match(/\b[A-Z]\d{4}\/(\d{2})\b/);
+    const endMs  = _parseDateToken(endToken, baseYear, endYear);
+    let startYear;
+    if (idM && endMs !== null) {
+      const issYear = 2000 + parseInt(idM[1]);
+      startYear = endYear; // fallback if no valid Y found in range
+      for (let Y = endYear; Y >= issYear; Y--) {
+        const tryMs = _parseDateToken(inM[1], baseYear, Y);
+        if (tryMs !== null && tryMs <= endMs) { startYear = Y; break; }
+      }
+    } else {
+      startYear = (endMo < startMo) ? endYear - 1 : endYear;
+    }
     let startMs = _parseDateToken(inM[1], baseYear, startYear);
-    const endMs   = _parseDateToken(endToken, baseYear, endYear);
     if (startMs !== null && endMs !== null) {
-      // ── Multi-year NOTAM guard ────────────────────────────────────────
-      // When an explicit trailing year is present (e.g. "22OCT1455-22OCT1454 2027")
-      // and startMo === endMo, the 1-year heuristic sets startYear = endYear,
-      // placing the entire window in the trailing year — either inverted by a
-      // few minutes, or simply shifted years ahead of the flight date. Both
-      // cases suppress NOTAMs that are actually active. Trigger when the trailing
-      // year exceeds the flight base year OR when the window is inverted.
-      // Primary resolution: use the NOTAM ID issuance year (/YY suffix).
-      // Fallback: walk startYear backward until the window is valid.
-      if (trailingYear && (endYear > baseYear || startMs >= endMs)) {
-        const idM = tu.match(/\b[A-Z]\d{4}\/(\d{2})\b/);
+      // ── Safety net: fix any remaining inverted window ──────────────────
+      // Handles same-month NOTAMs where minute precision inverts the window
+      // and edge cases not resolved by the /YY rule above.
+      if (startMs >= endMs) {
         if (idM) {
           const century = Math.floor(endYear / 100) * 100;
           let issYear = century + parseInt(idM[1]);
-          if (issYear > endYear) issYear -= 100; // don't overshoot end year
+          if (issYear > endYear) issYear -= 100;
           const tryMs = _parseDateToken(inM[1], baseYear, issYear);
           if (tryMs !== null && tryMs < endMs) startMs = tryMs;
         }
-        // Safety: decrement startYear until valid (max 5 years back)
+        // Fallback: walk startYear backward until the window is valid (max 5 y)
         if (startMs >= endMs) {
           for (let sy = startYear - 1, lim = 5; sy >= startYear - lim; sy--) {
             const tryMs = _parseDateToken(inM[1], baseYear, sy);
