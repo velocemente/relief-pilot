@@ -52,8 +52,21 @@ jobs:
       - name: Syntax check inline scripts
         run: node test/check-syntax.js
 
-      - name: Unit tests
-        run: npm test
+      # Check if fixtures repo has a branch matching the PR's head branch
+      - name: Check for matching fixtures branch
+        id: fixtures_branch
+        if: github.event.pull_request.head.repo.fork != true
+        run: |
+          # Use git ls-remote to check if the branch exists in the fixtures repo
+          if git ls-remote --heads \
+            "https://${{ secrets.FIXTURES_TOKEN }}@github.com/velocemente/pilotbrief-fixtures.git" \
+            "${{ github.head_ref }}" | grep -q .; then
+            echo "ref=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+            echo "Found matching fixtures branch: ${{ github.head_ref }}"
+          else
+            echo "ref=main" >> $GITHUB_OUTPUT
+            echo "No matching fixtures branch, using main"
+          fi
 
       # Secrets are not passed to pull requests from forks, so the fixtures
       # cannot be read there. Such a PR must be re-run by a maintainer from a
@@ -66,6 +79,7 @@ jobs:
           repository: velocemente/pilotbrief-fixtures
           token: ${{ secrets.FIXTURES_TOKEN }}
           path: fixtures
+          ref: ${{ steps.fixtures_branch.outputs.ref }}
           persist-credentials: false
 
       - name: Fixtures not available (fork pull request)
@@ -73,6 +87,12 @@ jobs:
         run: |
           echo "::warning::Golden compare skipped: fork pull requests cannot read the private fixtures repo. Do not approve until it has run from a branch in this repository."
           exit 1
+
+      - name: Unit tests
+        if: github.event.pull_request.head.repo.fork != true
+        env:
+          PB_FIXTURES: fixtures
+        run: npm test
 
       - name: Extractor reproduces fixtures text/ and items/
         run: node tools/extract/verify.js fixtures
