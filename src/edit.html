@@ -1,0 +1,442 @@
+function openEdit(field) {
+  _editField = field;
+  const inp = document.getElementById('editInput');
+  inp.maxLength = (STRING_FIELD_RULES[field] || {}).maxLen || 20;
+  // Weight int fields: show raw integer, numeric keyboard
+  if (WEIGHT_INT_FIELDS.has(field)) {
+    inp.value = S[field] ? String(S[field]) : '';
+    inp.inputMode = 'numeric';
+    inp.autocapitalize = 'off';
+  } else {
+    inp.value = (S[field]||'').replace(/Z$/,'');
+    inp.inputMode = NUM_FIELDS.has(field) ? 'numeric' : 'text';
+    inp.autocapitalize = NUM_FIELDS.has(field) ? 'off' : 'characters';
+  }
+  document.getElementById('editLabel').textContent = FIELD_LABELS[field] || field;
+  document.getElementById('editOverlay').classList.add('open');
+  setTimeout(() => { inp.focus(); inp.select(); }, 60);
+}
+
+// ── Weight cascade: TOGW and LDGW track ZFW and block fuel changes ───────
+// Uses DELTA approach — avoids the RAMP/TOGW confusion.
+//
+// LDGW = TOGW − Trip Fuel.  Trip fuel is fixed by the flight plan.
+// Therefore ΔLDGW = ΔTOGW for every source of change (fuel, ZFW, direct edit).
+//
+// _togwDeltaFromBlock(oldBlock):
+//   Called after S.blockFuel is updated.
+//   delta = (new block − old block) × 1000
+//   TOGW += delta,  LDGW += delta
+//
+// _togwDeltaFromZFW(oldZFW):
+//   Called after S.zfwActual is updated.
+//   delta = new ZFW − old ZFW
+//   TOGW += delta,  LDGW += delta
+
+function _applyWeightDelta(delta) {
+  if (!delta) return;
+  if (S.togwActual) S.togwActual = S.togwActual + delta;
+  if (S.ldgwActual) S.ldgwActual = S.ldgwActual + delta;
+}
+
+function _togwDeltaFromBlock(oldBlockStr) {
+  if (!S.togwActual) return;
+  const oldKg = parseFloat(oldBlockStr || '0') * 1000;
+  const newKg = parseFloat(S.blockFuel  || '0') * 1000;
+  _applyWeightDelta(Math.round(newKg - oldKg));
+}
+
+function _togwDeltaFromZFW(oldZFW) {
+  if (!S.togwActual || !oldZFW) return;
+  _applyWeightDelta(S.zfwActual - oldZFW);
+}
+
+function confirmEdit() {
+  if (!_editField) return;
+  let val = document.getElementById('editInput').value.trim();
+  if (WEIGHT_INT_FIELDS.has(_editField)) {
+    // Strip commas/spaces, parse as integer — reject if zero or non-numeric
+    const parsed = parseInt(val.replace(/[^\d]/g, ''), 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      const _prevZFW  = S.zfwActual;
+      const _prevTOGW = S.togwActual;
+      S[_editField] = parsed;
+      if (_editField === 'zfwActual')  _togwDeltaFromZFW(_prevZFW);
+      // Direct TOGW edit → apply same delta to LDGW
+      if (_editField === 'togwActual' && S.ldgwActual)
+        S.ldgwActual = S.ldgwActual + (parsed - _prevTOGW);
+    }
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
+  if (_editField === 'crewRestBuffer') {
+    const parsed = parseInt(val.replace(/\D/g,''), 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 180) S.crewRestBuffer = parsed;
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
+  if (_editField === 'restGapMins') {
+    const parsed = parseInt(val.replace(/\D/g,''), 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 20) S.restGapMins = Math.round(parsed / 5) * 5;
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
+  if (_editField === 'tocZOverride') {
+    const cleaned = val.replace(/\D/g,'').slice(0,4);
+    S.tocZOverride = cleaned.length === 4 ? cleaned : null; // null clears override
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
+  if (NUM_FIELDS.has(_editField)) {
+    val = val.replace(/\D/g,'').slice(0,4);
+  }
+  const _prevBlockFuel = S.blockFuel;
+  // String field guard: enforce maxLen + character whitelist before writing to state.
+  // Silently cancels on pattern mismatch — no UI error (field simply reverts).
+  const _sfRule = STRING_FIELD_RULES[_editField];
+  if (_sfRule) {
+    val = val.toUpperCase().slice(0, _sfRule.maxLen);
+    if (!_sfRule.re.test(val)) { cancelEdit(); return; }
+  }
+  S[_editField] = val;
+
+  // Block fuel change → apply delta to TOGW
+  if (_editField === 'blockFuel') _togwDeltaFromBlock(_prevBlockFuel);
+
+  // Editing outZ cascades DEST ETA + ALL alt ETAs (planned push time).
+  // buildAirportCards() re-evaluates WX, NOTAMs, and curfews against the new ETAs.
+  if (_editField === 'outZ' && val.length === 4) {
+    recalcAllETAs();
+    buildAirportCards();
+  }
+
+  // Editing offZ (actual wheels-off) recalculates IN time using OFP ETE (tripMinutes).
+  // offZ + tripMinutes = actual estimated IN time at destination.
+  // All alternate ETAs also recalculate from offZ + their ofpOffsetMins offset.
+  // buildAirportCards() re-evaluates WX, NOTAMs, and curfews against the new ETAs.
+  if (_editField === 'offZ' && val.length === 4) {
+    recalcAllETAsFromOff(val);
+    buildAirportCards();
+  }
+
+  cancelEdit();
+  renderNote();
+  saveFlight();
+}
+
+function cancelEdit(e) {
+  if (e && e.target !== document.getElementById('editOverlay')) return;
+  document.getElementById('editOverlay').classList.remove('open');
+  _editField = null;
+}
+
+document.getElementById('editInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmEdit();
+  if (e.key === 'Escape') { document.getElementById('editOverlay').classList.remove('open'); _editField=null; }
+});
+
+// ═══════════════════════════════════════════════════════
+//  AIRPORT STATUS ENGINE
+// ═══════════════════════════════════════════════════════
+function getAllAirports() {
+  const orig=(S.origIcao||'').toUpperCase();
+  const dest=(S.destIcao||'').toUpperCase();
+  const apts=[];
+  if(orig) apts.push({icao:orig, role:'ORIG', eta: S.outZ || null, depTime:S.outZ});
+  if(dest) apts.push({icao:dest, role:'DEST', eta:S.etaDest});
+  (S.altData||[]).forEach(a => {
+    if(a.icao!==orig && a.icao!==dest)
+      apts.push({icao:a.icao, role:a.role, eta:a.currentEta,
+                 wxWindow: a.wxWindow||null, etpName: a.etpName||null});
+  });
+  return apts;
+}
+
+// ── NOTAM group toggle handlers ───────────────────────────────────────────
+// Called with onclick="toggleNotamGroup(this)" from the group header element.
+function toggleNotamGroup(hdrEl) {
+  const body = hdrEl.nextElementSibling;
+  const chev = hdrEl.querySelector('.notam-chev');
+  if (!body) return;
+  const opening = body.hasAttribute('hidden');
+  if (opening) { body.removeAttribute('hidden'); }
+  else         { body.setAttribute('hidden', ''); }
+  if (chev) chev.classList.toggle('open', opening);
+}
+
+// Called with onclick="toggleNotamItem(this)" from the item header element.
+function toggleNotamItem(hdrEl) {
+  const raw  = hdrEl.nextElementSibling;
+  const chev = hdrEl.querySelector('.notam-chev');
+  if (!raw) return;
+  const opening = raw.hasAttribute('hidden');
+  if (opening) { raw.removeAttribute('hidden'); }
+  else         { raw.setAttribute('hidden', ''); }
+  if (chev) chev.classList.toggle('open', opening);
+}
+
+// ── NOTAM group renderer ──────────────────────────────────────────────────
+// Renders rwyGroups Map (from evalNotams) as collapsible runway/taxiway rows.
+// Each group collapses to show individual NOTAM items.
+// Each item collapses to show raw NOTAM text.
+function renderNotamGroups(rwyGroups) {
+  if (!rwyGroups || !rwyGroups.size) return '';
+  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+
+  // ── Sub-category classifier (runway groups only) ──────────────────────
+  // Uses item label/rowLabel to bucket each NOTAM into a display category.
+  // Order of checks matters: CLOSED → LIGHTING → APPROACH/NAVAID → PROCEDURE
+  function _subCat(item) {
+    const lbl = ((item.label || '') + ' ' + (item.rowLabel || '')).toUpperCase();
+    if (/\bCLSD\b/.test(lbl)) return 'CLOSED';
+    if (/\bTKOF\s+MIN\b|\bTAKEOFF\s+MIN|\bODP\b|\bMIN\s+CLIMB\b|\bFT\/NM\b/.test(lbl)) return 'TKOF_MIN';
+    if (/\bPAPI\b|\bVASI\b|\bALS\b|\bALSF\b|\bMALSR?\b|\bSSALR?\b|\bREIL\b|\bTDZ\b|\bRCLL\b|\bLGTS?\b|\bLIGHT|\bLEAD\s+OFF|\bTKOF\s+HOLD/.test(lbl)) return 'LIGHTING';
+    if (/\bILS\b|\bLOC\b|\bGLS\b|\bG\/S\b|\bGLIDE|\bRNAV\b|\bRNP\b|\bVOR\b|\bNDB\b|\bGPS\b|\bGNSS\b|\bRAIM\b|\bDME\b|\bVORTAC\b|\bMARKER\b|\bOM\b|\bMM\b|\bIM\b|\bLOM\b|\bLMM\b|\bCAT\s+I/.test(lbl)) return 'APPROACH';
+    if (/PROC\b|ALT\s+MA|ALT\s+MINS|DSPLCD|THR\b|CHANGE|CHG\b|\bSTAR\b|\bSID\b/.test(lbl)) return 'PROCEDURE';
+    return 'OTHER';
+  }
+
+  // ── Numerical runway sort key ─────────────────────────────────────────
+  // Handles single (09C) and composite (04L/22R) designators.
+  // Non-runway groups (TAXIWAYS, GENERAL) sort to the end.
+  function _rwySort(key) {
+    if (!key.startsWith('RWY-')) return 9999;
+    const m = key.match(/RWY-(\d{2})([LCR]?)/);
+    if (!m) return 9999;
+    const sfx = { L: 0, C: 1, R: 2, '': 1 }[m[2]] ?? 1;
+    return parseInt(m[1], 10) * 10 + sfx;
+  }
+
+  const sortedKeys = [...rwyGroups.keys()].sort((a, b) => {
+    const aIsRwy = a.startsWith('RWY-');
+    const bIsRwy = b.startsWith('RWY-');
+    if (aIsRwy && bIsRwy) return _rwySort(a) - _rwySort(b);
+    if (aIsRwy) return -1; if (bIsRwy) return 1;
+    if (a === 'TAXIWAYS') return -1; if (b === 'TAXIWAYS') return 1;
+    return 0;
+  });
+
+  // ── Item renderer (shared for all levels) ────────────────────────────
+  function _renderItem(item, extraStyle) {
+    const ic  = item.level === 'red' ? 'r' : 'y';
+    const lbl = esc(item.rowLabel || item.label || '');
+    const raw = (item.notamRaw || '').trim();
+    let h = `<div class="notam-item"${extraStyle ? ` style="${extraStyle}"` : ''}>`;
+    h += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+    h += `<span class="notam-dot ${ic}"></span>`;
+    h += `<span class="notam-item-label">${lbl}</span>`;
+    if (raw) h += CHEV;
+    h += `</div>`;
+    if (raw) h += `<pre class="notam-raw-text" hidden>${esc(raw)}</pre>`;
+    h += `</div>`;
+    return h;
+  }
+
+  // ── Sub-group renderer (collapsible category inside a runway group) ───
+  // Single item → render directly without wrapper.
+  // Multiple items → collapsible sub-header with count.
+  const SUB_LABELS = {
+    CLOSED:    'Closed',
+    TKOF_MIN:  'Takeoff Minimums / ODP',
+    APPROACH:  'Approach / Navaid',
+    LIGHTING:  'Runway Lighting',
+    PROCEDURE: 'Procedure Changes',
+    OTHER:     'Other',
+  };
+
+  function _renderSubGroup(cat, items) {
+    if (!items.length) return '';
+    const worst  = items.reduce((w, i) => (_RANK[i.level] > _RANK[w]) ? i.level : w, 'green');
+    const dotCls = worst === 'red' ? 'r' : 'y';
+    if (items.length === 1) return _renderItem(items[0]);
+    // Multi-item: collapsible sub-group, indented body
+    let h = `<div class="notam-item">`;
+    h += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+    h += `<span class="notam-dot ${dotCls}"></span>`;
+    h += `<span class="notam-item-label" style="font-weight:600">${esc(SUB_LABELS[cat])} (${items.length})</span>`;
+    h += CHEV;
+    h += `</div>`;
+    h += `<div hidden style="padding-left:14px">`;
+    items.forEach(item => { h += _renderItem(item); });
+    h += `</div>`;
+    h += `</div>`;
+    return h;
+  }
+
+  let h = '<div class="notam-groups">';
+
+  for (const key of sortedKeys) {
+    const grp = rwyGroups.get(key);
+    if (!grp || !grp.items) continue;
+    const opItems = grp.items.filter(i => i.level === 'red' || i.level === 'yellow');
+    if (!opItems.length) continue;
+
+    const grpWorst = opItems.reduce((w, i) => (_RANK[i.level] > _RANK[w]) ? i.level : w, 'green');
+    const dotCls   = grpWorst === 'red' ? 'r' : 'y';
+
+    // ── Taxiway group — flat collapsible (unchanged) ──────────────────
+    if (grp.groupType === 'taxiway') {
+      h += `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+      h += `<span class="notam-dot y"></span>`;
+      h += `<span class="notam-group-label">Taxiway NOTAMs</span>${CHEV}</div>`;
+      h += `<div class="notam-group-body" hidden>`;
+      opItems.forEach(item => { h += _renderItem(item); });
+      h += `</div></div>`;
+      continue;
+    }
+
+    // ── General group — flat collapsible ──────────────────────────────
+    if (grp.groupType === 'general') {
+      if (opItems.length === 1) {
+        h += `<div class="notam-group">${_renderItem(opItems[0])}</div>`;
+      } else {
+        h += `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+        h += `<span class="notam-dot ${dotCls}"></span>`;
+        h += `<span class="notam-group-label">General NOTAMs</span>${CHEV}</div>`;
+        h += `<div class="notam-group-body" hidden>`;
+        opItems.forEach(item => { h += _renderItem(item); });
+        h += `</div></div>`;
+      }
+      continue;
+    }
+
+    // ── Runway group — hierarchical tree ──────────────────────────────
+    // Header: "RWY 09L" (clean runway label, no "Approach" prefix)
+    const rwyLabel = grp.rwy ? `RWY ${grp.rwy}` : key.replace('RWY-', 'RWY ');
+
+    // Bucket items by sub-category in display priority order
+    const buckets = { CLOSED: [], TKOF_MIN: [], APPROACH: [], LIGHTING: [], PROCEDURE: [], OTHER: [] };
+    opItems.forEach(item => { buckets[_subCat(item)].push(item); });
+
+    h += `<div class="notam-group">`;
+    h += `<div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+    h += `<span class="notam-dot ${dotCls}"></span>`;
+    h += `<span class="notam-group-label">${esc(rwyLabel)}</span>${CHEV}`;
+    h += `</div>`;
+    h += `<div class="notam-group-body" hidden>`;
+
+    // Render each sub-category in priority order
+    for (const cat of ['CLOSED', 'TKOF_MIN', 'APPROACH', 'LIGHTING', 'PROCEDURE', 'OTHER']) {
+      h += _renderSubGroup(cat, buckets[cat]);
+    }
+
+    h += `</div></div>`;
+  }
+
+  h += '</div>';
+  return h;
+}
+
+// ── Airport issues list renderer ──────────────────────────────────────────
+// Renders the full apt-issues-list content:
+//   1. STARs group  — DEST/ALT cards: collapsible, start expanded, FIRST
+//   2. Weather issues — flat coloured pill rows
+//   3. NOTAM groups — collapsible runway/taxiway structure from rwyGroups
+//   4. SIDs group   — ORIG card only: collapsible, start expanded, LAST
+//   5. Green fallback if none of the above has any operational issues
+function renderAptIssues(status) {
+  // Chevrons: group-level starts expanded (.open); item-level starts collapsed
+  const CHEV_OPEN = `<svg class="notam-chev open" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  const CHEV      = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+
+  // Item renderer — mirrors _renderItem inside renderNotamGroups
+  function _renderSidStarItem(item) {
+    const ic  = item.level === 'red' ? 'r' : 'y';
+    const lbl = esc(item.rowLabel || item.label || '');
+    const raw = (item.notamRaw || '').trim();
+    let ih = `<div class="notam-item">`;
+    ih += `<div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+    ih += `<span class="notam-dot ${ic}"></span>`;
+    ih += `<span class="notam-item-label">${lbl}</span>`;
+    if (raw) ih += CHEV;
+    ih += `</div>`;
+    if (raw) ih += `<pre class="notam-raw-text" hidden>${esc(raw)}</pre>`;
+    ih += `</div>`;
+    return ih;
+  }
+
+  // Group renderer — uses existing notam-group / notam-group-hdr / notam-group-body CSS
+  function _renderSidStarGroup(label, issues) {
+    let gh = `<div class="notam-groups"><div class="notam-group">`;
+    gh += `<div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+    gh += `<span class="notam-dot y"></span>`;
+    gh += `<span class="notam-group-label">${label}</span>${CHEV_OPEN}`;
+    gh += `</div>`;
+    gh += `<div class="notam-group-body">`;
+    issues.forEach(item => { gh += _renderSidStarItem(item); });
+    gh += `</div></div></div>`;
+    return gh;
+  }
+
+  let h = '';
+
+  // 1. STARs — DEST/ALT cards only (evalAirport filters: slot===5 && !isOrig)
+  //    Renders FIRST so crew sees arrival procedure NOTAMs immediately
+  const starIssues = status.starIssues || [];
+  if (starIssues.length) h += _renderSidStarGroup('STARs', starIssues);
+
+  // 2. Weather issues — flat pills
+  (status.wxIssues || []).forEach(i => {
+    h += `<div class="apt-issue ${i.level.charAt(0)}">${i.text}</div>`;
+  });
+
+  // 3a. Runway groups only — renders before SIDs
+  if (status.rwyGroups && status.rwyGroups.size) {
+    const rwMap  = new Map([...status.rwyGroups].filter(([, g]) => g.groupType === 'runway'));
+    const ng = renderNotamGroups(rwMap);
+    if (ng) h += ng;
+  }
+
+  // 4. SIDs — ORIG card only (evalAirport filters: slot===4 && isOrig)
+  //    Renders immediately after last runway group, before taxiways/general
+  const sidIssues = status.sidIssues || [];
+  if (sidIssues.length) h += _renderSidStarGroup('SIDs', sidIssues);
+
+  // 3b. Non-runway groups (taxiways, general) — renders after SIDs
+  if (status.rwyGroups && status.rwyGroups.size) {
+    const restMap = new Map([...status.rwyGroups].filter(([, g]) => g.groupType !== 'runway'));
+    const ng = renderNotamGroups(restMap);
+    if (ng) h += ng;
+  }
+
+  return h || `<div class="apt-issue g">✓ No issues at ETA window</div>`;
+}
+
+function renderAptOpsNotes(icao) {
+  const note = (airportData[icao] || {}).opsNotes;
+  if (!note) return '';
+  
+  // Parse body into lines, skip empty and punctuation-only lines
+  const lines = (note.body || '')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !/^[-\s]*$/.test(l));
+  
+  const bodyRows = lines
+    .map(line => `
+      <div class="notam-item">
+        <div class="notam-item-hdr">
+          <span class="notam-dot y"></span>
+          <span class="notam-item-label">${esc(line)}</span>
+        </div>
+      </div>`)
+    .join('');
+  
+  const bodyHtml = bodyRows ? `<div class="notam-group-body">${bodyRows}</div>` : '';
+  
+  return `
+    <div class="apt-ops-note collapsed"
+         style="border-top:0.5px solid var(--sep)">
+      <div class="notam-group-hdr"
+           onclick="this.parentElement.classList.toggle('collapsed')"
+           role="button" aria-expanded="false">
+        <span class="notam-dot y"></span>
+        <span class="notam-group-label"
+              style="color:var(--sys-yellow)">
+          Company Remarks
+        </span>
+        <svg class="cell-chevron" viewBox="0 0 9 14"
+             aria-hidden="true">
+          <path d="M1 1l6.5 6L1 13"/>
+        </svg>
+      </div>
+      ${bodyHtml}
+    </div>`;
+}
+

@@ -1,0 +1,551 @@
+
+
+// ═══════════════════════════════════════════════════════
+//  VERSION
+// ═══════════════════════════════════════════════════════
+const APP_VERSION = '1.9.9-hf1';
+
+// ═══════════════════════════════════════════════════════
+//  THEME — follows system, or manual override
+// ═══════════════════════════════════════════════════════
+let _themeMode = 'auto';
+try { _themeMode = localStorage.getItem('rp_theme') || 'auto'; } catch(e) {}
+
+function setTheme(mode) {
+  _themeMode = mode;
+  try { localStorage.setItem('rp_theme', mode); } catch(e) {}
+  const pDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const effective = mode === 'auto' ? (pDark ? 'dark' : 'light') : mode;
+  // CSS color-scheme property drives system semantic colors
+  document.documentElement.style.colorScheme = mode === 'auto' ? 'light dark' : mode;
+  // Drive html[data-theme] CSS overrides for manual light/dark selection
+  if (mode === 'auto') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', mode);
+  }
+  // Update segmented control
+  document.querySelectorAll('.seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === mode);
+  });
+}
+(function() {
+  setTheme(_themeMode);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (_themeMode === 'auto') setTheme('auto');
+  });
+})();
+
+// ═══════════════════════════════════════════════════════
+//  NAVIGATION — push / pop / sheet stack
+//  Mirrors iOS UINavigationController behavior
+// ═══════════════════════════════════════════════════════
+let _navStack = ['screen-flights'];
+let _sheetOpen = null;
+
+function push(screenId) {
+  // Dim current top
+  const cur = document.getElementById(_navStack[_navStack.length - 1]);
+  if (cur) { cur.classList.remove('is-root', 'is-active'); cur.classList.add('is-behind'); }
+
+  _navStack.push(screenId);
+  const next = document.getElementById(screenId);
+  if (next) {
+    next.classList.remove('is-behind');
+    // Force reflow for transition
+    void next.offsetWidth;
+    next.classList.add('is-active');
+  }
+
+  if (screenId === 'screen-flights') renderFlightList();
+  if (screenId === 'screen-flight') {
+    // Clear OFP panel so loadOFPPanel re-renders for the new flight
+    const ofpC = document.getElementById('ofpViewerContainer');
+    if (ofpC) ofpC.innerHTML = '';
+    const ofpCtr = document.getElementById('ofpPageCounter');
+    if (ofpCtr) ofpCtr.textContent = '';
+    renderNote(); buildAirportCards(); buildAltRouteCards(); switchFlightTab('note', false);
+  }
+  if (screenId === 'screen-import') {
+    document.getElementById('importToast').style.display = 'none';
+    document.getElementById('manualText').value = '';
+  }
+}
+
+// goToImport: always ensure screen-flights is in the stack before screen-import,
+// so that back from note → flights works regardless of entry point.
+function goToImport() {
+  if (!_navStack.includes('screen-flights')) push('screen-flights');
+  push('screen-import');
+}
+
+// popToFlights: back button from screen-note always lands on screen-flights.
+// If flights isn't in the stack (e.g. deep-link entry), insert it cleanly.
+function popToFlights() {
+  _clearResumeView();
+  // Pop everything above screen-flights, or pop once and ensure flights is shown
+  while (_navStack.length > 1 && _navStack[_navStack.length - 1] !== 'screen-flights') {
+    const top = _navStack.pop();
+    const topEl = document.getElementById(top);
+    if (topEl) topEl.classList.remove('is-active', 'is-behind');
+  }
+  // If we never hit flights, push it now
+  if (_navStack[_navStack.length - 1] !== 'screen-flights') {
+    push('screen-flights');
+    return;
+  }
+  // Activate flights
+  const flightsEl = document.getElementById('screen-flights');
+  if (flightsEl) { flightsEl.classList.remove('is-behind'); flightsEl.classList.add('is-active'); }
+  renderFlightList();
+}
+
+function pop() {
+  if (_navStack.length <= 1) return;
+  const top = _navStack.pop();
+  const topEl = document.getElementById(top);
+  if (topEl) { topEl.classList.remove('is-active'); }
+
+  const prev = _navStack[_navStack.length - 1];
+  const prevEl = document.getElementById(prev);
+  if (prevEl) {
+    prevEl.classList.remove('is-behind');
+    prevEl.classList.add(prev === 'screen-flights' ? 'is-root' : 'is-active');
+  }
+  // Refresh flight list whenever we return to flights or home
+  if (prev === 'screen-home' || prev === 'screen-flights') {
+    renderFlightList();
+    _clearResumeView();
+  }
+}
+
+
+// ── Flight tab switcher ──────────────────────────────────────────────────
+// tabs: 'note' | 'airports' | 'ofp' | 'alternates'
+// render=true (default): trigger data build for the selected tab
+let _activeFlightTab = 'note';
+
+// ── Resume-view storage ───────────────────────────────────────────────────
+// Persists {flightId, screen, tab, phase, scrollY} so an iOS Home Screen
+// reload can re-open the crew's last-viewed flight automatically.
+const _RESUME_KEY = 'rp_resume_view';
+function _saveResumeView() {
+  const flights = getFlights();
+  const entry = flights.find(f => f.fltNum === S.fltNum && f.date === S.date);
+  if (!entry) return;
+  try {
+    localStorage.setItem(_RESUME_KEY, JSON.stringify({
+      flightId: entry.id,
+      screen:   _navStack[_navStack.length - 1],
+      tab:      _activeFlightTab,
+      phase:    S.activePhase || 'preflight',
+      scrollY:  window.scrollY || 0
+    }));
+  } catch(e) {}
+}
+function _clearResumeView() {
+  try { localStorage.removeItem(_RESUME_KEY); } catch(e) {}
+}
+
+function switchFlightTab(tab, render = true) {
+  _activeFlightTab = tab;
+
+  // Update tab button active states
+  ['note','airports','ofp','alternates'].forEach(t => {
+    const btn = document.getElementById('ftab-' + t);
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+
+  // Show/hide panels
+  ['note','airports','ofp','alternates'].forEach(t => {
+    const panel = document.getElementById('fpanel-' + t);
+    if (panel) panel.classList.toggle('active', t === tab);
+  });
+
+  // Trigger data load for the activated tab
+  if (!render) return;
+  if (tab === 'airports')  buildAirportCards();
+  if (tab === 'alternates') buildAltRouteCards();
+  if (tab === 'ofp')        loadOFPPanel();
+  _saveResumeView();
+}
+
+// Populate the OFP viewer panel (was openOFPView)
+function loadOFPPanel() {
+  const container = document.getElementById('ofpViewerContainer');
+  const counter   = document.getElementById('ofpPageCounter');
+  if (!container) return;
+  // Skip re-render only when PDF canvas pages are already present.
+  // A stale "Loading…" placeholder, error message, or raw-text fallback must
+  // not block a fresh render — so check for an actual <canvas>, not just any child.
+  if (container.querySelector('canvas')) return;
+  container.innerHTML = '';
+  if (counter) counter.textContent = '';
+
+  if (pdfArrayBuffer) {
+    _pdfDocProxy = null;
+    container.innerHTML = '<div style="color:var(--label2);text-align:center;padding:32px;font-size:15px">Loading PDF…</div>';
+    loadPdfJs().then(() => {
+      pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise.then(pdf => {
+        _pdfDocProxy = pdf;
+        container.innerHTML = '';
+        const total = pdf.numPages;
+        if (counter) counter.textContent = `${total} pages`;
+        const dpr = window.devicePixelRatio || 1;
+
+        // ── PDF Bookmark Subcards (S-OFP-01) ──────────────────────────
+        // Atlas/Polar OFPs nest section bookmarks under a root entry:
+        //   outline[0] = { title: "NNF/GTI/...", items: [sections...] }
+        const _bmMap = [
+          { re: /^Flight Plan$/i,             label: 'OFP' },
+          { re: /^TLR$/i,                     label: 'TLR' },
+          { re: /Company\s*Notam/i,           label: 'INTAMS' },
+          { re: /Weather|^Wx/i,               label: 'WX/NOTAMS' },
+          { re: /Maps|Charts|Company\s*Docs/i,label: 'CHARTS' },
+        ];
+        pdf.getOutline().then(function(outline) {
+          if (!outline || !outline.length) return;
+          // Flatten: collect items from root and all top-level children
+          var items = [];
+          outline.forEach(function(entry) {
+            if (entry.items && entry.items.length) {
+              items = items.concat(entry.items);
+            }
+          });
+          if (!items.length) return;
+          // Resolve destinations to page numbers
+          var pending = items.map(function(item) {
+            var dest = item.dest;
+            var p = (typeof dest === 'string')
+              ? pdf.getDestination(dest).then(function(d) { return d ? pdf.getPageIndex(d[0]) : -1; })
+              : (Array.isArray(dest) && dest[0])
+                ? pdf.getPageIndex(dest[0])
+                : Promise.resolve(-1);
+            return p.then(function(pageIdx) {
+              return { title: item.title, pageNum: pageIdx + 1 }; // 1-based
+            }).catch(function() { return null; });
+          });
+          Promise.all(pending).then(function(resolved) {
+            var pills = [];
+            resolved.forEach(function(r) {
+              if (!r) return;
+              for (var i = 0; i < _bmMap.length; i++) {
+                if (_bmMap[i].re.test(r.title)) {
+                  pills.push({ label: _bmMap[i].label, pageNum: r.pageNum });
+                  break;
+                }
+              }
+            });
+            if (!pills.length) return;
+            // Render scrollable pill row at top of container
+            var row = document.createElement('div');
+            row.className = 'pb-bookmark-pills';
+            row.style.cssText = 'display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px 4px 12px;position:sticky;top:0;z-index:2;background:var(--sys-bg)';
+            pills.forEach(function(pill) {
+              var btn = document.createElement('button');
+              btn.textContent = pill.label;
+              btn.style.cssText = 'flex-shrink:0;padding:5px 12px;border-radius:14px;border:1.5px solid var(--tint);background:transparent;color:var(--tint);font-size:12px;font-weight:600;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;font-family:inherit';
+              btn.addEventListener('click', function() {
+                var target = container.querySelector('[data-page="' + pill.pageNum + '"]');
+                if (!target) return;
+                // Scroll the container directly — offsetTop is relative to offsetParent
+                // Walk up to accumulate offset if offsetParent !== container
+                var scrollY = 0;
+                var el = target;
+                while (el && el !== container) {
+                  scrollY += el.offsetTop;
+                  el = el.offsetParent;
+                }
+                container.scrollTo({ top: Math.max(0, scrollY - 52), behavior: 'smooth' });
+                // Highlight active pill
+                row.querySelectorAll('button').forEach(function(b) {
+                  b.style.background = 'transparent';
+                  b.style.color = 'var(--tint)';
+                });
+                btn.style.background = 'var(--tint)';
+                btn.style.color = '#fff';
+              });
+              row.appendChild(btn);
+            });
+            container.insertBefore(row, container.firstChild);
+          });
+        }).catch(function() {}); // outline extraction non-fatal
+
+        const renderPage = (n) => {
+          pdf.getPage(n).then(pg => {
+            const viewerW = container.clientWidth || (window.innerWidth - 32);
+            const vp0 = pg.getViewport({scale: 1});
+            const vp  = pg.getViewport({scale: (viewerW / vp0.width) * dpr});
+            const wrap = document.createElement('div');
+            wrap.setAttribute('data-page', String(n));
+            wrap.style.cssText = 'position:relative;margin:0 auto 16px;max-width:100%';
+            const canvas = document.createElement('canvas');
+            canvas.width  = Math.max(1, Math.round(vp.width));
+            canvas.height = Math.max(1, Math.round(vp.height));
+            canvas.style.cssText = 'display:block;width:100%;height:auto;border-radius:4px;box-shadow:0 1px 6px rgba(0,0,0,.22)';
+            wrap.appendChild(canvas);
+            const lbl = document.createElement('div');
+            lbl.textContent = `${n} / ${total}`;
+            lbl.style.cssText = 'position:absolute;bottom:8px;right:10px;font-size:11px;font-family:var(--font-mono);color:rgba(120,120,128,0.9);pointer-events:none;background:var(--sys-bg2);padding:2px 6px;border-radius:4px;';
+            wrap.appendChild(lbl);
+            container.appendChild(wrap);
+            pg.render({canvasContext: canvas.getContext('2d'), viewport: vp});
+            if (n < total) renderPage(n + 1);
+          });
+        };
+        // Defer one animation frame so the panel (display:flex applied by
+        // switchFlightTab) has been laid out and container.clientWidth is valid
+        requestAnimationFrame(() => renderPage(1));
+      }).catch(err => {
+        _pdfDocProxy = null;
+        if (counter) counter.textContent = '';
+        container.innerHTML = `<div class="ofp-raw" style="color:var(--sys-red);padding:var(--sp4)">PDF render error: ${esc(err.message)}</div>`;
+      });
+    }).catch(() => {
+      container.innerHTML = '';
+      if (counter) counter.textContent = '';
+      const pre = document.createElement('div');
+      pre.className = 'ofp-raw';
+      pre.textContent = pdfRawText || 'No OFP imported yet.';
+      container.appendChild(pre);
+    });
+  } else {
+    container.innerHTML = '';
+    if (counter) counter.textContent = '';
+    const pre = document.createElement('div');
+    pre.className = 'ofp-raw';
+    pre.textContent = pdfRawText || 'No OFP imported yet.';
+    container.appendChild(pre);
+  }
+}
+
+
+
+// ═══════════════════════════════════════════════════════
+//  APP STATE — single source of truth
+// ═══════════════════════════════════════════════════════
+const S = {
+  fltNum:'', date:'',
+  outZ:'',          // filled from OFP OFF time; editable; drives all ETA recalcs
+  etaDest:'',       // ETA at DEST; recalculated when outZ changes
+  origIcao:'', destIcao:'',
+  // altData: [{icao, role, ofpEta, ofpOffsetMins, currentEta}]
+  // ofpOffsetMins = minutes from OFP's OFF time to this alt's ETA
+  // currentEta    = recalculated when outZ changes
+  altData:[],
+  oeiVal:'', stabTrim:'', gaFuel:'',
+  // oeiData: [{rwy, efp, special, proc, coChartNote}]
+  //   rwy:         e.g. "07R"  (base runway, no SHIPS suffix)
+  //   efp:         "SPECIAL" | "DT H254" | "LT H235" | "RT H090" etc.
+  //   special:     boolean — true if this runway has a special EFP table entry
+  //   proc:        full special proc string, or '' for simple EFPs
+  //   coChartNote: crew-entered text for "SEE CO CHART" runways (SPECIAL + no proc)
+  oeiData:[], oeiSelectedRwy:'',
+  blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
+  crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
+  // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
+  //   code: ATA number string e.g. "36-12-02-01"
+  //   desc: full description string (may be multi-line joined)
+  //   tlr:  ''|'takeoff'|'landing'|'both'  — TLR Remarks cross-reference
+  ddgItems:[], melItems:'', overflightPerms:'',
+  altRoutes:[],   // [{title, route, mora}] — parsed from OFP alternate route sections; crew-editable
+  acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
+  zfwActual:0,  zfwLimit:0, zfwOFP:0,  // zfwOFP: immutable OFP baseline for MINF delta
+  ldgwActual:0, ldgwLimit:0,  // parsed from OFP weight table
+  radioCallsign:'',   // e.g. "GTI8993"  — derived from fltNum prefix
+  verbalCallsign:'',  // e.g. "GIANT"    — GTI→GIANT, PAC→POLAR, CMB→CAMBER
+  isHeavy:false,      // true for all B747/B777 Atlas/Polar aircraft
+  hasPerishables:false,
+  dotExemption: null,              // v1.9.7 — DOT special permit {number, restrictions}
+  hasVzfwCkLimit:false,        // v1.9.5 — MTOW limited by VZFW/CK constraints (RED alert)
+  slotTime:null,               // v1.9.5 — wheels-up slot time window (HHMM Z)
+  catIiIiiApproaches:null,     // v1.9.5 — CAT II/III authorized approaches map { [ICAO]: string }
+  addlFfAdj:null,              // additional fuel flow adjustment from CDL/MEL (e.g. "+2.22")
+  descentAirport:'',           // ICAO selected in descent Airport section (defaults to destIcao)
+  destEtaOffsetMins:null, // minutes from OFP OFF time to DEST ETA (authoritative, from OFP header lines)
+  tripMinutes:null,        // flight-only trip time from TRIP field (kept for reference)
+  userNotes:'',
+  fcirNarrative:'',
+  fcirAsap: false,
+  etopsEntry:'',   // elapsed time to ETOPS airspace entry, e.g. "06:12" — from OFP header
+  etopsSpec:'',    // ETOPS threshold/MDT, e.g. "60/180" — from Critical Fuel Scenario header
+  etpPoints:[],    // [{name:'ETP1', lat:'N59 42.2', lon:'W036 03.6'}] — parsed from CFS block
+
+  // ── Phase tabs & enroute ──
+  activePhase:'preflight',   // 'preflight' | 'enroute' | 'descent'
+  offZ:'',            // actual OFF time entered by crew (HHMM Z)
+  porWpt:'',          // POR waypoint parsed from OFP, e.g. "N60W040"
+  porOffsetMins:null, // OFP elapsed minutes ORIG→POR (HH.MM converted)
+  porMinf:'',         // Minimum fuel required at POR (col2 of MINF line on RDA OFPs)
+  etopsEntryMins:null,// OFP elapsed minutes to ETOPS entry  (HH.MM converted)
+  etopsExit:'',       // elapsed time to ETOPS airspace exit, e.g. "09:03" — from navlog (E.EXT)
+  etopsExitMins:null, // OFP elapsed minutes to ETOPS exit (HH:MM converted to integer)
+  rawOFP:'',          // full raw OFP text retained for navlog TOT-T extraction (V2)
+
+  // ── Preflight / Departure ATIS + Parking (independent of Descent) ──
+  preAtisLetter:'',   // Departure ATIS identifier letter, e.g. "K"
+  preAtisNotes:'',    // Departure ATIS free-text notes
+  preParkingNotes:'', // Departure gate / stand free-text
+
+  // ── Descent / Arrival ATIS + Parking (independent of Preflight) ──
+  descAtisLetter:'',  // Arrival ATIS identifier letter, e.g. "K"
+  descAtisNotes:'',   // Arrival ATIS free-text notes
+  descParkingNotes:'',// Arrival gate / stand free-text
+  enrouteScratch:'',  // enroute scratchpad (drawing + text)
+
+  // ── Arrival fuel (parsed + carried-over) ──
+  alt1Fuel:'',        // ALT1 fuel from OFP fuel summary
+  destRemf:'',        // REMF at destination from OFP
+  zfwIncrFactor: null,// ZFW increment factor for MINF adjustment
+  taxiFuel:'',        // Taxi fuel from OFP
+  // ── Raw fuel integers (lbs×10 or kgs×10, from parse) ──
+  blockFuelRaw:0, minfFuelRaw:0, destRemfRaw:0, taxiFuelRaw:0,
+  // ── Crew override entries (null = use OFP value) ──
+  blockFuelEntered:null, zfwEntered:null, togwEntered:null,
+  // ── Column raw-tap display flags ──
+  showFuelRaw:false, showWeightRaw:false,
+};
+let airportData = {};   // icao → { notams:'', weather:'' }
+let pdfRawText    = '';
+let pdfArrayBuffer = null;   // ArrayBuffer of original PDF — slice a fresh Uint8Array for each pdf.js call so the master is never transferred/neutered
+let _pdfDocProxy  = null;    // active PDFDocumentProxy — nulled before each new load (M3)
+
+// Recalculate DEST ETA and all alt ETAs from current outZ
+// ── IMPORTANT: New flight = clean slate. No data carries between flights. ──
+// resetStateForNewFlight() wipes every field so the previous flight's
+// crew-entered values (ATIS, parking, notes, STAB, GA, FCIR, scratchpad)
+// never bleed into a new import.
+function resetStateForNewFlight() {
+  Object.assign(S, {
+    fltNum:'', date:'',
+    outZ:'', etaDest:'',
+    origIcao:'', destIcao:'',
+    altData:[],
+    oeiVal:'', stabTrim:'', gaFuel:'',
+    oeiData:[], oeiSelectedRwy:'',
+    blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
+    crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
+    ddgItems:[], melItems:'', overflightPerms:'',
+    altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
+    navLog:[], enrouteNotams:null, natTrack:null,
+    zfwActual:0, zfwLimit:0, zfwOFP:0, ldgwActual:0, ldgwLimit:0,
+    radioCallsign:'', verbalCallsign:'', isHeavy:false,
+    hasPerishables:false,
+    dotExemption: null,
+    hasTemperatureControl:false, hasVzfwCkLimit:false,
+    slotTime:null, catIiIiiApproaches:null, addlFfAdj:null,
+    descentAirport:'',
+    destEtaOffsetMins:null, tripMinutes:null,
+    userNotes:'', fcirNarrative:'', fcirAsap:false,
+    etopsEntry:'', etopsSpec:'', etpPoints:[],
+    activePhase:'preflight',
+    offZ:'', porWpt:'', porOffsetMins:null, porMinf:'', etopsEntryMins:null, etopsExit:'', etopsExitMins:null, rawOFP:'',
+    preAtisLetter:'', preAtisNotes:'', preParkingNotes:'',
+    descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
+    enrouteScratch:'',
+    alt1Fuel:'', destRemf:'',
+    zfwIncrFactor: null, taxiFuel:'',
+    blockFuelRaw:0, minfFuelRaw:0, destRemfRaw:0, taxiFuelRaw:0,
+    blockFuelEntered:null, zfwEntered:null, togwEntered:null,
+    showFuelRaw:false, showWeightRaw:false,
+  });
+  airportData = {};
+  pdfRawText = '';
+  pdfArrayBuffer = null;
+  _pdfDocProxy = null;
+  _fcirActive = false;
+  window._flightDateISO = '';
+  clearOFPPanel();
+  // Reset FCIR toggle UI
+  const tog = document.getElementById('fcirToggle');
+  if (tog) tog.checked = false;
+  const lbl = document.getElementById('fcirLabel');
+  if (lbl) lbl.classList.remove('active');
+}
+
+function recalcAllETAs() {
+  if (!S.outZ || S.outZ.length !== 4) return;
+  const baseMin = parseInt(S.outZ.slice(0,2))*60 + parseInt(S.outZ.slice(2,4));
+  const addMin  = (base, off) => {
+    const t = (base + off + 1440*4) % 1440;
+    return String(Math.floor(t/60)).padStart(2,'0') + String(t%60).padStart(2,'0');
+  };
+  // Use OFP-derived offset (DEST ETA − ORIG OFF from OFP header) for accuracy
+  // This preserves taxi/startup time that pure TRIP flight-time doesn't include
+  if (S.destEtaOffsetMins !== null) {
+    S.etaDest = addMin(baseMin, S.destEtaOffsetMins);
+  }
+  S.altData.forEach(a => {
+    if (a.ofpOffsetMins !== null) {
+      a.currentEta = addMin(baseMin, a.ofpOffsetMins);
+    }
+  });
+}
+
+// Recalculate IN time and alternate ETAs from the actual OFF (wheels-up) time.
+// Uses tripMinutes (OFP ETE) for DEST, and ofpOffsetMins adjusted for taxi time
+// for alternates. This keeps IN time accurate once airborne.
+// offZ is actual wheels-off; tripMinutes is OFP planned flight time (no taxi).
+function recalcAllETAsFromOff(offZval) {
+  if (!offZval || offZval.length !== 4) return;
+  const baseMin = parseInt(offZval.slice(0,2))*60 + parseInt(offZval.slice(2,4));
+  const addMin  = (base, off) => {
+    const t = (base + off + 1440*4) % 1440;
+    return String(Math.floor(t/60)).padStart(2,'0') + String(t%60).padStart(2,'0');
+  };
+  // DEST: offZ + tripMinutes + 10Minutes = actual IN estimate
+  if (S.tripMinutes !== null) {
+    S.etaDest = addMin(baseMin, S.tripMinutes);
+  }
+  // Alternates: offZ + (ofpOffsetMins − taxiApprox)
+  // ofpOffsetMins was computed as altETA − origOFF (includes taxi), so for
+  // airborne recalc we subtract the OFP taxi time: destEtaOffsetMins − tripMinutes
+  const taxiMins = (S.destEtaOffsetMins !== null && S.tripMinutes !== null)
+    ? S.destEtaOffsetMins - S.tripMinutes
+    : 0;
+  S.altData.forEach(a => {
+    if (a.ofpOffsetMins !== null) {
+      a.currentEta = addMin(baseMin, Math.max(0, a.ofpOffsetMins - taxiMins));
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════════════════════
+
+// ── IndexedDB PDF binary store ────────────────────────
+// Persists the raw PDF ArrayBuffer per flight so the OFP
+// viewer renders pages from the original PDF after reload.
+// localStorage quota (~5 MB) is too small for OFP PDFs.
+const _pdfDb = (() => {
+  let _db = null;
+  const _open = () => new Promise((res, rej) => {
+    if (_db) { res(_db); return; }
+    const req = indexedDB.open('pb_pdfs', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('pdfs');
+    req.onsuccess = e => { _db = e.target.result; res(_db); };
+    req.onerror   = e => rej(e.target.error);
+  });
+  return {
+    set: (key, buf) => {
+      if (!buf) return Promise.resolve();
+      return _open().then(db => new Promise((res, rej) => {
+        const tx = db.transaction('pdfs', 'readwrite');
+        tx.objectStore('pdfs').put(buf.slice(0), key); // slice to own the copy
+        tx.oncomplete = res;
+        tx.onerror = e => rej(e.target.error);
+      }));
+    },
+    get: (key) => _open().then(db => new Promise((res, rej) => {
+      const req = db.transaction('pdfs').objectStore('pdfs').get(key);
+      req.onsuccess = () => res(req.result || null);
+      req.onerror   = e => rej(e.target.error);
+    })),
+    del: (key) => _open().then(db => {
+      const tx = db.transaction('pdfs', 'readwrite');
+      tx.objectStore('pdfs').delete(key);
+    }).catch(() => {}),
+  };
+})();
+

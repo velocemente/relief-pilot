@@ -1,0 +1,835 @@
+function buildAirportCards() {
+  const grid = document.getElementById('airportGrid');
+  const empty = document.getElementById('emptyAirports');
+  const apts = getAllAirports();
+
+  if (!apts.length) { empty.style.display='flex'; return; }
+  empty.style.display='none';
+
+  // Remove old cards, keep empty state
+  [...grid.querySelectorAll('.apt-card')].forEach(c=>c.remove());
+
+  apts.forEach(apt => {
+    if (!airportData[apt.icao]) airportData[apt.icao]={notams:'',weather:'',opsNotes:null};
+    const data = airportData[apt.icao];
+    const status = evalAirport(apt.icao, apt.eta, data.notams, data.weather, apt.wxWindow, apt.role, S.acftType);
+    const sc = {green:'g',yellow:'y',red:'r',unknown:'u'}[status.color];
+    const sl = {green:'CLEAR',yellow:'REVIEW',red:'ALERT',unknown:'NO DATA'}[status.color];
+    const dotColor = {green:'var(--sys-green)',yellow:'var(--sys-yellow)',red:'var(--sys-red)',unknown:'var(--label3)'}[status.color];
+    const etaDisplay = apt.role === 'ORIG'
+      ? (apt.depTime ? `DEP ${apt.depTime}Z` : '')
+      : (apt.eta    ? `ETA ${apt.eta}Z`      : '');
+    // WX window: for CFS use OFP-provided window; for others compute ETA ±1hr per FOM §121.619
+    let wxWindowStr = '';
+    if (apt.wxWindow) {
+      // CFS airport — show OFP window verbatim (already "HHMMz-HHMMZ")
+      wxWindowStr = `EVAL ${apt.wxWindow.replace('Z-','Z–')}`;
+    } else if (apt.eta && apt.eta.length === 4) {
+      const em = parseInt(apt.eta.slice(0,2))*60 + parseInt(apt.eta.slice(2,4));
+      const wStart = (em - 60 + 1440) % 1440;
+      const wEnd   = (em + 60) % 1440;
+      const fmt4 = n => String(Math.floor(n/60)).padStart(2,'0') + String(n%60).padStart(2,'0');
+      wxWindowStr = `EVAL ${fmt4(wStart)}–${fmt4(wEnd)}Z`;
+    }
+
+    // ── Curfew evaluation for this airport ──
+    const cf = evalCurfew(apt.icao, apt.eta);
+    const hasCurfew = cf.color !== 'none';
+    const curfewColor = { green:'var(--sys-green)', yellow:'var(--sys-yellow)', red:'var(--sys-red)' }[cf.color] || '';
+    const curfewLabel = cf.color === 'red'   ? 'CURFEW' :
+                        cf.color === 'yellow' ? 'CURFEW' : 'CURFEW ✓';
+    // Delta label: "inside", "45 min", "2 hr 10 min"
+    let curfewDeltaStr = '';
+    if (hasCurfew) {
+      if (cf.delta === 0 || cf.delta === null) {
+        curfewDeltaStr = cf.delta === 0 ? 'ETA INSIDE CURFEW' : 'Check times';
+      } else {
+        const h = Math.floor(cf.delta / 60), m = cf.delta % 60;
+        curfewDeltaStr = h > 0 ? `${h} hr${m ? ' ' + m + ' min' : ''} to window` : `${m} min to window`;
+      }
+    }
+
+    const card = document.createElement('div');
+    card.className = 'apt-card section';
+    card.id = `apc-${apt.icao}`;
+    card.innerHTML = `
+      <div class="apt-card-header" onclick="toggleAptInputs('${apt.icao}')" aria-expanded="false" role="button">
+        <div class="apt-status-indicator" style="background:${dotColor}"></div>
+        <div class="apt-card-titles">
+          <div class="apt-card-icao">${apt.icao}</div>
+          <div class="apt-card-role">${apt.role}</div>
+        </div>
+        <div class="apt-eta-block">
+          ${etaDisplay ? `<div class="apt-eta-tag">${etaDisplay}</div>` : ''}
+          ${wxWindowStr ? `<div class="apt-wx-window">${esc(wxWindowStr)}</div>` : ''}
+        </div>
+        ${status.isEwins ? `<div class="apt-badge" style="background:rgba(0,122,255,0.12);color:var(--tint);margin-right:4px">EWINS</div>` : ''}
+        <div class="apt-badge ${sc}">${sl}</div>
+        <svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true" style="transform:rotate(90deg)"><path d="M1 1l6.5 6L1 13"/></svg>
+      </div>
+      <div class="apt-issues-list" id="api-${apt.icao}">
+        ${renderAptIssues(status)}
+      </div>
+      ${hasCurfew ? `
+      <div class="apt-curfew-row" onclick="showCurfewDetail('${apt.icao}')" role="button" aria-label="Curfew detail for ${apt.icao}" style="border-top:0.5px solid var(--sep)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="${curfewColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span class="apt-curfew-label" style="color:${curfewColor}">${curfewLabel}</span>
+        <span class="apt-curfew-delta">${esc(curfewDeltaStr)}</span>
+        <svg viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:7px;height:11px;flex-shrink:0;color:var(--label3)"><path d="M1 1l6.5 6L1 13"/></svg>
+      </div>` : ''}
+      ${renderAptOpsNotes(apt.icao)}
+      <div class="apt-inputs" id="api-in-${apt.icao}">
+        <div class="apt-input-row">
+          <div class="apt-input-label">NOTAM</div>
+          <textarea class="apt-input-ta ta-notam" id="ta-notam-${apt.icao}" placeholder="Paste NOTAMs…" aria-label="${apt.icao} NOTAMs" oninput="updateApt('${apt.icao}','notams',this.value)"></textarea>
+        </div>
+        <div class="apt-input-row">
+          <div class="apt-input-label">WX</div>
+          <textarea class="apt-input-ta ta-wx" id="ta-wx-${apt.icao}" placeholder="Paste TAF / METAR…" aria-label="${apt.icao} weather" oninput="updateApt('${apt.icao}','weather',this.value)"></textarea>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+    // [S9] User-controlled text (notams/weather) is never embedded in the
+    // innerHTML template. Set textarea values imperatively via .value on the
+    // live DOM nodes, preventing any <\/textarea><\/script> breakout vector.
+    const taN = document.getElementById(`ta-notam-${apt.icao}`);
+    const taW = document.getElementById(`ta-wx-${apt.icao}`);
+    if (taN) taN.value = data.notams  || '';
+    if (taW) taW.value = data.weather || '';
+  });
+}
+
+function showCurfewDetail(icao) {
+  const cf = evalCurfew(icao, (getAllAirports().find(a=>a.icao===icao)||{}).eta);
+  if (!cf.detail) return;
+  const col = { green:'var(--sys-green)', yellow:'var(--sys-yellow)', red:'var(--sys-red)' }[cf.color] || 'var(--label)';
+  const deltaStr = cf.delta === 0 ? 'ETA inside curfew window'
+    : cf.delta == null ? ''
+    : (() => { const h=Math.floor(cf.delta/60),m=cf.delta%60; return (h?`${h} hr `:'')+(m?`${m} min `:'')+`to curfew`; })();
+
+  const title = document.getElementById('curfewDetailTitle');
+  const delta = document.getElementById('curfewDetailDelta');
+  const pre   = document.getElementById('curfewDetailText');
+  if (title) { title.textContent = `${icao} — Curfew`; title.style.color = col; }
+  if (delta) delta.textContent = deltaStr;
+  if (pre)   pre.textContent   = cf.detail;
+  document.getElementById('curfewDetailOverlay').classList.add('open');
+}
+
+function closeCurfewDetail(e) {
+  if (e && e.target !== document.getElementById('curfewDetailOverlay')) return;
+  document.getElementById('curfewDetailOverlay').classList.remove('open');
+}
+
+function toggleAptInputs(icao) {
+  const inp = document.getElementById(`api-in-${icao}`);
+  const open = inp.style.display === 'flex';
+  inp.style.display = open ? 'none' : 'flex';
+  inp.style.flexDirection = 'column';
+}
+
+function updateApt(icao, field, value) {
+  if (!airportData[icao]) airportData[icao]={notams:'',weather:''};
+  airportData[icao][field] = value;
+  refreshAptCard(icao);
+  renderNote();
+}
+
+function refreshAptCard(icao) {
+  const card = document.getElementById(`apc-${icao}`); if (!card) return;
+  const apt = getAllAirports().find(a=>a.icao===icao); if (!apt) return;
+  const data = airportData[icao]||{notams:'',weather:''};
+  const status = evalAirport(icao, apt.eta, data.notams, data.weather, null, apt && apt.role, S.acftType);
+  const sc = {green:'g',yellow:'y',red:'r',unknown:'u'}[status.color];
+  const sl = {green:'CLEAR',yellow:'REVIEW',red:'ALERT',unknown:'NO DATA'}[status.color];
+  const dotColor={green:'var(--sys-green)',yellow:'var(--sys-yellow)',red:'var(--sys-red)',unknown:'var(--label3)'}[status.color];
+  card.querySelector('.apt-status-indicator').style.background = dotColor;
+  const badge = card.querySelector('.apt-badge');
+  badge.className = `apt-badge ${sc}`; badge.textContent = sl;
+  const issuesList = document.getElementById(`api-${icao}`);
+  if (issuesList) issuesList.innerHTML = renderAptIssues(status);
+}
+
+// ═══════════════════════════════════════════════════════
+//  ALTERNATE ROUTES SCREEN
+// ═══════════════════════════════════════════════════════
+function buildAltRouteCards() {
+  const grid      = document.getElementById('altRouteGrid');
+  const empty     = document.getElementById('emptyAltRoutes');
+  const routes    = S.altRoutes  || [];
+  const etpPoints = S.etpPoints  || [];
+
+  if (!routes.length && !etpPoints.length) { empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+
+  // Clear all existing cards but leave the empty-state node
+  Array.from(grid.children).forEach(c => { if (c.id !== 'emptyAltRoutes') c.remove(); });
+
+  routes.forEach((r, idx) => {
+    const card = document.createElement('div');
+    card.className = 'section altroute-card';
+    card.id = `arc-${idx}`;
+
+    // Header: title + copy icon
+    const hdr = document.createElement('div');
+    hdr.className = 'altroute-card-header';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'altroute-title';
+    titleEl.textContent = r.title;
+    hdr.appendChild(titleEl);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'icon-btn';
+    copyBtn.style.cssText = 'width:36px;height:36px;flex-shrink:0';
+    copyBtn.setAttribute('aria-label', 'Copy route to clipboard');
+    copyBtn.title = 'Copy route';
+    copyBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2"/>
+      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+    </svg>`;
+    copyBtn.addEventListener('click', () => copyAltRoute(idx, copyBtn));
+    hdr.appendChild(copyBtn);
+
+    card.appendChild(hdr);
+
+    // MORA line (if present)
+    if (r.mora) {
+      const moraEl = document.createElement('div');
+      moraEl.className = 'altroute-mora';
+      moraEl.textContent = `MORA ${r.mora} ft`;
+      card.appendChild(moraEl);
+    }
+
+    // Editable route textarea
+    const ta = document.createElement('textarea');
+    ta.className = 'altroute-ta';
+    ta.id = `ar-ta-${idx}`;
+    ta.setAttribute('aria-label', `${r.title} route`);
+    ta.setAttribute('spellcheck', 'false');
+    ta.setAttribute('autocorrect', 'off');
+    ta.setAttribute('autocapitalize', 'characters');
+    ta.value = r.route || '';
+    ta.addEventListener('input', () => {
+      S.altRoutes[idx].route = ta.value;
+      saveFlight();
+    });
+    card.appendChild(ta);
+
+    grid.appendChild(card);
+  });
+
+  // ── ETP coordinate block ─────────────────────────────────────────────────
+  // Appended after route cards when the OFP contains a Critical Fuel Scenario.
+  // Each row: label (ETP / ETP1 / ETP2) + coords in OFP format + copy button.
+  if (etpPoints.length) {
+    const sec = document.createElement('div');
+    sec.className = 'section etp-section';
+
+    const heading = document.createElement('div');
+    heading.className = 'etp-section-title';
+    heading.textContent = 'ETP Coordinates';
+    sec.appendChild(heading);
+
+    etpPoints.forEach(pt => {
+      const row = document.createElement('div');
+      row.className = 'etp-point-row';
+
+      const lbl = document.createElement('span');
+      lbl.className = 'etp-point-label';
+      lbl.textContent = pt.name;
+      row.appendChild(lbl);
+
+      const coord = document.createElement('span');
+      coord.className = 'etp-point-coord';
+      coord.textContent = pt.lat + '  ' + pt.lon;
+      row.appendChild(coord);
+
+      const btn = document.createElement('button');
+      btn.className = 'etp-copy-btn';
+      btn.setAttribute('aria-label', 'Copy ' + pt.name + ' coordinates');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+      btn.addEventListener('click', () => copyEtpCoord(pt, btn));
+      row.appendChild(btn);
+
+      sec.appendChild(row);
+    });
+
+    grid.appendChild(sec);
+  }
+}
+
+function copyAltRoute(idx, btn) {
+  const ta = document.getElementById(`ar-ta-${idx}`);
+  const txt = ta ? ta.value : ((S.altRoutes[idx] || {}).route || '');
+  if (!txt.trim()) { showToast('info', 'Route is empty'); return; }
+  _pbCopy(txt, btn);
+}
+
+function copyEtpCoord(pt, btn) {
+  const txt = pt.lat + ' ' + pt.lon;
+  _pbCopy(txt, btn);
+}
+
+// ── Evaluation engine (v1.9.0-r3) ────────────────────────────────────────────
+// NOTAM evaluation: evalNotams() from notam-rules.js (slot-based, per-aircraft)
+// Weather evaluation: classifyAirportStatus() / classifyRvr() from wx-rules.js
+// role: 'ORIG' | 'DEST' | 'ALT' — governs NOTAM slot assignment
+// acftType: ICAO type designator e.g. 'B748' — used for NOTAM applicability filter
+function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role, acftType) {
+  const issues = []; let worst = 'unknown';
+  const wxIssues = [];          // weather-only issues (for airport card wx display)
+  let   rwyGroups = new Map();  // grouped NOTAM data from evalNotams
+  let   sidIssues  = [];        // SID NOTAMs for ORIG card
+  let   starIssues = [];        // STAR NOTAMs for DEST/ALT card
+  const hN = notamText   && notamText.trim().length > 0;
+  const hW = weatherText && weatherText.trim().length > 0;
+
+  // ── E-WINS override: WSITAF supersedes standard TAF ────────────────────────
+  // If this airport was released under E-WINS authority, the WSITAF stored in
+  // airportData[icao].ewinsWeather is used in place of the OFP standard TAF.
+  var _ewRef = (typeof airportData !== 'undefined' && airportData) ? airportData[icao] : null;
+  var isEwins = !!(  _ewRef && _ewRef.ewinsWeather && _ewRef.ewinsWeather.trim());
+  var effectiveWx  = isEwins ? _ewRef.ewinsWeather : weatherText;
+  var effectiveWin = isEwins ? (_ewRef.ewinsWindow  || wxWindowOverride) : wxWindowOverride;
+  var hW_eff = !!(effectiveWx && effectiveWx.trim().length > 0);
+
+  if (!hN && !hW_eff) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
+
+  const etaMin = pZM(etaZ);   // ETA/DEP as minutes-of-day, null if unknown
+
+  // ── NOTAM evaluation — evalNotams() from notam-rules.js ──────────────────
+  if (hN) {
+    const notamArr  = _splitNotams(notamText);
+    const aptRole   = (role || 'DEST').toString().toUpperCase();
+    const evalRole  = aptRole === 'ORIG' ? 'ORIG' : 'DEST';
+    const flightISO = (typeof window !== 'undefined' && window._flightDateISO) || '';
+    const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO);
+
+    rwyGroups = result.rwyGroups;
+    sidIssues = result.sidIssues || [];
+    starIssues = result.starIssues || [];
+    result.issues.forEach(i => {
+      if (i.level !== 'green') issues.push({ level: i.level, text: i.text });
+    });
+    if (result.worst && result.worst !== 'unknown') {
+      worst = bump(worst, result.worst);
+    }
+
+    // ── GNSS enrichment — append spatial/temporal detail to existing GPS items ──
+    // evalGNSS() is defined by the GNSS NOTAM Ruleset IIFE (below evalNotams).
+    // It is called only when evalNotams() has already classified at least one GPS/GNSS
+    // item. The enrichment appends radius and altitude bounds inline — no new rows,
+    // no duplication.
+    if (typeof evalGNSS === 'function') {
+      const notamArr2 = _splitNotams(notamText);
+      for (var _gi = 0; _gi < notamArr2.length; _gi++) {
+        const _g = evalGNSS(notamArr2[_gi]);
+        if (!_g) continue;
+        const _parts = [];
+        if (_g.radius_nm) _parts.push('WI\u00a0' + _g.radius_nm + 'NM');
+        if (_g.affected_altitudes) {
+          const _a = _g.affected_altitudes;
+          _parts.push((_a.lower || 'SFC') + '\u2013' + (_a.upper || ''));
+        }
+        if (!_parts.length) continue;
+        // Find the first GPS/GNSS/RAIM issue row and append detail tag
+        const _detail = '<span class="gnss-spatial"> ' + _parts.join('\u00a0') + '</span>';
+        for (var _ii = 0; _ii < issues.length; _ii++) {
+          if (/GPS|GNSS|RAIM/i.test(issues[_ii].text || '')) {
+            issues[_ii].text += _detail;
+            break; // one enrichment per GNSS event
+          }
+        }
+      }
+    }
+  }
+
+  // ── WEATHER evaluation — classifyAirportStatus() from wx-rules.js ────────
+  // FOM §7.1.31:
+  //   OPEN        (GREEN)  — Ceiling ≥ 3,000 ft  AND visibility ≥ 5 SM
+  //   OPERATIONAL (YELLOW) — Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM
+  //   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
+  //   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
+  if (hW_eff) {
+    const relevantWx = extractEtaWindow(effectiveWx, etaMin, effectiveWin);
+    const wx = relevantWx.toUpperCase();
+
+    const ceil      = pCeil(wx);
+    const vis       = pVis(wx);
+    const rvrResult = pRVR(wx);
+
+    const _pushWx = (issue) => { issues.push(issue); wxIssues.push(issue); };
+
+    // Prevailing ceiling + vis — worst governs
+    const status = classifyAirportStatus(ceil, vis ? vis.sm : null);
+    if (status.status !== 'OPEN') {
+      const level  = status.color;
+      const cls    = level === 'red' ? 'r' : 'y';
+      const visStr = vis  ? `VIS <span class="wx-val ${cls}">${esc(vis.label)}</span>`  : null;
+      const cigStr = ceil !== null ? `CIG <span class="wx-val ${cls}">${esc(String(ceil))}ft</span>` : null;
+      const parts  = [cigStr, visStr].filter(Boolean).join(' &nbsp;');
+      const text   = status.status === 'LIFR'
+                   ? `🔴 ${parts}`
+                   : status.status === 'INSTRUMENTS'
+                   ? `🔴 INSTRUMENTS — ${parts}`
+                   : `⚠ OPERATIONAL — ${parts}`;
+      _pushWx({ level, text });
+      worst = bump(worst, level);
+    }
+
+    // RVR
+    if (rvrResult !== null) {
+      const rvrStatus = classifyRvr(rvrResult.ft);
+      if (rvrStatus !== 'open') {
+        const level = (rvrStatus === 'operational') ? 'yellow' : 'red';
+        const cls   = level === 'red' ? 'r' : 'y';
+        const pfx   = rvrStatus === 'operational' ? '⚠ OPERATIONAL'
+                    : rvrStatus === 'instruments'  ? '🔴 INSTRUMENTS'
+                    :                               '🔴';
+        _pushWx({ level, text: `${pfx} — RVR <span class="wx-val ${cls}">${esc(rvrResult.label)}</span>` });
+        worst = bump(worst, level);
+      }
+    }
+
+    // TEMPO ceiling / vis
+    const tc = pGCeil(wx, 'TEMPO');
+    const tv = pGVis(wx,  'TEMPO');
+    if (tc !== null) {
+      const ts = classifyAirportStatus(tc, null);
+      if (ts.status !== 'OPEN') {
+        const level = ts.color; const cls = level === 'red' ? 'r' : 'y';
+        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} TEMPO CIG <span class="wx-val ${cls}">${esc(String(tc))}ft</span>` });
+        worst = bump(worst, level);
+      }
+    }
+    if (tv !== null) {
+      const vs = classifyAirportStatus(null, tv.sm);
+      if (vs.status !== 'OPEN') {
+        const level = vs.color; const cls = level === 'red' ? 'r' : 'y';
+        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} TEMPO VIS <span class="wx-val ${cls}">${esc(tv.label)}</span>` });
+        worst = bump(worst, level);
+      }
+    }
+
+    // PROB40 — treat as prevailing per FOM
+    const p4c = pGCeil(wx, 'PROB40');
+    const p4v = pGVis(wx,  'PROB40');
+    if (p4c !== null) {
+      const s = classifyAirportStatus(p4c, null);
+      if (s.status !== 'OPEN') {
+        const level = s.color; const cls = level === 'red' ? 'r' : 'y';
+        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} PROB40 CIG <span class="wx-val ${cls}">${esc(String(p4c))}ft</span>` });
+        worst = bump(worst, level);
+      }
+    }
+    if (p4v !== null) {
+      const s = classifyAirportStatus(null, p4v.sm);
+      if (s.status !== 'OPEN') {
+        const level = s.color; const cls = level === 'red' ? 'r' : 'y';
+        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} PROB40 VIS <span class="wx-val ${cls}">${esc(p4v.label)}</span>` });
+        worst = bump(worst, level);
+      }
+    }
+
+    // PROB30 + significant weather — advisory
+    if (/PROB30/.test(wx) && /TS|FZRA|\+SN|\+RA/.test(wx)) {
+      _pushWx({ level:'yellow', text:'⚠ PROB30 SIG WX' }); worst = bump(worst,'yellow');
+    }
+    if (/\bTS\b|\bTSRA\b/.test(wx)) {
+      _pushWx({ level:'yellow', text:'⚠ TSRA' }); worst = bump(worst,'yellow');
+    }
+    if (/FZRA|FZDZ/.test(wx)) {
+      _pushWx({ level:'yellow', text:'⚠ FZ PRECIP' }); worst = bump(worst,'yellow');
+    }
+    if (/WS\d{3}\/|LLWS|WINDSHEAR/.test(wx)) {
+      _pushWx({ level:'red', text:'⚠ Windshear' }); worst = bump(worst,'red');
+    }
+
+    // Open — no issues
+    if (!wxIssues.filter(i => i.level !== 'green').length && hW_eff) {
+      const visStr  = vis  ? `, VIS ${vis.label}`  : '';
+      const ceilStr = ceil !== null ? ` (CIG ${ceil}ft${visStr})` : '';
+      const openIssue = { level:'green', text:`✓ Open — wx at or above mins${ceilStr}` };
+      issues.push(openIssue); wxIssues.push(openIssue);
+    }
+  }
+
+  if (worst === 'unknown' && (hN || hW_eff)) worst = 'green';
+  return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues, isEwins: !!isEwins };
+}
+
+
+// ── TAF window extractor ─────────────────────────────────────────────────
+// Returns the substring of weatherText covering groups that overlap ETA ±60 min.
+// If ETA is unknown or no TAF found, returns full weatherText.
+//
+// TAF group types handled:
+//   Base:  "TAF [AMD] ICAO DDHHmmZ DDHH/DDHH conditions..."
+//   FM:    "FM DDHHMM conditions..."  (valid until next FM or end of TAF)
+//   TEMPO: "TEMPO DDHH/DDHH conditions..."
+//   BECMG: "BECMG DDHH/DDHH conditions..."
+//   PROB:  "PROB30 DDHH/DDHH" / "PROB40 DDHH/DDHH"
+//
+// All day-hours converted to absolute minutes (day*1440 + HH*60 + MM).
+// ETA window = etaDay*1440 + etaMin ± 60.
+function extractEtaWindow(weatherText, etaMin, wxWindowOverride) {
+  if (etaMin === null && !wxWindowOverride) return weatherText;
+
+  // Determine flight date day-of-month from _flightDateISO for day anchoring
+  const iso = window._flightDateISO; // "YYYY-MM-DD"
+  const flightDay = iso ? parseInt(iso.slice(8,10)) : null;
+
+  // Convert DDHH or DDHHMM to absolute minutes (DD * 1440 + HH*60 + MM)
+  function toAbsMin(dd, hh, mm) {
+    return parseInt(dd)*1440 + parseInt(hh)*60 + (mm ? parseInt(mm) : 0);
+  }
+
+  // ETA absolute minutes — anchor on flight day
+  const etaDay = flightDay || 1;
+  let winStart, winEnd;
+
+  if (wxWindowOverride) {
+    // CFS airport: use OFP-provided WX WINDOW exactly ("HHMMz-HHMMZ")
+    const wm = wxWindowOverride.match(/(\d{4})Z-(\d{4})Z/i);
+    if (wm) {
+      const wsMin = parseInt(wm[1].slice(0,2))*60 + parseInt(wm[1].slice(2,4));
+      const weMin = parseInt(wm[2].slice(0,2))*60 + parseInt(wm[2].slice(2,4));
+      winStart = etaDay * 1440 + wsMin;
+      winEnd   = etaDay * 1440 + weMin;
+      if (winEnd < winStart) winEnd += 1440; // crosses midnight
+    } else {
+      winStart = etaDay * 1440 + (etaMin||0) - 60;
+      winEnd   = etaDay * 1440 + (etaMin||0) + 60;
+    }
+  } else {
+    const etaAbs = etaDay * 1440 + etaMin;
+    winStart = etaAbs - 60;
+    winEnd   = etaAbs + 60;
+  }
+
+  // Try to extract only the TAF section
+  const tafMatch = weatherText.match(/TAF(?:\s+AMD)?\s+[A-Z]{4}[\s\S]*/i);
+  if (!tafMatch) return weatherText; // no TAF — return full text (METAR only)
+  const taf = tafMatch[0];
+
+  // Split TAF into groups at FM / TEMPO / BECMG / PROB boundaries + base group
+  // Regex splits on group-start keywords, keeping delimiters
+  const groupRe = /(?=\bFM\d{6}\b|\bTEMPO\b|\bBECMG\b|\bPROB\d{2}\b)/g;
+  const parts = taf.split(groupRe);
+  if (parts.length <= 1) return weatherText; // can't split, return all
+
+  // Parse TAF header for base validity: DDHH/DDHH
+  const hdrM = taf.match(/TAF(?:\s+AMD)?\s+[A-Z]{4}\s+\d{6}Z\s+(\d{2})(\d{2})\/(\d{2})(\d{2})/i);
+  let tafEndAbs = winEnd + 120; // fallback
+  if (hdrM) {
+    tafEndAbs = toAbsMin(hdrM[3], hdrM[4], 0);
+    if (tafEndAbs < toAbsMin(hdrM[1], hdrM[2], 0)) tafEndAbs += 7*1440; // wrap (unlikely)
+  }
+
+  // Build FM group list with start times, to determine each group's end
+  const fmGroups = [];
+  for (const p of parts) {
+    const fm = p.match(/^FM(\d{2})(\d{2})(\d{2})/);
+    if (fm) fmGroups.push({ abs: toAbsMin(fm[1], fm[2], fm[3]), text: p });
+  }
+
+  const relevant = [];
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+
+    // FM group — valid from start until next FM group or TAF end
+    const fm = p.match(/^FM(\d{2})(\d{2})(\d{2})/);
+    if (fm) {
+      const gStart = toAbsMin(fm[1], fm[2], fm[3]);
+      const nextFm = fmGroups.find(g => g.abs > gStart);
+      const gEnd   = nextFm ? nextFm.abs : tafEndAbs;
+      if (gStart < winEnd && gEnd > winStart) relevant.push(p);
+      continue;
+    }
+
+    // TEMPO / BECMG / PROB — have explicit DDHH/DDHH window
+    const wm = p.match(/^(?:TEMPO|BECMG|PROB\d{2})\s+(\d{2})(\d{2})\/(\d{2})(\d{2})/i);
+    if (wm) {
+      const gStart = toAbsMin(wm[1], wm[2], 0);
+      const gEnd   = toAbsMin(wm[3], wm[4], 0);
+      const effEnd = gEnd <= gStart ? gEnd + 1440 : gEnd; // midnight wrap
+      if (gStart < winEnd && effEnd > winStart) relevant.push(p);
+      continue;
+    }
+
+    // Base group (everything before first FM/TEMPO/BECMG) — always include
+    if (i === 0) relevant.push(p);
+  }
+
+  // If nothing matched (e.g. ETA far outside TAF validity), return base + all
+  return relevant.length ? relevant.join('\n') : taf;
+}
+
+// ═══════════════════════════════════════════════════════
+//  NOTAM DATE/TIME PARSING  (v1.2.0)
+//
+//  Atlas/Polar OFP NOTAM format:
+//    - ICAO NNNN/YY (SERIES/NUM) DDMMMHHmm-DDMMMHHmm [YYYY] [EST]
+//  Examples from live OFP:
+//    06MAR0800-06MAR1400          → day 6 Mar 0800Z to 1400Z (year from OFP date)
+//    05MAR2354-06MAR2354          → spans midnight
+//    20JAN2024-15JUN1500          → long-running (start year inferred, end year explicit)
+//    31MAY2200 2026               → trailing year on end date
+//    12FEB0423-PERM               → permanent → treated as always active
+//
+//  Resolution: parse each date-token as DDMMMHHmmZ using OFP flight year as
+//  the base year. When end month < start month the end year is incremented.
+//  All times expressed as UTC milliseconds for unambiguous comparison.
+// ═══════════════════════════════════════════════════════
+
+const _MON = {JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+
+// Parse a single NOTAM date-token "DDMMMHHmm" → UTC ms.
+// baseYear: flight year from _flightDateISO. endYear: explicit trailing year if present.
+function _parseNotamToken(token, baseYear, endYear) {
+  const m = token.match(/^(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{4})$/i);
+  if (!m) return null;
+  const dd = parseInt(m[1]);
+  const mo = _MON[m[2].toUpperCase()];
+  const hh = parseInt(m[3].slice(0, 2));
+  const mi = parseInt(m[3].slice(2, 4));
+  const yr = endYear || baseYear || new Date().getUTCFullYear();
+  return Date.UTC(yr, mo, dd, hh, mi);
+}
+
+// Extract UTC window {startMs, endMs} from a single NOTAM line or block.
+// Returns null if no parseable timestamps found (→ treated as always active).
+function xNW(notamLine) {
+  const iso  = window._flightDateISO;                   // "YYYY-MM-DD"
+  const baseYear = iso ? parseInt(iso.slice(0, 4)) : new Date().getUTCFullYear();
+
+  // Pattern: DDMMMHHmm-DDMMMHHmm [YYYY] | DDMMMHHmm-PERM
+  const re = /(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})-(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)(?:\s+(\d{4}))?/i;
+  const m = notamLine.match(re);
+  if (!m) return null;
+
+  // PERM → end is far future; start year = baseYear
+  if (/^PERM$/i.test(m[2])) {
+    const sMs = _parseNotamToken(m[1], baseYear, baseYear);
+    if (sMs === null) return null;
+    return { startMs: sMs, endMs: Date.UTC(baseYear + 50, 0, 1) };
+  }
+
+  // Month indices for year inference
+  const startMo = _MON[m[1].slice(2, 5).toUpperCase()];
+  const endMo   = _MON[m[2].slice(2, 5).toUpperCase()];
+
+  // Explicit trailing year on the end token (e.g. "31MAR2359 2026")
+  const trailingYear = m[3] ? parseInt(m[3]) : null;
+
+  // End year: explicit trailing > inferred (cross-month → next year) > baseYear
+  const endYear   = trailingYear || (endMo < startMo ? baseYear + 1 : baseYear);
+
+  // Start year: if the NOTAM crosses a calendar year boundary,
+  // the start must be in the previous year (e.g. 29DEC→31MAR crosses Dec/Jan)
+  let startYear = (endMo < startMo) ? endYear - 1 : endYear;
+
+  let startMs = _parseNotamToken(m[1], baseYear, startYear);
+  const endMs   = _parseNotamToken(m[2], baseYear, endYear);
+  if (startMs === null || endMs === null) return null;
+
+  // ── Multi-year NOTAM guard ──────────────────────────────────────────
+  // When an explicit trailing year is present and startMo === endMo, the
+  // 1-year heuristic can produce an inverted window. Use the NOTAM ID
+  // issuance year (/YY) as the authoritative start year anchor.
+  if (trailingYear && (endYear > baseYear || startMs >= endMs)) {
+    const idM = notamLine.match(/\b[A-Z]\d{4}\/(\d{2})\b/i);
+    if (idM) {
+      const century = Math.floor(endYear / 100) * 100;
+      let issYear = century + parseInt(idM[1]);
+      if (issYear > endYear) issYear -= 100;
+      const tryMs = _parseNotamToken(m[1], baseYear, issYear);
+      if (tryMs !== null && tryMs < endMs) startMs = tryMs;
+    }
+    if (startMs >= endMs) {
+      for (let sy = startYear - 1, lim = 5; sy >= startYear - lim; sy--) {
+        const tryMs = _parseNotamToken(m[1], baseYear, sy);
+        if (tryMs !== null && tryMs < endMs) { startMs = tryMs; break; }
+      }
+    }
+  }
+
+  return { startMs, endMs };
+}
+
+// Does a NOTAM UTC window overlap with ETA ±60 min?
+// etaMin = minutes-of-day (0-1439). etaDate anchored to _flightDateISO.
+function nwOverlap(w, etaMin) {
+  if (etaMin === null) return true;           // no ETA known → treat as active
+  const iso = window._flightDateISO;
+  if (!iso) return true;                      // no flight date → treat as active
+  const etaMs   = new Date(iso + 'T00:00:00Z').getTime()
+                  + Math.floor(etaMin / 60) * 3600000
+                  + (etaMin % 60) * 60000;
+  const winStart = etaMs - 3600000;           // ETA − 1 hour
+  const winEnd   = etaMs + 3600000;           // ETA + 1 hour
+  return w.startMs < winEnd && w.endMs > winStart;
+}
+
+// Back-compat alias (used in tests/compat calls)
+function oETA(w, etaMin) { return nwOverlap(w, etaMin); }
+
+// Split a NOTAM text blob into individual NOTAM entries.
+// Each entry starts with "- ICAO" (Atlas/Polar OFP format).
+function _splitNotams(text) {
+  // Split on lines beginning with "- XXXX" where XXXX is a 4-letter ICAO
+  const parts = text.split(/^(?=- [A-Z]{4}\b)/m).filter(s => s.trim());
+  return parts.length > 1 ? parts : [text]; // fallback: treat as single block
+}
+
+// Find the NOTAM window for the first NOTAM in a blob that matches a keyword regex.
+// Returns xNW result for that specific NOTAM, or null if not found / no timestamp.
+function _notamWindow(text, keywordRe) {
+  const notams = _splitNotams(text);
+  for (const n of notams) {
+    if (keywordRe.test(n.toUpperCase())) {
+      return xNW(n);
+    }
+  }
+  return null;
+}
+
+// Keep oETA as alias for back-compatibility
+// (already declared above)
+function bump(a,b){const o=['unknown','green','yellow','red'];return o.indexOf(b)>o.indexOf(a)?b:a;}
+
+// Micro-parsers (used by evalAirport)
+function pZM(s){if(!s)return null;const c=s.replace(/\D/g,'');if(c.length<4)return null;return parseInt(c.slice(0,2))*60+parseInt(c.slice(2,4));}
+
+// pCeil: lowest BKN or OVC layer in feet (returns null if none)
+function pCeil(wx){const m=[...wx.matchAll(/(?:BKN|OVC)(\d{3})/g)];if(!m.length)return null;return Math.min(...m.map(x=>parseInt(x[1])*100));}
+
+// pVis: prevailing visibility
+// Returns { sm: number, label: string } or null.
+//   sm    — visibility in statute miles (for category threshold comparison)
+//   label — display string with correct unit ("10SM", "9999m", "5.0KM", "1 1/2SM")
+//
+// Handles all ICAO/FAA formats:
+//   SM group:    P6SM | \d{1,2}SM | \d \d/\dSM | \d/\dSM  → label shows "SM"
+//   KM group:    \d{1,3}KM                                 → label shows "KM"
+//   ICAO metres: standalone 4-digit token, 0000–9999, not a time/period group
+//                9999 → ">10km" label; others → label shows "m"
+//
+// Exclusion rules for 4-digit metre tokens:
+//   - Must be preceded by space (not part of a longer number)
+//   - NOT followed by / (would be a TAF period like 0604/0606)
+//   - NOT followed by Z (would be a Zulu time group)
+//   - NOT followed by KT/MH/PS (would be wind)
+function pVis(wx) {
+  // Strip RVR groups first so R28L/0600 doesn't confuse the metre scanner
+  const w = wx.replace(/\bR\d{2}[LRC]?\/[MP]?\d+(?:FT)?\b/g, '');
+
+  // P6SM
+  if (/\bP6SM\b/.test(w)) return { sm: 7, label: 'P6SM' };
+
+  // SM: whole + fraction  (e.g. "1 1/2SM")
+  let m = w.match(/(?<!\d)(\d{1,2})\s+(\d)\/(\d+)SM\b/);
+  if (m) {
+    const sm = parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]);
+    return { sm, label: `${m[1]} ${m[2]}/${m[3]}SM` };
+  }
+  // SM: fraction only (e.g. "1/4SM")
+  m = w.match(/(?<!\d)(\d)\/(\d+)SM\b/);
+  if (m) {
+    const sm = parseInt(m[1]) / parseInt(m[2]);
+    return { sm, label: `${m[1]}/${m[2]}SM` };
+  }
+  // SM: whole number (e.g. "10SM", "3SM")
+  m = w.match(/(?<!\d)(\d{1,2})SM\b/);
+  if (m) return { sm: parseFloat(m[1]), label: `${m[1]}SM` };
+
+  // KM (e.g. "9KM", "10KM")
+  m = w.match(/(?<!\d)(\d{1,3})KM\b/);
+  if (m) {
+    const km = parseFloat(m[1]);
+    return { sm: km * 0.6214, label: `${m[1]}KM` };
+  }
+
+  // ICAO 4-digit metres — standalone token only
+  for (const tm of w.matchAll(/(?<!\d)(\d{4})(?!\d)/g)) {
+    const pos  = tm.index;
+    const val  = parseInt(tm[1]);
+    const prev = pos > 0 ? w[pos - 1] : ' ';
+    const next = w.slice(tm.index + 4, tm.index + 6);
+
+    if (prev !== ' ') continue;             // must be space-separated
+    if (/^[\/Z]/.test(next)) continue;      // TAF period (0604/0606) or Zulu time
+    if (/^(KT|MH|PS)/.test(next)) continue; // wind group
+
+    if (val === 9999) return { sm: 7, label: '9999m' };
+    if (val <= 9999)  return { sm: val / 1609.34, label: `${val}m` };
+  }
+
+  return null;
+}
+
+// pRVR: parse the worst (lowest) RVR value from the weather text
+// Formats: R28L/2400FT  R28/2400  R28L/M0600FT  R10C/1200  (ICAO m) R10/4000FT (US ft)
+// Returns { ft: number, label: string } | null
+// US airports use feet (presence of "FT" suffix or values ≥ 600 with no "M" prefix and context).
+// ICAO airports use metres (no FT suffix, 3-4 digit value < 2000 context).
+// For US: if "FT" present or value ≥ 600 with no FT → ambiguous, default to ft for values ≥ 600.
+// Heuristic: if the text already contains SM or METAR US format → ft; otherwise → metres.
+function pRVR(wx) {
+  // Match all RVR entries: R<rwy>/<M?><value><FT?>
+  const rvrRe = /\bR(\d{2}[LRC]?)\/([MP]?)(\d+)(FT)?/g;
+  const matches = [...wx.matchAll(rvrRe)];
+  if (!matches.length) return null;
+
+  const isUS = /\bSM\b/.test(wx);  // SM present → US METAR → values are in feet
+  let worstFt = Infinity;
+  let worstLabel = '';
+
+  for (const m of matches) {
+    const rwy     = m[1];
+    const prefix  = m[2]; // 'M' = less than, 'P' = more than
+    const val     = parseInt(m[3]);
+    const hasFT   = !!m[4];
+    if (prefix === 'P') continue; // "more than" — not a restriction
+
+    let ft;
+    if (hasFT || isUS) {
+      ft = val;  // already feet
+    } else {
+      // ICAO metres — convert to feet for thresholds
+      ft = Math.round(val * 3.281);
+    }
+
+    if (ft < worstFt) {
+      worstFt = ft;
+      // Build display label
+      if (hasFT || isUS) {
+        worstLabel = `R${rwy}/${prefix}${val}FT`;
+      } else {
+        worstLabel = `R${rwy}/${prefix}${val}m`;
+      }
+    }
+  }
+
+  return worstFt === Infinity ? null : { ft: worstFt, label: worstLabel };
+}
+
+// pGCeil: lowest BKN/OVC ceiling in a named group (e.g. TEMPO)
+function pGCeil(wx,g){const re=new RegExp(`${g}[^A-Z]*(BKN|OVC)(\\d{3})`,'g');const m=[...wx.matchAll(re)];if(!m.length)return null;return Math.min(...m.map(x=>parseInt(x[2])*100));}
+
+// pGVis: lowest visibility in a named TAF group (e.g. TEMPO, BECMG)
+// Returns { sm, label } or null — same shape as pVis()
+function pGVis(wx, g) {
+  const re = new RegExp(`${g}\\b([\\s\\S]*?)(?=BECMG|TEMPO|PROB|FM\\d{6}|$)`, 'g');
+  let worst = null;
+  for (const gm of wx.matchAll(re)) {
+    const block = gm[1];
+    const v = pVis(block);
+    if (v !== null && (worst === null || v.sm < worst.sm)) worst = v;
+  }
+  return worst;
+}
+

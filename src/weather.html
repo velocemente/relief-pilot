@@ -1,0 +1,1131 @@
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+//  WX RULESET  v1.9.0-r3
+//  Weather classification — loaded from wx-rules.js
+// ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// § 1 · UNIT & MEASUREMENT STANDARDS
+//       Source: FAA AIP GEN 2.1 TBL GEN 2.1-1
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * US aeronautical measurement units as specified in AIP GEN 2.1.
+ * All conversions assume standard US aviation publications.
+ */
+const UNITS = {
+  distance:      'nautical miles (tenths)',   // nav/position reporting
+  shortDistance: 'feet',                      // runway lengths, aerodrome
+  altitude:      'feet MSL',                  // altitudes, elevations, heights
+  speed:         'knots',                     // horizontal, wind speed
+  verticalSpeed: 'feet per minute',
+  windDirLanding:'degrees magnetic',          // for landing/takeoff
+  windDirEnRoute:'degrees true',              // except landing/takeoff
+  visibility:    'statute miles or feet',     // incl. runway visual range
+  altimeter:     'inches of mercury (inHg)',  // AIP GEN 2.1 — US standard
+  temperature:   'degrees Fahrenheit',        // US publications
+  weight:        'pounds',
+  time:          'UTC (Zulu)',                // 24-hr day beginning midnight UTC
+};
+
+/**
+ * Convert meters to statute miles (for visibility).
+ * @param {number} meters
+ * @returns {number}
+ */
+function metersToStatuteMiles(meters) {
+  return meters / 1609.344;
+}
+
+/**
+ * Convert feet to meters.
+ * @param {number} feet
+ * @returns {number}
+ */
+function feetToMeters(feet) {
+  return feet * 0.3048;
+}
+
+/**
+ * Convert Celsius to Fahrenheit.
+ * ICAO METAR reports temperature in °C; US publications use °F.
+ * @param {number} celsius
+ * @returns {number}
+ */
+function celsiusToFahrenheit(celsius) {
+  return (celsius * 9 / 5) + 32;
+}
+
+/**
+ * Convert hPa (millibars) to inHg.
+ * ICAO uses hPa; US altimeter setting is inHg (AIP GEN 2.1).
+ * @param {number} hpa
+ * @returns {number}
+ */
+function hpaToInhg(hpa) {
+  return hpa * 0.02953;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 2 · TIME SYSTEM
+//       Source: FAA AIP GEN 2.1 §2 — UTC is the standard
+//       ICAO Doc 4444 §3.6 — time references in ATC
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * US time zone offsets from UTC (standard time).
+ * Daylight Saving shifts each offset by +1 hr.
+ * Source: FAA AIP GEN 2.1 FIG GEN 2.1-1
+ */
+const US_TIMEZONES = {
+  // CONUS
+  'AST':  -4,  'EST':  -5,  'CST':  -6,
+  'MST':  -7,  'PST':  -8,  'AKST': -9,
+  // Hawaii does not observe DST
+  'HST': -10,
+  // Daylight variants
+  'ADT':  -3,  'EDT':  -4,  'CDT':  -5,
+  'MDT':  -6,  'PDT':  -7,  'AKDT': -8,
+  // Military / NATO single-letter codes (ICAO Doc 4444 App 2)
+  'Z': 0, 'A': -1, 'B': -2, 'C': -3, 'D': -4, 'E': -5,
+  'F': -6,'G': -7,'H': -8,'I': -9,'K':-10,'L':-11,'M':-12,
+  'N':  1,'O':  2,'P':  3,'Q':  4,'R':  5,'S':  6,'T':  7,
+  'U':  8,'V':  9,'W': 10,'X': 11,'Y': 12,
+};
+
+/**
+ * Convert a UTC time string to local time for a given airport or timezone.
+ * Supports HHMM format (METAR/TAF convention) or ISO 8601.
+ *
+ * @param {string} utcTime - e.g. '1430', '2024-03-13T14:30:00Z'
+ * @param {string|number} tzOrOffset - timezone abbreviation or UTC offset (numeric hours)
+ * @returns {{ local: string, tzAbbr: string, utcOffset: number }}
+ */
+function convertUtcToLocal(utcTime, tzOrOffset) {
+  let offsetHours;
+
+  if (typeof tzOrOffset === 'number') {
+    offsetHours = tzOrOffset;
+  } else {
+    const tz = tzOrOffset.toUpperCase();
+    if (!(tz in US_TIMEZONES)) {
+      throw new Error(`Unknown timezone: ${tzOrOffset}. Add to US_TIMEZONES if needed.`);
+    }
+    offsetHours = US_TIMEZONES[tz];
+  }
+
+  // Parse HHMM format (most common in METAR/TAF)
+  let hours, minutes;
+  if (/^\d{4}$/.test(utcTime)) {
+    hours   = parseInt(utcTime.slice(0, 2), 10);
+    minutes = parseInt(utcTime.slice(2, 4), 10);
+  } else {
+    const d = new Date(utcTime);
+    hours   = d.getUTCHours();
+    minutes = d.getUTCMinutes();
+  }
+
+  let localHours = (hours + offsetHours + 48) % 24; // +48 ensures positive mod
+  const dayShift = Math.floor((hours + offsetHours) / 24);
+
+  const localStr = String(localHours).padStart(2, '0') + String(minutes).padStart(2, '0');
+  const tzAbbr = typeof tzOrOffset === 'string' ? tzOrOffset.toUpperCase() : `UTC${offsetHours >= 0 ? '+' : ''}${offsetHours}`;
+
+  return {
+    local:     localStr,
+    tzAbbr,
+    utcOffset: offsetHours,
+    dayShift,          // -1 previous day, 0 same day, +1 next day
+    display:   `${localStr} ${tzAbbr}`,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 3 · METAR / SPECI PARSING
+//       Source: FAA AIP GEN 3.5 §3.5.2, TBL GEN 3.5-2
+//       ICAO Doc 4444 App 2 — METAR/SPECI format
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * SPECI issuance criteria.
+ * Source: FAA AIP GEN 3.5 TBL GEN 3.5-2
+ * A SPECI must be issued when any of these conditions is met.
+ */
+const SPECI_CRITERIA = [
+  {
+    id:       1,
+    category: 'Wind Shift',
+    rule:     'Wind direction changes ≥45° in <15 min with wind speed ≥10 kt throughout.',
+  },
+  {
+    id:       2,
+    category: 'Visibility',
+    rule:     'Visibility crosses: 3SM, 2SM, 1SM, ½SM, ¼SM, or lowest IAP minimum (either direction).',
+  },
+  {
+    id:       3,
+    category: 'RVR',
+    rule:     'Highest RVR on designated runway crosses 2,400 ft threshold (either direction) in preceding 10 min.',
+  },
+  {
+    id:       4,
+    category: 'Tornado/Funnel Cloud/Waterspout',
+    rule:     'Observed, OR disappears from sight / ends.',
+  },
+  {
+    id:       5,
+    category: 'Thunderstorm',
+    rule:     'Begins (if none currently reported), or ends.',
+  },
+  {
+    id:       6,
+    category: 'Precipitation',
+    rule:     'Hail begins/ends; freezing precip begins/ends/changes intensity; ice pellets begin/end/change; snow begins/ends/changes intensity.',
+  },
+  {
+    id:       7,
+    category: 'Squall',
+    rule:     'Wind suddenly increases ≥16 kt and sustains ≥22 kt for ≥1 minute.',
+  },
+  {
+    id:       8,
+    category: 'Ceiling',
+    rule:     'Ceiling forms, dissipates below, decreases to <, or increases to ≥: 3000ft, 1500ft, 1000ft, 500ft, or lowest IAP minimum.',
+  },
+  {
+    id:       9,
+    category: 'Sky Condition',
+    rule:     'A layer/obscuration appears below 1000ft when none was reported below 1000ft in preceding METAR/SPECI.',
+  },
+  {
+    id:       10,
+    category: 'Volcanic Eruption',
+    rule:     'When eruption is first noted.',
+  },
+  {
+    id:       11,
+    category: 'Aircraft Mishap',
+    rule:     'Upon notification, unless an intervening observation has been made.',
+  },
+  {
+    id:       12,
+    category: 'Miscellaneous',
+    rule:     'Any other critical meteorological situation designated by the responsible agency.',
+  },
+];
+
+/**
+ * Cloud cover decode map.
+ * Source: ICAO Doc 4444 / standard METAR format
+ */
+const SKY_COVER = {
+  SKC:  { coverage: 0,    label: 'Sky Clear',           oktas: '0/8' },
+  CLR:  { coverage: 0,    label: 'Clear (auto)',         oktas: '0/8' },
+  FEW:  { coverage: 0.25, label: 'Few',                  oktas: '1-2/8' },
+  SCT:  { coverage: 0.50, label: 'Scattered',            oktas: '3-4/8' },
+  BKN:  { coverage: 0.75, label: 'Broken (ceiling)',     oktas: '5-7/8' },
+  OVC:  { coverage: 1.00, label: 'Overcast (ceiling)',   oktas: '8/8' },
+  VV:   { coverage: 1.00, label: 'Vertical Visibility',  oktas: '8/8' },
+};
+
+/**
+ * Determine if a cloud layer is a ceiling.
+ * Ceiling = lowest broken (BKN) or overcast (OVC) or VV layer.
+ * @param {string} cover - SKY_COVER key
+ * @returns {boolean}
+ */
+function isCeiling(cover) {
+  return ['BKN', 'OVC', 'VV'].includes(cover.toUpperCase());
+}
+
+/**
+ * Weather phenomenon decode map.
+ * Source: ICAO Doc 4444 Appendix 2 / FAA METAR conventions
+ */
+const WX_PHENOMENA = {
+  // Intensity prefixes
+  '-':  'Light',
+  '+':  'Heavy',
+  'VC': 'In Vicinity',
+  // Descriptors
+  'MI': 'Shallow',  'PR': 'Partial',  'BC': 'Patches',
+  'DR': 'Drifting', 'BL': 'Blowing',  'SH': 'Showers',
+  'TS': 'Thunderstorm', 'FZ': 'Freezing', 'RE': 'Recent',
+  // Precipitation
+  'RA': 'Rain',    'DZ': 'Drizzle',  'SN': 'Snow',
+  'SG': 'Snow Grains', 'IC': 'Ice Crystals', 'PL': 'Ice Pellets',
+  'GR': 'Hail',   'GS': 'Small Hail/Snow Pellets', 'UP': 'Unknown Precip',
+  // Obscuration
+  'FG': 'Fog',    'BR': 'Mist',     'HZ': 'Haze',
+  'FU': 'Smoke',  'DU': 'Dust',     'SA': 'Sand',
+  'VA': 'Volcanic Ash', 'PY': 'Spray',
+  // Other
+  'PO': 'Dust/Sand Whirls', 'SQ': 'Squall',
+  'FC': 'Funnel Cloud/Tornado/Waterspout',
+  'SS': 'Sandstorm', 'DS': 'Dust Storm',
+};
+
+/**
+ * Parse a raw METAR or SPECI string into a structured object.
+ * Handles standard US METAR format per AIP GEN 3.5 and ICAO Doc 4444.
+ *
+ * @param {string} raw - Raw METAR text
+ * @returns {object} Parsed METAR fields
+ */
+function parseMetar(raw) {
+  if (!raw || typeof raw !== 'string') throw new Error('Invalid METAR input');
+
+  const tokens = raw.trim().replace(/\s+/g, ' ').split(' ');
+  const result = {
+    raw,
+    type:        null,   // METAR | SPECI
+    station:     null,   // ICAO 4-letter
+    timeUtc:     null,   // DDHHMMz
+    auto:        false,
+    wind:        null,
+    visibility:  null,
+    rvr:         [],
+    weather:     [],
+    skyCondition:[],
+    ceiling:     null,   // ft AGL (lowest BKN/OVC/VV)
+    temperature: null,   // °C (as reported)
+    dewpoint:    null,   // °C
+    altimeter:   null,   // inHg
+    remarks:     null,
+    flightCategory: null,
+    warnings:    [],
+  };
+
+  let i = 0;
+
+  // Type
+  if (tokens[i] === 'METAR' || tokens[i] === 'SPECI') {
+    result.type = tokens[i++];
+  }
+  if (tokens[i] === 'COR') i++; // corrected
+
+  // Station
+  if (/^[A-Z]{4}$/.test(tokens[i])) {
+    result.station = tokens[i++];
+  }
+
+  // Time: DDHHMMz
+  if (/^\d{6}Z$/.test(tokens[i])) {
+    result.timeUtc = tokens[i++];
+  }
+
+  // AUTO
+  if (tokens[i] === 'AUTO') {
+    result.auto = true;
+    i++;
+  }
+
+  // Wind: dddssKT, dddssGggKT, VRBssKT
+  const windRe = /^(VRB|\d{3})(\d{2,3})(G(\d{2,3}))?KT$/;
+  if (windRe.test(tokens[i])) {
+    const m = tokens[i].match(windRe);
+    result.wind = {
+      raw:       tokens[i],
+      direction: m[1] === 'VRB' ? 'Variable' : parseInt(m[1], 10),
+      speed:     parseInt(m[2], 10),
+      gust:      m[4] ? parseInt(m[4], 10) : null,
+      unit:      'KT',
+    };
+    i++;
+    // Variable wind range: dddVddd
+    if (/^\d{3}V\d{3}$/.test(tokens[i])) {
+      const parts = tokens[i].split('V');
+      result.wind.variableFrom = parseInt(parts[0], 10);
+      result.wind.variableTo   = parseInt(parts[1], 10);
+      i++;
+    }
+  }
+
+  // Visibility (SM statute miles or meters)
+  // Can be "10SM" "1/4SM" "1 1/2SM" or "9999" (meters)
+  const visRe1 = /^(\d+)(\/(\d+))?SM$/;
+  const visRe2 = /^M?(\d+)(\/(\d+))?SM$/;
+  if (visRe2.test(tokens[i])) {
+    const raw_v = tokens[i];
+    const less  = raw_v.startsWith('M');
+    const m     = raw_v.replace('M','').match(visRe1);
+    let sm = m ? parseFloat(m[1]) / (m[3] ? parseFloat(m[3]) : 1) : null;
+    // Check for fractional: "1 1/2SM"
+    if (sm !== null && i + 1 < tokens.length && /^\d+\/\d+SM$/.test(tokens[i + 1])) {
+      const frac = tokens[i + 1].match(/^(\d+)\/(\d+)SM$/);
+      sm += parseFloat(frac[1]) / parseFloat(frac[2]);
+      i++;
+    }
+    result.visibility = { raw: raw_v, sm, lessThan: less };
+    i++;
+  } else if (/^\d{4}$/.test(tokens[i]) && parseInt(tokens[i], 10) <= 9999) {
+    // ICAO 4-digit meters
+    const meters = parseInt(tokens[i], 10);
+    result.visibility = {
+      raw:    tokens[i],
+      meters,
+      sm:     metersToStatuteMiles(meters),
+    };
+    i++;
+  }
+
+  // RVR: R28R/2600FT, R28L/M0600FT, R28/1800V2400FT
+  while (i < tokens.length && /^R\d{2}[LCR]?\//.test(tokens[i])) {
+    result.rvr.push({ raw: tokens[i] });
+    i++;
+  }
+
+  // Present weather
+  while (i < tokens.length && /^[\-\+]?(VC)?[A-Z]{2,6}$/.test(tokens[i])
+      && !tokens[i].match(/^(FEW|SCT|BKN|OVC|VV|SKC|CLR|NSC|NCD)\d*/)
+      && tokens[i] !== 'TEMPO' && tokens[i] !== 'BECMG') {
+    result.weather.push(tokens[i]);
+    i++;
+  }
+
+  // Sky condition
+  while (i < tokens.length) {
+    const skyRe = /^(FEW|SCT|BKN|OVC|SKC|CLR|NSC|NCD|VV)(\d{3})?(?:\/(CB|TCU))?$/;
+    if (!skyRe.test(tokens[i])) break;
+    const m = tokens[i].match(skyRe);
+    const layer = {
+      raw:    tokens[i],
+      cover:  m[1],
+      height: m[2] ? parseInt(m[2], 10) * 100 : null, // ft AGL
+      cb:     m[3] || null,
+    };
+    result.skyCondition.push(layer);
+    if (isCeiling(layer.cover) && result.ceiling === null && layer.height !== null) {
+      result.ceiling = layer.height;
+    }
+    i++;
+  }
+
+  // Temperature/Dewpoint: TT/DD or M05/M10
+  if (i < tokens.length && /^M?\d+\/M?\d+$/.test(tokens[i])) {
+    const parts = tokens[i].split('/');
+    result.temperature = parseTempC(parts[0]);
+    result.dewpoint    = parseTempC(parts[1]);
+    i++;
+  }
+
+  // Altimeter: A2992 (inHg ×100) or Q1013 (hPa)
+  if (i < tokens.length && /^[AQ]\d{4}$/.test(tokens[i])) {
+    const code = tokens[i];
+    if (code[0] === 'A') {
+      result.altimeter = { raw: code, inHg: parseInt(code.slice(1), 10) / 100, unit: 'inHg' };
+    } else {
+      const hpa  = parseInt(code.slice(1), 10);
+      result.altimeter = { raw: code, hPa: hpa, inHg: parseFloat(hpaToInhg(hpa).toFixed(2)), unit: 'hPa' };
+    }
+    i++;
+  }
+
+  // Remarks
+  if (i < tokens.length && tokens[i] === 'RMK') {
+    result.remarks = tokens.slice(i + 1).join(' ');
+  }
+
+  // Derive flight category
+  result.flightCategory = classifyFlightCategory(result.ceiling, result.visibility?.sm);
+
+  return result;
+}
+
+/**
+ * Parse a temperature field from METAR (e.g. "M05" → -5, "12" → 12).
+ * @param {string} s
+ * @returns {number}
+ */
+function parseTempC(s) {
+  return s.startsWith('M') ? -parseInt(s.slice(1), 10) : parseInt(s, 10);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 4 · AIRPORT STATUS CLASSIFICATION
+//       Replaces previous FLIGHT_CATEGORIES.
+//       Source: Product team ruleset — wx-notam-rules-reference.md §4
+//
+//   OPEN        (GREEN)  — Ceiling ≥ 3,000 ft  AND visibility ≥ 5 SM
+//   OPERATIONAL (YELLOW) — Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM
+//   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
+//   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
+//                          (no category label — raw CIG/VIS values only)
+//
+// The WORST of ceiling and visibility governs.
+// If only one element is available the available element governs.
+// Metric visibility (KM, metres) must be converted to SM before classification
+// using AIP GEN 2.6 conversion tables (see metersToStatuteMiles / kmToSm).
+// Triggered alerts ALWAYS display both CIG <value> and VIS <value>.
+// Weather is displayed FIRST on the airport card before NOTAM items.
+// ═══════════════════════════════════════════════════════════════
+
+const AIRPORT_STATUS = {
+  OPEN: {
+    color:  'green',
+    cssVar: '--sys-green',
+    label:  'OPEN',
+  },
+  OPERATIONAL: {
+    color:  'yellow',
+    cssVar: '--sys-yellow',
+    label:  'OPERATIONAL',
+  },
+  INSTRUMENTS: {
+    color:  'red',
+    cssVar: '--sys-red',
+    label:  'INSTRUMENTS',
+  },
+  LIFR: {
+    color:      'red',
+    cssVar:     '--sys-red',
+    label:      '',              // no category label — show raw CIG/VIS values only
+    displayTpl: 'CIG {ceil} VIS {vis}',
+  },
+};
+
+/**
+ * Classify airport status from ceiling and visibility.
+ * Metric visibility must be pre-converted to SM before calling.
+ *
+ * @param {number|null} ceilingFt  - ceiling AGL in feet (null = unreported = assume open)
+ * @param {number|null} visSm      - visibility in statute miles (null = unreported = assume open)
+ * @returns {{ status: string, color: string, cssVar: string, label: string, ceilCat: number, visCat: number }}
+ */
+function classifyAirportStatus(ceilingFt, visSm) {
+  // Category per element: 0=OPEN  1=OPERATIONAL(yellow)  2=INSTRUMENTS(red)  3=LIFR(red)
+  const ceilCat = ceilingFt === null ? 0 : ceilingFt >= 3000 ? 0 : ceilingFt >= 1000 ? 1 : ceilingFt >= 600 ? 2 : 3;
+  const visCat  = visSm     === null ? 0 : visSm     >= 5    ? 0 : visSm     >= 3     ? 1 : visSm    >= 1   ? 2 : 3;
+  const key = ['OPEN', 'OPERATIONAL', 'INSTRUMENTS', 'LIFR'][Math.max(ceilCat, visCat)];
+  return {
+    status:  key,
+    color:   AIRPORT_STATUS[key].color,
+    cssVar:  AIRPORT_STATUS[key].cssVar,
+    label:   AIRPORT_STATUS[key].label,
+    ceilCat,
+    visCat,
+  };
+}
+
+/**
+ * Convert kilometers to statute miles.
+ * Source: FAA AIP GEN 2.6 conversion tables.
+ * @param {number} km
+ * @returns {number}
+ */
+function kmToSm(km) {
+  return km * 0.6213712;
+}
+
+/**
+ * Classify airport status from a raw visibility string.
+ * Handles SM, KM, and ICAO 4-digit metre formats.
+ * Source: FAA AIP GEN 2.6 for metric conversions.
+ *
+ * @param {string} visRaw  - e.g. "5SM", "9KM", "9999", "800"
+ * @param {number|null} ceilingFt
+ * @returns {{ status: string, color: string, visSm: number|null, label: string }}
+ */
+function classifyAirportStatusFromRaw(visRaw, ceilingFt) {
+  let visSm = null;
+  let visDisplay = visRaw;
+
+  if (!visRaw) {
+    return { ...classifyAirportStatus(ceilingFt, null), visSm: null };
+  }
+
+  const v = visRaw.trim().toUpperCase();
+
+  if (v === 'P6SM') {
+    visSm = 7;
+    // visDisplay stays 'P6SM' — already set from visRaw default
+  } else if (v === '9999' || v === '9999M') {
+    visSm = 7;
+    visDisplay = '9999m'; // metres format with suffix
+  } else if (/^(\d+(?:\.\d+)?)SM$/.test(v)) {
+    visSm = parseFloat(v);
+  } else if (/^(\d)\/(\d+)SM$/.test(v)) {
+    const m = v.match(/^(\d)\/(\d+)SM$/);
+    visSm = parseInt(m[1]) / parseInt(m[2]);
+  } else if (/^(\d{1,2})\s+(\d)\/(\d+)SM$/.test(v)) {
+    const m = v.match(/^(\d{1,2})\s+(\d)\/(\d+)SM$/);
+    visSm = parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]);
+  } else if (/^(\d{1,3}(?:\.\d)?)KM$/.test(v)) {
+    // KM: displayed as reported (whole or tenths) — no SM conversion appended
+    const km = parseFloat(v.replace('KM',''));
+    visSm = kmToSm(km);
+    visDisplay = v; // e.g. "9KM" or "9.5KM"
+  } else if (/^\d{4}$/.test(v)) {
+    // ICAO 4-digit metres: whole number with 'm' suffix — no SM conversion appended
+    const mval = parseInt(v, 10);
+    visSm = metersToStatuteMiles(mval);
+    visDisplay = `${v}m`; // preserves leading zeros: "0800m", "5000m"
+  }
+
+  return {
+    ...classifyAirportStatus(ceilingFt, visSm),
+    visSm,
+    visDisplay,
+  };
+}
+
+/**
+ * RVR thresholds — aligned to 4-tier airport status.
+ * Source: product ruleset (RVR supporting OPEN/OPERATIONAL/INSTRUMENTS/LIFR)
+ *
+ * US feet:  ≥ 4000ft = open; 1600–3999ft = operational; 800–1599ft = instruments; < 800ft = lifr
+ * ICAO m:   ≥ 1200m  = open; 480–1199m   = operational; 240–479m   = instruments; < 240m  = lifr
+ */
+const RVR_THRESHOLDS = {
+  US_FEET: { open: 4000, operational: 1600, instruments: 800 },
+  ICAO_M:  { open: 1200, operational: 480,  instruments: 240 },
+};
+
+/**
+ * Classify RVR status.
+ * @param {number} valueFt - RVR in feet (convert metres before calling)
+ * @returns {'open'|'operational'|'instruments'|'lifr'}
+ */
+function classifyRvr(valueFt) {
+  if (valueFt >= RVR_THRESHOLDS.US_FEET.open)        return 'open';
+  if (valueFt >= RVR_THRESHOLDS.US_FEET.operational) return 'operational';
+  if (valueFt >= RVR_THRESHOLDS.US_FEET.instruments) return 'instruments';
+  return 'lifr';
+}
+
+// Keep classifyFlightCategory as an alias for backward compatibility
+// with any external callers using the LIFR/IFR/MVFR/VFR scale.
+const FLIGHT_CATEGORIES = {
+  LIFR: { color: '#FF00FF', label: 'Low IFR',            priority: 0 },
+  IFR:  { color: '#FF0000', label: 'IFR',                priority: 1 },
+  MVFR: { color: '#0000FF', label: 'Marginal VFR',       priority: 2 },
+  VFR:  { color: '#00AA00', label: 'Visual Flight Rules', priority: 3 },
+};
+
+/**
+ * Legacy LIFR/IFR/MVFR/VFR classifier — retained for external compatibility.
+ * For airport card status, use classifyAirportStatus() instead.
+ */
+function classifyFlightCategory(ceilingFt, visSm) {
+  if ((ceilingFt !== null && ceilingFt < 500) || (visSm !== null && visSm < 1))  return 'LIFR';
+  if ((ceilingFt !== null && ceilingFt < 1000) || (visSm !== null && visSm < 3)) return 'IFR';
+  if ((ceilingFt !== null && ceilingFt <= 3000) || (visSm !== null && visSm <= 5)) return 'MVFR';
+  return 'VFR';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 5 · TAF PARSING
+//       Source: FAA AIP GEN 3.5 §2.2.3, §3.4.3.3
+//       TAF valid periods: 24hr or 30hr; amended as required
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Change indicator types in TAF.
+ * Source: ICAO Doc 4444 / FAA TAF conventions
+ */
+const TAF_CHANGE_INDICATORS = {
+  BECMG:  'Becoming — gradual change over 2hr period',
+  TEMPO:  'Temporary — fluctuating conditions, < half the period',
+  PROB30: '30% probability of conditions',
+  PROB40: '40% probability of conditions',
+  FM:     'From — rapid change at specified time',
+  AT:     'At — condition at specified time (rare)',
+  TL:     'Until — condition valid until specified time',
+};
+
+/**
+ * Parse TAF groups from a raw TAF string.
+ * Returns the base forecast plus an array of change groups.
+ *
+ * @param {string} raw - Raw TAF string
+ * @returns {object} Parsed TAF
+ */
+function parseTaf(raw) {
+  if (!raw || typeof raw !== 'string') throw new Error('Invalid TAF input');
+
+  const result = {
+    raw,
+    type:       'TAF',
+    station:    null,
+    issued:     null,     // DDHHMMz
+    valid:      null,     // DDHH/DDHH
+    validFrom:  null,
+    validTo:    null,
+    amd:        false,    // amended TAF
+    cor:        false,
+    base:       null,     // base forecast group
+    groups:     [],       // change groups
+  };
+
+  let text = raw.trim().replace(/\s+/g, ' ');
+
+  if (text.startsWith('TAF AMD')) { result.amd = true; text = text.replace('TAF AMD', '').trim(); }
+  else if (text.startsWith('TAF COR')) { result.cor = true; text = text.replace('TAF COR', '').trim(); }
+  else if (text.startsWith('TAF')) text = text.replace('TAF', '').trim();
+
+  const tokens = text.split(' ');
+  let i = 0;
+
+  if (/^[A-Z]{4}$/.test(tokens[i])) result.station = tokens[i++];
+  if (/^\d{6}Z$/.test(tokens[i]))   result.issued  = tokens[i++];
+
+  // Valid period: DDHH/DDHH
+  if (/^\d{4}\/\d{4}$/.test(tokens[i])) {
+    result.valid = tokens[i];
+    const [from, to] = tokens[i].split('/');
+    result.validFrom = { day: parseInt(from.slice(0,2),10), hourZ: parseInt(from.slice(2),10) };
+    result.validTo   = { day: parseInt(to.slice(0,2),10),   hourZ: parseInt(to.slice(2),10) };
+    i++;
+  }
+
+  // Split on change indicators
+  const INDICATORS = ['BECMG','TEMPO','FM','PROB30','PROB40'];
+  const segments   = [];
+  let   seg        = [];
+
+  for (; i < tokens.length; i++) {
+    if (INDICATORS.includes(tokens[i]) ||
+        (tokens[i] === 'PROB' && /^(30|40)$/.test(tokens[i+1]))) {
+      if (seg.length) segments.push(seg);
+      seg = [tokens[i]];
+      if (tokens[i] === 'PROB') seg.push(tokens[++i]);
+    } else {
+      seg.push(tokens[i]);
+    }
+  }
+  if (seg.length) segments.push(seg);
+
+  segments.forEach((group, idx) => {
+    const parsed = parseTafGroup(group);
+    if (idx === 0 && !INDICATORS.includes(group[0])) {
+      result.base = parsed;
+    } else {
+      result.groups.push(parsed);
+    }
+  });
+
+  return result;
+}
+
+/**
+ * Parse a single TAF group (base or change segment).
+ * @param {string[]} tokens
+ * @returns {object}
+ */
+function parseTafGroup(tokens) {
+  const group = {
+    indicator:   null,
+    probability: null,
+    time:        null,
+    wind:        null,
+    visibility:  null,
+    weather:     [],
+    skyCondition:[],
+    ceiling:     null,
+    flightCategory: null,
+  };
+
+  let i = 0;
+
+  // Indicator
+  if (['BECMG','TEMPO','FM','PROB'].includes(tokens[i])) {
+    group.indicator = tokens[i++];
+    if (group.indicator === 'PROB' && /^(30|40)$/.test(tokens[i])) {
+      group.probability = parseInt(tokens[i++], 10);
+      if (['BECMG','TEMPO'].includes(tokens[i])) {
+        group.indicator = tokens[i++];
+      }
+    }
+  }
+
+  // Time group
+  if (/^\d{4}\/\d{4}$/.test(tokens[i])) {
+    group.time = tokens[i++];
+  } else if (/^\d{6}$/.test(tokens[i])) {
+    // FM group uses DDHHMM
+    group.time = tokens[i++];
+  }
+
+  // Wind
+  const windRe = /^(VRB|\d{3})(\d{2,3})(G(\d{2,3}))?KT$/;
+  if (i < tokens.length && windRe.test(tokens[i])) {
+    const m = tokens[i].match(windRe);
+    group.wind = {
+      raw:       tokens[i],
+      direction: m[1] === 'VRB' ? 'Variable' : parseInt(m[1],10),
+      speed:     parseInt(m[2], 10),
+      gust:      m[4] ? parseInt(m[4], 10) : null,
+      unit:      'KT',
+    };
+    i++;
+  }
+
+  // Visibility
+  const visRe = /^M?(\d+)(\/(\d+))?SM$/;
+  if (i < tokens.length && visRe.test(tokens[i])) {
+    const raw_v = tokens[i];
+    const less  = raw_v.startsWith('M');
+    const m     = raw_v.replace('M','').match(/^(\d+)(\/(\d+))?SM$/);
+    let sm = m ? parseFloat(m[1]) / (m[3] ? parseFloat(m[3]) : 1) : 0;
+    if (sm < 1 && i + 1 < tokens.length && /^\d+\/\d+SM$/.test(tokens[i+1])) {
+      const frac = tokens[i+1].match(/^(\d+)\/(\d+)SM$/);
+      sm += parseFloat(frac[1]) / parseFloat(frac[2]);
+      i++;
+    }
+    group.visibility = { raw: raw_v, sm, lessThan: less };
+    i++;
+  }
+
+  // Weather
+  while (i < tokens.length && /^[\-\+]?(VC)?[A-Z]{2,6}$/.test(tokens[i])
+      && !/^(FEW|SCT|BKN|OVC|VV|SKC|CLR|NSW)/.test(tokens[i])) {
+    group.weather.push(tokens[i++]);
+  }
+
+  // Sky condition
+  while (i < tokens.length) {
+    const skyRe = /^(FEW|SCT|BKN|OVC|SKC|CLR|NSC|NCD|VV)(\d{3})?(?:\/(CB|TCU))?$/;
+    if (!skyRe.test(tokens[i])) break;
+    const m = tokens[i].match(skyRe);
+    const layer = {
+      raw:    tokens[i],
+      cover:  m[1],
+      height: m[2] ? parseInt(m[2],10) * 100 : null,
+      cb:     m[3] || null,
+    };
+    group.skyCondition.push(layer);
+    if (isCeiling(layer.cover) && group.ceiling === null && layer.height !== null) {
+      group.ceiling = layer.height;
+    }
+    i++;
+  }
+
+  group.flightCategory = classifyFlightCategory(group.ceiling, group.visibility?.sm);
+
+  return group;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 6 · SIGMET / AIRMET INTERPRETATION
+//       Source: FAA AIP GEN 3.5 §3.2.1, §3.4.3.4
+//       ICAO Doc 4444 §3.6 — SIGMET criteria
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * SIGMET phenomena categories.
+ * Source: ICAO Doc 4444 / FAA AWC definitions
+ * SIGMETs are issued for conditions hazardous to ALL aircraft.
+ */
+const SIGMET_PHENOMENA = {
+  // Domestic SIGMETs
+  TS:   { label: 'Thunderstorms',          severity: 'CRITICAL' },
+  TSGR: { label: 'Thunderstorms w/ Hail',  severity: 'CRITICAL' },
+  SEV:  { label: 'Severe Icing',           severity: 'CRITICAL' },
+  EXTR: { label: 'Extreme Turbulence',     severity: 'CRITICAL' },
+  SEV_TURB: { label: 'Severe Turbulence',  severity: 'CRITICAL' },
+  DS:   { label: 'Dust Storm',             severity: 'HIGH' },
+  SS:   { label: 'Sandstorm',              severity: 'HIGH' },
+  VA:   { label: 'Volcanic Ash',           severity: 'CRITICAL' },
+  // International / convective SIGMETs
+  OBSC_TS:  { label: 'Obscured Thunderstorms',   severity: 'CRITICAL' },
+  EMBD_TS:  { label: 'Embedded Thunderstorms',   severity: 'CRITICAL' },
+  FRQ_TS:   { label: 'Frequent Thunderstorms',   severity: 'CRITICAL' },
+  SQL_TS:   { label: 'Squall Line Thunderstorms', severity: 'CRITICAL' },
+  HVY_DS:   { label: 'Heavy Dust Storm',         severity: 'HIGH' },
+  HVY_SS:   { label: 'Heavy Sandstorm',          severity: 'HIGH' },
+  MOD_ICE:  { label: 'Moderate Icing',           severity: 'MODERATE' },
+  SEV_ICE:  { label: 'Severe Icing',             severity: 'CRITICAL' },
+  SEV_ICE_FZRA: { label: 'Severe Icing due to FZRA', severity: 'CRITICAL' },
+  SEV_MTW:  { label: 'Severe Mountain Wave',     severity: 'CRITICAL' },
+  MOD_TURB: { label: 'Moderate Turbulence',      severity: 'MODERATE' },
+  SEV_TURB2:{ label: 'Severe Turbulence',        severity: 'CRITICAL' },
+};
+
+/**
+ * AIRMET phenomena types.
+ * Source: FAA AIP GEN 3.5 — AIRMETs are for light/moderate conditions
+ * affecting light aircraft or VFR operations.
+ */
+const AIRMET_SERIES = {
+  SIERRA: {
+    phenomena: ['IFR conditions (ceilings < 1000ft and/or visibility < 3SM)',
+                'Mountain obscuration'],
+    hazard:    'IFR conditions and mountain obscuration',
+    aircraft:  'All — particularly VFR pilots',
+  },
+  TANGO: {
+    phenomena: ['Moderate turbulence', 'Low-level wind shear (LLWS)',
+                'Strong surface winds (≥30 kt sustained)'],
+    hazard:    'Moderate turbulence, wind shear, and strong surface winds',
+    aircraft:  'All aircraft — particularly light aircraft',
+  },
+  ZULU: {
+    phenomena: ['Moderate icing', 'Freezing level information'],
+    hazard:    'Moderate icing and freezing levels',
+    aircraft:  'All aircraft — particularly aircraft not certified for icing',
+  },
+};
+
+/**
+ * Interpret a raw SIGMET or AIRMET text string.
+ * Returns the parsed fields and operational significance.
+ *
+ * @param {string} raw   - Raw SIGMET or AIRMET text
+ * @param {'SIGMET'|'AIRMET'} type
+ * @returns {object}
+ */
+function interpretAdvisory(raw, type = 'SIGMET') {
+  const result = {
+    raw,
+    type,
+    series:    null,     // SIERRA | TANGO | ZULU (AIRMET); alpha (SIGMET)
+    number:    null,
+    validFrom: null,
+    validTo:   null,
+    area:      null,     // affected area description
+    phenomena: null,
+    flightLevels: null,
+    movement:  null,
+    intensity: null,
+    outlook:   null,
+    cancelledBy: null,
+    significance: null,  // derived operational significance
+  };
+
+  // Extract series/number
+  const sigRe = /\b([A-Z]+)\s+(\d+)\b/;
+  const sigM  = raw.match(sigRe);
+  if (sigM) {
+    result.series = sigM[1];
+    result.number = parseInt(sigM[2], 10);
+  }
+
+  // Extract valid time: VALID DDHHMM/DDHHMM
+  const timeRe = /VALID\s+(\d{6})\/(\d{6})/i;
+  const timeM  = raw.match(timeRe);
+  if (timeM) {
+    result.validFrom = timeM[1];
+    result.validTo   = timeM[2];
+  }
+
+  // Derive phenomena from keywords
+  for (const [key, info] of Object.entries(type === 'SIGMET' ? SIGMET_PHENOMENA : {})) {
+    if (raw.includes(key.replace(/_/g,' '))) {
+      result.phenomena  = info.label;
+      result.significance = info.severity;
+      break;
+    }
+  }
+
+  // AIRMET series
+  if (type === 'AIRMET' && result.series) {
+    const seriesInfo = AIRMET_SERIES[result.series.toUpperCase()];
+    if (seriesInfo) {
+      result.phenomena    = seriesInfo.hazard;
+      result.significance = 'ADVISORY';
+    }
+  }
+
+  // Flight levels
+  const flRe = /FL(\d{3})/g;
+  const fls  = [...raw.matchAll(flRe)].map(m => parseInt(m[1], 10) * 100);
+  if (fls.length >= 2) result.flightLevels = { from: fls[0], to: fls[1] };
+  else if (fls.length === 1) result.flightLevels = { to: fls[0] };
+
+  return result;
+}
+
+/** Convenience wrappers */
+const interpretSigmet = (raw) => interpretAdvisory(raw, 'SIGMET');
+const interpretAirmet = (raw) => interpretAdvisory(raw, 'AIRMET');
+
+// ═══════════════════════════════════════════════════════════════
+// § 7 · PIREP INTERPRETATION
+//       Source: FAA AIP GEN 3.5 §3.8.2.4; ICAO Doc 4444
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Turbulence intensity scale.
+ * Source: ICAO Doc 4444 / FAA standard
+ */
+const TURBULENCE_INTENSITY = {
+  NEG:  { label: 'Nil',              description: 'No turbulence.' },
+  SMTH: { label: 'Smooth',          description: 'No turbulence.' },
+  LGHT: { label: 'Light',            description: 'Slight, erratic changes in altitude/attitude.' },
+  MOD:  { label: 'Moderate',         description: 'Similar to Light but of greater intensity. Control difficult.' },
+  SEV:  { label: 'Severe',           description: 'Large, abrupt changes in altitude/attitude. Momentary loss of control.' },
+  EXTRM:{ label: 'Extreme',          description: 'Aircraft practically impossible to control. Structural damage possible.' },
+};
+
+/**
+ * Icing intensity scale.
+ * Source: ICAO Doc 4444 / FAA
+ */
+const ICING_INTENSITY = {
+  NEG:  { label: 'Nil',     description: 'No icing.' },
+  TRC:  { label: 'Trace',   description: 'Ice barely perceptible. Deicing effective.' },
+  LGHT: { label: 'Light',   description: 'Ice build-up slight. Deicing/anti-icing adequate.' },
+  MOD:  { label: 'Moderate',description: 'Ice build-up potentially hazardous. Diversion may be necessary.' },
+  SEV:  { label: 'Severe',  description: 'Ice build-up rapid. Deicing/anti-icing ineffective. Immediate diversion necessary.' },
+};
+
+/**
+ * Parse a PIREP (Pilot Report) string.
+ * Format: [UA|UUA] /OV /TM /FL /TP [/SK] [/WX] [/TA] [/WV] [/TB] [/IC] [/RM]
+ *
+ * @param {string} raw
+ * @returns {object}
+ */
+function parsePirep(raw) {
+  const result = {
+    raw,
+    urgent:      raw.trim().startsWith('UUA'),
+    location:    null,   // /OV
+    time:        null,   // /TM
+    altitude:    null,   // /FL
+    aircraft:    null,   // /TP
+    skyCover:    null,   // /SK
+    weather:     null,   // /WX
+    temperature: null,   // /TA °C
+    wind:        null,   // /WV
+    turbulence:  null,   // /TB
+    icing:       null,   // /IC
+    remarks:     null,   // /RM
+  };
+
+  const fields = raw.split('/').map(f => f.trim());
+  for (const field of fields) {
+    if (field.startsWith('OV')) result.location    = field.slice(2).trim();
+    else if (field.startsWith('TM')) result.time   = field.slice(2).trim();
+    else if (field.startsWith('FL')) result.altitude= field.slice(2).trim();
+    else if (field.startsWith('TP')) result.aircraft= field.slice(2).trim();
+    else if (field.startsWith('SK')) result.skyCover= field.slice(2).trim();
+    else if (field.startsWith('WX')) result.weather = field.slice(2).trim();
+    else if (field.startsWith('TA')) result.temperature = field.slice(2).trim();
+    else if (field.startsWith('WV')) result.wind   = field.slice(2).trim();
+    else if (field.startsWith('TB')) {
+      const tb = field.slice(2).trim().toUpperCase();
+      result.turbulence = {
+        raw:   tb,
+        info:  TURBULENCE_INTENSITY[tb] || TURBULENCE_INTENSITY[tb.split(' ')[0]] || null,
+      };
+    }
+    else if (field.startsWith('IC')) {
+      const ic = field.slice(2).trim().toUpperCase();
+      result.icing = {
+        raw:  ic,
+        info: ICING_INTENSITY[ic] || ICING_INTENSITY[ic.split(' ')[0]] || null,
+      };
+    }
+    else if (field.startsWith('RM')) result.remarks = field.slice(2).trim();
+  }
+
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 8 · WEATHER PRODUCT VALIDITY WINDOWS
+//       Source: FAA AIP GEN 3.5 §2.2.3, §3.4.3.3, §3.4.3.4
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Standard validity windows for US aviation weather products.
+ * Source: FAA AIP GEN 3.5
+ */
+const PRODUCT_VALIDITY = {
+  METAR:   { issuance: 'Hourly (H+55 to H+00)',   validFor: '1 hour' },
+  SPECI:   { issuance: 'As conditions require',    validFor: 'Until next METAR/SPECI' },
+  TAF:     { issuance: '00/06/12/18Z',             validFor: '24 or 30 hours' },
+  TAF_AMD: { issuance: 'As conditions require',    validFor: 'Remainder of original TAF period' },
+  SIGMET:  { issuance: 'As conditions require',    validFor: 'Up to 4 hours (convective: up to 2 hours)' },
+  AIRMET:  { issuance: '00/06/12/18Z (+3hr outlook)', validFor: '6 hours (Sierra/Tango/Zulu)' },
+  CWA:     { issuance: 'As issued by CWSU',        validFor: 'Up to 2 hours' },
+  PIREP:   { issuance: 'Pilot-reported',           validFor: '1 hour (or as noted)' },
+  WINDS_ALOFT: { issuance: '00/06/12/18Z',         validFor: '6–12 hours' },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// § 9 · UTILITY — ABBREVIATION LOOKUP
+//       Source: FAA AIP GEN 2.2 (full table)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Key weather/AIS abbreviations per FAA AIP GEN 2.2.
+ * Full table is in the source document; this is the aviation-weather subset.
+ */
+const AIS_ABBREVIATIONS = {
+  ALSTG: 'altimeter setting',
+  ALT:   'altitude',
+  ALTM:  'altimeter',
+  ALTN:  'alternate',
+  APCH:  'approach',
+  ARPT:  'airport',
+  ARR:   'arrive/arrival',
+  ATIS:  'automatic terminal information service',
+  AVBL:  'available',
+  BC:    'back course',
+  BKN:   'broken',
+  BRG:   'bearing',
+  CAT:   'category',
+  CLSD:  'closed',
+  CRS:   'course',
+  DEP:   'depart/departure',
+  DH:    'decision height',
+  DME:   'distance measuring equipment',
+  ETA:   'estimated time of arrival',
+  ETE:   'estimated time en route',
+  FAF:   'final approach fix',
+  FL:    'flight level',
+  FREQ:  'frequency',
+  FSS:   'Flight Service Station',
+  GS:    'glide slope',
+  IAF:   'initial approach fix',
+  IAP:   'instrument approach procedure',
+  IFR:   'instrument flight rules',
+  ILS:   'instrument landing system',
+  INOP:  'inoperative',
+  INT:   'intersection',
+  MAA:   'maximum authorized altitude',
+  MAG:   'magnetic',
+  MAP:   'missed approach point',
+  MDA:   'minimum descent altitude',
+  MEA:   'minimum en route IFR altitude',
+  MIN:   'minimum/minute',
+  MOCA:  'minimum obstruction clearance altitude',
+  MSL:   'mean sea level',
+  NAVAID:'navigational aid',
+  NDB:   'nondirectional radio beacon',
+  NM:    'nautical mile(s)',
+  OTS:   'out of service',
+  PAR:   'precision approach radar',
+  PPR:   'prior permission required',
+  RVR:   'runway visual range',
+  RWY:   'runway',
+  SM:    'statute mile(s)',
+  TAF:   'terminal aerodrome forecast',
+  TPA:   'traffic pattern altitude',
+  VFR:   'visual flight rules',
+  VOR:   'VHF omni-directional radio range',
+  VSBY:  'visibility',
+  WEA:   'weather',
+  WPT:   'waypoint',
+  Z:     'Coordinated Universal Time',
+};
+
+/**
+ * Look up an aviation abbreviation.
+ * @param {string} abbr
+ * @returns {string|null}
+ */
+function lookupAbbreviation(abbr) {
+  return AIS_ABBREVIATIONS[abbr.toUpperCase()] || WX_PHENOMENA[abbr.toUpperCase()] || null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════
+
+
+

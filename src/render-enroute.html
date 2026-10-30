@@ -1,0 +1,237 @@
+function renderEnroutePhase() {
+  const navLog = S.navLog || [];
+
+  // Effective OFF: manual crew entry > OUT+taxi (OFP) > OUT alone > null
+  const _offDerived = _deriveOffZ();
+  const offZ   = _offDerived ? _offDerived.hhmm : '';
+  const offSrc = _offDerived ? _offDerived.source : null;  // 'manual'|'computed'|'out'|null
+  const hasOff = offZ.length === 4;
+  const offMin = hasOff ? parseInt(offZ.slice(0,2),10)*60 + parseInt(offZ.slice(2,4),10) : 0;
+
+  // ── Core helpers ─────────────────────────────────────────────────
+  // Elapsed minutes from OFF → HHMM Z
+  const toZ = (elapsedMins) => {
+    const total = (offMin + elapsedMins + 14400) % 1440;
+    return String(Math.floor(total/60)).padStart(2,'0') + String(total%60).padStart(2,'0');
+  };
+  // Format elapsed as HH+MM
+  const fmtE = (m) => `${Math.floor(m/60)}+${String(m%60).padStart(2,'0')}`;
+
+  // ── Build chronological event list (ENR V2 — PB-ENR-01) ─────────────────
+  const eteDest = S.destEtaOffsetMins || S.tripMinutes || 0;
+  const events  = buildTimelineEventsV2(S, navLog, hasOff, eteDest, S.rawOFP || '');
+
+  // ── Timeline row renderer ────────────────────────────────────────
+  const renderEvent = (evt) => {
+    const etaStr = toZ(evt.elapsed) + 'Z';
+    let h = `<div class="enroute-row" style="align-items:flex-start;padding-top:11px;padding-bottom:11px">`;
+
+    if (evt.type === 'coRpt') {
+      h += `<div style="display:flex;flex-direction:column;min-width:96px;flex-shrink:0;gap:1px">`;
+      h += `<span class="enroute-label">CO RPT</span>`;
+      if (evt.rptHours) h += `<span style="font-size:11px;color:var(--label3);font-family:var(--font-mono)">${evt.rptHours} HR</span>`;
+      h += `</div>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      if (evt.wpt) {
+        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--label)">${esc(evt.wpt)}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}`;
+        if (navLog.length) h += `<span style="color:var(--label3)">  T+${fmtE(evt.elapsed)}</span>`;
+        h += `</span>`;
+      } else {
+        h += `<span class="enroute-value">${etaStr}</span>`;
+      }
+      h += `</div>`;
+
+    } else if (evt.type === 'prePor') {
+      h += `<div style="display:flex;flex-direction:column;min-width:96px;flex-shrink:0;gap:1px">`;
+      h += `<span class="enroute-label" style="color:var(--sys-yellow)">CO RPT</span>`;
+      h += `<span style="font-size:11px;color:var(--sys-yellow);opacity:.75;font-family:var(--font-mono)">PRE-POR</span>`;
+      h += `</div>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      if (evt.wpt) {
+        h += `<span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--sys-yellow)">${esc(evt.wpt)}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}`;
+        if (navLog.length) h += `<span style="color:var(--label3)">  T+${fmtE(evt.elapsed)}</span>`;
+        h += `</span>`;
+      } else {
+        h += `<span class="enroute-value" style="color:var(--sys-yellow)">${etaStr}</span>`;
+      }
+      h += `</div>`;
+
+    } else if (evt.type === 'rda') {
+      h += `<span class="enroute-label" style="color:var(--sys-yellow)">RDA Window</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value" style="color:var(--sys-yellow)">${etaStr}</span>`;
+      h += `<span style="font-size:11px;color:var(--label3)">2 hr prior to POR</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'por') {
+      h += `<span class="enroute-label" style="color:var(--sys-yellow)">POR</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      if (evt.wpt) h += `<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--sys-yellow)">${esc(evt.wpt)}</span>`;
+      h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">ETA&nbsp;${etaStr}</span>`;
+      if (S.porMinf) h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--label2)">MINF&nbsp;${esc(S.porMinf)}</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'preEtops') {
+      h += `<span class="enroute-label" style="color:var(--tint)">E.ENT&nbsp;−60</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
+      h += `<span style="font-size:11px;color:var(--label3)">ETOPS advisory</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'etopsEntry') {
+      h += `<span class="enroute-label" style="color:var(--tint)">E.ENT</span>`;
+      h += `<div style="display:flex;flex-direction:column;gap:2px">`;
+      h += `<span class="enroute-value" style="color:var(--tint)">${etaStr}</span>`;
+      if (S.etopsSpec) h += `<span style="font-size:11px;color:var(--label3)">ETOPS ${esc(S.etopsSpec)}</span>`;
+      h += `</div>`;
+
+    } else if (evt.type === 'etopsExit') {
+      // BUG 5b: label corrected E.EXIT → E.EXT; V2 function returns complete row (PB-ENR-01)
+      return renderEtopsExitV2(etaStr);
+
+    } else if (evt.type === 'etp') {
+      // BUG 4: --label2 grey → --tint blue; V2 function returns complete row (PB-ENR-01)
+      return renderEtpEvent(evt, etaStr);
+    }
+
+    h += `</div>`;
+    return h;
+  };
+
+  // ── Enroute NOTAM card renderer ──────────────────────────────────
+  const renderEnrouteNotams = () => {
+    const en = S.enrouteNotams;
+    if (!en) return '';
+    const SECTION_LABELS = {
+      route:      'Route',
+      fir:        'FIR',
+      airway:     'Airway',
+      waypoint:   'Waypoint',
+      geographic: 'Geographic',
+    };
+    // Build list of non-empty sections
+    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en[k] && en[k].trim());
+    if (!filled.length) return '';
+
+    // For waypoint section: highlight any navLog waypoint names found in the text
+    const highlightWpts = (text) => {
+      if (!navLog.length) return esc(text);
+      // Escape for HTML, then wrap found waypoint names in a highlight span
+      let safe = esc(text);
+      navLog.forEach(({ wpt }) => {
+        const re = new RegExp(`\\b(${wpt})\\b`, 'g');
+        safe = safe.replace(re, `<mark style="background:rgba(255,204,0,.3);border-radius:2px;padding:0 2px">$1</mark>`);
+      });
+      return safe;
+    };
+
+    const CHEV = `<svg style="width:9px;height:14px;flex-shrink:0;margin-left:4px;transition:transform .2s;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 9 14"><path d="M1 1l6.5 6L1 13"/></svg>`;
+
+    let h = `<div class="subcard">`;
+    h += `<div class="subcard-header">Route NOTAMs</div>`;
+    h += `<div class="subcard-body" style="padding:0">`;
+
+    filled.forEach(([key, label], idx) => {
+      const text  = en[key];
+      const domId = `enr-notam-${key}`;
+      const isWpt = key === 'waypoint';
+      h += `<div class="notam-group"${idx===0?' style="border-top:none"':''}>`;
+      h += `<div class="notam-group-hdr" onclick="(function(el){`;
+      h += `var b=document.getElementById('${domId}');`;
+      h += `var ch=el.querySelector('svg');`;
+      h += `if(b.hidden){b.hidden=false;ch.style.transform='rotate(90deg)';}`;
+      h += `else{b.hidden=true;ch.style.transform='';}`;
+      h += `})(this)">`;
+      h += `<span class="notam-dot y"></span>`;
+      h += `<span class="notam-group-label">${label} Company NOTAMs</span>${CHEV}`;
+      h += `</div>`;
+      h += `<div id="${domId}" class="notam-group-body" hidden>`;
+      h += `<pre style="margin:0;white-space:pre-wrap;font-family:var(--font-mono);font-size:12px;line-height:1.55;color:var(--label)">`;
+      h += isWpt ? highlightWpts(text) : esc(text);
+      h += `</pre>`;
+      h += `</div>`;
+      h += `</div>`;
+    });
+
+    h += `</div></div>`;
+    return h;
+  };
+
+  // ── Render ───────────────────────────────────────────────────────
+  let h = '';
+  h += `<div class="subcard">`;
+  h += `<div class="subcard-header">Enroute</div>`;
+  h += `<div class="subcard-body">`;
+  h += `<div class="enroute-split">`;
+  h += `<div class="enroute-times-col">`;
+
+  // OFF time — pre-populated from OUT+taxi when not manually entered by crew.
+  // Crew taps to override with actual wheels-off; basis tag reflects data source.
+  h += `<div class="data-table data-table-lg">`;
+  h += `<div class="data-row" style="align-items:center;gap:var(--sp2)">`;
+  h += `<span class="data-label">OFF</span>`;
+  h += `<span class="data-value">${ev('offZ', offZ ? offZ+'Z' : '____Z')}</span>`;
+  if (offSrc === 'computed') {
+    h += `<span style="font-size:11px;font-family:var(--font-mono);color:var(--label3);`
+       + `background:var(--fill3);border-radius:4px;padding:1px 5px;flex-shrink:0">`
+       + `OUT+${S.taxiMins}m</span>`;
+  } else if (offSrc === 'out') {
+    h += `<span style="font-size:11px;font-family:var(--font-mono);color:var(--label3);`
+       + `background:var(--fill3);border-radius:4px;padding:1px 5px;flex-shrink:0">`
+       + `OUT</span>`;
+  }
+  h += `</div>`;
+  h += `</div>`;
+
+  if (!hasOff) {
+    h += `<div style="padding:var(--sp3) 0;font-size:15px;color:var(--label3)">Enter OUT time to generate enroute events.</div>`;
+  } else if (!events.length) {
+    h += `<div style="padding:var(--sp3) 0;font-size:15px;color:var(--label3)">Import an OFP to populate the enroute timeline.</div>`;
+  } else {
+    events.forEach(evt => { h += renderEvent(evt); });
+  }
+
+  h += `</div>`; // enroute-times-col
+
+  // Scratchpad column
+  h += `<div class="enroute-scratch-col">`;
+  h += `<div class="enroute-scratch-label">Scratchpad</div>`;
+  h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Enroute scratchpad"></textarea>`;
+  // Narrow (≤400px): rest module stacks below scratchpad inside the split
+  h += `<div class="rest-module-narrow">${renderInflightRestModule()}</div>`;
+  h += `</div>`; // enroute-scratch-col
+  h += `</div>`; // enroute-split
+  h += `</div></div>`; // subcard-body + subcard
+
+  // NAT Track Message — between enroute timeline and rest module (nat-rules.js v1.1.0)
+  if (S.natTrack) h += window.renderNatTrack(S.natTrack, navLog);
+
+  // Regular (>400px): rest module as its own subcard below enroute times
+  h += `<div class="rest-module-regular">${renderInflightRestModule()}</div>`;
+
+  // Route NOTAMs — full-width, below the timeline/scratchpad split
+  h += renderEnrouteNotams();
+
+  // DOT Special Permit Exemption subcard (v1.9.7)
+  if (S.dotExemption) {
+    h += `<div class="subcard" style="border-left:3px solid var(--sys-yellow)">`;
+    h += `<div class="subcard-header" style="color:var(--sys-yellow);display:flex;align-items:center;gap:6px;flex-wrap:wrap">`;
+    h += `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 110 1.5A.75.75 0 018 4zm1 8H7v-5h2v5z"/></svg>`;
+    h += `<span>${esc(S.dotExemption.number)}</span>`;
+    h += `</div>`;
+    h += `<div class="subcard-body">`;
+    if (S.dotExemption.altRequired) {
+      h += `<div style="font-size:13px;color:var(--sys-yellow);font-weight:600;line-height:1.55">ALTERNATE AIRPORT REQUIRED</div>`;
+    } else if (S.dotExemption.restrictions) {
+      h += `<div style="font-size:13px;color:var(--sys-yellow);font-family:var(--font-mono);white-space:pre-wrap;line-height:1.55">${esc(S.dotExemption.restrictions)}</div>`;
+    } else {
+      h += `<div style="font-size:13px;color:var(--label2)">Verify exemption conditions per OFP remarks prior to departure.</div>`;
+    }
+    h += `</div></div>`;
+  }
+
+  h += renderFcirSubcard();
+  return h;
+}

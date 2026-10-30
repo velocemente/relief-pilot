@@ -1,0 +1,38 @@
+
+<script>
+// ── pdf.js lazy loader ────────────────────────────────────────────────────
+// pdf.js is only needed when importing a PDF. Loading it at startup fires a
+// cross-origin script-load error in sandboxed/offline contexts. Instead we
+// inject the <script> tag on first use and resolve a promise when ready.
+const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let _pdfjsReady = null;  // Promise<void> | null
+
+function loadPdfJs() {
+  if (_pdfjsReady) return _pdfjsReady;
+  _pdfjsReady = new Promise((resolve, reject) => {
+    if (typeof pdfjsLib !== 'undefined') { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = PDFJS_CDN;
+    // crossorigin="anonymous" is required so that errors thrown inside the CDN
+    // script are reported with full detail instead of being CORS-sanitised to the
+    // opaque "Script Error" string by the browser Same-Origin Policy.
+    s.crossOrigin = 'anonymous';
+    s.onload = () => {
+      if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      }
+      resolve();
+    };
+    s.onerror = () => {
+      // Reset so the user can retry after a network failure without
+      // force-quitting the app. Without this, the cached rejection
+      // permanently blocks every subsequent loadPdfJs() call.
+      _pdfjsReady = null;
+      reject(new Error('PDF import requires a network connection on first use. Ensure PilotBrief is installed to Home Screen for full offline capability.'));
+    };
+    document.head.appendChild(s);
+  });
+  return _pdfjsReady;
+}
+</script>
