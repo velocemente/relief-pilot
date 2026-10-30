@@ -8,7 +8,7 @@ Reference documents for sessions working on PilotBrief. They are copies of the f
 | `ADR-004-canonical-briefing-model-v1.3.md` | Import platform architecture and decisions D1–D17 | `ADR-004-canonical-briefing-model-v1.3.md` |
 | `RPT-OFP-LiveDefectDiagnosis-UPD-20261029-v1.1.md` | DEF-A (NOTAM year) and DEF-B (Company Remarks) diagnosis, test cases TC-110 | same name |
 | `SPRINT-OFP-FlightKeysMigration-REF-20261029-v1.0-FieldMap.md` | The 50-row FlightKeys field map (reference for P2a/P2b) | same name |
-| `SPRINT-OFP-ImportPlatform-UPD-20261029-v2.3.md` | The sprint plan and every session prompt (authoring, review, QA, release) | Drive build folder (v2.3 is maintained here; Drive holds up to v2.2) |
+| `SPRINT-OFP-ImportPlatform-UPD-20261030-v2.4.md` | The sprint plan and every session prompt (authoring, review, QA, release) | Drive build folder (copy placed by the Exec) |
 | `OperatingPractice-IV-1-CodeMap.md` | `index.html` code map (Operating Practice §IV-1 only) | `SOP-PROJ-OperatingPractice-NEW-20260606-v1.0.md`, Volume IV |
 
 Notes on the copies:
