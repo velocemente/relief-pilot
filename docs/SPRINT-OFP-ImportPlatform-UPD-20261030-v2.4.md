@@ -15,7 +15,7 @@
 | **Safety first** | The two live defects (214 suppressed NOTAMs; Company Remarks dumps) and the iOS "Cellular Data is Turned Off" alert (HF-3) are fixed in **weeks 1–2**, before the rebuild. **FlightKeys is built first** and moves onto the new import in about **week 5**. Navtech and eOFP stay on today's hotfixed parser until their profile passes the golden master. |
 | **How the work is done** | In the GitHub repository. Every change is a pull request with automated tests and an independent review. You approve as domain authority from a plain-language summary and a beta check on iPad. |
 | **Duration** | ≈ 8 weeks, paced for accuracy. Each stage is gated by tests on all fixture packages. |
-| **Budget** | 46 sessions + 6 contingency: **$35.35 – $48.90**. Ceiling: **$47** approved; **$49 proposed** (D19) to cover CI-1, REL-FK and QA-FK. GitHub test runs cost nothing at this scale. |
+| **Budget** | 46 sessions + 6 contingency: **$35.35 – $48.90**. Ceiling: **$49** (D19, approved 30 Oct). GitHub test runs cost nothing at this scale. |
 | **Two repositories** | **`velocemente/relief-pilot`** = development and beta. **All** sessions work here. **`velocemente/PilotBrief`** = production; read-only for Claude, updated only by the production release step (§2, REL-PROD). |
 
 ---
@@ -36,7 +36,7 @@
 | F1 Reorganise the code | **Done** — PR #9 (`src/` modules, `build/build.js`) |
 | E1a, E1b Engine | **Done** — PR #10, PR #11 (`src/import/`, not yet in the app) |
 | P2a | Started 30 Oct with the v2.3 prompt, corrected in chat; v2.4 prompt below |
-| Next | CI-1 → P2a review → P2b (needs IA/TA definition) → P5a → REL-FK → QA-FK |
+| Next | CI-1 → P2a review → P2b (IA/TA kept as text) → P5a → REL-FK → QA-FK |
 
 ---
 
@@ -44,7 +44,7 @@
 
 | # | When | What you decide or check | Time |
 |---|---|---|---|
-| C1 | Now | IA/TA definition — **needed before P2b (critical path)**; supply the fixtures in §5; confirm D19 and D20 | 5 min |
+| C1 | Now | Supply the fixtures in §5; IA/TA definition when feedback arrives (on hold; does not block P2b) | 5 min |
 | C2 | Week 1–2 | Hotfix on beta: RJAA RWY 16L/34R CLSD shows; RJAA Company Remarks short; with cellular data off, move PilotBrief into Slide Over several times — no alert (or at most one from iOS itself); it returns to the open flight → approve for production. *Alert part open — see §1.* | 20 min |
 | C3 | Week 2–3 | After the code is reorganised: beta behaves exactly as before (no visible change) | 10 min |
 | C-FK | Week 5 | **FlightKeys on the new import:** both prototypes plus any live package. NOTAMs, weather, curfews, crew, CAT II/III and MEL populated; self-check findings reviewed; QA-FK "Gate: GO" → approve for production | 30 min |
@@ -138,7 +138,7 @@ Each pull request carries a short section you can read: **What changes for crews
 | **Base** | **46** | **30.25 – 42.00** |
 | Contingency: 3 rework loops (author + review) | 6 | 5.10 – 6.90 |
 | **Total** | **52** | **35.35 – 48.90** |
-| **Ceiling** | | **47.00 approved · 49.00 proposed (D19)** |
+| **Ceiling (D19)** | | **49.00** |
 
 - **Hotfix track** (HF-1…HF-4, REL-HF, QA-HF and reviews): $6.00 – 7.80.
 - **Change from v2.3:** review count corrected 18 → 19 (REL-HF has a review); added CI-1 + review, REL-FK + review, QA-FK (+ $1.45 – 2.30).
@@ -191,9 +191,9 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 | D16 | **Q** = Special Qual Airport; show "Q" beside the airport name on each airport card whose ORIG/DEST/alternate line carries it | **Accepted** |
 | D17 | HF-4: after an iOS reload, return to the open flight, tab and phase | **Accepted** |
 | D18 | How approved releases reach production `PilotBrief`: **A** — Exec copies the three files by GitHub web upload (steps in §7, REL-PROD); **B** — grant the Claude app access to `PilotBrief` with a branch rule that requires your approval on every change, and a Haiku session opens the release PR | **Accepted — A** (29 Oct). Revisit after the platform release if wanted. |
-| D19 | Budget ceiling $47 → $49 for CI-1, REL-FK and QA-FK (§3) | **Open** — Exec |
-| D20 | FlightKeys release version number (REL-FK) — proposed **1.10.0** (new capability) | **Open** — Exec |
-| — | Meaning of IA / TA windows in FlightKeys briefings | **Open** — Exec to define before P2b (**critical path**) |
+| D19 | Budget ceiling $47 → $49 for CI-1, REL-FK and QA-FK (§3) | **Accepted** (30 Oct) |
+| D20 | FlightKeys release version number (REL-FK): **1.10.0** (new capability) | **Accepted** (30 Oct) |
+| — | Meaning of IA / TA windows in FlightKeys briefings | **On hold** (30 Oct) — awaiting outside feedback. P2b proceeds: IA/TA windows kept as text and never used for evaluation; a later small session applies the definition. |
 | D9 | Archive the undeployed September ruleset v1.2 | **Done** — moved to `90_Old Versions` |
 | D11 | Private fixtures repository; names may be redacted before upload | **Accepted** |
 | D12 | Keep on re-upload: notes, FCIR/ASAP, parking gate, ATIS, crew-updated times | **Accepted** |
@@ -1415,7 +1415,7 @@ MODEL: Haiku 4.5 · Standard     REPO: velocemente/relief-pilot   BRANCH: rel/fk
 TASK: after P5a is merged and FlightKeys imports correctly on beta: set APP_VERSION (in
  its src/ module, then rebuild index.html with node build/build.js), sw.js CACHE_NAME
  'pb-v<version>' and manifest.json version '<version>', where <version> is the number
- the Exec approved in plan §6 D20 (proposed 1.10.0). Add plain-language release notes
+ the Exec approved in plan §6 D20 (1.10.0). Add plain-language release notes
  (FlightKeys packages now fully imported: NOTAMs, weather, curfews, crew, CAT II/III,
  MEL, alternates; Q marker data). CI green.
 
