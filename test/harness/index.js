@@ -9,7 +9,9 @@ const vm = require('vm');
 
 // PB_INDEX_HTML lets a test run point at a modified copy (used to prove the gate bites).
 const INDEX_HTML = process.env.PB_INDEX_HTML || path.resolve(__dirname, '..', '..', 'index.html');
-const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalone'];
+const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalone',
+                 'getFlights', 'putFlights', 'loadFlight', 'deleteFlight',
+                 '_saveResumeView', '_clearResumeView'];
 // Fixed "now" so anything that reads the clock is repeatable.
 const FIXED_NOW = Date.UTC(2026, 9, 30, 0, 0, 0);
 
@@ -55,7 +57,7 @@ function makeStorage() {
   };
 }
 
-function loadApp({ html } = {}) {
+function loadApp({ html, storageData } = {}) {
   const src = html != null ? html : fs.readFileSync(INDEX_HTML, 'utf8');
   const scripts = inlineScripts(src);
   const mainIdx = scripts.findIndex(s => s.includes('function _ofpRulesetParse'));
@@ -84,12 +86,19 @@ function loadApp({ html } = {}) {
     static now() { return FIXED_NOW; }
   }
 
+  const ls = makeStorage();
+  if (storageData) {
+    Object.entries(storageData).forEach(function([k, v]) {
+      ls.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+    });
+  }
+
   const sandbox = {
     console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
     document: doc,
     navigator: { userAgent: 'node-test', serviceWorker: undefined, clipboard: stub, onLine: true },
     location: { href: 'http://localhost/', origin: 'http://localhost', search: '', hash: '', pathname: '/' },
-    localStorage: makeStorage(),
+    localStorage: ls,
     sessionStorage: makeStorage(),
     history: stub,
     Date: FakeDate,
@@ -115,7 +124,7 @@ function loadApp({ html } = {}) {
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
 
-  const exportLine = `\n;globalThis.__pb = { ${EXPOSED.map(n => `${n}: typeof ${n} === 'function' ? ${n} : undefined`).join(', ')} };\n`;
+  const exportLine = `\n;globalThis.__pb = { ${EXPOSED.map(n => `${n}: typeof ${n} === 'function' ? ${n} : undefined`).join(', ')}, S: (typeof S !== 'undefined' ? S : undefined), _navStack: (typeof _navStack !== 'undefined' ? _navStack : undefined), _getActiveFlightTab: function() { return typeof _activeFlightTab !== 'undefined' ? _activeFlightTab : undefined; } };\n`;
   new vm.Script(scripts[mainIdx] + exportLine, { filename: 'index.html:main-inline-script' })
     .runInContext(sandbox);
 
