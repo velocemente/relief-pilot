@@ -36,6 +36,19 @@ jobs:
       - name: Install (pdfjs-dist 3.11.174, pinned)
         run: npm ci
 
+      - name: Build dist/index.html from src/ modules
+        run: node build/build.js
+
+      - name: Verify build output matches committed index.html
+        run: |
+          expected=$(sha256sum index.html | awk '{print $1}')
+          actual=$(sha256sum dist/index.html | awk '{print $1}')
+          if [ "$expected" != "$actual" ]; then
+            echo "Hash mismatch: index.html=$expected dist/index.html=$actual"
+            exit 1
+          fi
+          echo "Hash match: $expected"
+
       - name: Syntax check inline scripts
         run: node test/check-syntax.js
 

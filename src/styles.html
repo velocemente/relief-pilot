@@ -1,0 +1,1847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PilotBrief">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0C0C0E" media="(prefers-color-scheme: dark)">
+<title>PilotBrief</title>
+<link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAE8klEQVR42u3dwXETSxQFUM2UEiAQfiCwIwRYsCCev2CBQ2AHgeBACMEsKBUqEEYaTXe/9/rctS25pDPXV5ZmvByi5OXbp4PkzePDEuHHWACWSsAXiKUS7gViqYR7AVkqwV5AlkqwV5hlaHY2s4Asldp6hVkqtfUKs1RCvYAslSbICrNUausVZqmEeoVZKqFePVpSKeveR4jIyJZeYZZKqFeYpRJqG1om2dDaWRK29AqzVEJtckjxyaGdJXFLa2gp3NDaWZK3tIaW4htapARoc0MKzA4NLSaHSGzQ5kbzPH375EHoMDs0tJgcop2BFrC7gLafpdCO1tBicoiZAbQADrQI0AK0mBdAiwAtmhtoEaC1MNAiQIsGB1oEaO0rQEuzfHn/GWip0eQnzNFQAy13N/OX95/DwAZa65aaIEDLrmhHowZadm/gkRMEaBOl2ZwYgRpo+7n5gdATNtDSpWl7oQZaukHsgRpoU6UrwNYTBGj7uczBArQMmwevP75pcruLa9vFa+Xlv3cwb8wRy3jT4vw+euOO+Ak6oAtt5NP9jm7tDO1sciR9odcKd+apAXQyxK1xV8BsciRFvPfezr6bgS4AOdPe7tXOU06O2d4A+RfuKlNjKtDexbuMuxrm0pMD4ucfk6//v6h50FZqaIi3pQXuEe1cBjTIsWCPwpwaNMQxcY/EnG5DQ9wvrz58T7m3wzc0xHmae3Q7hwYNci7YETCHAw1xzkR6Z3I4aIjh3jNOwZJSAVqAFgFaBGgRoAVoEaBFgBYBWgRomTGuy7Exv39m4d7PpOx9e0DL1dj+9jV7Irx0n5AD3QTvqPs8/7rTJQjOzyyRyUFnvaLn+fU0Lp1BMjPyI7x5Mf8tMyM/wrvv/bbcufdc6WgW5Ed45/35L50XmP2F59GTX2dq3JPTSa7Z/7pyhBfmLc9FVORHeGPv6B6Yt1yCICryFea5s+f1NCI8lz7LEfhgrnj9ZqDtZpiBzj2jKv0TH6Al1W4GWp5tcVMD6FTb1W4GujuoPWDduqPtZqCbtmM1YDO0M9D/wNsLtakBdDdMLbBdOvMEZqC7NeNWdKPfCbShYS6Fb7Z2PhwmPKcwCkxTQ0MPR7QXQpiBDoPo1tv5fUdX/afxQCf+9R55T8/czlOAboUvIurZMZcH3RpdJNQwFwcd6V2+0262n4FO0Vijm1o7TzI5IqD2Jzqgy6BufYVQmCcEPQr1pWZ26Vug0ze1dga69N7cAzjMQKfFCzPQU7S0AN0VtXYGugzqazDfCh5moMsggRnoYVhuaV5bGujpGlA7Az0MzpbGfe57YAa6TBvCDPRQSPfsYVt6vyyHl2+fPAx/ZuRnnLWzhi6DCmagy+CCGWjIBGgHDtCwwQw01DADbRYI0DlRO0BagH58WDwM/SHC3CCPD4uGHgAS5nY5egj2QX3NW+UgA50O9yXYIPfLr/3sQ0qSfD//fFEoUihAS1HQ/nwnyeeGhhaTQyQPaLNDEs8NDS0TTA4tLUnbWUPLJC8KtbQkbOfnGxpqSYbZ5JBJJoeWloTtfF1DQy1JMF8/OaCWBJhtaJlsQ2tpSdTOtzc01BIY87bJAbUExXw4nJ9TuCXOQ5QgkPd5UaitJRDm+0FDLYEw3z85TBAJAnm/htbWEshMO4DaWgaUX/tGBVs6/hbvOxHghrhxxm1euCEuBRpwgBvkB0VuYbC09WVZAAAAAElFTkSuQmCC">
+<link rel="manifest" href="manifest.json">
+
+<!--
+  DESIGN PRINCIPLES APPLIED
+  ─────────────────────────────────────────────
+  From Apple HIG / Designing for iPadOS:
+  • System color palette (iOS semantic colors)
+  • System font stack (-apple-system / SF Pro)
+  • 44pt minimum touch targets throughout
+  • Safe area insets on all four edges
+  • Native navigation bar patterns (back chevron, title, actions)
+  • Grouped-list style cards for content
+  • Sidebar / detail navigation concept adapted to mobile
+  • Modal sheets with drag-to-dismiss handle
+  • Spring-curve transitions (cubic-bezier matching iOS spring)
+  • Semantic spacing: 8, 16, 20, 44 pt grid
+
+  From iOS Best Practices (Janineh):
+  • SVG icons instead of emoji/image assets (scalable, no @2x/@3x)
+  • System UI components over custom painted ones
+  • Logical separation of concerns (screens as modules)
+  • Dark Mode via prefers-color-scheme, never hardcoded colors
+  • Performance: minimal repaints, no expensive effects on scroll
+  • Accessibility: aria labels on all interactive elements
+  ─────────────────────────────────────────────
+-->
+
+<style>
+/* ═══════════════════════════════════════════════════════
+   SEMANTIC COLOR TOKENS — mirrors iOS system color palette
+   Light / Dark handled via prefers-color-scheme
+   ═══════════════════════════════════════════════════════ */
+:root {
+  /* Backgrounds */
+  --sys-bg:           #f2f2f7;   /* systemBackground equivalent */
+  --sys-bg2:          #ffffff;   /* secondarySystemBackground */
+  --sys-bg3:          #f2f2f7;   /* tertiarySystemBackground */
+  --sys-grouped:      #f2f2f7;   /* systemGroupedBackground */
+  --sys-grouped2:     #ffffff;   /* secondarySystemGroupedBackground */
+  --sys-grouped3:     #f2f2f7;   /* tertiarySystemGroupedBackground */
+
+  /* Separators */
+  --sep:              rgba(60,60,67,0.29);   /* separator */
+  --sep-opaque:       #c6c6c8;              /* opaqueSeparator */
+
+  /* Labels */
+  --label:            #1C1C1E;             /* label — appTextPrimary (light) */
+  --label2:           #636366;             /* secondaryLabel — AA compliant */
+  --label3:           #8E8E93;             /* tertiaryLabel */
+  --label4:           #C7C7CC;             /* quaternaryLabel */
+
+  /* System fills */
+  --fill:             rgba(120,120,128,0.2);
+  --fill2:            rgba(120,120,128,0.16);
+  --fill3:            rgba(118,118,128,0.12);
+  --fill4:            rgba(116,116,128,0.08);
+
+  /* System tint (blue accent) */
+  --tint:             #007aff;
+  --tint-bg:          rgba(0,122,255,0.1);
+
+  /* Semantic colours */
+  --sys-green:        #34c759;
+  --sys-yellow:       #ff9f0a;
+  --sys-orange:       #ff6b00;
+  --sys-red:          #FF375F;    /* appDestructive */
+  --sys-green-bg:     rgba(52,199,89,0.1);
+  --sys-yellow-bg:    rgba(255,159,10,0.1);
+  --sys-red-bg:       rgba(255,55,95,0.1);  /* appDestructive bg */
+
+  /* Typography — SF Pro stack */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Menlo', 'Courier New', Courier, monospace;
+
+  /* Spacing grid (8pt base) */
+  --sp1: 4px; --sp2: 8px; --sp3: 12px; --sp4: 16px;
+  --sp5: 20px; --sp6: 24px; --sp8: 32px; --sp10: 40px;
+
+  /* Corner radii (iOS native values) */
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 24px;    /* AppRadius.xl */
+
+  /* Min touch target: 44pt */
+  --touch: 44px;
+
+  /* Safe areas */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
+  /* iOS spring transition */
+  --spring: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --spring-snappy: cubic-bezier(0.35, 0, 0.25, 1);
+  /* ── Brand Identity Tokens ── */
+  --brand-navy:          #002D62;   /* PilotBrief primary navy */
+  --brand-navy-hi:       #003a7a;   /* lighter shade for gradients */
+  --brand-gold:          #B59410;   /* PilotBrief accent gold */
+  --brand-gold-hi:       #d4ab12;   /* brighter gold (dark mode) */
+  --brand-compass:       #BDCBDC;   /* compass tick accent */
+  --brand-navy-adaptive: #002D62;   /* adaptive: overridden in dark mode */
+  /* ── Design System Extensions (DesignTokens.swift alignment) ── */
+  --border-interactive: #757575;  /* appBorderInteractive — SC 1.4.11 compliant */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);   /* AppShadow.sm */
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.30);   /* AppShadow.md */
+  --shadow-lg: 0 12px 20px rgba(0,0,0,0.35);  /* AppShadow.lg */
+  /* ── Typography Tokens (AppType alignment) ── */
+  --type-h1: 34px;       /* Page titles */
+  --type-h2: 28px;       /* Section headings */
+  --type-h3: 22px;       /* Sub-section headings */
+  --type-body-lg: 20px;  /* Prominent body */
+  --type-body: 17px;     /* Standard body */
+  --type-body-sm: 15px;  /* Supporting body */
+  --type-caption: 13px;  /* Metadata, labels */
+  --type-overline: 11px; /* Minimum size — badges, micro text */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sys-bg:           #0C0C0E;   /* appBackground */
+    --sys-bg2:          #1c1c1e;   /* appSurface */
+    --sys-bg3:          #2c2c2e;   /* appSurfaceVariant */
+    --sys-grouped:      #0C0C0E;   /* appBackground */
+    --sys-grouped2:     #1c1c1e;
+    --sys-grouped3:     #2c2c2e;
+    --sep:              rgba(84,84,88,0.65);
+    --sep-opaque:       #38383a;
+    --label:            #F5F5F7;            /* appTextPrimary */
+    --label2:           #939393;            /* appTextSecondary — corrected for AA on all surfaces */
+    --label3:           #636366;            /* tertiaryLabel — maintains hierarchy */
+    --label4:           #48484A;            /* appTextDisabled */
+    --fill:             rgba(120,120,128,0.36);
+    --fill2:            rgba(120,120,128,0.32);
+    --fill3:            rgba(118,118,128,0.24);
+    --fill4:            rgba(118,118,128,0.18);
+    --tint:             #0a84ff;
+    --tint-bg:          rgba(10,132,255,0.15);
+    --sys-green:        #30d158;
+    --sys-yellow:       #FF9F0A;    /* appWarning */
+    --sys-orange:       #ff6b00;
+    --sys-red:          #FF375F;    /* appDestructive */
+    --sys-green-bg:     rgba(48,209,88,0.15);
+    --sys-yellow-bg:    rgba(255,159,10,0.12); /* appWarning bg */
+    --sys-red-bg:       rgba(255,55,95,0.15); /* appDestructive bg */
+    --brand-navy-adaptive: #6ea8e8; /* legible on dark bg — desaturated blue */
+    --brand-gold:          #d4ab12; /* slightly brighter gold for dark mode */
+  }
+}
+
+/* Override theme if manually set — full variable set so manual toggle
+   works independently of prefers-color-scheme media query             */
+html[data-theme="light"] {
+  color-scheme: light;
+  --sys-bg: #f2f2f7; --sys-bg2: #ffffff; --sys-bg3: #f2f2f7;
+  --sys-grouped: #f2f2f7; --sys-grouped2: #ffffff; --sys-grouped3: #f2f2f7;
+  --sep: rgba(60,60,67,0.29); --sep-opaque: #c6c6c8;
+  --label: #1C1C1E; --label2: #636366; --label3: #8E8E93; --label4: #C7C7CC;
+  --fill: rgba(120,120,128,0.2); --fill2: rgba(120,120,128,0.16);
+  --fill3: rgba(118,118,128,0.12); --fill4: rgba(116,116,128,0.08);
+  --tint: #007aff; --tint-bg: rgba(0,122,255,0.1);
+  --sys-green: #34c759; --sys-yellow: #ff9f0a; --sys-orange: #ff6b00; --sys-red: #FF375F;
+  --sys-green-bg: rgba(52,199,89,0.1); --sys-yellow-bg: rgba(255,159,10,0.1);
+  --sys-red-bg: rgba(255,55,95,0.1);
+  --brand-navy-adaptive: #002D62;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --sys-bg: #0C0C0E; --sys-bg2: #1c1c1e; --sys-bg3: #2c2c2e;
+  --sys-grouped: #0C0C0E; --sys-grouped2: #1c1c1e; --sys-grouped3: #2c2c2e;
+  --sep: rgba(84,84,88,0.65); --sep-opaque: #38383a;
+  --label: #F5F5F7; --label2: #939393; --label3: #636366; --label4: #48484A;
+  --fill: rgba(120,120,128,0.36); --fill2: rgba(120,120,128,0.32);
+  --fill3: rgba(118,118,128,0.24); --fill4: rgba(118,118,128,0.18);
+  --tint: #0a84ff; --tint-bg: rgba(10,132,255,0.15);
+  --sys-green: #30d158; --sys-yellow: #FF9F0A; --sys-orange: #ff6b00; --sys-red: #FF375F;
+  --sys-green-bg: rgba(48,209,88,0.15); --sys-yellow-bg: rgba(255,159,10,0.12);
+  --sys-red-bg: rgba(255,55,95,0.15);
+  --brand-navy-adaptive: #6ea8e8; --brand-gold: #d4ab12;
+}
+/* cell-icon hardcoded colours for manual dark override */
+html[data-theme="dark"] .cell-icon.blue   { background: #0a84ff; }
+html[data-theme="dark"] .cell-icon.green  { background: #30d158; }
+html[data-theme="dark"] .cell-icon.orange { background: #ff9f0a; }
+html[data-theme="dark"] .cell-icon.purple { background: #bf5af2; }
+/* cell-icon reset for manual light override (when OS may be dark) */
+html[data-theme="light"] .cell-icon.blue   { background: #007aff; }
+html[data-theme="light"] .cell-icon.green  { background: #34c759; }
+html[data-theme="light"] .cell-icon.orange { background: #ff9f0a; }
+html[data-theme="light"] .cell-icon.purple { background: #af52de; }
+
+/* ═══════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html {
+  color-scheme: light dark;
+  height: 100%;
+}
+body {
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--label);
+  background: var(--sys-grouped);
+  height: 100%; height: -webkit-fill-available;
+  -webkit-text-size-adjust: 100%;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════
+   SCREEN STACK — fixed layers, iOS-style slide transitions
+   ═══════════════════════════════════════════════════════ */
+.screen {
+  position: fixed; inset: 0;
+  background: var(--sys-grouped);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  /* Default: hidden to the right (iOS push) */
+  transform: translateX(100%);
+  transition: transform 0.35s var(--spring);
+  will-change: transform;
+  z-index: 10;
+}
+.screen.is-root { transform: translateX(0); z-index: 1; }
+.screen.is-active {
+  transform: translateX(0);
+  z-index: 20;
+}
+.screen.is-behind {
+  transform: translateX(-30%);
+  z-index: 10;
+  pointer-events: none;
+}
+/* Modal sheets slide from bottom */
+.screen.is-sheet {
+  transform: translateY(100%);
+  z-index: 30;
+}
+.screen.is-sheet.is-active {
+  transform: translateY(0);
+  z-index: 30;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NAVIGATION BAR — HIG: 44pt tall, system font title
+   ═══════════════════════════════════════════════════════ */
+.nav-bar {
+  display: flex; align-items: flex-end;
+  /* max() guarantees minimum clearance even when Safari reports sat/sal as 0
+     in Slide Over → full-landscape transitions (prevents chrome overlap) */
+  padding:
+    max(calc(var(--sat) + 4px), 10px)
+    max(calc(var(--sar) + var(--sp4)), 20px)
+    var(--sp3)
+    max(calc(var(--sal) + var(--sp4)), 20px);
+  min-height: max(calc(var(--sat) + 44px), 52px);
+  background: var(--sys-bg2);
+  border-bottom: 0.5px solid var(--sep);
+  flex-shrink: 0;
+  position: relative;
+  gap: var(--sp2);
+}
+.nav-bar.large-title {
+  padding-bottom: var(--sp2);
+  min-height: calc(var(--sat) + 96px);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.nav-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--label);
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  bottom: var(--sp3);
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+/* Brand title: compass icon + screen label, replaces plain .nav-title on all secondary screens */
+.nav-brand-title {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  /* Must match nav-bar's own padding-bottom so the brand mark baseline
+     sits on the same horizontal line as the flex items inside the bar */
+  padding-bottom: var(--sp3);
+  gap: 7px;
+  white-space: nowrap; pointer-events: none;
+}
+.nav-brand-title .nb-icon {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  background: linear-gradient(145deg, var(--brand-navy-hi), var(--brand-navy));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,45,98,0.30);
+}
+.nav-brand-title .nb-icon svg { width: 15px; height: 15px; }
+.nav-brand-title .nb-label {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 600;
+  color: var(--label);
+  letter-spacing: -0.01em;
+}
+/* Help icon button — 44×44, styled like icon-btn but gold accent on flight screen */
+.help-btn {
+  width: var(--touch); height: var(--touch);
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--tint); border-radius: var(--r-sm);
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.help-btn:active { background: var(--fill); }
+.help-btn svg { width: 22px; height: 22px; }
+.nav-large-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--label);
+  flex: 1; width: 100%;
+  letter-spacing: -0.02em;
+  padding-top: var(--sp2);
+  line-height: 1.1;
+}
+.nav-back {
+  display: flex; align-items: center; gap: 3px;
+  background: none; border: none; cursor: pointer;
+  font-family: var(--font); font-size: 17px; font-weight: 400;
+  color: var(--tint); min-width: var(--touch); min-height: var(--touch);
+  align-self: flex-end; padding: 0; padding-bottom: 2px;
+  white-space: nowrap;
+}
+.nav-actions {
+  display: flex; align-items: center; gap: var(--sp1);
+  margin-left: auto; align-self: flex-end;
+  padding-bottom: 2px;
+}
+/* SVG icon button — 44×44 touch target, HIG compliant */
+.icon-btn {
+  width: var(--touch); height: var(--touch);
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--tint); border-radius: var(--r-sm);
+  transition: background 0.15s;
+}
+.icon-btn:active { background: var(--fill); }
+.icon-btn svg { width: 23px; height: 23px; }
+
+/* ═══════════════════════════════════════════════════════
+   SCROLL CONTAINER
+   ═══════════════════════════════════════════════════════ */
+.scroll-view {
+  flex: 1; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--sp5)
+    calc(var(--sar) + var(--sp4))
+    calc(var(--sab) + var(--sp8))
+    calc(var(--sal) + var(--sp4));
+}
+.scroll-view.no-padding { padding: 0; }
+
+/* ═══════════════════════════════════════════════════════
+   GROUPED TABLE SECTIONS — iOS UITableView.Style.grouped
+   ═══════════════════════════════════════════════════════ */
+.section {
+  margin-bottom: var(--sp5);
+}
+.section-header {
+  font-family: var(--font);
+  font-size: 13px; font-weight: 400;
+  color: var(--label2);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0 var(--sp4) var(--sp1);
+}
+.section-footer {
+  font-size: 13px; color: var(--label2);
+  padding: var(--sp2) var(--sp4) 0;
+  line-height: 1.5;
+}
+.cell-group {
+  background: var(--sys-grouped2);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.cell {
+  display: flex; align-items: center;
+  padding: 0 var(--sp4);
+  min-height: var(--touch);
+  border-bottom: 0.5px solid var(--sep);
+  gap: var(--sp3);
+  background: var(--sys-grouped2);
+  cursor: pointer;
+  transition: background 0.12s;
+  position: relative;
+}
+.cell:last-child { border-bottom: none; }
+.cell:active { background: var(--fill3); }
+.cell-icon {
+  width: 30px; height: 30px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.cell-icon svg { width: 17px; height: 17px; }
+.cell-icon.blue   { background: #007aff; color: #fff; }
+.cell-icon.green  { background: #34c759; color: #fff; }
+.cell-icon.orange { background: #ff9f0a; color: #fff; }
+.cell-icon.purple { background: #af52de; color: #fff; }
+.cell-icon.gray   { background: var(--fill2); color: var(--label2); }
+@media (prefers-color-scheme: dark) {
+  .cell-icon.blue   { background: #0a84ff; }
+  .cell-icon.green  { background: #30d158; }
+  .cell-icon.orange { background: #ff9f0a; }
+  .cell-icon.purple { background: #bf5af2; }
+}
+.cell-content { flex: 1; min-width: 0; padding: var(--sp3) 0; }
+.cell-title {
+  font-size: 17px; color: var(--label);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cell-subtitle {
+  font-size: 13px; color: var(--label2);
+  margin-top: 1px; line-height: 1.4;
+}
+.cell-value {
+  font-size: 17px; color: var(--label2);
+  white-space: nowrap; flex-shrink: 0;
+}
+.cell-chevron {
+  width: 9px; height: 14px; flex-shrink: 0;
+  fill: none; stroke: var(--label3); stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.cell-disclosure {
+  display: flex; align-items: center; gap: var(--sp2);
+  flex-shrink: 0; color: var(--label2);
+}
+
+/* Destructive cell */
+.cell.destructive .cell-title { color: var(--sys-red); }
+
+/* ═══════════════════════════════════════════════════════
+   SHEET HANDLE — drag-to-dismiss indicator
+   ═══════════════════════════════════════════════════════ */
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: var(--fill2);
+  border-radius: 2px;
+  margin: var(--sp3) auto var(--sp1);
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   WELCOME / HOME SCREEN
+   ═══════════════════════════════════════════════════════ */
+#screen-home {
+  background: var(--sys-grouped);
+}
+.home-hero {
+  padding: var(--sp10) var(--sp6) var(--sp6);
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp2);
+}
+.home-icon {
+  width: 88px; height: 88px; border-radius: 20px;
+  background: linear-gradient(145deg, var(--brand-navy-hi), var(--brand-navy));
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: var(--sp3);
+  box-shadow: 0 6px 22px rgba(0,45,98,0.40);
+}
+.home-icon svg { width: 36px; height: 36px; }
+.home-app-name {
+  font-family: var(--font-display);
+  font-size: 34px; font-weight: 700; letter-spacing: -0.03em;
+  color: var(--brand-navy-adaptive);
+}
+.home-tagline {
+  font-size: 15px; color: var(--label2); line-height: 1.5;
+  max-width: 300px;
+}
+
+/* Primary CTA button — iOS filled button style */
+.btn-primary {
+  display: flex; align-items: center; justify-content: center; gap: var(--sp2);
+  background: var(--tint); color: #fff; border: none;
+  border-radius: var(--r-xl); padding: 0 var(--sp6);
+  min-height: var(--touch); font-family: var(--font);
+  font-size: 17px; font-weight: 600; cursor: pointer;
+  width: 100%; max-width: 320px;
+  transition: opacity 0.1s;
+}
+.btn-primary:active { opacity: 0.75; }
+.btn-primary svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.btn-secondary {
+  display: flex; align-items: center; justify-content: center; gap: var(--sp2);
+  background: var(--fill2); color: var(--label); border: none;
+  border-radius: var(--r-xl); padding: 0 var(--sp6);
+  min-height: var(--touch); font-family: var(--font);
+  font-size: 17px; font-weight: 500; cursor: pointer;
+  width: 100%; max-width: 320px;
+  transition: opacity 0.1s;
+}
+.btn-secondary:active { opacity: 0.7; }
+.btn-secondary svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+/* ═══════════════════════════════════════════════════════
+   IMPORT SCREEN
+   ═══════════════════════════════════════════════════════ */
+.drop-zone {
+  background: var(--sys-grouped2);
+  border-radius: var(--r-lg);
+  border: 1.5px dashed var(--sep-opaque);
+  padding: var(--sp10) var(--sp6);
+  display: flex; flex-direction: column; align-items: center;
+  gap: var(--sp3); cursor: pointer; position: relative;
+  transition: border-color 0.15s, background 0.15s;
+}
+.drop-zone input {
+  position: absolute; inset: 0; opacity: 0;
+  cursor: pointer; width: 100%; height: 100%;
+}
+.drop-zone.over { border-color: var(--tint); background: var(--tint-bg); }
+.drop-zone:active { background: var(--fill4); }
+
+/* ── Global PDF drag-drop overlay (iPadOS Slide Over / Split View) ── */
+#dragOverlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0, 122, 255, 0.18);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border: 3px dashed var(--tint);
+  border-radius: var(--r-xl);
+  margin: var(--sp3);
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: var(--sp4);
+  pointer-events: none;
+}
+#dragOverlay.visible { display: flex; }
+#dragOverlay .drag-label {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 700;
+  color: var(--tint); text-align: center;
+  line-height: 1.3;
+}
+#dragOverlay .drag-sub {
+  font-size: 14px; color: var(--label2); text-align: center;
+}
+.dz-icon-wrap {
+  width: 56px; height: 56px; border-radius: var(--r-md);
+  background: var(--tint-bg);
+  display: flex; align-items: center; justify-content: center;
+}
+.dz-icon-wrap svg { width: 28px; height: 28px; color: var(--tint); }
+.dz-title { font-size: 15px; font-weight: 600; color: var(--label); }
+.dz-sub { font-size: 13px; color: var(--label2); text-align: center; line-height: 1.4; }
+
+.callout {
+  background: var(--tint-bg);
+  border-radius: var(--r-md);
+  padding: var(--sp3) var(--sp4);
+  display: flex; gap: var(--sp3); align-items: flex-start;
+}
+.callout svg { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; color: var(--tint); }
+.callout-text { font-size: 13px; color: var(--label); line-height: 1.5; }
+.callout-title { font-weight: 600; display: block; margin-bottom: 2px; }
+
+/* Divider with label */
+.or-divider {
+  display: flex; align-items: center; gap: var(--sp3);
+  color: var(--label3); font-size: 13px;
+}
+.or-divider::before, .or-divider::after {
+  content: ''; flex: 1; height: 0.5px; background: var(--sep);
+}
+
+.textarea-field {
+  width: 100%; min-height: 120px; resize: vertical;
+  background: var(--sys-grouped2); color: var(--label);
+  border: 1px solid var(--border-interactive); border-radius: var(--r-md);
+  padding: var(--sp3) var(--sp4);
+  font-family: var(--font-mono); font-size: 13px;
+  outline: none; -webkit-appearance: none; line-height: 1.5;
+}
+.textarea-field:focus { border-color: var(--tint); }
+.textarea-field::placeholder { color: var(--label3); }
+
+/* Status toast */
+.import-toast {
+  border-radius: var(--r-md); padding: var(--sp3) var(--sp4);
+  font-size: 13px; display: none; line-height: 1.5;
+}
+.import-toast.info { background: var(--tint-bg); color: var(--tint); }
+.import-toast.ok   { background: var(--sys-green-bg); color: var(--sys-green); }
+.import-toast.err  { background: var(--sys-red-bg); color: var(--sys-red); }
+
+/* ── SW Update Banner ─────────────────────────────────
+   Shown only when a new Service Worker activates.
+   Never visible offline — SW activation requires a
+   network download of the updated sw.js.              */
+#sw-update-banner {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 10000;
+  background: var(--tint);
+  color: #fff;
+  font: 600 13px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: calc(var(--sat) + 10px) 16px 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.20);
+  -webkit-tap-highlight-color: transparent;
+}
+#sw-update-banner.visible { display: flex; }
+#sw-update-banner .swub-reload {
+  background: rgba(255,255,255,0.22);
+  border: none;
+  color: #fff;
+  font: 600 13px -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 5px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#sw-update-banner .swub-dismiss {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.75);
+  font: 600 16px -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 4px 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FLIGHT LIST
+   ═══════════════════════════════════════════════════════ */
+.flight-row-date {
+  font-size: 13px; color: var(--label2);
+  padding: var(--sp5) var(--sp4) var(--sp2) var(--sp4);
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.flight-del-btn {
+  background: none; border: none; cursor: pointer;
+  width: var(--touch); height: var(--touch);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--sys-red); flex-shrink: 0;
+}
+.flight-del-btn svg { width: 20px; height: 20px; }
+
+/* Empty state */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: var(--sp3);
+  padding: var(--sp10) var(--sp6);
+  color: var(--label2); text-align: center; flex: 1;
+}
+.empty-state-icon {
+  width: 56px; height: 56px;
+  color: var(--label3);
+}
+.empty-state-title { font-size: 17px; font-weight: 600; color: var(--label2); }
+.empty-state-sub   { font-size: 15px; color: var(--label3); line-height: 1.5; }
+
+/* ═══════════════════════════════════════════════════════
+/* ── Flight screen: unified tab container ── */
+#screen-flight {
+  background: var(--sys-bg2);
+  display: flex; flex-direction: column;
+}
+#screen-flight .nav-bar {
+  background: var(--sys-bg2);
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+/* Tab bar — sits below the top nav bar */
+.flight-tab-bar {
+  display: flex;
+  background: var(--sys-bg2);
+  border-bottom: 0.5px solid var(--sep);
+  flex-shrink: 0;
+  padding: 0 var(--sp2);
+}
+.flight-tab {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  padding: var(--sp2) 0 var(--sp1);
+  background: none; border: none; cursor: pointer;
+  color: var(--label3);
+  font-size: var(--type-overline); font-family: var(--font);
+  position: relative;
+  transition: color 0.15s;
+  min-height: 48px;
+}
+.flight-tab svg { width: 22px; height: 22px; transition: stroke 0.15s; }
+.flight-tab span { letter-spacing: 0.01em; }
+
+/* Active state: tint color + underline bar */
+.flight-tab.active {
+  color: var(--tint);
+}
+.flight-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 16%; right: 16%;
+  height: 2px;
+  background: var(--tint);
+  border-radius: 1px 1px 0 0;
+}
+
+/* Tab content panels — only active one visible */
+.flight-panel {
+  display: none;
+  flex: 1; min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.flight-panel.active {
+  display: flex;
+}
+/* briefing-outer and briefing-scroll live inside the note panel */
+.flight-panel .briefing-outer {
+  flex: 1; min-height: 0;
+}
+
+#screen-settings {
+  background: var(--sys-grouped);
+}
+.settings-section-header {
+  font-size: 13px; font-weight: 400; color: var(--label3);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding: var(--sp4) var(--sp4) var(--sp2) calc(var(--sal) + var(--sp4));
+}
+.settings-row {
+  display: flex; align-items: center;
+  min-height: 44px;
+  padding: 0 var(--sp4) 0 calc(var(--sal) + var(--sp4));
+  background: var(--sys-bg2);
+  gap: var(--sp3);
+  cursor: pointer;
+  border-bottom: 0.5px solid var(--sep);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.settings-row-label {
+  flex: 1; font-size: 17px; color: var(--label);
+}
+.settings-row-chevron {
+  color: var(--label3);
+}
+.settings-version-footer {
+  text-align: center;
+  padding: var(--sp4) var(--sp4) var(--sp2);
+  font-size: var(--type-caption); font-family: var(--font-mono); color: var(--label3);
+}
+/* fcir-toggle-row on the right — no auto margin in this layout */
+#screen-flight .fcir-toggle-row {
+  margin-left: 0;
+  padding-right: var(--sp2);
+}
+/* Slide Over → full-landscape: extra top clearance so < Flights stays clear
+   of iPad multitasking controls during the window expansion transition */
+#flightNavBar {
+  padding-top: max(calc(var(--sat) + 2px), 6px);
+  padding-bottom: var(--sp2);
+  min-height: max(calc(var(--sat) + 28px), 36px);
+  align-items: center;
+}
+/* Slide Over / narrow window: two-row flight nav bar
+   Row 1 — brand icon centred (full width)
+   Row 2 — ‹ Flights left, FCIR/ASAP right                     */
+@media (max-width: 400px) {
+  #flightNavBar {
+    flex-wrap: wrap;
+    align-content: flex-start;
+    min-height: max(calc(var(--sat) + 54px), 64px);
+    padding-left:  max(calc(var(--sal) + var(--sp3)), 12px);
+    padding-right: max(calc(var(--sar) + var(--sp3)), 12px);
+    padding-bottom: 0;
+    row-gap: 0;
+  }
+
+  /* Brand: escape absolute positioning, become full-width first row */
+  #flightNavBar .nav-brand-title {
+    position: static;
+    width: 100%;
+    order: -1;
+    justify-content: center;
+    align-items: center;
+    min-height: 30px;
+    padding-bottom: 0;
+    padding-top: max(calc(var(--sat) + 2px), 6px);
+  }
+
+  /* Back button: left of second row */
+  #flightNavBar .nav-back {
+    order: 1;
+    align-self: center;
+    padding-bottom: 0;
+    min-height: 30px;
+    font-size: 15px;
+  }
+
+  /* Right cluster: right of second row */
+  #flightNavRight {
+    order: 1;
+    margin-left: auto;
+    min-height: 30px;
+    align-items: center;
+  }
+
+  /* Tighten FCIR label text in narrow mode */
+  #flightNavBar .fcir-label {
+    font-size: 11px;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Secondary screens: same two-row treatment ────────────────
+     Import OFP / Settings / Help / Flights root                  */
+  .nav-secondary {
+    flex-wrap: wrap;
+    align-content: flex-start;
+    min-height: max(calc(var(--sat) + 96px), 104px);
+    padding-left:  max(calc(var(--sal) + var(--sp3)), 12px);
+    padding-right: max(calc(var(--sar) + var(--sp3)), 12px);
+    padding-bottom: 0;
+    row-gap: 0;
+  }
+  .nav-secondary .nav-brand-title {
+    position: static;
+    width: 100%;
+    order: -1;
+    justify-content: center;
+    align-items: center;
+    min-height: 44px;
+    padding-bottom: 0;
+    padding-top: max(calc(var(--sat) + 2px), 6px);
+  }
+  .nav-secondary .nav-back {
+    order: 1;
+    align-self: center;
+    padding-bottom: 0;
+    min-height: 44px;
+    font-size: 15px;
+  }
+  /* Flights root: add-button left, settings icon right on second row */
+  .nav-secondary .flights-add-btn {
+    order: 1;
+    align-self: center;
+    min-height: 44px;
+  }
+  .nav-secondary .icon-btn {
+    order: 1;
+    align-self: center;
+    min-height: 44px;
+    margin-left: auto;
+  }
+}
+/* Briefing panel: sticky header + scrolling body */
+.briefing-outer {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.briefing-sticky-header {
+  flex-shrink: 0;
+  background: var(--sys-grouped);
+  padding: var(--sp1) calc(var(--sar)+var(--sp5)) 0 calc(var(--sal)+var(--sp5));
+  border-bottom: 0.5px solid var(--sep);
+}
+.briefing-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: var(--sp4)
+    calc(var(--sar) + var(--sp5))
+    calc(var(--sab) + var(--sp10))
+    calc(var(--sal) + var(--sp5));
+}
+
+/* ── Phase tab pills ── */
+.phase-tabs {
+  display: flex; gap: 6px;
+  padding: var(--sp1) 0 var(--sp2);
+}
+.phase-tab {
+  flex: 1; height: 32px;
+  border-radius: 10px;
+  border: none; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  background: var(--fill4); color: var(--label2);
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.phase-tab.active {
+  background: var(--tint); color: #fff;
+}
+
+/* ── Subcard (Preflight > Departure / OFP Fuel, etc.) ── */
+.subcard {
+  background: var(--sys-bg2);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-bottom: var(--sp4);
+  box-shadow: var(--shadow-sm);
+}
+.subcard-header {
+  font-size: var(--type-overline); font-weight: 700; color: var(--label3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: var(--sp3) var(--sp4) var(--sp2);
+}
+.subcard-body { padding: 0 var(--sp4) var(--sp3); }
+
+/* ── Arrival ATIS row ── */
+.atis-row {
+  display: flex; align-items: center; gap: var(--sp3);
+  min-height: 44px;
+}
+.atis-letter-box {
+  width: 42px; height: 42px; border-radius: var(--r-md);
+  border: 1.5px solid var(--sep-opaque);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+  color: var(--tint); cursor: pointer; flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.atis-letter-box:active { background: var(--tint-bg); border-color: var(--tint); }
+.atis-notes-pad {
+  flex: 1; min-height: 42px; max-height: 120px; resize: none;
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp3);
+  font-family: var(--font); font-size: var(--type-body-sm); line-height: 1.5;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto; touch-action: none;
+}
+.atis-notes-pad:focus { border-color: var(--tint); }
+.atis-notes-pad::placeholder { color: var(--label3); }
+
+/* ── Parking row ── */
+.parking-row {
+  display: flex; align-items: flex-start; gap: var(--sp3);
+  padding: var(--sp2) 0; min-height: 44px;
+  border-top: 0.5px solid var(--sep);
+}
+.parking-label {
+  font-size: 15px; color: var(--label); min-width: 60px; font-weight: 400;
+  padding-top: 9px; flex-shrink: 0;
+}
+.parking-pad {
+  flex: 1; min-height: 36px; max-height: 80px; resize: none;
+  background: transparent; color: var(--label);
+  border: none; border-bottom: 1.5px solid var(--sep-opaque);
+  padding: var(--sp1) var(--sp2);
+  font-family: var(--font); font-size: 15px; line-height: 1.5;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto; touch-action: none;
+}
+.parking-pad:focus { border-bottom-color: var(--tint); }
+.parking-pad::placeholder { color: var(--label3); }
+
+/* ── Enroute computed time rows ── */
+.enroute-row {
+  display: flex; align-items: center;
+  min-height: 40px; border-top: 0.5px solid var(--sep);
+  gap: var(--sp3);
+}
+.enroute-label {
+  font-size: var(--type-body-sm); color: var(--label2); min-width: 96px; flex-shrink: 0;
+}
+.enroute-value {
+  font-family: var(--font-mono); font-size: 15px; color: var(--label); font-weight: 600;
+}
+.enroute-value.dim { color: var(--label3); font-weight: 400; }
+.enroute-sub {
+  font-size: var(--type-overline); color: var(--label3); margin-left: auto;
+  font-family: var(--font-mono);
+}
+/* ── Flight header block ── */
+.flt-id {
+  font-family: var(--font-display);
+  font-size: calc(15px * 1.05); font-weight: 700; letter-spacing: -0.02em;
+  color: var(--label); line-height: 1.15; display: block;
+}
+.flt-date {
+  font-family: var(--font);
+  font-size: 15px; font-weight: 400;
+  color: var(--label2); display: block;
+}
+/* ── Date row wrapper: date left + ETOPS stack right ── */
+.flt-date-row {
+  display: flex; align-items: flex-start; gap: var(--sp3);
+  margin-top: 1px;
+}
+/* ── ETOPS spec + entry stacked, right-justified on date row ── */
+.etops-date-stack {
+  display: flex; flex-direction: column; align-items: flex-end;
+  margin-left: auto; gap: 1px; flex-shrink: 0;
+}
+/* ── ETOPS spec (ID row) / entry (date row) header inline labels ── */
+.etops-hdr-inline {
+  font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
+  color: var(--tint); letter-spacing: 0.04em;
+  margin-left: auto;
+}
+/* ── Editable inline value ── */
+.ev {
+  display: inline-flex; align-items: center;
+  border-bottom: 1.5px solid var(--sep-opaque);
+  cursor: pointer; padding: 0 2px;
+  border-radius: 2px;
+  transition: background 0.12s, border-color 0.12s;
+  min-width: 40px;
+}
+.ev:active, .ev.tapped {
+  background: var(--tint-bg);
+  border-color: var(--tint);
+}
+/* ── Flight header row (ID+date left, right-column right) ── */
+.flt-header-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: var(--sp1);
+}
+.flt-header-left { display: flex; flex-direction: column; }
+/* ── Flight ID row: ID + share button on same line ── */
+.flt-id-row {
+  display: flex; align-items: center; gap: var(--sp2);
+}
+/* ── Right column: callsign stacked above ETOPS ── */
+.flt-header-right {
+  display: flex; flex-direction: column; align-items: flex-end;
+  margin-left: auto; flex-shrink: 0; gap: 2px;
+}
+/* ── Callsign hero — large centered display above flight ID row ── */
+.flt-callsign-hero {
+  font-family: var(--font-display);
+  font-size: calc(var(--type-h1) * 0.9);
+  font-weight: 700;
+  color: var(--label);
+  text-align: center;
+  display: block;
+  width: 100%;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  padding-bottom: var(--sp1);
+}
+/* ── Callsign note (ACMI / native Atlas ops) — legacy/compact fallback ── */
+.flt-callsign-note {
+  font-family: var(--font-display); font-size: var(--type-h2); font-weight: 700;
+  color: var(--label2); text-align: right;
+}
+/* ── ETOPS header block ── */
+.etops-block {
+  font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
+  color: var(--tint); letter-spacing: 0.04em;
+  display: flex; flex-direction: column; gap: 1px;
+  text-align: right; align-items: flex-end;
+}
+.etops-line { display: block; }
+/* ── Time row ── */
+.time-row {
+  display: flex; align-items: center; gap: 8px; justify-content: flex-start;
+  font-family: var(--font); font-size: 15px; font-weight: 700;
+  line-height: 1.2; color: var(--label);
+  margin-bottom: 2px;
+}
+.time-row .pb-share-btn { margin-left: auto; }
+.time-row .ev { font-weight: 700; }
+.etops-inline {
+  font-family: var(--font-mono); font-size: var(--type-caption); font-weight: 600;
+  color: var(--tint); letter-spacing: 0.04em;
+  margin-left: auto;
+}
+/* ── Data rows (Block/MIN/FRES/GA) ── */
+.data-table {
+  margin: var(--sp4) 0;
+}
+/* 10% larger font variant — used for STAB and fuel sections */
+.data-table-lg .data-label {
+  font-size: var(--type-body);
+}
+.data-table-lg .data-value {
+  font-size: var(--type-body);
+}
+.data-row {
+  display: flex; align-items: baseline; gap: var(--sp3);
+  min-height: 32px; align-items: center;
+}
+.data-label {
+  font-size: 15px; color: var(--label); min-width: 60px; font-weight: 400;
+}
+.data-value { font-size: 15px; font-family: var(--font-mono); }
+.data-value.c-green  { color: var(--sys-green); font-weight: 600; }
+.data-value.c-yellow { color: var(--sys-yellow); font-weight: 600; }
+.data-value.c-red    { color: var(--sys-red);    font-weight: 600; }
+.field-editable {
+  border-bottom: 1.5px solid var(--tint);
+  padding-bottom: 1px;
+  cursor: pointer;
+}
+.field-editable:active { opacity: 0.6; }
+/* ── Divider ── */
+.note-rule {
+  height: 0.5px; background: var(--sep); margin: var(--sp4) 0;
+}
+/* ── NOTES section ── */
+.notes-section-title {
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--label); margin-bottom: var(--sp4); display: block;
+}
+.notes-sub-header {
+  font-size: 13px; font-weight: 600; color: var(--label2);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: var(--sp1); display: block;
+  margin-top: var(--sp4);
+}
+/* Row variant: sub-header + inline action button side-by-side */
+.notes-sub-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: var(--sp4); margin-bottom: var(--sp1);
+}
+.notes-sub-body {
+  font-size: 15px; color: var(--label); line-height: 1.6;
+}
+.notes-sub-empty { color: var(--label3); font-size: 15px; }
+
+/* Airport status pill */
+.apt-status-row {
+  display: flex; align-items: baseline; gap: var(--sp2);
+  padding: 2px 0; font-size: 15px; flex-wrap: nowrap;
+  width: 100%;
+}
+.apt-status-row + .apt-status-row {
+  border-top: none;
+}
+.apt-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.apt-dot.green  { background: var(--sys-green); }
+.apt-dot.yellow { background: var(--sys-yellow); }
+.apt-dot.red    { background: var(--sys-red); }
+
+/* Curfew row */
+.curfew-row {
+  display: flex; align-items: baseline; gap: var(--sp3);
+  font-size: 15px; padding: var(--sp1) 0;
+}
+.curfew-icao { font-weight: 600; min-width: 50px; }
+.curfew-hours { color: var(--label2); font-family: var(--font-mono); font-size: 13px; }
+
+/* Notes notepad — keyboard AND Apple Pencil Scribble */
+.notes-pad {
+  width: 100%; min-height: 90px; resize: none;
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-md);
+  padding: var(--sp3) var(--sp4); margin-top: var(--sp2);
+  font-family: var(--font); font-size: 15px; line-height: 1.7;
+  outline: none; -webkit-appearance: none;
+  /* Apple Pencil Scribble */
+  -apple-pencil-interaction: auto;
+  touch-action: none;
+  pointer-events: auto;
+}
+.notes-pad:focus { border-color: var(--tint); background: var(--sys-bg2); }
+.notes-pad::placeholder { color: var(--label3); }
+
+/* Perishables banner */
+.perishables-banner {
+  background: var(--sys-yellow-bg);
+  border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp4);
+  font-size: var(--type-body-sm); font-weight: 600; color: var(--sys-yellow);
+  display: flex; align-items: center; gap: var(--sp2);
+  margin-top: var(--sp3);
+}
+@media (prefers-color-scheme: dark) {
+  .perishables-banner { color: var(--sys-yellow); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   AIRPORT STATUS SCREEN
+   ═══════════════════════════════════════════════════════ */
+.apt-card {
+  background: var(--sys-grouped2);
+  border-radius: var(--r-lg);
+  overflow: hidden; margin-bottom: var(--sp4);
+  box-shadow: var(--shadow-sm);
+}
+.apt-card-header {
+  display: flex; align-items: center; gap: var(--sp3);
+  padding: var(--sp3) var(--sp4);
+  min-height: var(--touch); cursor: pointer;
+  transition: background 0.12s;
+}
+.apt-card-header:active { background: var(--fill3); }
+.apt-status-indicator {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+}
+.apt-card-titles { flex: 1; }
+.apt-card-icao { font-size: 17px; font-weight: 600; }
+.apt-card-role { font-size: var(--type-overline); color: var(--label2); text-transform: uppercase; letter-spacing: 0.06em; }
+.apt-badge {
+  font-size: var(--type-overline); font-weight: 600; padding: 3px 10px;
+  border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.apt-badge.g { background: var(--sys-green-bg);  color: var(--sys-green); }
+.apt-badge.y { background: var(--sys-yellow-bg); color: var(--sys-yellow); }
+.apt-badge.r { background: var(--sys-red-bg);    color: var(--sys-red); }
+.apt-badge.u { background: var(--fill3);          color: var(--label3); }
+.apt-issues-list {
+  padding: 0 var(--sp4) var(--sp3);
+  border-top: 0.5px solid var(--sep);
+  display: flex; flex-direction: column; gap: var(--sp2);
+  padding-top: var(--sp3);
+}
+.apt-issue {
+  font-size: 13px; padding: var(--sp2) var(--sp3);
+  border-radius: var(--r-sm); line-height: 1.5;
+}
+.apt-issue.r { background: var(--sys-red-bg);    color: var(--sys-red); }
+.apt-issue.y { background: var(--sys-yellow-bg); color: var(--sys-yellow); }
+.apt-issue.g { background: var(--sys-green-bg);  color: var(--sys-green); }
+/* Colored trigger value within an issue row */
+.wx-val { font-family: var(--font-mono); font-weight: 700; }
+.wx-val.r { color: var(--sys-red); }
+.wx-val.y { color: var(--sys-yellow); }
+.wx-val.g { color: var(--sys-green); }
+/* NOTAM keyword highlights from evalNotams */
+.nt-red { color: var(--sys-red);    font-weight: 600; }
+.nt-yel { color: var(--sys-yellow); font-weight: 600; }
+/* GNSS enrichment — spatial detail appended to GPS/GNSS issue rows */
+.gnss-spatial { font-family: var(--font-mono); font-size: 12px; color: var(--label3); font-weight: 400; }
+
+/* ── NOTAM group display in airport card ─────────────────────────── */
+.notam-groups { margin: 0; }
+.notam-group  { border-top: 0.5px solid var(--sep); }
+.notam-group:first-child { border-top: none; }
+.notam-group-hdr {
+  display: flex; align-items: center; gap: var(--sp2);
+  padding: var(--sp2) 0; min-height: 36px;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.notam-group-label {
+  flex: 1; font-size: 13px; font-weight: 600; color: var(--label);
+}
+.notam-group-body { padding: 0 0 var(--sp2) 18px; font-size: 13px; }
+.notam-item { margin: 1px 0; }
+.notam-item-hdr {
+  display: flex; align-items: center; gap: var(--sp2);
+  padding: 3px 0; min-height: 32px;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.notam-item-label {
+  flex: 1; font-size: 13px; color: var(--label); line-height: 1.4;
+}
+.notam-raw-text {
+  font-family: var(--font-mono); font-size: 11px; line-height: 1.5;
+  color: var(--label2); white-space: pre-wrap; word-break: break-all;
+  background: var(--fill4); border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp3); margin: 2px 0 var(--sp2);
+}
+.notam-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.notam-dot.r { background: var(--sys-red); }
+.notam-dot.y { background: var(--sys-yellow); }
+.notam-dot.g { background: var(--sys-green); }
+.notam-chev {
+  width: 9px; height: 14px; flex-shrink: 0; color: var(--label3);
+  transition: transform 0.18s var(--spring);
+}
+.notam-chev.open { transform: rotate(90deg); }
+.apt-inputs {
+  padding: var(--sp3) var(--sp4);
+  border-top: 0.5px solid var(--sep);
+  display: flex; flex-direction: column; gap: var(--sp3);
+  display: none;
+}
+.apt-input-row {
+  display: grid; grid-template-columns: 60px 1fr; gap: var(--sp3); align-items: start;
+}
+.apt-input-label { font-size: 13px; color: var(--label2); text-transform: uppercase; letter-spacing: 0.06em; padding-top: var(--sp3); }
+.apt-input-ta {
+  width: 100%; min-height: 80px; resize: vertical;
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp3);
+  font-family: var(--font-mono); font-size: var(--type-caption);
+  outline: none; line-height: 1.5;
+}
+/* Curfew row inside airport card */
+.apt-curfew-row {
+  display: flex; align-items: center; gap: var(--sp2);
+  padding: 10px var(--sp4);
+  cursor: pointer;
+  min-height: 44px;
+  background: transparent;
+  transition: background 0.12s;
+  flex-wrap: wrap;
+}
+.apt-curfew-row:active { background: var(--sys-bg3); }
+.apt-curfew-label {
+  font-size: var(--type-overline); font-weight: 600; letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.apt-curfew-delta {
+  flex: 1; min-width: 0; font-size: var(--type-overline); color: var(--label2);
+  text-align: right; padding-right: var(--sp2);
+  white-space: normal; word-break: break-word; overflow-wrap: anywhere;
+}
+
+
+.apt-input-ta.ta-wx    { min-height: 80px; }
+.apt-input-ta:focus { border-color: var(--tint); }
+
+/* ── Alternates screen ────────────────────────────────── */
+.altroute-card {
+  background: var(--sys-bg2); border-radius: var(--r-lg);
+  padding: var(--sp4); margin-bottom: var(--sp3);
+}
+.altroute-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--sp3);
+}
+.altroute-title {
+  font-size: 13px; font-weight: 700; color: var(--label2);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  line-height: 1.3; flex: 1; padding-right: var(--sp3);
+}
+.altroute-mora {
+  font-size: var(--type-overline); font-family: var(--font-mono); color: var(--label3);
+  margin-bottom: var(--sp2);
+}
+.altroute-ta {
+  width: 100%; box-sizing: border-box;
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp3);
+  font-family: var(--font-mono); font-size: var(--type-caption);
+  outline: none; line-height: 1.6; resize: vertical;
+  min-height: 120px;
+}
+.altroute-ta:focus { border-color: var(--tint); }
+
+/* ── ETP coordinate points (bottom of Alternates tab) ── */
+.etp-section {
+  background: var(--sys-bg2); border-radius: var(--r-lg);
+  padding: var(--sp4); margin-bottom: var(--sp3);
+}
+.etp-section-title {
+  font-size: var(--type-overline); font-weight: 700; color: var(--label3);
+  text-transform: uppercase; letter-spacing: 0.07em;
+  margin-bottom: var(--sp2);
+}
+.etp-point-row {
+  display: flex; align-items: center; gap: var(--sp2);
+  padding: 9px 0; border-top: 0.5px solid var(--sep);
+}
+.etp-section .etp-point-row:first-of-type { border-top: none; }
+.etp-point-label {
+  font-size: var(--type-overline); font-weight: 700; color: var(--tint);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  min-width: 38px; flex-shrink: 0;
+}
+.etp-point-coord {
+  font-family: var(--font-mono); font-size: var(--type-caption);
+  color: var(--label); flex: 1; letter-spacing: 0.01em;
+}
+.etp-copy-btn {
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--label3); border-radius: var(--r-sm);
+  transition: color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.etp-copy-btn:active { background: var(--fill3); color: var(--label); }
+.pb-copy-active { opacity:0.45; transition:opacity 0.15s; }
+.pb-copy-feedback {
+  font-size:10px; font-weight:600;
+  color:var(--sys-green); letter-spacing:0.06em;
+  animation:_pbFadeOut 1s forwards; pointer-events:none;
+}
+@keyframes _pbFadeOut {
+  0%,70% { opacity:1; } 100% { opacity:0; }
+}
+.apt-eta-tag {
+  font-family: var(--font-mono); font-size: var(--type-overline);
+  color: var(--label2); white-space: nowrap;
+}
+.apt-eta-block {
+  display: flex; flex-direction: column; align-items: flex-end;
+  margin-left: auto; gap: 1px;
+}
+.apt-wx-window {
+  font-family: var(--font-mono); font-size: var(--type-overline);
+  color: var(--label3); white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════
+   EDIT POPOVER — iOS action sheet / popover style
+   ═══════════════════════════════════════════════════════ */
+.edit-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.4);
+  display: none; align-items: flex-end;
+  padding-bottom: var(--sab);
+}
+.edit-overlay.open { display: flex; }
+.edit-panel {
+  background: var(--sys-bg2);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: var(--sp5) var(--sp4) var(--sp6);
+  width: 100%; display: flex; flex-direction: column; gap: var(--sp4);
+  box-shadow: var(--shadow-lg);
+}
+.edit-label {
+  font-size: 13px; font-weight: 600; color: var(--label2);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.edit-input {
+  font-family: var(--font-mono); font-size: var(--type-h3); font-weight: 500;
+  color: var(--label); background: var(--fill4);
+  border: 1px solid var(--border-interactive); border-radius: var(--r-md);
+  padding: var(--sp3) var(--sp4); outline: none;
+  width: 100%; -webkit-appearance: none;
+  letter-spacing: 0.05em;
+  /* Apple Pencil / Scribble: allow stylus input on this field */
+  -apple-pencil-interaction: auto;
+  touch-action: none;          /* let Pencil handle raw pointer events */
+  pointer-events: auto;
+}
+.edit-input:focus { border-color: var(--tint); }
+.edit-actions {
+  display: flex; gap: var(--sp3);
+}
+.edit-btn {
+  flex: 1; min-height: var(--touch); border-radius: var(--r-md);
+  font-family: var(--font); font-size: 17px; font-weight: 500;
+  border: none; cursor: pointer; transition: opacity 0.1s;
+  background: var(--fill2); color: var(--label);
+}
+.edit-btn:active { opacity: 0.7; }
+.edit-btn.confirm {
+  background: var(--tint); color: #fff; font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════
+   OEI RUNWAY PICKER — bottom sheet
+   ═══════════════════════════════════════════════════════ */
+.oei-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.4);
+  display: none; align-items: flex-end;
+  padding-bottom: var(--sab);
+}
+.oei-overlay.open { display: flex; }
+.oei-sheet {
+  background: var(--sys-bg2);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: var(--sp3) var(--sp4) var(--sp5);
+  width: 100%; display: flex; flex-direction: column; gap: 0;
+  max-height: 70vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.oei-sheet-title {
+  font-size: 13px; font-weight: 600; color: var(--label2);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: var(--sp2) 0 var(--sp3);
+}
+.oei-rwy-row {
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: var(--touch); padding: 0 var(--sp2);
+  border-bottom: 0.5px solid var(--sep);
+  cursor: pointer; gap: var(--sp3);
+}
+.oei-rwy-row:last-child { border-bottom: none; }
+.oei-rwy-row:active { background: var(--fill2); }
+.oei-rwy-row.selected { background: var(--fill4); }
+.oei-rwy-id {
+  font-family: var(--font-mono); font-size: 17px; font-weight: 700;
+  color: var(--label); min-width: 52px;
+}
+.oei-rwy-proc {
+  font-family: var(--font-mono); font-size: var(--type-body-sm); color: var(--label2);
+  flex: 1; text-align: right; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oei-rwy-proc.co-chart {
+  color: var(--sys-red); font-weight: 700; font-size: 13px;
+}
+.oei-rwy-check {
+  color: var(--tint); font-size: 20px; min-width: 22px; text-align: right;
+}
+.oei-cancel-btn {
+  margin-top: var(--sp3); min-height: var(--touch);
+  background: var(--fill2); color: var(--label);
+  border: none; border-radius: var(--r-md);
+  font-family: var(--font); font-size: 17px; font-weight: 500;
+  width: 100%; cursor: pointer;
+}
+.oei-cancel-btn:active { opacity: 0.7; }
+
+/* OEI display row in briefing note */
+.oei-display-row {
+  display: flex; flex-direction: column; gap: var(--sp2);
+}
+.oei-proc-line {
+  font-family: var(--font-mono); font-size: var(--type-body-sm); color: var(--label2);
+  line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+}
+.oei-proc-line.co-chart-label {
+  color: var(--sys-red); font-weight: 700; font-size: 15px;
+  letter-spacing: 0.04em;
+}
+
+/* Co-chart notepad — same dimensions as NOTAM textarea */
+.oei-cochart-pad {
+  width: 100%; min-height: 120px; resize: vertical;
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-md);
+  padding: var(--sp3) var(--sp4); margin-top: var(--sp2);
+  font-family: var(--font-mono); font-size: var(--type-body-sm); line-height: 1.6;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto;
+  touch-action: none;
+  pointer-events: auto;
+}
+.oei-cochart-pad:focus { border-color: var(--sys-red); background: var(--sys-bg2); }
+.oei-cochart-pad::placeholder { color: var(--label3); }
+
+#screen-ofpview { background: var(--sys-bg2); } /* kept for any legacy refs */
+.ofp-raw {
+  font-family: var(--font-mono); font-size: var(--type-caption);
+  color: var(--label2); line-height: 1.75;
+  white-space: pre-wrap; word-break: break-all;
+  padding: var(--sp4)
+    calc(var(--sar) + var(--sp4))
+    calc(var(--sab) + var(--sp8))
+    calc(var(--sal) + var(--sp4));
+}
+
+/* ═══════════════════════════════════════════════════════
+   SETTINGS SCREEN
+   ═══════════════════════════════════════════════════════ */
+.settings-seg {
+  display: flex; background: var(--fill2); border-radius: 10px; padding: 2px; gap: 2px;
+}
+.seg-btn {
+  flex: 1; padding: var(--sp2) var(--sp3);
+  border-radius: 8px; border: none; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 500;
+  background: transparent; color: var(--label2);
+  transition: background 0.15s, color 0.15s;
+}
+.seg-btn.active {
+  background: var(--sys-bg2); color: var(--label);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* ═══════════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════════ */
+
+/* ── DDG individual item rows ── */
+.ddg-item-row {
+  display: flex; align-items: flex-start; gap: var(--sp2);
+  padding: var(--sp2) 0;
+  border-bottom: 0.5px solid var(--sep);
+  font-size: var(--type-body-sm); color: var(--label); line-height: 1.5;
+}
+.ddg-item-row:last-child { border-bottom: none; }
+.ddg-item-code {
+  font-family: var(--font-mono); font-weight: 600;
+  color: var(--tint); white-space: nowrap; flex-shrink: 0;
+  min-width: 70px; font-size: var(--type-body-sm);
+}
+.ddg-item-body {
+  flex: 1; display: flex; flex-direction: column; gap: 3px;
+}
+.ddg-item-desc {
+  flex: 1; color: var(--label2); font-size: var(--type-body-sm);
+}
+/* TLR badge — shown beneath the description */
+.ddg-tlr-badge {
+  display: inline-block;
+  font-size: var(--type-overline); font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em; border-radius: 4px;
+  padding: 2px 6px; align-self: flex-start;
+}
+.ddg-tlr-badge.tkoff  { color: var(--sys-yellow); background: var(--sys-yellow-bg); }
+.ddg-tlr-badge.land   { color: var(--tint);       background: var(--tint-bg); }
+.ddg-tlr-badge.both   { color: var(--sys-orange);  background: rgba(255,107,0,0.10); }
+.ddg-tlr-badge.cdl    { color: var(--sys-green);   background: var(--sys-green-bg); }
+.ddg-list { margin-top: var(--sp2); }
+
+/* ── Compact ATIS + Parking row (single line) ── */
+.compact-atis-row {
+  display: flex; align-items: center; gap: var(--sp3);
+  min-height: 44px; padding: var(--sp1) 0;
+}
+.compact-atis-label {
+  font-size: var(--type-overline); font-weight: 700; color: var(--label3);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  min-width: 32px; flex-shrink: 0;
+}
+.compact-atis-box {
+  width: 42px; height: 42px; border-radius: var(--r-md);
+  border: 1.5px solid var(--border-interactive);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: var(--type-body-lg); font-weight: 700;
+  color: var(--tint); cursor: pointer; flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  background: transparent;
+}
+.compact-atis-box:active { background: var(--tint-bg); border-color: var(--tint); }
+.compact-atis-box:empty::after { content: '—'; color: var(--label3); font-weight: 400; }
+.compact-atis-notes {
+  flex: 1; min-width: 0; height: 42px; max-height: 42px; resize: none;
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp3);
+  font-family: var(--font); font-size: var(--type-body-sm); line-height: 1.5;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto; touch-action: none;
+}
+.compact-atis-notes:focus { border-color: var(--tint); }
+.compact-atis-notes::placeholder { color: var(--label3); }
+
+.compact-parking-row {
+  display: flex; align-items: center; gap: var(--sp3);
+  min-height: 44px; padding: var(--sp1) 0;
+  border-top: 0.5px solid var(--sep);
+}
+.compact-parking-box {
+  flex: 1; min-width: 0; height: 42px; max-height: 42px; resize: none;
+  /* offset = ATIS letter box (42px) + gap (var(--sp3)) — aligns left edge with ATIS notes textarea */
+  margin-left: calc(42px + var(--sp3));
+  background: var(--fill4); color: var(--label);
+  border: 0.5px solid var(--sep); border-radius: var(--r-sm);
+  padding: var(--sp2) var(--sp3);
+  font-family: var(--font-mono); font-size: var(--type-body-sm); line-height: 1.5;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto; touch-action: none;
+}
+.compact-parking-box:focus { border-color: var(--tint); }
+.compact-parking-box::placeholder { color: var(--label3); }
+
+/* ── Enroute split layout: times left, scratchpad right ── */
+.enroute-split {
+  display: flex; gap: var(--sp3); min-height: 200px;
+}
+.enroute-times-col {
+  flex: 1; min-width: 0;
+}
+.enroute-scratch-col {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+}
+/* Narrow / Slide Over: stack times above scratchpad so neither is squeezed */
+@media (max-width: 400px) {
+  .enroute-split {
+    flex-direction: column;
+    min-height: unset;
+  }
+  .enroute-scratch-col {
+    min-height: 160px;
+  }
+  /* Narrow: show rest inside the split (below scratchpad), hide outer copy */
+  .rest-module-narrow  { display: block; margin-top: var(--sp3); }
+  .rest-module-regular { display: none; }
+  /* 4-pilot schedule: stack halves above quarters in narrow mode */
+  .rest-4pilot-grid { flex-direction: column; }
+
+  /* Compact header: callsign top, Flight ID + date + ETOPS two-column, OUT/IN below */
+  .flt-header-row {
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 6px;
+  }
+  .flt-header-left {
+    width: 100%;
+    order: 2;
+  }
+  .flt-header-right {
+    width: 100%;
+    order: 1;
+    align-items: flex-start;
+    margin-left: 0;
+  }
+  .flt-callsign-note {
+    font-size: calc(var(--type-h2) * 0.5);
+    font-weight: 700;
+    text-align: left;
+    width: 100%;
+    display: block;
+  }
+  .flt-id {
+    font-size: calc(var(--type-h2) * 0.5);
+    letter-spacing: 0;
+  }
+}
+/* Regular: show rest as its own subcard, hide inner copy */
+@media (min-width: 401px) {
+  .rest-module-narrow  { display: none; }
+  .rest-module-regular { display: block; }
+}
+/* 4-pilot schedule columns — side-by-side in regular, stacked in narrow */
+.rest-4pilot-grid {
+  display: flex;
+  flex-direction: row;
+  gap: var(--sp3);
+}
+.enroute-scratchpad {
+  flex: 1; width: 100%; min-height: 180px; resize: none;
+  background: var(--fill4); color: var(--label);
+  border: 1px solid var(--border-interactive); border-radius: var(--r-md);
+  padding: var(--sp3);
+  font-family: var(--font); font-size: var(--type-body-sm); line-height: 1.6;
+  outline: none; -webkit-appearance: none;
+  -apple-pencil-interaction: auto;
+  touch-action: none;
+  pointer-events: auto;
+}
+.enroute-scratchpad:focus { border-color: var(--tint); background: var(--sys-bg2); }
+.enroute-scratchpad::placeholder { color: var(--label3); }
+.enroute-scratch-label {
+  font-size: var(--type-overline); font-weight: 700; color: var(--label3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: var(--sp2);
+}
+
+/* ── FCIR narrative subcard (appears on all phases) ── */
+.fcir-subcard {
+  background: rgba(255, 159, 10, 0.08);
+  border: 1px solid rgba(255, 159, 10, 0.25);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-bottom: var(--sp4);
+}
+.fcir-subcard .subcard-header {
+  color: var(--sys-yellow);
+}
+
+/* ── Flights screen: Add New Flight button ── */
+.flights-add-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--tint); color: #fff; border: none;
+  border-radius: var(--r-md); padding: 0 var(--sp4);
+  height: 36px; min-height: 36px;
+  font-family: var(--font); font-size: var(--type-body-sm); font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: opacity 0.1s;
+  /* Position: right edge stops 60px before the centered title */
+  margin-right: 60px;
+  flex-shrink: 0;
+}
+.flights-add-btn:active { opacity: 0.75; }
+.flights-add-btn svg { stroke: #fff; }
+
+::-webkit-scrollbar { width: 0; }
+
+/* ═══════════════════════════════════════════════════════
+   REDUCE MOTION — WCAG 2.3.3 / AppMotion compliance
+   ═══════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .screen { transition: none !important; }
+  .cell, .icon-btn, .help-btn, .phase-tab, .flight-tab, .seg-btn,
+  .ev, .apt-card-header, .atis-letter-box, .ios-toggle-track,
+  .ios-toggle-thumb, .drop-zone { transition: none !important; }
+  .perishables-banner, .callout { animation: none !important; }
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   FCIR / ASAP TOGGLE
+   ═══════════════════════════════════════════════════════ */
+.fcir-toggle-row {
+  display: flex; align-items: center; gap: var(--sp2);
+  padding: 0 var(--sp2);
+  flex-shrink: 0;
+}
+.fcir-label {
+  font-family: var(--font);
+  font-size: 11px; font-weight: 600; color: var(--label3);
+  letter-spacing: 0.04em; user-select: none; cursor: pointer;
+  white-space: nowrap; transition: color 0.2s;
+}
+.fcir-label.active { color: var(--sys-yellow); }
+/* iOS-style toggle */
+.ios-toggle {
+  position: relative; width: 40px; height: 24px;
+  flex-shrink: 0; cursor: pointer; display: block;
+}
+.ios-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.ios-toggle-track {
+  position: absolute; inset: 0;
+  background: var(--fill2); border-radius: 12px;
+  transition: background 0.2s;
+}
+.ios-toggle input:checked ~ .ios-toggle-track { background: var(--sys-yellow); }
+.ios-toggle-thumb {
+  position: absolute; width: 20px; height: 20px;
+  background: #fff; border-radius: 50%;
+  top: 2px; left: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform 0.2s var(--spring);
+  pointer-events: none;
+}
+.ios-toggle input:checked ~ .ios-toggle-thumb { transform: translateX(16px); }
+/* Flight ID turns yellow when FCIR active */
+.flt-id.fcir-active { color: var(--sys-yellow) !important; }
+
+/* Flight list cell — yellow background when FCIR active */
+.flight-cell-fcir {
+  background: rgba(255, 159, 10, 0.18) !important; /* appWarning */
+}
+.flight-cell-fcir .cell-title { color: var(--sys-yellow) !important; }
+</style>

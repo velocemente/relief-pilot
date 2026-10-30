@@ -1,0 +1,653 @@
+// ── DESCENT PHASE ─────────────────────────────────────────────────────────
+function renderDescentPhase() {
+  let h = '';
+  // PATCH 5 — Recompute cascade for descent display
+  const _dTripFuel = S.blockFuelRaw - S.destRemfRaw;
+  const _dBlockEff = S.blockFuelEntered != null ? S.blockFuelEntered : S.blockFuelRaw;
+  const _dZfwEff   = S.zfwEntered     != null ? S.zfwEntered     : S.zfwActual;
+  const _dZfwDelta  = _dZfwEff - S.zfwActual;
+  const _dBlockDelta= _dBlockEff - S.blockFuelRaw;
+  const _dTogwBase  = S.togwActual + _dBlockDelta + _dZfwDelta;
+  const _dTogwEff   = S.togwEntered  != null ? S.togwEntered  : _dTogwBase;
+  const _dLdgwEff   = _dTogwEff - _dTripFuel;
+  const _dRemfEff   = _dBlockEff - _dTripFuel;
+  // Use cascaded REMF if we have raw parse data, otherwise fall back to S.destRemf
+  const _descRemfDisp = S.blockFuelRaw ? fuelK(String(_dRemfEff)) : (S.destRemf||'___');
+
+  // ── Airport summary (TOP — matches preflight summary style) ──
+  h += renderDescentAirportSummary();
+
+  // ── Arrival ATIS + Parking ──
+  h += `<div class="subcard">`;
+  h += `<div class="subcard-header">Arrival</div>`;
+  h += `<div class="subcard-body">`;
+  h += renderAtisParking('Desc');
+  h += `</div></div>`;
+
+  // ── Arrival Fuel ──
+  h += `<div class="subcard">`;
+  h += `<div class="subcard-header">Arrival Fuel</div>`;
+  h += `<div class="subcard-body">`;
+  h += `<div class="data-table data-table-lg">`;
+  h += `<div class="data-row"><span class="data-label">REMF</span><span class="data-value">${S.blockFuelRaw ? _descRemfDisp : ev('destRemf', S.destRemf||'___')}</span></div>`;
+  h += `<div class="data-row"><span class="data-label">ALT 1</span><span class="data-value">${ev('alt1Fuel', S.alt1Fuel||'___')}</span></div>`;
+  h += `<div class="data-row"><span class="data-label">FRES</span><span class="data-value">${ev('fresFuel', S.fresFuel||'___')}</span></div>`;
+  h += `<div class="data-row"><span class="data-label">GA</span><span class="data-value">${ev('gaFuel', S.gaFuel||'___')}</span></div>`;
+
+  // MLDW / MAX LDG FUEL — shown only when cascaded LDGW ≤ 3000 from limit
+  // MAX LDG FUEL = LDGW_LIMIT − ZFW_EFF (max fuel permissible at landing)
+  // Displayed in ×1000 format (xx.x or xxx.x) to match fuel card convention
+  const _dLdgwForCheck = S.blockFuelRaw ? _dLdgwEff : S.ldgwActual;
+  if (_dLdgwForCheck && S.ldgwLimit && (S.zfwEntered != null ? S.zfwEntered : S.zfwActual) &&
+      (S.ldgwLimit - _dLdgwForCheck) <= 3000) {
+    const _dZfwForCalc   = S.zfwEntered != null ? S.zfwEntered : S.zfwActual;
+    const _maxLdgFuelRaw = S.ldgwLimit - _dZfwForCalc;
+    const _maxLdgFuelStr = (_maxLdgFuelRaw / 1000).toFixed(1);
+    const _mldwStr       = S.ldgwLimit.toLocaleString();
+    const _wtUnit        = S.weightUnit || 'KGS';
+    h += `<div style="border-top:0.5px solid var(--sep);margin-top:var(--sp2);padding-top:var(--sp2)">`;
+    h += `<div class="data-row">`;
+    h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">MLDW</span>`;
+    h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:700">${esc(_mldwStr)}</span>`;
+    h += `</div>`;
+    h += `<div class="data-row">`;
+    h += `<span class="data-label" style="color:var(--sys-yellow);font-weight:700">MAX LDG FUEL</span>`;
+    h += `<span class="data-value" style="color:var(--sys-yellow);font-weight:700">${esc(_maxLdgFuelStr)}</span>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+
+  h += `</div></div></div>`;
+
+  // ── DDG items with TLR Landing or Both ──
+  const landingDdg = (S.ddgItems || []).filter(i => i.tlr === 'landing' || i.tlr === 'both');
+  if (landingDdg.length) {
+    h += `<div class="subcard">`;
+    h += `<div class="subcard-header">DDG — Landing</div>`;
+    h += `<div class="subcard-body">`;
+    h += `<div class="ddg-list">`;
+    landingDdg.forEach(item => {
+      const isCdl = item.code && item.code.startsWith('C');
+      const tlrBadge = item.tlr === 'landing'
+        ? `<span class="ddg-tlr-badge land">*TLR Landing</span>`
+        : `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
+      h += `<div class="ddg-item-row">`;
+      if (item.code) {
+        h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
+        h += `<button class="etp-copy-btn ddg-copy" data-code="${esc(item.code)}" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+      }
+      h += `<div class="ddg-item-body">`;
+      if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
+      h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
+      h += tlrBadge;
+      h += `</div></div>`;
+    });
+    h += `</div></div></div>`;
+  }
+
+  // ── Scratchpad ──
+  h += `<div class="subcard">`;
+  h += `<div class="subcard-header">Scratchpad</div>`;
+  h += `<div class="subcard-body">`;
+  h += `<textarea class="enroute-scratchpad" id="enrouteScratchPad" placeholder="Notes, drawings, calculations…" aria-label="Descent scratchpad" style="width:100%;min-height:180px;resize:vertical"></textarea>`;
+  h += `</div></div>`;
+  h += renderFcirSubcard();
+  return h;
+}
+
+// ── Descent airport picker (bottom-sheet overlay, same pattern as OEI) ──────
+function openDescentAptPicker() {
+  const overlay = document.getElementById('descentAptOverlay');
+  const list    = document.getElementById('descentAptList');
+  if (!overlay || !list) return;
+  const allApts = getAllAirports().filter(a => a.role !== 'ORIG');
+  const selIcao = S.descentAirport || (allApts[0] ? allApts[0].icao : '');
+  list.innerHTML = '';
+  allApts.forEach(a => {
+    const row = document.createElement('div');
+    row.className = 'oei-rwy-row' + (a.icao === selIcao ? ' selected' : '');
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-label', `${a.icao} — ${a.role}`);
+    const idEl = document.createElement('span');
+    idEl.className = 'oei-rwy-id'; idEl.textContent = a.icao;
+    const roleEl = document.createElement('span');
+    roleEl.className = 'oei-rwy-proc';
+    roleEl.textContent = a.role + (a.eta ? `  ${a.eta}Z` : '');
+    const chkEl = document.createElement('span');
+    chkEl.className = 'oei-rwy-check';
+    chkEl.textContent = a.icao === selIcao ? '✓' : '';
+    row.appendChild(idEl); row.appendChild(roleEl); row.appendChild(chkEl);
+    row.addEventListener('click', () => selectDescentApt(a.icao));
+    list.appendChild(row);
+  });
+  overlay.classList.add('open');
+}
+
+function closeDescentAptPicker(e) {
+  if (e && e.target !== document.getElementById('descentAptOverlay')) return;
+  document.getElementById('descentAptOverlay').classList.remove('open');
+}
+
+function selectDescentApt(icao) {
+  S.descentAirport = icao;
+  saveFlight();
+  document.getElementById('descentAptOverlay').classList.remove('open');
+  renderNote();
+}
+
+// ── Descent airport summary — compact dot/badge line + optional picker ───────
+// Mirrors the preflight Notes airport status rows; no full issues list.
+function renderDescentAirportSummary() {
+  const allApts = getAllAirports().filter(a => a.role !== 'ORIG');
+  if (!allApts.length) return '';
+
+  const selIcao = S.descentAirport && allApts.find(a => a.icao === S.descentAirport)
+    ? S.descentAirport : allApts[0].icao;
+  const selApt  = allApts.find(a => a.icao === selIcao) || allApts[0];
+
+  // Evaluate status and build per-category worst (same logic as buildAptStatusLines)
+  const data   = airportData[selApt.icao] || { notams:'', weather:'' };
+  const status = evalAirport(selApt.icao, selApt.eta, data.notams, data.weather,
+                              selApt.wxWindow || null, selApt.role, S.acftType);
+  const cat = { WX:'green', NOTAM:'green' };
+  status.issues.forEach(i => {
+    const c = _issueCategory(i);
+    if (!c || c === 'CURFEW') return;
+    if (_RANK[i.level] > _RANK[cat[c]]) cat[c] = i.level;
+  });
+  const cf          = evalCurfew(selApt.icao, selApt.eta);
+  const curfewLevel = (cf.color === 'red' || cf.color === 'yellow') ? cf.color : null;
+  const worst       = Math.max(_RANK[cat.WX], _RANK[cat.NOTAM], curfewLevel ? _RANK[curfewLevel] : 0);
+  const dotCls      = worst === 2 ? 'red' : worst === 1 ? 'yellow' : 'green';
+
+  const _badge = (label, lvl) => {
+    const col = lvl === 'red' ? 'var(--sys-red)' : 'var(--sys-yellow)';
+    return `<span style="color:${col};font-weight:600;font-size:13px">${label}</span>`;
+  };
+  const badges = [];
+  if (_RANK[cat.NOTAM] > 0) badges.push(_badge('NOTAM', cat.NOTAM));
+  if (_RANK[cat.WX]    > 0) badges.push(_badge('WX',    cat.WX));
+  if (curfewLevel)          badges.push(_badge('CURFEW', curfewLevel));
+
+  // CAT II/III rows — one line per OFP entry for this airport.
+  // Backward-compatible: legacy string value renders as a single row.
+  const catRows = (() => {
+    if (!S.catIiIiiApproaches) return [];
+    if (typeof S.catIiIiiApproaches === 'object') {
+      const entries = S.catIiIiiApproaches[selApt.icao];
+      if (!entries) return [];
+      // New format: array of {cat, rwys}
+      if (Array.isArray(entries)) return entries;
+      // Intermediate single-string format (saved flights from earlier build)
+      return [{ cat: null, rwys: null, legacy: entries }];
+    }
+    // Oldest legacy: plain string on S directly
+    if (selApt.icao === S.destIcao) return [{ cat: null, rwys: null, legacy: S.catIiIiiApproaches }];
+    return [];
+  })();
+
+  let h = `<div class="subcard">`;
+  h += `<div class="subcard-header">Airport</div>`;
+  h += `<div class="subcard-body" style="padding-bottom:var(--sp3)">`;
+
+  // Summary row
+  h += `<div class="apt-status-row" style="min-height:44px;align-items:center;flex-wrap:nowrap">`;
+  h += `<span class="apt-dot ${dotCls}" style="flex-shrink:0;margin-top:0"></span>`;
+  h += `<span style="font-weight:600;font-family:var(--font-mono);font-size:15px;min-width:44px">${esc(selApt.icao)}</span>`;
+  if (badges.length) {
+    h += `<span style="color:var(--label3);margin:0 3px">·</span>`;
+    h += badges.join(`<span style="color:var(--label4);margin:0 2px">/</span>`);
+  }
+  if (allApts.length > 1) {
+    h += `<button style="margin-left:auto;display:flex;align-items:center;gap:3px;background:none;border:none;cursor:pointer;color:var(--tint);padding:0 0 0 var(--sp2);min-height:44px;flex-shrink:0" onclick="openDescentAptPicker()" aria-label="Select airport">`;
+    h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.04em">${esc(selApt.role)}</span>`;
+    h += `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
+    h += `</button>`;
+  } else {
+    h += `<span style="margin-left:auto;font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0">${esc(selApt.role)}</span>`;
+  }
+  h += `</div>`;
+
+  // CAT II/III rows — one per entry, separated by a light rule
+  if (catRows.length) {
+    h += `<div style="padding-left:18px;padding-top:var(--sp2);display:flex;flex-direction:column;gap:3px;border-top:0.5px solid var(--sep);margin-top:var(--sp2);padding-top:var(--sp2)">`;
+    const isUS = /^[KP]/.test(selApt.icao);
+    catRows.forEach(row => {
+      if (isUS) {
+        h += `<div style="display:flex;align-items:baseline;gap:var(--sp2)">`;
+        h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--sys-red);text-transform:uppercase;letter-spacing:0.04em">NOT AUTHORIZED</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--sys-red);opacity:0.7">OpSpec C060 — US airports</span>`;
+        h += `</div>`;
+      } else {
+        h += `<div style="display:flex;align-items:baseline;gap:var(--sp2);flex-wrap:wrap">`;
+        h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0;min-width:62px">CAT ${row.cat || 'II/III'}</span>`;
+        h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint);word-break:break-all;overflow-wrap:anywhere">${esc(row.rwys || row.legacy || '')}</span>`;
+        h += `</div>`;
+      }
+    });
+    h += `</div>`;
+  }
+
+  h += `</div></div>`;
+  return h;
+}
+  
+
+// ── NOTES SECTION (shared across all phases) ──────────────────────────────
+function renderNotesSection() {
+  const aptLines = buildAptStatusLines();
+  const curfews  = buildCurfewEntries();
+  let h = '';
+
+  h += `<span class="notes-section-title">NOTES</span>`;
+
+  if (aptLines.length) {
+    h += `<div style="margin-bottom:var(--sp3);display:flex;flex-direction:column;gap:1px">`;
+    aptLines.forEach(l => { h += `<div class="apt-status-row">${l}</div>`; });
+    h += `</div>`;
+  }
+
+  h += `<span class="notes-sub-header">DDG</span>`;
+
+  // Resolve DDG items — prefer structured ddgItems (new), fall back to legacy melItems string
+  // Filter out 25-series (cabin/fuselage NEF items) per company policy
+  let resolvedDdg = [];
+  if (S.ddgItems && S.ddgItems.length) {
+    resolvedDdg = S.ddgItems.filter(item => !item.code.startsWith('25-'));
+  } else {
+    // Legacy: parse flat melItems string for backwards compat with older saved flights
+    const rawMel = (S.melItems || '').trim();
+    if (rawMel && rawMel !== 'None listed') {
+      rawMel.split(/\s*(?=\d{2}-\d{2}-\d{2})/)
+        .filter(item => item.trim() && !item.trim().startsWith('25-'))
+        .forEach(item => {
+          const codeMatch = item.trim().match(/^(\d{2}-[\d-]+[A-Z]?)\s+(.*)/s);
+          if (codeMatch) resolvedDdg.push({ code: codeMatch[1], desc: codeMatch[2].trim(), tlr: '' });
+          else resolvedDdg.push({ code: '', desc: item.trim(), tlr: '' });
+        });
+    }
+  }
+
+  if (resolvedDdg.length) {
+    h += `<div class="ddg-list">`;
+    resolvedDdg.forEach(item => {
+      const isCdl = item.code && item.code.startsWith('C');
+      // TLR annotation badge
+      let tlrBadge = '';
+      if (item.tlr === 'takeoff') {
+        tlrBadge = `<span class="ddg-tlr-badge tkoff">*TLR Takeoff</span>`;
+      } else if (item.tlr === 'landing') {
+        tlrBadge = `<span class="ddg-tlr-badge land">*TLR Landing</span>`;
+      } else if (item.tlr === 'both') {
+        tlrBadge = `<span class="ddg-tlr-badge both">*TLR Takeoff &amp; Landing</span>`;
+      }
+      h += `<div class="ddg-item-row">`;
+      if (item.code) {
+        h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
+        h += `<button class="etp-copy-btn ddg-copy" data-code="${esc(item.code)}" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+      }
+      h += `<div class="ddg-item-body">`;
+      if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
+      h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
+      if (tlrBadge) h += tlrBadge;
+      h += `</div>`;
+      h += `</div>`;
+    });
+    h += `</div>`;
+  } else {
+    h += `<span class="notes-sub-body notes-sub-empty">—</span>`;
+  }
+
+  if (S.overflightPerms && S.overflightPerms.trim()) {
+    h += `<span class="notes-sub-header">OVERFLIGHTS</span>`;
+    h += `<span class="notes-sub-body">${esc(S.overflightPerms)}</span>`;
+  }
+
+  if (curfews.length) {
+    h += `<span class="notes-sub-header">Curfews</span>`;
+    curfews.forEach(c => {
+      const col = c.color === 'red' ? 'var(--sys-red)' : 'var(--sys-yellow)';
+      h += `<div class="curfew-row">`;
+      h += `<span class="curfew-icao" style="color:${col}">${esc(c.icao)}</span>`;
+      h += `<span class="curfew-hours">${esc(c.hours)}</span>`;
+      h += `</div>`;
+    });
+  }
+
+  if (S.hasPerishables) {
+    h += `<div class="perishables-banner">`;
+    h += `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 110 1.5A.75.75 0 018 4zm1 8H7v-5h2v5z"/></svg>`;
+    h += `PERISHABLES — SEE SP</div>`;
+  }
+
+  if (S.dotExemption) {
+    h += `<div class="perishables-banner">`;
+    h += `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 110 1.5A.75.75 0 018 4zm1 8H7v-5h2v5z"/></svg>`;
+    const _exemptLabel = S.dotExemption.altRequired
+      ? `${esc(S.dotExemption.number)} — ALT REQ'D`
+      : `${esc(S.dotExemption.number)} — OPERATING UNDER DOT EXEMPTION`;
+    h += _exemptLabel + `</div>`;
+  }
+
+  h += `<span class="notes-sub-header">Notes</span>`;
+  h += `<textarea class="notes-pad" id="notesPad" placeholder="Tap or write with Apple Pencil…" aria-label="Free-text notes"></textarea>`;
+
+  return h;
+}
+
+// ── FCIR/ASAP Narrative subcard (shown on ALL phases when active) ──
+function renderFcirSubcard() {
+  if (!_fcirActive) return '';
+  let h = '';
+  h += `<div class="fcir-subcard">`;
+  h += `<div class="subcard-header" style="display:flex;align-items:center;justify-content:space-between">`;
+  h += `<span>FCIR / ASAP Narrative</span>`;
+  h += `<button class="icon-btn" style="width:28px;height:28px;flex-shrink:0" onclick="copyFcirNarrative()" aria-label="Copy FCIR narrative" title="Copy to clipboard">`;
+  h += `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+  h += `</button>`;
+  h += `</div>`;
+  h += `<div class="subcard-body">`;
+  h += `<textarea class="notes-pad fcir-narrative-pad" id="fcirNarrativePad" placeholder="Describe events for FCIR/ASAP report…" aria-label="FCIR/ASAP narrative" style="margin-top:0"></textarea>`;
+  h += `</div></div>`;
+  return h;
+}
+
+// ── Wire up textareas after renderNote() sets innerHTML ───────────────────
+function wireNotePads() {
+  const notesPad = document.getElementById('notesPad');
+  if (notesPad) {
+    notesPad.value = S.userNotes || '';
+    notesPad.addEventListener('input', () => { S.userNotes = notesPad.value; saveFlight(); });
+  }
+  const fcirPad = document.getElementById('fcirNarrativePad');
+  if (fcirPad) {
+    fcirPad.value = S.fcirNarrative || '';
+    fcirPad.addEventListener('input', () => { S.fcirNarrative = fcirPad.value; saveFlight(); });
+  }
+  const coChartPad = document.getElementById('oeiCoChartPad');
+  if (coChartPad) {
+    coChartPad.addEventListener('input', () => {
+      const sel = S.oeiData && S.oeiData.find(d => d.rwy === S.oeiSelectedRwy);
+      if (sel) { sel.coChartNote = coChartPad.value; saveFlight(); }
+    });
+  }
+  // Wire ATIS + Parking — each phase is a separate, independent instance
+  const atisPadPre = document.getElementById('atisNotesPadPre');
+  if (atisPadPre) {
+    atisPadPre.value = S.preAtisNotes || '';
+    atisPadPre.addEventListener('input', () => { S.preAtisNotes = atisPadPre.value; saveFlight(); });
+  }
+  const parkPadPre = document.getElementById('parkingPadPre');
+  if (parkPadPre) {
+    parkPadPre.value = S.preParkingNotes || '';
+    parkPadPre.addEventListener('input', () => { S.preParkingNotes = parkPadPre.value; saveFlight(); });
+  }
+  const atisPadDesc = document.getElementById('atisNotesPadDesc');
+  if (atisPadDesc) {
+    atisPadDesc.value = S.descAtisNotes || '';
+    atisPadDesc.addEventListener('input', () => { S.descAtisNotes = atisPadDesc.value; saveFlight(); });
+  }
+  const parkPadDesc = document.getElementById('parkingPadDesc');
+  if (parkPadDesc) {
+    parkPadDesc.value = S.descParkingNotes || '';
+    parkPadDesc.addEventListener('input', () => { S.descParkingNotes = parkPadDesc.value; saveFlight(); });
+  }
+  // Wire enroute scratchpad
+  const enrScratch = document.getElementById('enrouteScratchPad');
+  if (enrScratch) {
+    enrScratch.value = S.enrouteScratch || '';
+    enrScratch.addEventListener('input', () => { S.enrouteScratch = enrScratch.value; saveFlight(); });
+  }
+}
+
+// Editable value span
+// Editable value span — works with both tap (finger) and Apple Pencil
+function ev(field, displayVal) {
+  return `<span class="ev field-editable" role="button" tabindex="0" aria-label="Edit ${field}"
+    onclick="openEdit('${field}')"
+    onpointerdown="if(event.pointerType==='pen'){event.preventDefault();openEdit('${field}')}"
+    >${esc(displayVal)}</span>`;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Airport status note lines (ORIG → DEST → ALTS, using currentEta from altData)
+// ── Airport status category classifier ───────────────────────────────────
+// Classifies a single issue line into WX | NOTAM | CURFEW | null (skip).
+// Returns null for green/informational items that should not surface on the
+// briefing subcard (NOTAMs reviewed OK, CAVOK, etc.).
+// Operational-only: level must be 'red' or 'yellow' to surface.
+function _issueCategory(issue) {
+  if (issue.level !== 'red' && issue.level !== 'yellow') return null;
+  const t = (issue.text || '').replace(/<[^>]+>/g, '');  // strip HTML spans
+  if (/CURFEW|NOISE\s+ABATEMENT/i.test(t))               return 'CURFEW';
+  // WX signals — prevailing conditions, groups, special phenomena
+  if (/CEILING|CIG\b|VIS\b|CAVOK|TEMPO|BECMG|PROB\d{2}|TS\b|TSRA|FZRA|FZDZ|FZ\s+PRECIP|PRECIP|Windshear|LLWS|Open|Operational|Red\s*—|Instruments|RVR\b/i.test(t)) return 'WX';
+  // NOTAM signals — NOTAMs reviewed with issues
+  return 'NOTAM';
+}
+
+// Severity rank for worst-of comparison
+const _RANK = { red: 2, yellow: 1, green: 0, unknown: 0 };
+
+function buildAptStatusLines() {
+  const lines = [];
+  const orig = (S.origIcao||'').toUpperCase();
+  const dest = (S.destIcao||'').toUpperCase();
+
+  const order = [];
+  if (orig) order.push({icao:orig, role:'ORIG', eta: S.outZ || null});
+  if (dest) order.push({icao:dest, role:'DEST', eta:S.etaDest});
+  (S.altData||[]).forEach(a => {
+    if (a.icao !== orig && a.icao !== dest)
+      order.push({icao:a.icao, role:a.role, eta:a.currentEta, wxWindow:a.wxWindow||null});
+  });
+
+  order.forEach(apt => {
+    const data = airportData[apt.icao] || {notams:'',weather:''};
+    const status = evalAirport(apt.icao, apt.eta, data.notams, data.weather,
+                               apt.wxWindow, apt.role, S.acftType);
+    if (status.color === 'unknown') return;
+
+    // ── Per-category worst-of ─────────────────────────────────────────────
+    // wx / notam: worst level among operational issues in that category
+    // curfew: independent evalCurfew() result
+    const cat = { WX: 'green', NOTAM: 'green' };
+
+    status.issues.forEach(i => {
+      const c = _issueCategory(i);
+      if (!c || c === 'CURFEW') return;              // skip green/info; curfew handled below
+      if (_RANK[i.level] > _RANK[cat[c]]) cat[c] = i.level;
+    });
+
+    // Curfew: independent engine
+    const cf = evalCurfew(apt.icao, apt.eta);
+    const curfewLevel = (cf.color === 'red' || cf.color === 'yellow') ? cf.color : null;
+
+    // ── Overall dot colour ────────────────────────────────────────────────
+    const overallRank = Math.max(
+      _RANK[cat.WX], _RANK[cat.NOTAM], curfewLevel ? _RANK[curfewLevel] : 0
+    );
+    const dotCls = overallRank === 2 ? 'red' : overallRank === 1 ? 'yellow' : 'green';
+
+    // ── Build reason badges — only show non-green categories ─────────────
+    const badges = [];
+    const _badge = (label, level) => {
+      const col = level === 'red' ? 'var(--sys-red)' : 'var(--sys-yellow)';
+      return `<span style="color:${col};font-weight:600;font-size:13px">${label}</span>`;
+    };
+
+    if (_RANK[cat.NOTAM] > 0) badges.push(_badge('NOTAM', cat.NOTAM));
+    if (_RANK[cat.WX]    > 0) badges.push(_badge('WX',    cat.WX));
+    if (curfewLevel)          badges.push(_badge('CURFEW', curfewLevel));
+
+    const icaoSpan = `<span style="font-weight:600;min-width:38px;display:inline-block">${apt.icao}</span>`;
+    const dot      = `<span class="apt-dot ${dotCls}" style="flex-shrink:0;margin-top:3px"></span>`;
+
+    const ewinsTag = status.isEwins ? `<span style="color:var(--label3);margin:0 3px">·</span><span style="color:var(--sys-yellow);font-weight:600;font-size:13px">EWINS AUTH</span>` : '';
+    const label = badges.length
+      ? `${dot}${icaoSpan}<span style="color:var(--label3);margin:0 3px">·</span>${badges.join('<span style="color:var(--label4);margin:0 2px">/</span>')}${ewinsTag}`
+      : `${dot}${icaoSpan}${ewinsTag}`;
+
+    lines.push(label);
+  });
+  return lines;
+}
+
+// ── Curfew evaluation engine ─────────────────────────────────────────────
+// Parses structured curfew text from STATION COMPANY NOTAMS into time windows
+// and checks proximity to ETA. Returns { color, minsDelta, windows } per airport.
+//
+// color: 'none'   — no curfew data
+//        'green'  — curfew exists but ETA >120 min clear of all windows
+//        'yellow' — ETA 90–120 min from a window boundary
+//        'red'    — ETA within 90 min of (or inside) a window
+//
+// "In effect during arrival window" = ETA falls inside a curfew window,
+// OR the nearest window boundary is within 120 min of ETA.
+
+function parseCurfewWindows(curfewText) {
+  // Extract all HHMM–HHMM pairs from the curfew text.
+  // Handles: "1800–2359Z", "1200Z-1900Z", "2200Z - 2220Z"
+  const windows = [];
+  const re = /(\d{4})Z?\s*[-–]\s*(\d{4})Z?/g;
+  let m;
+  while ((m = re.exec(curfewText)) !== null) {
+    const s = parseInt(m[1].slice(0,2))*60 + parseInt(m[1].slice(2,4));
+    const e = parseInt(m[2].slice(0,2))*60 + parseInt(m[2].slice(2,4));
+    // e < s means window crosses midnight (e.g. 2200–0200)
+    windows.push({ start: s, end: e, crosses: e < s });
+  }
+  return windows;
+}
+
+// Returns minutes from ETA to the nearest curfew window boundary (or 0 if inside).
+// Positive = ETA is outside; negative/0 = ETA is inside or at boundary.
+function curfewDeltaMins(windows, etaMin) {
+  if (etaMin === null || !windows.length) return null;
+  let closest = Infinity;
+  for (const w of windows) {
+    // Check if ETA is inside this window
+    let inside;
+    if (!w.crosses) {
+      inside = etaMin >= w.start && etaMin <= w.end;
+    } else {
+      inside = etaMin >= w.start || etaMin <= w.end;
+    }
+    if (inside) return 0; // ETA is inside a curfew — worst case
+    // Distance to start and end
+    const ds = Math.min(Math.abs(etaMin - w.start), 1440 - Math.abs(etaMin - w.start));
+    const de = Math.min(Math.abs(etaMin - w.end),   1440 - Math.abs(etaMin - w.end));
+    closest = Math.min(closest, ds, de);
+  }
+  return closest;
+}
+
+function evalCurfew(icao, etaZ) {
+  const apt = airportData[icao] || {};
+  const curfewText = apt.curfew || '';
+  if (!curfewText.trim()) return { color: 'none', windows: [], detail: '' };
+
+  const windows = parseCurfewWindows(curfewText);
+  if (!windows.length) return { color: 'none', windows: [], detail: curfewText };
+
+  const etaMin = pZM(etaZ);
+  const delta  = curfewDeltaMins(windows, etaMin);
+
+  let color;
+  if (delta === null) {
+    color = 'green'; // no ETA known — show curfew as advisory (green)
+  } else if (delta === 0) {
+    color = 'red';   // ETA inside a curfew window
+  } else if (delta <= 90) {
+    color = 'red';
+  } else if (delta <= 120) {
+    color = 'yellow';
+  } else {
+    color = 'green';
+  }
+
+  return { color, windows, delta, detail: curfewText };
+}
+
+function buildCurfewEntries() {
+  // Used by briefing card — only include airports where curfew is in effect
+  // (ETA inside or within 120 min of a window, i.e. color != 'none' && color != 'green'... 
+  //  actually show ALL curfews detected within 120 min so crew is aware)
+  const entries = [];
+  const orig = (S.origIcao||'').toUpperCase();
+  const dest = (S.destIcao||'').toUpperCase();
+  const icaos = [];
+  if (orig) icaos.push(orig);
+  if (dest && dest !== orig) icaos.push(dest);
+  (S.altData||[]).forEach(a => { if (a.icao !== orig && a.icao !== dest) icaos.push(a.icao); });
+
+  icaos.forEach(icao => {
+    const apt = getAllAirports().find(a => a.icao === icao);
+    const etaZ = apt ? apt.eta : null;
+
+    // 1. Structured curfew field from STATION COMPANY NOTAMS parser
+    const cf = evalCurfew(icao, etaZ);
+    if (cf.color !== 'none') {
+      // Only show on briefing card if within 120-min window (yellow or red)
+      if (cf.color === 'yellow' || cf.color === 'red') {
+        const lines = cf.detail.trim().split('\n').filter(Boolean);
+        const summary = lines.length > 2
+          ? lines.slice(0, 2).join(' / ') + ` +${lines.length - 2} more`
+          : lines.join(' / ');
+        entries.push({ icao, hours: summary, color: cf.color, detail: cf.detail });
+      }
+      return;
+    }
+
+    // 2. Fallback: scan user-entered notams field for curfew keywords
+    const n = ((airportData[icao]||{}).notams||'').toUpperCase();
+    if (!n || !/CURFEW|NOISE\s+ABATEMENT.*CLSD|LDG\s+CLSD|TKOF\s+CLSD|NIGHT\s+RESTRIC/.test(n)) return;
+    let hours = '';
+    const hm = n.match(/(\d{4})Z?\s*[-–TO]+\s*(\d{4})Z?/);
+    if (hm) hours = hm[1] + '–' + hm[2] + 'Z';
+    else { const hm2 = n.match(/(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})/); if (hm2) hours = hm2[1] + '–' + hm2[2]; }
+    entries.push({ icao, hours: hours || 'See NOTAM', color: 'yellow' });
+  });
+  return entries;
+}
+
+// ═══════════════════════════════════════════════════════
+//  EDIT POPOVER
+// ═══════════════════════════════════════════════════════
+const FIELD_LABELS = {
+  outZ:'OUT Time (HHMM) — updates all ETAs', etaDest:'IN Time (HHMM)',
+  oeiVal:'OEI', stabTrim:'Stab Trim', fltNum:'Flight Number', date:'Date',
+  blockFuel:'Block Fuel (×1000)', minfFuel:'MIN Fuel (×1000)',
+  fresFuel:'FRES (×1000)', gaFuel:'GA Fuel (×1000)',
+  offZ:'OFF Time (HHMM Z)',
+  atisLetter:'ATIS Letter (single letter)',
+  preAtisLetter:'Departure ATIS Letter',
+  descAtisLetter:'Arrival ATIS Letter',
+  destRemf:'REMF at Destination', alt1Fuel:'ALT 1 Fuel',
+  crewRestBuffer:'Pre-landing buffer (minutes, 0–180)',
+  restGapMins:'Gap between rest periods (minutes, 0–20)',
+  tocZOverride:'TOC Time (HHMM Z) — overrides computed TOC',
+  zfwActual:'ZFW — Actual (raw weight)',
+  togwActual:'TOGW — Actual (raw weight)',
+};
+const NUM_FIELDS     = new Set(['outZ','etaDest','offZ','destRemf','alt1Fuel']);
+// Raw integer weight fields — stored as integers, input stripped of non-numeric chars
+const WEIGHT_INT_FIELDS = new Set(['zfwActual','togwActual']);
+// Per-field input guard for generic string fields — maxLen (chars) + allowed character pattern.
+// Applied in openEdit() (maxLength hint) and confirmEdit() (enforce before state write).
+const STRING_FIELD_RULES = {
+  blockFuel:      { maxLen: 7,  re: /^[\d.]*$/ },
+  minfFuel:       { maxLen: 7,  re: /^[\d.]*$/ },
+  fresFuel:       { maxLen: 7,  re: /^[\d.]*$/ },
+  gaFuel:         { maxLen: 7,  re: /^[\d.]*$/ },
+  oeiVal:         { maxLen: 8,  re: /^[A-Z0-9/]*$/ },
+  stabTrim:       { maxLen: 12, re: /^[0-9./ A-Z]*$/ },
+  atisLetter:     { maxLen: 1,  re: /^[A-Z]?$/ },
+  preAtisLetter:  { maxLen: 1,  re: /^[A-Z]?$/ },
+  descAtisLetter: { maxLen: 1,  re: /^[A-Z]?$/ },
+};
+let _editField = null;
+

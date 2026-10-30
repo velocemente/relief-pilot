@@ -1,0 +1,336 @@
+
+<!-- Global toast (visible on any screen) -->
+<div id="globalToast" class="import-toast" style="display:none;position:fixed;bottom:calc(var(--sab)+20px);left:50%;transform:translateX(-50%);z-index:9999;min-width:260px;text-align:center"></div>
+
+<!-- SW Update Banner — shown only when a new Service Worker activates.
+     Never appears offline: SW activation requires a network fetch of sw.js. -->
+<div id="sw-update-banner" role="alert" aria-live="polite">
+  <span>PilotBrief updated</span>
+  <button class="swub-reload" onclick="window.location.reload()">Reload</button>
+  <button class="swub-dismiss" onclick="document.getElementById('sw-update-banner').classList.remove('visible')" aria-label="Dismiss">&#x2715;</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN: SETTINGS
+     ══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-settings">
+  <div class="nav-bar nav-secondary">
+    <button class="nav-back" onclick="pop()" aria-label="Go back">
+      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
+      Flights
+    </button>
+    <span class="nav-brand-title" aria-label="PilotBrief — Settings">
+      <span class="nb-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label">Settings</span>
+    </span>
+  </div>
+  <div class="scroll-view">
+
+    <!-- APPEARANCE -->
+    <div class="settings-section-header">Appearance</div>
+    <div class="cell-group" style="margin: 0 var(--sp4)">
+      <div class="cell" style="cursor:default; padding: var(--sp3) var(--sp4)">
+        <div class="cell-content" style="padding:0">
+          <div class="settings-seg" id="themeSegControl">
+            <button class="seg-btn" onclick="setTheme('light')" data-theme="light">Light</button>
+            <button class="seg-btn active" onclick="setTheme('auto')" data-theme="auto">Auto</button>
+            <button class="seg-btn" onclick="setTheme('dark')" data-theme="dark">Dark</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUPPORT -->
+    <div class="settings-section-header" style="margin-top:var(--sp4)">Support</div>
+    <div class="cell-group" style="margin: 0 var(--sp4)">
+      <div class="cell" style="cursor:pointer" onclick="push('screen-help')" role="button" aria-label="Open instructions">
+        <div class="cell-icon" style="background:var(--tint)">
+          <svg viewBox="0 0 20 20" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="9"/>
+            <path d="M10 13v-3M10 7h.01"/>
+          </svg>
+        </div>
+        <div class="cell-content">
+          <span class="cell-title">Help</span>
+        </div>
+        <svg class="cell-chevron" width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l6 5.5L1 12"/></svg>
+      </div>
+    </div>
+
+    <!-- VERSION -->
+    <div class="settings-section-header" style="margin-top:var(--sp4)">Version</div>
+    <div class="cell-group" style="margin: 0 var(--sp4)">
+      <div class="cell" style="cursor:default">
+        <div class="cell-content">
+          <div style="font-size:17px;color:var(--label)" id="settingsVersionBadge">PilotBrief v1.9.9</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECK FOR UPDATE -->
+    <div class="settings-section-header" style="margin-top:var(--sp4)">Updates</div>
+    <div class="cell-group" style="margin: 0 var(--sp4)">
+      <div class="cell" style="cursor:pointer" onclick="checkForUpdate()" role="button" aria-label="Check for update">
+        <div class="cell-icon" style="background:var(--tint)">
+          <svg viewBox="0 0 20 20" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 3v4M10 3l-2 2M10 3l2 2"/>
+            <path d="M3 10a7 7 0 1 0 14 0 7 7 0 0 0-14 0"/>
+          </svg>
+        </div>
+        <div class="cell-content">
+          <span class="cell-title">Check for update</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN: HELP / INSTRUCTIONS
+     ══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-help">
+  <div class="nav-bar nav-secondary">
+    <button class="nav-back" onclick="pop()" aria-label="Go back">
+      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
+      Settings
+    </button>
+    <span class="nav-brand-title" aria-label="PilotBrief — Instructions">
+      <span class="nb-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label">Instructions</span>
+    </span>
+  </div>
+  <div class="scroll-view">
+
+    <div style="text-align:center;padding:var(--sp3) var(--sp4) 0;font-family:var(--font-mono);font-size:13px;color:var(--label3)" id="helpVersionInline"></div>
+
+    <!-- DISCLAIMER -->
+    <div class="section">
+      <div class="callout" style="border-left:3px solid var(--sys-red);background:rgba(255,59,48,0.08)">
+        <svg viewBox="0 0 20 20" fill="none" stroke="var(--sys-red)" stroke-width="1.8" stroke-linecap="round"><path d="M10 2L2 18h16L10 2z"/><path d="M10 8v4M10 14h.01"/></svg>
+        <span class="callout-text">
+          <span class="callout-title" style="color:var(--sys-red)">Disclaimer</span>
+          PilotBrief is NOT certified aviation software. It is an informational tool only. All data must be independently verified against the official OFP and dispatch release. Do not use as a sole reference for any operational decision.
+        </span>
+      </div>
+    </div>
+
+    <!-- IMPORTING -->
+    <div class="section">
+      <div class="section-header">Importing an OFP</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label)">Tap <strong>＋</strong> on the Flights screen to open the import screen. Two methods are supported:</p>
+          <p style="margin:0 0 6px;font-size:15px;color:var(--label2)"><strong>① PDF File:</strong> Tap the drop zone or drag an OFP PDF onto it. The app extracts and parses text using PDF.js.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>② Paste Text:</strong> Copy OFP text from any source and paste it into the text area at the bottom of the import screen, then tap Import Text.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLIGHT SCREEN TABS -->
+    <div class="section">
+      <div class="section-header">Flight Screen — Tabs</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 12px;font-size:15px;color:var(--label2)">After a flight is loaded, four tabs appear at the bottom of the screen. The <strong>FCIR/ASAP</strong> toggle is always visible in the top navigation bar.</p>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="9.5" stroke-width="1.4"/><path d="M12 4.5 L12 6M12 18 L12 19.5M4.5 12 L6 12M18 12 L19.5 12" stroke-width="1.1" opacity="0.55"/><path d="M12 6.5 L12.75 9.5 L16.8 11.2 L16.8 12.8 L12.75 11.8 L12 14.8 L12.75 16.2 L11.25 16.2 L12 14.8 L11.25 11.8 L7.2 12.8 L7.2 11.2 L11.25 9.5 L12 6.5Z" fill="currentColor" stroke="none"/></svg>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Briefing</p><p style="margin:0;font-size:13px;color:var(--label2)">Three-phase briefing note — <strong>Preflight</strong>, <strong>Enroute</strong>, and <strong>Descent</strong> — selectable with tab pills at the top. Each phase shows the fields relevant to that stage of flight. Editable fields are shown in <span style="color:var(--tint)">tint colour with a dotted underline</span>.</p></div>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="10" y="14" width="4" height="7" rx="0.5"/><path d="M9 14h6V9l1.5-1H7.5L9 9v5z"/><rect x="7" y="6" width="10" height="3" rx="1"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="5" y1="21" x2="19" y2="21"/></svg>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Airports</p><p style="margin:0;font-size:13px;color:var(--label2)">Full airport cards for every airport on the release — origin, destination, all alternates, and CFS alternates. Weather and NOTAMs are auto-populated from the OFP. NOTAM items are organised by runway in numerical order, with a hierarchical tree of closure, approach/navaid, lighting, and procedure items.</p></div>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">OFP</p><p style="margin:0;font-size:13px;color:var(--label2)">The original OFP rendered page-by-page from the imported PDF. Falls back to raw text if no PDF was imported.</p></div>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><line x1="6" y1="8" x2="12" y2="16"/><line x1="18" y1="8" x2="12" y2="16"/><line x1="6" y1="8" x2="6" y2="11"/><line x1="18" y1="8" x2="18" y2="11"/></svg>
+            <div><p style="margin:0 0 2px;font-size:15px;font-weight:600;color:var(--label)">Alternates</p><p style="margin:0;font-size:13px;color:var(--label2)">Alternate routes parsed from the OFP. Routes and ETP coordinates are populated in the card. They can be edited and copied to paste into FDPro.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BRIEFING CARD -->
+    <div class="section">
+      <div class="section-header">Briefing Card</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Flight Header</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Flight ID:</strong> Off of the OFP. This is highlighted yellow when FCIR/ASAP is active.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Radio Callsign:</strong> Displayed immediately below the Flight ID when a verbal callsign is known. The default is GIANT, but will change as appropriate for a customer (e.g.: CAMBER, QANTAS, TURKISH).</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OUT / IN:</strong> OUT is the OFP scheduled off-block time. Editing OUT recalculates all downstream ETAs, CO RPTS, Crew Rest if applicable, and the EVAL windows for all airports listed in the OFP. When the actual OFF time is entered on the Enroute phase, the IN and all applicable EVAL windows, CO RPTS and Crew Rest are recalculated as required.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ETOPS block</strong> (ETOPS flights only): Shows ETOPS authorization and elapsed time to ETOPS airspace entry.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">The Share icon exports all of the data from the Preflight, Enroute and Descent subcards.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Preflight Subcard</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ATIS / PARK:</strong> Departure ATIS letter (tap to enter) and parking/gate notepad.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>OEI:</strong> One Engine Inoperative takeoff procedure. When a TLR is parsed, tap to select the departure runway from the picker. All runway variants are shown including noise-restricted and obstacle-limited designations (e.g. <em>16R-N390M</em>, <em>34L CRANE</em>). SPECIAL runways show the full EFP text; SEE CO CHART runways open a notepad for crew entry.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>STAB:</strong> Stabilizer trim setting. Always crew-entered.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Slot Time</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">When the OFP contains a wheels-up slot constraint, a Slot Time section appears.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">OFP Fuel and Weights</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Limits:</strong> Total fuel at departure. Color-coded by TOGW margin: <span style="color:var(--sys-green)">green</span> &gt;2,000 · <span style="color:var(--sys-yellow)">yellow</span> 2,000–1,000 · <span style="color:var(--sys-red)">red</span> &lt;1,000 from OFP limits.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Weights:</strong> Editing the ZFW with the actual ZFW will automatically apply the MINF ADJ factor and compensate the MINF. The TOGW and Block Fuel can also be edited and will reflect the appropriate adjustments.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>MIN / REMF:</strong> Minimum dispatch fuel and planned remaining fuel at destination.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FF ADJ:</strong> Appears when a CDL or MEL item carries an additional fuel flow adjustment (e.g. <em>+2.22%</em>). Shown in <span style="color:var(--sys-yellow)">yellow</span> for a penalty, green for a benefit.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--sys-red);font-weight:600">⚠ MTOW LTD BY VZFW/CK: Appears in red when the OFP indicates takeoff weight is limited by Zero Fuel Weight or Centre of Gravity constraints. Confirm with dispatch before departure.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">NOTES Section</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Airport status:</strong> One compact row per airport (origin, destination, alternates, CFS alternates). Each row shows a colour dot and badge category labels evaluated within the departure/arrival window: <strong>NOTAM</strong>, <strong>WX</strong>, <strong>CURFEW</strong>.</p>
+          <p style="margin:0 0 3px;font-size:15px"><span style="color:var(--sys-green)">●</span> <strong>Green</strong> — no issues · <span style="color:var(--sys-yellow)">●</span> <strong>Yellow</strong> — advisory · <span style="color:var(--sys-red)">●</span> <strong>Red</strong> — closure or curfew issue</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2);margin-top:5px"><strong>DDG / CDL:</strong> MEL and CDL items parsed from the OFP. 25-series (NEF/cabin) items are filtered out. CDL items (C-prefix ATA codes) are marked with a <span style="color:var(--sys-green);font-weight:600">CDL</span> badge. Items with a TLR Takeoff or Both cross-reference carry a coloured TLR badge. DDG Number strings can be copied for easy searching in the DDG.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Overflights:</strong> Permit numbers parsed from the release. Only shown when present.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Curfews:</strong> Airports within 90 minutes of a curfew window listed in yellow or red. Parsed from Company NOTAMs.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Notes:</strong> Free-text notepad. Accepts keyboard and Apple Pencil Scribble.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENROUTE SUBCARD -->
+    <div class="section">
+      <div class="section-header">Enroute Subcard</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Default OFF is the OUT from the OFP plus the taxi time from the OFP. Entering the actual OFF time recalculates all downline items: EVAL window for all airport WX, NOTAM, Curfews, Enroute timeline, and Crew Rest.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>E.ENT -60:</strong> Displays the 60 min window prior to E.ENT.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>E.ENT</strong> (ETOPS flights): Computed ETOPS airspace entry time based on OFF + OFP elapsed time.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>ETP:</strong> Time displayed for flights with an ETP.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>RDA / POR</strong> (redispatch flights): A position report "CO RPT PRE-RDA" populates 90 min from the POR, "POR WINDOW" displays the opening of the RDA window, "POR" provides ETA and MINF from OFP at the POR.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>CO RPT:</strong> Company position report schedule computed at 4-hour intervals from OFF. Reports that fall within the POR action window are not displayed.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">In-Flight Rest</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">The crew rest schedule activates automatically when <strong>3 or more operating crew members</strong> (CA or FO) are parsed from the OFP Fit for Duty section. Operating crew are identified by position (CA or FO).</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">Rest periods are divided into thirds for 3 pilot operations and selectable for halves or quarters for 4-pilots. The rest period is calculated from TOC to the pre-landing buffer. The pre-landing buffer (default 60 min) is adjustable. Tap any crew row to adjust individual rest slots.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">The rest buffer is adjustable in 5 min increments from 0-20 min to allow for time from wakeup to switchover. (default is 0 min).</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">NAT Track</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">On North Atlantic oceanic crossings, the OFP includes an organized track message. PilotBrief renders both the eastbound and westbound track sets, with the flight direction block displayed first. Each direction appears as a separate subcard.</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">The subcard header shows the TMI and filed track. The assigned track row is highlighted in green and expanded by default.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">All other Tracks and Track comments are expandable so only one track is displayed in the event of a reroute.</p>
+
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Scratchpad:</strong> A free-text Scratchpad occupies the right column for calculations, clearances, or ATC instructions.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESCENT SUBCARD -->
+    <div class="section">
+      <div class="section-header">Descent Subcard</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Airport</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">Displayed at the top of the descent card. Shows the selected airport's colour-coded status (dot + NOTAM/WX badge summary). When the release includes alternates, a <strong>chevron ▾</strong> opens a picker to switch between destination and any alternate.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)"><strong>CAT II/III:</strong> If the OFP authorises CAT II or III approaches for the selected airport, the applicable runway list is shown below the status row (e.g. <em>CAT III - RWY 09C/27C</em>).</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Arrival</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">Arrival ATIS letter (tap to enter) and parking/gate notepad, independent of the Preflight departure ATIS.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">Arrival Fuel</p>
+          <p style="margin:0 0 14px;font-size:15px;color:var(--label2)">REMF (planned remaining fuel at destination), ALT 1 fuel, FRES (final reserve), and GA fuel. All parsed from the OFP. GA is crew-entered. When close to Max Landing Weight, the Max Landing Weight from the OFP will be displayed as well as maximum landing fuel.</p>
+
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:var(--label)">DDG — Landing</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">DDG/MEL items that carry a TLR <span style="color:var(--tint);font-weight:600">Landing</span> or <span style="color:var(--sys-orange);font-weight:600">Takeoff &amp; Landing</span> cross-reference are pulled out of the full DDG list and displayed here as an arrival-specific reminder. CDL items are marked with a <span style="color:var(--sys-green);font-weight:600">CDL</span> badge.</p>
+
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Scratchpad:</strong> A free-text Scratchpad is available for arrival calculations, clearance, or gate notes.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AIRPORTS CARD -->
+    <div class="section">
+      <div class="section-header">Airports Card</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Each airport card shows the role (ORIG, DEST, DEST ALT, EN ROUTE ALT, TKOF ALT, CFS ALT), ETA, and a colour-coded status badge from combined WX, NOTAM evaluation and Curfew. Chevron ▾ expands to the raw data WX and NOTAMS.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Eval Window:</strong> ±1 hour of ETA for all airports. CFS alternates use the OFP-published WX WINDOW. Origin uses OUT time. All other Airports are updated as the OUT and OFF times are updated to re-evaluate WX, NOTAMS and curfew compliance.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)"><strong>Weather Status:</strong> Prevailing ceiling/visibility evaluated against Open / Operational / Instruments / LIFR thresholds. TEMPO, PROB40, RVR, windshear, and freezing precipitation are evaluated separately.</p>
+
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAMs —</strong> All runways appear in numerical order (04, 09, 10, 22, 27…). Each runway is a collapsible top-level entry. Within a runway, NOTAMs are organised into four priority tiers:</p>
+          <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-red)">●</span> <strong>Closed</strong> — runway or airport closure</p>
+          <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-red)">●</span> <strong>Approach / Navaid</strong> — ILS, GS, LOC, RNAV, GPS/GNSS, DME, marker beacons</p>
+          <p style="margin:0 0 2px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-yellow)">●</span> <strong>Runway Lighting</strong> — PAPI, VASI, ALS, REIL, RCLL, TDZ, HIRL, MIRL, lead-off lights</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2);padding-left:12px"><span style="color:var(--sys-yellow)">●</span> <strong>Procedure Changes</strong> — IAP amendments, minimums raised, missed approach, STAR/SID changes</p>
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">When two or more NOTAMs fall in the same tier, they collapse under a count label (e.g. <em>Approach / Navaid (3)</em>). Tap to expand and reveal individual items. Tap any item to show the raw NOTAM text.</p>
+
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>FICON:</strong> Field Condition NOTAMs are classified and grouped automatically. Runway FICONs (e.g. <em>RWY 33 FICON 5/5/5 100 PCT WET</em>) appear within the applicable runway group. Taxiway and ramp FICONs appear under the <strong>Taxiway NOTAMs</strong> group. Severity: conditions involving ice, compacted ice, or braking codes 1–2 are shown in <span style="color:var(--sys-red)">red</span>; wet, slush, and compacted snow in <span style="color:var(--sys-yellow)">yellow</span>.</p>
+
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>NOTAM Scheduling:</strong> NOTAMs may include schedule lines immediately after the NOTAM header. Two formats are handled: <em>day-range + time window</em> (e.g. <em>08-09 13-17 20-24 1510-2020</em> — active only on those calendar days between 1510–2020Z) and <em>daily time window alone</em> (e.g. <em>1410-2030</em> — active every day only during that period). NOTAMs outside the window relative to the departure or arrival time are suppressed, but remain available in the RAW NOTAMS.</p>
+
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)"><strong>Editing:</strong> Tap the card header to expand the NOTAM and WX text areas. Paste or edit data here to supplement OFP-extracted content.</p>
+
+          <p style="margin:0;font-size:15px;color:var(--label2)"><strong>Curfew Row:</strong> Appears when an airport has a curfew window. Shows window times and proximity to ETA, colour-coded.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- OFP CARD -->
+    <div class="section">
+      <div class="section-header">OFP Card</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0;font-size:15px;color:var(--label2)">Has the OFP in original .pdf format for reference. Bookmarks will link to the appropriate section of the OFP.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALTERNATES CARD -->
+    <div class="section">
+      <div class="section-header">Alternates Card</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 5px;font-size:15px;color:var(--label2)">Alternate routings for each alternate are listed. Routings can be edited and copied to paste into FDPro.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">ETP coordinates, if in the OFP, are listed here and can be copied to inserted into FDPro.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDITING -->
+    <div class="section">
+      <div class="section-header">Editing Values</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Any value shown in <span style="color:var(--tint);text-decoration:underline dotted">tinted dotted-underline text</span> is editable. Tap to open an edit popover. Editing <strong>OUT</strong> recalculates all downstream ETAs. Editing the actual <strong>OFF</strong> time on the Enroute phase recalculates the IN time using OFP trip time.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">Airport weather and NOTAM fields on each airport card are also editable — tap the card header to expand the input areas.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FCIR/ASAP -->
+    <div class="section">
+      <div class="section-header">FCIR / ASAP Toggle</div>
+      <div class="cell-group">
+        <div class="cell" style="cursor:default;display:block;padding:var(--sp3) var(--sp4)">
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">The <strong>FCIR/ASAP</strong> toggle sits in the navigation bar at the top of the flight screen. When active, the flight ID turns <span style="color:var(--sys-yellow);font-weight:600">yellow</span> and the flight row in the Saved Flights list stays highlighted until the toggle is turned off.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--label2)">Activating the toggle reveals a <strong>FCIR/ASAP Narrative</strong> notepad on every phase. Record event details there and tap the copy icon to copy to clipboard for your reporting system.</p>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--sys-red);font-weight:600">⚠ Do not delete this flight entry until the report has been submitted. The flight cannot be deleted while the toggle is ON.</p>
+          <p style="margin:0;font-size:15px;color:var(--label2)">To allow deletion: open the flight, turn off the toggle, then return to Saved Flights.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
