@@ -2176,6 +2176,7 @@ body {
       autocomplete="off" autocorrect="off" spellcheck="false"
       autocapitalize="characters"
       inputmode="text"
+      maxlength="20"
       aria-label="Edit field value">
     <div class="edit-actions">
       <button class="edit-btn" onclick="cancelEdit()" aria-label="Cancel edit">Cancel</button>
@@ -7033,6 +7034,14 @@ function _pbCopyFallback(text, el) {
   } catch(e) {}
 }
 
+// Delegated handler for DDG/MEL copy buttons — no inline onclick injection
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.ddg-copy');
+  if (btn && btn.dataset.code) {
+    _pbCopy(btn.dataset.code, btn);
+  }
+});
+
 function showToast(typeOrMsg, msg) {
   // Support both showToast('type','msg') and showToast('msg') 
   let type, message;
@@ -8890,11 +8899,6 @@ function validateEtpOrder(etpPoints) {
     const prev = populated[i - 1];
     const curr = populated[i];
     if (curr.elapsedMins <= prev.elapsedMins) {
-      console.warn(
-        `[PilotBrief ETP ORDER] ${curr.name}(${curr.elapsedMins} min) ` +
-        `\u2264 ${prev.name}(${prev.elapsedMins} min). ` +
-        `Navlog TOT-T extraction may have failed for this flight.`
-      );
       valid = false;
     }
   }
@@ -9895,7 +9899,7 @@ function renderDescentPhase() {
       h += `<div class="ddg-item-row">`;
       if (item.code) {
         h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
-        h += `<button class="etp-copy-btn" onclick="_pbCopy('${item.code.replace(/'/g, "\\'")}', this)" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+        h += `<button class="etp-copy-btn ddg-copy" data-code="${esc(item.code)}" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
       }
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
@@ -10105,7 +10109,7 @@ function renderNotesSection() {
       h += `<div class="ddg-item-row">`;
       if (item.code) {
         h += `<span class="ddg-item-code">${esc(item.code)}</span>`;
-        h += `<button class="etp-copy-btn" onclick="_pbCopy('${item.code.replace(/'/g, "\\'")}', this)" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+        h += `<button class="etp-copy-btn ddg-copy" data-code="${esc(item.code)}" aria-label="Copy DDG code ${esc(item.code)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
       }
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
@@ -10231,7 +10235,7 @@ function ev(field, displayVal) {
 }
 
 function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // Airport status note lines (ORIG → DEST → ALTS, using currentEta from altData)
@@ -10457,11 +10461,25 @@ const FIELD_LABELS = {
 const NUM_FIELDS     = new Set(['outZ','etaDest','offZ','destRemf','alt1Fuel']);
 // Raw integer weight fields — stored as integers, input stripped of non-numeric chars
 const WEIGHT_INT_FIELDS = new Set(['zfwActual','togwActual']);
+// Per-field input guard for generic string fields — maxLen (chars) + allowed character pattern.
+// Applied in openEdit() (maxLength hint) and confirmEdit() (enforce before state write).
+const STRING_FIELD_RULES = {
+  blockFuel:      { maxLen: 7,  re: /^[\d.]*$/ },
+  minfFuel:       { maxLen: 7,  re: /^[\d.]*$/ },
+  fresFuel:       { maxLen: 7,  re: /^[\d.]*$/ },
+  gaFuel:         { maxLen: 7,  re: /^[\d.]*$/ },
+  oeiVal:         { maxLen: 8,  re: /^[A-Z0-9/]*$/ },
+  stabTrim:       { maxLen: 12, re: /^[0-9./ A-Z]*$/ },
+  atisLetter:     { maxLen: 1,  re: /^[A-Z]?$/ },
+  preAtisLetter:  { maxLen: 1,  re: /^[A-Z]?$/ },
+  descAtisLetter: { maxLen: 1,  re: /^[A-Z]?$/ },
+};
 let _editField = null;
 
 function openEdit(field) {
   _editField = field;
   const inp = document.getElementById('editInput');
+  inp.maxLength = (STRING_FIELD_RULES[field] || {}).maxLen || 20;
   // Weight int fields: show raw integer, numeric keyboard
   if (WEIGHT_INT_FIELDS.has(field)) {
     inp.value = S[field] ? String(S[field]) : '';
@@ -10547,6 +10565,13 @@ function confirmEdit() {
     val = val.replace(/\D/g,'').slice(0,4);
   }
   const _prevBlockFuel = S.blockFuel;
+  // String field guard: enforce maxLen + character whitelist before writing to state.
+  // Silently cancels on pattern mismatch — no UI error (field simply reverts).
+  const _sfRule = STRING_FIELD_RULES[_editField];
+  if (_sfRule) {
+    val = val.toUpperCase().slice(0, _sfRule.maxLen);
+    if (!_sfRule.re.test(val)) { cancelEdit(); return; }
+  }
   S[_editField] = val;
 
   // Block fuel change → apply delta to TOGW
@@ -10956,7 +10981,7 @@ function buildAirportCards() {
         </div>
         <div class="apt-eta-block">
           ${etaDisplay ? `<div class="apt-eta-tag">${etaDisplay}</div>` : ''}
-          ${wxWindowStr ? `<div class="apt-wx-window">${wxWindowStr}</div>` : ''}
+          ${wxWindowStr ? `<div class="apt-wx-window">${esc(wxWindowStr)}</div>` : ''}
         </div>
         ${status.isEwins ? `<div class="apt-badge" style="background:rgba(0,122,255,0.12);color:var(--tint);margin-right:4px">EWINS</div>` : ''}
         <div class="apt-badge ${sc}">${sl}</div>
@@ -11263,8 +11288,8 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     if (status.status !== 'OPEN') {
       const level  = status.color;
       const cls    = level === 'red' ? 'r' : 'y';
-      const visStr = vis  ? `VIS <span class="wx-val ${cls}">${vis.label}</span>`  : null;
-      const cigStr = ceil !== null ? `CIG <span class="wx-val ${cls}">${ceil}ft</span>` : null;
+      const visStr = vis  ? `VIS <span class="wx-val ${cls}">${esc(vis.label)}</span>`  : null;
+      const cigStr = ceil !== null ? `CIG <span class="wx-val ${cls}">${esc(String(ceil))}ft</span>` : null;
       const parts  = [cigStr, visStr].filter(Boolean).join(' &nbsp;');
       const text   = status.status === 'LIFR'
                    ? `🔴 ${parts}`
@@ -11284,7 +11309,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
         const pfx   = rvrStatus === 'operational' ? '⚠ OPERATIONAL'
                     : rvrStatus === 'instruments'  ? '🔴 INSTRUMENTS'
                     :                               '🔴';
-        _pushWx({ level, text: `${pfx} — RVR <span class="wx-val ${cls}">${rvrResult.label}</span>` });
+        _pushWx({ level, text: `${pfx} — RVR <span class="wx-val ${cls}">${esc(rvrResult.label)}</span>` });
         worst = bump(worst, level);
       }
     }
@@ -11296,7 +11321,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
       const ts = classifyAirportStatus(tc, null);
       if (ts.status !== 'OPEN') {
         const level = ts.color; const cls = level === 'red' ? 'r' : 'y';
-        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} TEMPO CIG <span class="wx-val ${cls}">${tc}ft</span>` });
+        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} TEMPO CIG <span class="wx-val ${cls}">${esc(String(tc))}ft</span>` });
         worst = bump(worst, level);
       }
     }
@@ -11304,7 +11329,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
       const vs = classifyAirportStatus(null, tv.sm);
       if (vs.status !== 'OPEN') {
         const level = vs.color; const cls = level === 'red' ? 'r' : 'y';
-        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} TEMPO VIS <span class="wx-val ${cls}">${tv.label}</span>` });
+        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} TEMPO VIS <span class="wx-val ${cls}">${esc(tv.label)}</span>` });
         worst = bump(worst, level);
       }
     }
@@ -11316,7 +11341,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
       const s = classifyAirportStatus(p4c, null);
       if (s.status !== 'OPEN') {
         const level = s.color; const cls = level === 'red' ? 'r' : 'y';
-        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} PROB40 CIG <span class="wx-val ${cls}">${p4c}ft</span>` });
+        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} PROB40 CIG <span class="wx-val ${cls}">${esc(String(p4c))}ft</span>` });
         worst = bump(worst, level);
       }
     }
@@ -11324,7 +11349,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
       const s = classifyAirportStatus(null, p4v.sm);
       if (s.status !== 'OPEN') {
         const level = s.color; const cls = level === 'red' ? 'r' : 'y';
-        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} PROB40 VIS <span class="wx-val ${cls}">${p4v.label}</span>` });
+        _pushWx({ level, text: `${level === 'red' ? '🔴' : '⚠'} PROB40 VIS <span class="wx-val ${cls}">${esc(p4v.label)}</span>` });
         worst = bump(worst, level);
       }
     }
