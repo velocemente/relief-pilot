@@ -36,7 +36,7 @@
 
 | # | When | What you decide or check | Time |
 |---|---|---|---|
-| C1 | Now | IA/TA definition when ready; supply the fixtures in §5; D18 (production release method, §6) | 5 min |
+| C1 | Now | IA/TA definition when ready; supply the fixtures in §5 | 5 min |
 | C2 | Week 1–2 | Hotfix on beta: RJAA RWY 16L/34R CLSD shows; RJAA Company Remarks short; with cellular data off, move PilotBrief into Slide Over several times — no alert (or at most one from iOS itself); if HF-4 approved, it returns to the open flight → approve for production | 20 min |
 | C3 | Week 2–3 | After the code is reorganised: beta behaves exactly as before (no visible change) | 10 min |
 | C-FK | Week 5 | **FlightKeys on the new import:** both prototypes plus any live package. NOTAMs, weather, curfews, crew, CAT II/III and MEL populated; self-check findings reviewed → approve for production | 30 min |
@@ -68,7 +68,7 @@ Each pull request carries a short section you can read: **What changes for crews
 | R-HF1 … R-HF4 | Independent review of each hotfix PR | Haiku 4.5 | Review comment on each PR |
 | REL-HF | Version 1.9.9-hf1 (index.html, sw.js, manifest aligned) | Haiku 4.5 | PR → beta |
 | QA-HF | Hotfix release gate on beta | Haiku 4.5 | Report → **C2** |
-| REL-PROD-HF | Copy the approved beta files to production `PilotBrief` (method per D18) | Exec (or Haiku if D18 = B) | Production updated |
+| REL-PROD-HF | Copy the approved beta files to production `PilotBrief` (Method A, by you) | Exec (D18 = A) | Production updated |
 
 ### Stage F1 — Reorganise the code (weeks 2–3)
 
@@ -102,7 +102,7 @@ Each pull request carries a short section you can read: **What changes for crews
 | P5 | Navtech/eOFP also routed through the engine; legacy parser dormant for one release | Haiku 4.5 · Standard | PR |
 | R-P5 | Independent review | Haiku 4.5 | |
 | QA-R | Release gate + RUN-111 record | Haiku 4.5 | Report → **C6** |
-| REL-PROD | Copy the approved beta release to production `PilotBrief` (method per D18) | Exec (or Haiku if D18 = B) | Production updated |
+| REL-PROD | Copy the approved beta release to production `PilotBrief` (Method A, by you) | Exec (D18 = A) | Production updated |
 
 **Sequence:** F0 ✅ → H (HF-1, HF-2, HF-3, HF-4 in parallel) → REL-HF → QA-HF → REL-PROD-HF → F1 → E1a → E1b → **P2a → P2b → P5a (FlightKeys live on engine)** → P1a → P1b → P1c → B1 ∥ RV1 → RV2 → QA-X → P5 → QA-R → REL-PROD.
 
@@ -176,7 +176,7 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 | D6a | Interim FlightKeys notice | **Declined** — Exec is the only tester until P5a |
 | D16 | **Q** = Special Qual Airport; show "Q" beside the airport name on each airport card whose ORIG/DEST/alternate line carries it | **Accepted** |
 | D17 | HF-4: after an iOS reload, return to the open flight, tab and phase | **Accepted** |
-| D18 | How approved releases reach production `PilotBrief`: **A** — Exec copies the three files by GitHub web upload (steps in §7, REL-PROD); **B** — grant the Claude app access to `PilotBrief` with a branch rule that requires your approval on every change, and a Haiku session opens the release PR | **Open** — recommend **A** until the platform release, then review |
+| D18 | How approved releases reach production `PilotBrief`: **A** — Exec copies the three files by GitHub web upload (steps in §7, REL-PROD); **B** — grant the Claude app access to `PilotBrief` with a branch rule that requires your approval on every change, and a Haiku session opens the release PR | **Accepted — A** (29 Oct). Revisit after the platform release if wanted. |
 | — | Meaning of IA / TA windows in FlightKeys briefings | **Open** — Exec to define before P2b |
 | D9 | Archive the undeployed September ruleset v1.2 | **Done** — moved to `90_Old Versions` |
 | D11 | Private fixtures repository; names may be redacted before upload | **Accepted** |
@@ -685,12 +685,12 @@ OUTPUT: post the gate report as ONE comment on the REL-HF PR (gh api repos/veloc
 
 ### REL-PROD-HF / REL-PROD — Copy an Approved Release to Production
 
-**Method A (D18, recommended for now) — you do it, about 10 minutes in Safari:**
+**Method A (D18 = A, accepted) — you do it, about 10 minutes in Safari:**
 1. Open **github.com/velocemente/relief-pilot** → `index.html` → **Raw** → Share → **Save to Files** (folder *PilotBrief release*). Repeat for `sw.js` and `manifest.json`.
 2. Open **github.com/velocemente/PilotBrief** → **Add file → Upload files** → select the three files → commit message `Release 1.9.9-hf1 from relief-pilot <commit>` → **Commit changes**.
 3. Wait for the production site to update (a few minutes), open the production app online once, close and reopen it, and confirm Settings shows the new version.
 
-**Method B (only if D18 = B):** grant the Claude app access to `PilotBrief` *with* branch protection on `main` requiring your approval, then run:
+**Method B (not in use — kept only in case D18 is revisited):** grant the Claude app access to `PilotBrief` *with* branch protection on `main` requiring your approval, then run:
 
 > **Start:** new session · repository **velocemente/PilotBrief** (the only session ever started there) · model **Haiku 4.5**.
 
@@ -1233,7 +1233,7 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
  Finish by telling the Exec the verdict in two sentences of plain language.
 ```
 
-> **Your check, after APPROVE-FOR-EXEC:** checkpoint **C-FK**: on beta, import both FlightKeys prototypes (and any live FlightKeys package) — NOTAMs, weather, curfews, crew, CAT II/III and MEL all populated. After merge, release to production with REL-PROD (method per D18). Then on GitHub: open the PR → **Merge pull request** → **Confirm merge** (merge any companion fixtures PR first).
+> **Your check, after APPROVE-FOR-EXEC:** checkpoint **C-FK**: on beta, import both FlightKeys prototypes (and any live FlightKeys package) — NOTAMs, weather, curfews, crew, CAT II/III and MEL all populated. After merge, release to production with REL-PROD (Method A, by you). Then on GitHub: open the PR → **Merge pull request** → **Confirm merge** (merge any companion fixtures PR first).
 
 ---
 
@@ -1927,7 +1927,7 @@ OUTPUT: open ONE PR adding docs/RPT-QA-RUN111-ReleaseGate.md (first line "Gate: 
  "Gate: NO-GO"). Do not merge. Tell the Exec the verdict in plain language.
 ```
 
-> **Your check (C6), after "Gate: GO":** airplane-mode cold start on beta, one package of each format; merge the gate report PR; then **REL-PROD** (method per D18) to put the release into production.
+> **Your check (C6), after "Gate: GO":** airplane-mode cold start on beta, one package of each format; merge the gate report PR; then **REL-PROD** (Method A, by you) to put the release into production.
 
 ---
 
