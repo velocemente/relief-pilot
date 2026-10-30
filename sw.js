@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-//  PilotBrief — Service Worker  v2.0.0
+//  PilotBrief — Service Worker  v1.9.9
 //
 //  Strategy: Offline-first (cache-first for everything)
 //  ─────────────────────────────────────────────────────
@@ -61,10 +61,17 @@ const PDFJS_VERSION = '3.11.174';
 
 // ── Mandatory shell ────────────────────────────────────
 // These must ALL succeed or SW installation is aborted.
+// ONLY app-critical resources — icons are cosmetic.
 const SHELL_URLS = [
   './',
   './index.html',
   './manifest.json',
+];
+
+// ── Optional shell (best-effort) ──────────────────────
+// Icons for home screen / splash. A missing icon does NOT
+// abort SW install — the app still works offline without them.
+const ICON_URLS = [
   './icon192.png',
   './icon512.png',
 ];
@@ -79,17 +86,17 @@ const CDN_URLS = [
 
 // ── Install ───────────────────────────────────────────
 // Phase 1 (shell) is atomic — any failure aborts install.
-// Phase 2 (CDN)   is best-effort — failures are swallowed.
+// Phase 2 (icons + CDN) is best-effort — failures swallowed.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache =>
         cache.addAll(SHELL_URLS).then(() =>
           Promise.allSettled(
-            CDN_URLS.map(url =>
+            [...ICON_URLS, ...CDN_URLS].map(url =>
               fetch(url, { cache: 'no-store' })
                 .then(r => { if (r.ok) return cache.put(url, r); })
-                .catch(() => {}) // CDN unreachable — lazy-loader will retry online
+                .catch(() => {}) // missing icon or CDN — non-fatal
             )
           )
         )
