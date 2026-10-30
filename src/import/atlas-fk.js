@@ -24,14 +24,14 @@ const PATTERNS = {
   AIRCRAFT_TYPE: /\(FPL-[A-Z0-9]+-[A-Z]+\s*\n?-([A-Z0-9]{2,4})\/[A-Z]/,
   FPL_WAKE: /\(FPL-[A-Z0-9]+-[A-Z]+\s*\n?-[A-Z0-9]{2,4}\/([A-Z])-/,
 
-  // Row 3: Weight unit
-  WEIGHT_UNIT: /\bB\d{3}-\d+[A-Z]*\s*\/\s*[A-Z\d]+\s*\/\s*(KGS?|LBS?)\s*\//i,
+  // Row 3: Weight unit (flexible pattern for B744, B747-400F, etc.)
+  WEIGHT_UNIT: /[A-Z]\d{3}[A-Z\d-]*\s*\/\s*[A-Z0-9\-]+\s*\/\s*(KGS?|LBS?)\s*\//i,
 
   // Row 4: Date of flight
   DATE_DOF: /DOF\/(\d{2})(\d{2})(\d{2})/i,
 
-  // Rows 5-7: ORIG/DEST/PALT lines with Q marker
-  APT_LINE: /^(ORIG|DEST|PALT)\s+([A-Z]{4})\/\S*\s+\S+\s+(Q\s+)?[NS]\d+[EW]\d+\s+(\d{4}Z)/im,
+  // Rows 5-7: ORIG/DEST/PALT lines with Q marker and multi-word airport names
+  APT_LINE: /^(ORIG|DEST|PALT)\s+([A-Z]{4})\/\S*\s+.+?\s+(Q\s+)?([NS]\d+[EW]\d+)\s+(\d{4}Z)/im,
 
   // Rows 9-12: Fuel lines
   BLOCK_FUEL: /^BLOCK\s+(\d{5,7})\s+(\d{2})\.(\d{2})/im,
@@ -49,8 +49,8 @@ const PATTERNS = {
   // Row 19: Additional FF adjustment
   ADDL_FF_ADJ: /\*ADDL\s+FF\s+ADJ\s+([\+\-]\d+\.\d+)\s*\*/i,
 
-  // Rows 20-23: Weights
-  WEIGHTS: /^(DOW|PYLD|ZFW|RAMP|TOGW|LDGW)\s+(\d+)(?:\s+\.+\s+([SL])?(\d+))?/im,
+  // Rows 20-23: Weights (with optional dots and limit)
+  WEIGHTS: /^(DOW|PYLD|ZFW|RAMP|TOGW|LDGW)\s+(\d+)(?:\s+\.+)?(?:\s+([SL])(\d+))?/im,
 
   // Row 24: CAT II/III approaches
   CAT_II_III: /^([A-Z]{4})\s+CAT\s+(II|III|II\/III)\s*-?\s*RWY\s+([0-9R\/LC]+)/im,
@@ -58,8 +58,8 @@ const PATTERNS = {
   // Row 25: MEL items
   MEL_ITEM: /^MEL\s+([0-9A-Z\-]+)\s*-\s*(.+)/im,
 
-  // Row 26: Crew members (ROLE EMPNUM LAST, FIRST [..])
-  CREW_MEMBER: /^(CA|FO|SEN)\s+(\d{6})\s+([A-Z][A-Z\s,]*?)(?:\s\.\.|\s+TO\/LNDG|$)/im,
+  // Row 26: Crew members (ROLE EMPNUM LAST, FIRST [..]) — names may include parens, dots may follow directly
+  CREW_MEMBER: /^(CA|FO|SEN)\s+(\d{6})\s+([A-Z][A-Z\s,\(\)]*?)(?:\s*\.\.|\s+TO\/LNDG|$)/im,
 
   // Row 33: Nav log header
   NAVLOG_START: /^AWY\s+WPT\s+MTK/im,
@@ -100,8 +100,8 @@ function extractWakeCategory(text) {
 }
 
 function parseAptLine(keyword, text) {
-  // Find ORIG/DEST/PALT line
-  const regex = new RegExp(`^${keyword}\\s+([A-Z]{4})/\\S*\\s+\\S+\\s+(Q\\s+)?([NS]\\d+[EW]\\d+)\\s+(\\d{4}Z)`, 'im');
+  // Find ORIG/DEST/PALT line; airport name may have multiple words
+  const regex = new RegExp(`^${keyword}\\s+([A-Z]{4})/\\S*\\s+.+?\\s+(Q\\s+)?([NS]\\d+[EW]\\d+)\\s+(\\d{4}Z)`, 'im');
   const match = regex.exec(text);
   if (!match) return null;
   return {
@@ -248,12 +248,23 @@ function extractCbm(doc) {
   }
 
   const cbm = {};
+  const fixtureFindings = [];
 
   // ── Row 1: Flight identity ────────────────────────────────────────────────
   const flightMatch = PATTERNS.FLIGHT_ID.exec(fullText);
   if (flightMatch) {
     cbm.fltNum = flightMatch[1];
-    cbm.dateStr = '20' + flightMatch[2]; // Simplified; should be full date
+  }
+
+  // Extract legacy dateStr format (DD MMM YY) from flight header line
+  // Format: "GTI8153/26 ZUCK - UAAA 27 OCT 26 N498MC"
+  const flightHeaderRegex = /\b[A-Z0-9]+\/\d+\s+[A-Z]{4}\s*-\s*[A-Z]{4}\s+(\d{2})\s+([A-Z]{3})\s+(\d{2})/i;
+  const headerMatch = flightHeaderRegex.exec(fullText);
+  if (headerMatch) {
+    const day = headerMatch[1];
+    const month = headerMatch[2].toUpperCase();
+    const year = headerMatch[3];
+    cbm.dateStr = `${day} ${month} ${year}`;
   }
 
   // ── Row 2: Aircraft type and wake category ─────────────────────────────────
@@ -297,7 +308,24 @@ function extractCbm(doc) {
     cbm.altData = cbm.altData || {};
     cbm.altData[palt.icao] = {
       icao: palt.icao,
+      hasQualAirport: palt.hasQualAirport,
     };
+  }
+
+  // Store Q flag for ORIG and DEST in altData as well
+  if (orig) {
+    if (!cbm.altData) cbm.altData = {};
+    if (!cbm.altData[orig.icao]) {
+      cbm.altData[orig.icao] = { icao: orig.icao };
+    }
+    cbm.altData[orig.icao].hasQualAirport = orig.hasQualAirport;
+  }
+  if (dest) {
+    if (!cbm.altData) cbm.altData = {};
+    if (!cbm.altData[dest.icao]) {
+      cbm.altData[dest.icao] = { icao: dest.icao };
+    }
+    cbm.altData[dest.icao].hasQualAirport = dest.hasQualAirport;
   }
 
   // ── Row 9-12: Fuel fields ─────────────────────────────────────────────────
@@ -455,6 +483,82 @@ function extractCbm(doc) {
   cbm.enrouteNotams = null;
   cbm.airportData = {};
   cbm.ddgItems = [];
+
+  // ── Fixture pending findings ──────────────────────────────────────────────
+  // Fields without FlightKeys fixtures that need findings:
+  // Row 27: hasPerishables — not in FK fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_PERISHABLES',
+    severity: 'WARN',
+    message: 'hasPerishables: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // Row 28: hasTemperatureControl — not in FK fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_TEMP_CONTROL',
+    severity: 'WARN',
+    message: 'hasTemperatureControl: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // Row 29: dotExemption — not in FK fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_DOT_EXEMPTION',
+    severity: 'WARN',
+    message: 'dotExemption: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // Row 30: slotTime — not in FK fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_SLOT_TIME',
+    severity: 'WARN',
+    message: 'slotTime: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // Row 31: parsedVerbalCallsign — not in FK fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_VERBAL_CALLSIGN',
+    severity: 'WARN',
+    message: 'parsedVerbalCallsign: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // Row 39-41: ETOPS fields — not in fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_ETOPS',
+    severity: 'WARN',
+    message: 'etopsEntry/etopsSpec/etopsEntryMins/etopsExit/etopsExitMins: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // Row 40: POR fields — not in fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_POR',
+    severity: 'WARN',
+    message: 'porWpt/porOffsetMins/porMinf: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // Row 41: ETP fields — not in fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_ETP',
+    severity: 'WARN',
+    message: 'etpPoints: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // Row 42: NAT track — not in fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_NAT_TRACK',
+    severity: 'WARN',
+    message: 'natTrack: fixture pending (FlightKeys source not yet available)',
+  });
+
+  // DDG items — not in fixtures
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_DDG',
+    severity: 'WARN',
+    message: 'ddgItems: fixture pending (FlightKeys source not yet available)',
+  });
+
+  if (fixtureFindings.length > 0) {
+    cbm._fixtureFindings = fixtureFindings;
+  }
 
   // ── Raw OFP text ──────────────────────────────────────────────────────────
   cbm.rawOFP = fullText;

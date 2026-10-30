@@ -30,6 +30,12 @@ function _toInt(raw) {
 function validate(cbm) {
   const findings = [];
 
+  // ── 0. Fixture pending findings ────────────────────────────────────────────
+  // If the profile attached fixture pending findings, add them to the results
+  if (cbm._fixtureFindings && Array.isArray(cbm._fixtureFindings)) {
+    findings.push(...cbm._fixtureFindings);
+  }
+
   // ── 1. Field validation ───────────────────────────────────────────────────
   for (const [key, def] of Object.entries(REGISTRY)) {
     if (!(key in cbm)) continue;

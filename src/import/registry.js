@@ -315,6 +315,12 @@ const REGISTRY = {
     validate: null,
     legacyKey: 'altData', legacyEmpty: {},
   },
+  hasQualAirport: {
+    type: 'boolean', unit: null, safetyClass: 'OP',
+    required: null,
+    validate: null,
+    legacyKey: null, legacyEmpty: false,
+  },
   oeiData: {
     type: 'array', unit: null, safetyClass: 'OP',
     required: null,
