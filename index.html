@@ -6259,6 +6259,7 @@ function goToImport() {
 // popToFlights: back button from screen-note always lands on screen-flights.
 // If flights isn't in the stack (e.g. deep-link entry), insert it cleanly.
 function popToFlights() {
+  _clearResumeView();
   // Pop everything above screen-flights, or pop once and ensure flights is shown
   while (_navStack.length > 1 && _navStack[_navStack.length - 1] !== 'screen-flights') {
     const top = _navStack.pop();
@@ -6289,7 +6290,10 @@ function pop() {
     prevEl.classList.add(prev === 'screen-flights' ? 'is-root' : 'is-active');
   }
   // Refresh flight list whenever we return to flights or home
-  if (prev === 'screen-home' || prev === 'screen-flights') renderFlightList();
+  if (prev === 'screen-home' || prev === 'screen-flights') {
+    renderFlightList();
+    _clearResumeView();
+  }
 }
 
 
@@ -6297,6 +6301,28 @@ function pop() {
 // tabs: 'note' | 'airports' | 'ofp' | 'alternates'
 // render=true (default): trigger data build for the selected tab
 let _activeFlightTab = 'note';
+
+// ── Resume-view storage ───────────────────────────────────────────────────
+// Persists {flightId, screen, tab, phase, scrollY} so an iOS Home Screen
+// reload can re-open the crew's last-viewed flight automatically.
+const _RESUME_KEY = 'rp_resume_view';
+function _saveResumeView() {
+  const flights = getFlights();
+  const entry = flights.find(f => f.fltNum === S.fltNum && f.date === S.date);
+  if (!entry) return;
+  try {
+    localStorage.setItem(_RESUME_KEY, JSON.stringify({
+      flightId: entry.id,
+      screen:   _navStack[_navStack.length - 1],
+      tab:      _activeFlightTab,
+      phase:    S.activePhase || 'preflight',
+      scrollY:  window.scrollY || 0
+    }));
+  } catch(e) {}
+}
+function _clearResumeView() {
+  try { localStorage.removeItem(_RESUME_KEY); } catch(e) {}
+}
 
 function switchFlightTab(tab, render = true) {
   _activeFlightTab = tab;
@@ -6318,6 +6344,7 @@ function switchFlightTab(tab, render = true) {
   if (tab === 'airports')  buildAirportCards();
   if (tab === 'alternates') buildAltRouteCards();
   if (tab === 'ofp')        loadOFPPanel();
+  _saveResumeView();
 }
 
 // Populate the OFP viewer panel (was openOFPView)
@@ -6727,6 +6754,7 @@ function deleteFlight(id) {
   }
   putFlights(getFlights().filter(f => f.id !== id));
   _pdfDb.del(id);  // remove PDF binary from IndexedDB
+  _clearResumeView();
   renderFlightList();
 }
 function clearOFPPanel() {
@@ -6784,6 +6812,7 @@ function loadFlight(entry) {
   if (tog) tog.checked = _fcirActive;
   const lbl = document.getElementById('fcirLabel');
   if (lbl) lbl.classList.toggle('active', _fcirActive);
+  _saveResumeView();
 }
 
 function renderFlightList() {
@@ -8621,6 +8650,7 @@ function setPhase(phase) {
   S.activePhase = phase;
   saveFlight();
   renderNote();
+  _saveResumeView();
 }
 
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
@@ -12149,6 +12179,32 @@ renderNote();
   });
 })();
 renderFlightList();
+// ── Resume-view restore ───────────────────────────────────────────────────
+// Re-open the flight the crew was on before iOS reloaded the Home Screen app.
+// Only runs when a stored view exists AND the flight is still in storage.
+// Never runs when entering via the ?shared share-target flow.
+(function() {
+  if (new URLSearchParams(location.search).has('shared')) return;
+  try {
+    const stored = JSON.parse(localStorage.getItem(_RESUME_KEY) || 'null');
+    if (!stored || !stored.flightId) return;
+    const entry = getFlights().find(function(f) { return f.id === stored.flightId; });
+    if (!entry) return;
+    loadFlight(entry);
+    // activePhase is already restored via loadFlight → Object.assign(S, entry.state);
+    // belt-and-suspenders: override if stored phase differs (e.g. phase changed after
+    // the last saveFlight but before the reload)
+    if (stored.phase && stored.phase !== (S.activePhase || 'preflight')) {
+      S.activePhase = stored.phase;
+      renderNote();
+    }
+    if (stored.tab && stored.tab !== 'note') switchFlightTab(stored.tab);
+    if (stored.scrollY) requestAnimationFrame(function() { window.scrollTo(0, stored.scrollY); });
+  } catch(e) {}
+})();
+// Capture scrollY on page-hide so the resume view reflects the crew's scroll
+// position at the exact moment iOS reloads the Home Screen app.
+window.addEventListener('pagehide', _saveResumeView);
 // ── Web Share Target consumer ─────────────────────────────────────
 // When the SW relay redirects to /?shared, boot into the import
 // screen and immediately attempt to consume the pending PDF from the
