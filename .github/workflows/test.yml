@@ -1,0 +1,68 @@
+name: Test
+
+# Runs on every pull request. No build step exists for the app, so this checks:
+#   1. the inline scripts of index.html (and sw.js) parse
+#   2. unit tests (test/unit)
+#   3. the extractor still reproduces the fixtures' text byte-for-byte
+#   4. golden compare: _ofpRulesetParse on every fixture package vs. its snapshot
+# The fixtures live in the PRIVATE repo velocemente/pilotbrief-fixtures and are
+# read with the read-only secret FIXTURES_TOKEN (see that repo's README).
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PilotBrief
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (pdfjs-dist 3.11.174, pinned)
+        run: npm ci
+
+      - name: Syntax check inline scripts
+        run: node test/check-syntax.js
+
+      - name: Unit tests
+        run: npm test
+
+      # Secrets are not passed to pull requests from forks, so the fixtures
+      # cannot be read there. Such a PR must be re-run by a maintainer from a
+      # branch in this repository before it can be approved.
+      - name: Checkout fixtures (private)
+        id: fixtures
+        if: github.event.pull_request.head.repo.fork != true
+        uses: actions/checkout@v4
+        with:
+          repository: velocemente/pilotbrief-fixtures
+          token: ${{ secrets.FIXTURES_TOKEN }}
+          path: fixtures
+          persist-credentials: false
+
+      - name: Fixtures not available (fork pull request)
+        if: github.event.pull_request.head.repo.fork == true
+        run: |
+          echo "::warning::Golden compare skipped: fork pull requests cannot read the private fixtures repo. Do not approve until it has run from a branch in this repository."
+          exit 1
+
+      - name: Extractor reproduces fixtures text/ and items/
+        run: node tools/extract/verify.js fixtures
+
+      - name: Golden compare
+        run: node test/golden/run.js compare --fixtures fixtures
