@@ -1,0 +1,511 @@
+// ═══════════════════════════════════════════════════════════════════
+// INFLIGHT REST MODULE  v1.2.0  (14 CFR 121.467 — Augmented Crews)
+// ═══════════════════════════════════════════════════════════════════
+
+function calcInflightRest() {
+  const _off = _deriveOffZ();
+  const offZ  = _off ? _off.hhmm : null;
+  const etaZ  = (S.etaDest && S.etaDest.length === 4) ? S.etaDest : null;
+  if (!offZ || !etaZ || S.tocOffsetMins === null) return null;
+  const toMin = hhmm => parseInt(hhmm.slice(0,2),10)*60 + parseInt(hhmm.slice(2,4),10);
+  const addM  = (hhmm, mins) => {
+    const t = (toMin(hhmm) + mins + 14400) % 1440;
+    return String(Math.floor(t/60)).padStart(2,'0') + String(t%60).padStart(2,'0');
+  };
+  const diffM = (a, b) => (toMin(b) - toMin(a) + 1440) % 1440;
+
+  // TOC baseline:
+  //   tocZOverride set → crew-entered TOC (highest priority)
+  //   source 'manual'  → OFF + tocOffsetMins (elapsed from wheels-up)
+  //   source 'computed'→ (OUT+taxi) + tocOffsetMins (taxi already in base)
+  //   source 'out'     → OUT + taxiMins + tocOffsetMins (no taxi in base yet)
+  const tocOffsetTotal = (_off && _off.source === 'out')
+    ? S.tocOffsetMins + (S.taxiMins || 0)
+    : S.tocOffsetMins;
+  const tocZ = (S.tocZOverride && S.tocZOverride.length === 4)
+    ? S.tocZOverride
+    : addM(offZ, tocOffsetTotal);
+  const restEndZ = addM(etaZ, -(S.crewRestBuffer || 60));
+  const totalMins = diffM(tocZ, restEndZ);
+  if (totalMins <= 0) return null;
+  const operatingCount = (S.crewMembers || [])
+    .filter(c => c.role !== 'JS' && c.role !== 'DH' && c.active !== false).length;
+  if (operatingCount < 3) return null;
+  function buildBlocks(n) {
+    const gapMins = (typeof S.restGapMins === 'number' && S.restGapMins >= 0) ? S.restGapMins : 0;
+    const gapOverhead = (n - 1) * gapMins;
+    const availableMins = totalMins - gapOverhead;
+    if (availableMins <= 0) return null;
+    const base = Math.floor(availableMins / n);
+    const rem  = availableMins - base * n;
+    const blocks = []; let cursor = tocZ;
+    for (let i = 0; i < n; i++) {
+      const isLast = (i === n - 1);
+      const dur = base + (isLast ? rem : 0);
+      const endZ = addM(cursor, dur);
+      blocks.push({ label: `Rest ${i+1}`, startZ: cursor, endZ, durationMins: dur });
+      cursor = isLast ? endZ : addM(endZ, gapMins);
+    }
+    return blocks;
+  }
+  return {
+    tocZ, restEndZ, totalMins, operatingCount,
+    tocBasis: (S.tocZOverride && S.tocZOverride.length === 4) ? 'manual'
+            : (_off && _off.source === 'manual') ? 'off' : 'out',
+    blocks3: buildBlocks(3),
+    blocksH: operatingCount >= 4 ? buildBlocks(2) : null,
+    blocksQ: operatingCount >= 4 ? buildBlocks(4) : null,
+  };
+}
+
+function renderBlockList(blocks, fmtZ, fmtDur) {
+  let h = `<div style="display:flex;flex-direction:column;gap:var(--sp2)">`;
+  blocks.forEach(b => {
+    h += `<div style="display:grid;grid-template-columns:48px 1fr auto;align-items:center;
+            gap:var(--sp3);background:var(--fill4);border-radius:var(--r-sm);
+            padding:var(--sp2) var(--sp3)">`;
+    h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+            text-transform:uppercase;letter-spacing:0.04em">${esc(b.label)}</span>`;
+    h += `<span style="font-family:var(--font-mono);font-size:14px;color:var(--label);
+            font-weight:600;white-space:nowrap">
+            ${fmtZ(b.startZ)}&thinsp;→&thinsp;${fmtZ(b.endZ)}</span>`;
+    h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint);
+            font-weight:600;white-space:nowrap;text-align:right">
+            ${fmtDur(b.durationMins)}</span>`;
+    h += `</div>`;
+  });
+  h += `</div>`;
+  return h;
+}
+
+function renderBlockColumn(title, blocks, fmtZ, fmtDur) {
+  if (!blocks) return '';
+  let h = `<div style="background:var(--fill4);border-radius:var(--r-md);padding:var(--sp3)">`;
+  h += `<div style="display:flex;align-items:baseline;justify-content:space-between;
+          margin-bottom:var(--sp3)">`;
+  h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+          text-transform:uppercase;letter-spacing:0.05em">${title}</span>`;
+  h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--tint);
+          font-weight:600">${fmtDur(blocks[0].durationMins)}</span>`;
+  h += `</div>`;
+  blocks.forEach(b => {
+    h += `<div style="border-top:0.5px solid var(--sep);padding:var(--sp2) 0">`;
+    h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+            text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px">
+            ${esc(b.label)}</div>`;
+    h += `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:4px">`;
+    h += `<span style="font-family:var(--font-mono);font-size:13px;font-weight:600;
+            color:var(--label);white-space:nowrap">
+            ${fmtZ(b.startZ)}&thinsp;→&thinsp;${fmtZ(b.endZ)}</span>`;
+    h += `<span style="font-family:var(--font-mono);font-size:12px;color:var(--label2);
+            white-space:nowrap">${fmtDur(b.durationMins)}</span>`;
+    h += `</div></div>`;
+  });
+  h += `</div>`;
+  return h;
+}
+
+function renderInflightRestModule() {
+  const _off    = _deriveOffZ();
+  const offZ    = _off ? _off.hhmm : null;
+  const hasOff  = !!offZ;
+  const hasTOC  = S.tocOffsetMins !== null;
+  const opCrew  = (S.crewMembers || []).filter(c => c.role !== 'JS' && c.role !== 'DH');
+  const opCount = opCrew.filter(c => c.active !== false).length;
+
+  // Do not show card for 2-crew operations
+  if (opCrew.length > 0 && opCount <= 2) return '';
+
+  const fmtZ   = hhmm => hhmm ? `${hhmm.slice(0,2)}:${hhmm.slice(2,4)}Z` : '——';
+  const fmtDur = mins  => (mins || mins === 0)
+    ? `${Math.floor(mins/60)}h ${String(mins%60).padStart(2,'0')}m` : '——';
+
+  const hasEnough = opCount >= 3;
+
+  const cardCollapsed = !!S.restCardCollapsed;
+  const CHEV_DN = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
+  const CHEV_RT = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>`;
+
+  let h = `<div class="subcard" id="inflightRestCard">`;
+
+  // Header — left: label, right: copy (when ready) + collapse chevron
+  h += `<div class="subcard-header" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleRestCard()">`;
+  h += `<span>Inflight Rest</span>`;
+  h += `<div style="display:flex;align-items:center;gap:var(--sp2)">`;
+  if (!cardCollapsed && hasOff && hasTOC && hasEnough) {
+    h += `<button class="icon-btn" style="width:28px;height:28px;flex-shrink:0"
+            onclick="event.stopPropagation();copyInflightRestLog()" aria-label="Copy inflight rest schedule">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg></button>`;
+  }
+  h += `<span style="color:var(--label3)">${cardCollapsed ? CHEV_RT : CHEV_DN}</span>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  if (cardCollapsed) {
+    h += `</div>`; // close subcard
+    return h;
+  }
+
+  h += `<div class="subcard-body" style="padding-bottom:var(--sp4)">`;
+
+  // Section 1: Operating crew chips
+  h += `<div style="margin-bottom:var(--sp3)">`;
+  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+          text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">
+          Operating Crew</div>`;
+  if (!opCrew.length) {
+    h += `<div style="font-size:15px;color:var(--label3);margin-bottom:var(--sp2)">No crew parsed — add manually below.</div>`;
+    // v1.2.0: bulk picker fallback — only when < 2 crew entries exist
+    if ((S.crewMembers || []).length < 2) {
+      if (_crewBulkPickerOpen) {
+        h += `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;margin-bottom:var(--sp2)">`;
+        h += `<span style="font-size:13px;color:var(--label3)">Augmented crew size:</span>`;
+        [[2,'2-Pilot'],[3,'3-Pilot'],[4,'4-Pilot']].forEach(function(pair) {
+          h += `<button onclick="addBulkCrew(${pair[0]})"
+                  style="background:var(--fill3);border:0.5px solid var(--sep-opaque);
+                    border-radius:20px;padding:4px 14px;font-size:13px;
+                    font-family:var(--font);color:var(--label2);cursor:pointer;
+                    min-height:32px;font-weight:600">${pair[1]}</button>`;
+        });
+        h += `<button onclick="closeCrewBulkPicker()"
+                style="background:none;border:none;color:var(--label3);
+                  font-size:13px;cursor:pointer;padding:2px 6px">Cancel</button>`;
+        h += `</div>`;
+      } else {
+        h += `<button onclick="openCrewBulkPicker()"
+                style="display:flex;align-items:center;gap:5px;background:var(--tint);
+                  border:none;border-radius:var(--r-sm);padding:6px 16px;
+                  font-size:13px;font-family:var(--font);color:#fff;
+                  cursor:pointer;min-height:32px;margin-bottom:var(--sp2);
+                  font-weight:600">
+                <span style="font-size:16px;line-height:1">+</span>
+                <span>Add Crew Rest</span>
+              </button>`;
+      }
+    }
+  } else {
+    h += `<div style="display:flex;flex-wrap:wrap;gap:var(--sp2);margin-bottom:var(--sp2)">`;
+    opCrew.forEach((c, opIdx) => {
+      const idx = (S.crewMembers || []).indexOf(c);
+      const isActive = c.active !== false;
+      if (c.manual) {
+        // Manual crew: show role + label, × remove button
+        h += `<div style="display:flex;align-items:center;gap:4px;
+                background:var(--fill3);border-radius:20px;padding:4px 6px 4px 12px;
+                min-height:32px;font-size:13px;font-family:var(--font);color:var(--label2)">
+                <span style="font-weight:700">${c.role}</span>
+                <span>${esc(c.displayName)}</span>
+                <button onclick="removeManualCrew(${idx})" aria-label="Remove manual crew"
+                  style="width:20px;height:20px;border-radius:50%;background:var(--fill);
+                    border:0.5px solid var(--sep);color:var(--label3);font-size:13px;
+                    cursor:pointer;display:flex;align-items:center;justify-content:center;
+                    flex-shrink:0;margin-left:2px;line-height:1">×</button>
+              </div>`;
+      } else {
+        // Parsed crew: tap to toggle active/inactive
+        h += `<button onclick="toggleCrewMember(${idx})" aria-label="Toggle ${c.role}"
+                aria-pressed="${isActive}"
+                style="display:flex;align-items:center;gap:4px;
+                  background:${isActive ? 'var(--tint-bg)' : 'var(--fill3)'};
+                  color:${isActive ? 'var(--tint)' : 'var(--label3)'};
+                  border:none;border-radius:20px;padding:4px 12px;
+                  font-size:13px;font-family:var(--font);cursor:pointer;min-height:32px">
+                <span style="font-weight:700">${c.role}${c.isSen ? ' ★' : ''}</span>
+                <span>${esc(c.displayName)}</span>
+              </button>`;
+      }
+    });
+    h += `</div>`;
+  }
+  // + Add Crew button — always visible
+  h += `<div style="display:flex;align-items:center;gap:var(--sp3);flex-wrap:wrap">`;
+  if (_crewPickerOpen) {
+    // Inline role picker
+    h += `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap">`;
+    h += `<span style="font-size:13px;color:var(--label3)">Add role:</span>`;
+    [['CA','Captain'],['FO','First Officer']].forEach(([r,label]) => {
+      h += `<button onclick="addManualCrew('${r}')"
+              style="background:var(--fill3);border:0.5px solid var(--sep-opaque);border-radius:20px;
+                padding:4px 14px;font-size:13px;font-family:var(--font);color:var(--label2);
+                cursor:pointer;min-height:32px;font-weight:600">${r}</button>`;
+    });
+    h += `<button onclick="closeCrewPicker()"
+            style="background:none;border:none;color:var(--label3);font-size:13px;cursor:pointer;padding:2px 6px">Cancel</button>`;
+    h += `</div>`;
+  } else {
+    h += `<button onclick="openCrewPicker()"
+              style="display:flex;align-items:center;gap:5px;background:none;
+                border:0.5px dashed var(--sep-opaque);border-radius:20px;
+                padding:4px 12px;font-size:13px;font-family:var(--font);
+                color:var(--label3);cursor:pointer;min-height:32px">
+              <span style="font-size:16px;line-height:1">+</span>
+              <span>Add Crew</span>
+            </button>`;
+    if (opCrew.length > 0) {
+      if (!S.crewVerified) {
+        h += `<span style="font-size:13px;color:var(--label3)">Confirm operating crew</span>`;
+        h += `<button onclick="verifyCrewList()"
+                  style="background:var(--tint);color:#fff;border:none;border-radius:var(--r-sm);
+                    padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;
+                    min-height:32px;white-space:nowrap">Verify ✓</button>`;
+      } else {
+        h += `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="var(--sys-green)" stroke-width="2.5" stroke-linecap="round">
+                <path d="M5 12l5 5L20 7"/></svg>`;
+        h += `<span style="font-size:13px;color:var(--sys-green);font-weight:600">
+                ${opCount}-pilot confirmed</span>`;
+        h += `<button onclick="S.crewVerified=false;saveFlight();renderNote()"
+                  style="background:none;border:none;color:var(--label3);font-size:13px;
+                    cursor:pointer;padding:0">Edit</button>`;
+      }
+    }
+  }
+  h += `</div>`;
+  h += `</div>`;
+
+  // Section 2: Rest window
+  h += `<div style="border-top:0.5px solid var(--sep);padding-top:var(--sp3);margin-bottom:var(--sp3)">`;
+  h += `<div style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+          text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp2)">
+          Rest Window</div>`;
+  if (!hasOff) {
+    h += `<div style="font-size:15px;color:var(--label3)">Enter OUT or OFF time to calculate.</div>`;
+  } else if (!hasTOC) {
+    h += `<div style="font-size:15px;color:var(--sys-yellow)">⚠ TOC waypoint not found in OFP route table.</div>`;
+  } else {
+    const data = calcInflightRest();
+    if (!data) {
+      h += `<div style="font-size:15px;color:var(--label3)">Operating crew count insufficient (min 3).</div>`;
+    } else {
+      // Basis tag: matches enroute OFF row badge — MANUAL / OFF / OUT+Nm / OUT
+      const _offSrc = _off ? _off.source : 'out';
+      const basisTag = data.tocBasis === 'manual'
+        ? `<span style="font-size:11px;font-family:var(--font-mono);color:var(--tint);background:var(--tint-bg);border-radius:4px;padding:1px 5px;flex-shrink:0">MANUAL</span>`
+        : data.tocBasis === 'off'
+        ? `<span style="font-size:11px;font-family:var(--font-mono);color:var(--sys-green);background:rgba(52,199,89,0.12);border-radius:4px;padding:1px 5px;flex-shrink:0">OFF</span>`
+        : `<span style="font-size:11px;font-family:var(--font-mono);color:var(--label3);background:var(--fill3);border-radius:4px;padding:1px 5px;flex-shrink:0">${_offSrc === 'computed' && S.taxiMins ? 'OUT+'+S.taxiMins+'m' : 'OUT'}</span>`;
+      h += `<div style="display:flex;align-items:baseline;gap:var(--sp3);
+              font-family:var(--font-mono);font-size:15px;flex-wrap:wrap">`;
+      h += `<span style="color:var(--label2);font-size:12px">TOC</span>`;
+      // TOC time — tappable to override
+      h += `<span class="ev" role="button" tabindex="0"
+              onclick="openEdit('tocZOverride')"
+              style="font-weight:700;color:${data.tocBasis === 'manual' ? 'var(--tint)' : 'var(--label)'};
+                     text-decoration:${data.tocBasis === 'manual' ? 'underline dotted' : 'none'}">
+              ${data.tocZ.slice(0,2)}:${data.tocZ.slice(2,4)}Z</span>`;
+      h += `<span style="color:var(--label4)">→</span>`;
+      h += `<span style="font-weight:700;color:var(--label)">${fmtZ(data.restEndZ)}</span>`;
+      h += `<span style="margin-left:auto;font-size:14px;color:var(--label2)">
+              ${fmtDur(data.totalMins)} total</span>`;
+      h += `</div>`;
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-top:var(--sp1)">${basisTag}`;
+      if (data.tocBasis === 'manual') {
+        h += `<button onclick="S.tocZOverride=null;saveFlight();renderNote()"
+                style="background:none;border:none;color:var(--label3);font-size:12px;cursor:pointer;padding:0">
+                Reset to computed</button>`;
+      } else if (data.tocBasis !== 'off') {
+        h += `<span style="font-size:12px;color:var(--label3)">Enter OFF time for precise TOC</span>`;
+      }
+      h += `</div>`;
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-top:var(--sp3)">`;
+      h += `<span style="font-size:13px;color:var(--label3)">Pre-landing</span>`;
+      h += `<button onclick="adjustBuffer(-10)" aria-label="Decrease buffer"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>`;
+      h += `<span class="ev" role="button" tabindex="0" onclick="openEdit('crewRestBuffer')"
+              style="font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--tint);
+                min-width:52px;text-align:center">${S.crewRestBuffer}min</span>`;
+      h += `<button onclick="adjustBuffer(+10)" aria-label="Increase buffer"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
+      h += `</div>`;
+      // Gap between periods adjuster row
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-top:var(--sp3)">`;
+      h += `<span style="font-size:13px;color:var(--label3)">Gap between periods</span>`;
+      h += `<button onclick="adjustGap(-5)" aria-label="Decrease gap"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>`;
+      h += `<span class="ev" role="button" tabindex="0" onclick="openEdit('restGapMins')"
+              style="font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--tint);
+                min-width:52px;text-align:center">${S.restGapMins}m</span>`;
+      h += `<button onclick="adjustGap(+5)" aria-label="Increase gap"
+                style="width:28px;height:28px;border-radius:var(--r-sm);border:0.5px solid var(--sep);
+                  background:var(--fill3);color:var(--label);font-size:18px;font-weight:500;
+                  cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>`;
+      h += `</div>`;
+    }
+  }
+  h += `</div>`;
+
+  // Section 3: Schedule — collapsible, 4-pilot has halves/quarters pill switcher
+  if (hasOff && hasTOC && hasEnough) {
+    const data = calcInflightRest();
+    if (data) {
+      // Guard: gap setting may exceed rest window, making blocks null
+      if (!data.blocks3) {
+        h += `<div style="border-top:0.5px solid var(--sep);padding:var(--sp3)">`;
+        h += `<span style="font-size:13px;color:var(--sys-yellow)">⚠ Gap setting exceeds rest window — reduce gap.</span>`;
+        h += `</div>`;
+      } else {
+      const sv = S.restSchedView === 'quarters' ? 'quarters' : 'halves';
+
+      h += `<div style="border-top:0.5px solid var(--sep);padding-top:var(--sp3)">`;
+
+      // ── Header row: label + pill switcher (4-pilot only) ──
+      h += `<div style="display:flex;align-items:center;gap:var(--sp2);margin-bottom:var(--sp3)">`;
+      if (data.operatingCount === 3) {
+        h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+                text-transform:uppercase;letter-spacing:0.05em;flex:1">
+                Schedule — ${fmtDur(data.blocks3[0].durationMins)}/crew</span>`;
+      } else {
+        h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--label3);
+                text-transform:uppercase;letter-spacing:0.05em">Schedule</span>`;
+        h += `<div style="display:flex;background:var(--fill3);border-radius:20px;padding:2px;gap:2px;margin-left:var(--sp2)">`;
+        h += `<button onclick="setRestSchedView('halves')"
+                style="background:${sv==='halves'?'var(--sys-bg2)':'none'};
+                  color:${sv==='halves'?'var(--label)':'var(--label3)'};
+                  border:none;border-radius:18px;padding:3px 10px;font-size:12px;font-weight:${sv==='halves'?'600':'400'};
+                  cursor:pointer;transition:all 0.15s;white-space:nowrap">
+                Halves</button>`;
+        h += `<button onclick="setRestSchedView('quarters')"
+                style="background:${sv==='quarters'?'var(--sys-bg2)':'none'};
+                  color:${sv==='quarters'?'var(--label)':'var(--label3)'};
+                  border:none;border-radius:18px;padding:3px 10px;font-size:12px;font-weight:${sv==='quarters'?'600':'400'};
+                  cursor:pointer;transition:all 0.15s;white-space:nowrap">
+                Quarters</button>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+
+      // ── Schedule blocks ──
+      if (data.operatingCount === 3) {
+        h += renderBlockList(data.blocks3, fmtZ, fmtDur);
+      } else {
+        if (sv === 'halves') {
+          h += renderBlockColumn('Halves', data.blocksH, fmtZ, fmtDur);
+        } else {
+          h += renderBlockColumn('Quarters', data.blocksQ, fmtZ, fmtDur);
+        }
+      }
+
+      h += `</div>`;
+      } // end blocks3 null guard
+    }
+  }
+
+  h += `</div></div>`;  // subcard-body + subcard
+  return h;
+}
+
+// ── Inflight Rest interaction handlers ─────────────────────────────
+function setRestSchedView(v) {
+  S.restSchedView = (v === 'quarters') ? 'quarters' : 'halves';
+  saveFlight(); renderNote();
+}
+function toggleRestCard() {
+  S.restCardCollapsed = !S.restCardCollapsed;
+  saveFlight(); renderNote();
+}
+function toggleCrewMember(idx) {
+  const c = (S.crewMembers || [])[idx];
+  if (!c) return;
+  const activeCount = S.crewMembers.filter(
+    m => m.role !== 'JS' && m.role !== 'DH' && m.active !== false).length;
+  if (c.active !== false && activeCount <= 3) {
+    showToast('Minimum 3 operating crew required', 'info'); return;
+  }
+  c.active = (c.active === false) ? true : false;
+  S.crewVerified = false; saveFlight(); renderNote();
+}
+function verifyCrewList() { S.crewVerified = true; saveFlight(); renderNote(); }
+function adjustBuffer(deltaMins) {
+  const next = (S.crewRestBuffer || 60) + deltaMins;
+  if (next < 0 || next > 180) return;
+  S.crewRestBuffer = next; saveFlight(); renderNote();
+}
+function adjustGap(deltaMins) {
+  const next = (S.restGapMins || 0) + deltaMins;
+  if (next < 0 || next > 20) return;
+  S.restGapMins = next; saveFlight(); renderNote();
+}
+var _crewPickerOpen = false;
+function openCrewPicker()  { _crewPickerOpen = true;  renderNote(); }
+function closeCrewPicker() { _crewPickerOpen = false; renderNote(); }
+function addManualCrew(role) {
+  _crewPickerOpen = false;
+  if (!S.crewMembers) S.crewMembers = [];
+  var r = role || 'FO';
+  var label = { CA:'Captain', FO:'First Officer' }[r] || r;
+  S.crewMembers.push({ role:r, empNum:'', lastName:label, initial:'',
+                       displayName:label, active: true, manual:true });
+  S.crewVerified = false; saveFlight(); renderNote();
+}
+function removeManualCrew(idx) {
+  if (!S.crewMembers || !S.crewMembers[idx]) return;
+  S.crewMembers.splice(idx, 1);
+  S.crewVerified = false; saveFlight(); renderNote();
+}
+function copyInflightRestLog() {
+  const data = calcInflightRest();
+  if (!data) { showToast('No schedule to copy', 'info'); return; }
+  const fmtZ   = hhmm => hhmm ? `${hhmm.slice(0,2)}:${hhmm.slice(2,4)}Z` : '——';
+  const fmtDur = mins  => `${Math.floor(mins/60)}h ${String(mins%60).padStart(2,'0')}m`;
+  const lines = [
+    `INFLIGHT REST  ${S.fltNum || ''}  ${S.date || ''}`,
+    `TOC: ${fmtZ(data.tocZ)}  End: ${fmtZ(data.restEndZ)}  Total: ${fmtDur(data.totalMins)}`,
+    `Pre-landing buffer: ${S.crewRestBuffer}min`, '',
+  ];
+  if (data.operatingCount === 3) {
+    lines.push(`THIRDS — ${fmtDur(data.blocks3[0].durationMins)}/crew`);
+    data.blocks3.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+  } else {
+    lines.push(`HALVES — ${fmtDur(data.blocksH[0].durationMins)}/crew`);
+    data.blocksH.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+    lines.push('', `QUARTERS — ${fmtDur(data.blocksQ[0].durationMins)}/crew`);
+    data.blocksQ.forEach(b =>
+      lines.push(`  ${b.label}  ${fmtZ(b.startZ)} → ${fmtZ(b.endZ)}  ${fmtDur(b.durationMins)}`));
+  }
+  const btn = document.querySelector('button[onclick="copyRestSchedule()"]');
+  _pbCopy(lines.join('\n'), btn);
+}
+
+// ── v1.2.0: Bulk crew picker handlers ──────────────────────────────
+// Fallback when parseCrew() yields 0 results — allows crew to manually
+// populate a full complement so rest calculations can proceed.
+var _crewBulkPickerOpen = false;
+function openCrewBulkPicker()  { _crewBulkPickerOpen = true;  renderNote(); }
+function closeCrewBulkPicker() { _crewBulkPickerOpen = false; renderNote(); }
+function addBulkCrew(count) {
+  _crewBulkPickerOpen = false;
+  if (!S.crewMembers) S.crewMembers = [];
+  var templates = {
+    2: [['CA','Captain'],['FO','First Officer']],
+    3: [['CA','Captain'],['FO','First Officer'],['AO','Relief Officer']],
+    4: [['CA','Captain'],['FO','First Officer'],['AO','Relief Officer'],['AO','Relief Officer']]
+  };
+  var crew = templates[count] || templates[3];
+  crew.forEach(function(pair) {
+    S.crewMembers.push({
+      role:        pair[0],
+      empNum:      '',
+      lastName:    pair[1],
+      initial:     '',
+      displayName: pair[1],
+      active:      true,
+      manual:      true,
+    });
+  });
+  S.crewVerified = false;
+  saveFlight();
+  renderNote();
+}
+

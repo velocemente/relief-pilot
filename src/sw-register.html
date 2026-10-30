@@ -1,0 +1,74 @@
+<script>
+// ── Check for update (Settings screen) ──────────────────────────────────
+// Called by the "Check for update" button. Calls registration.update() to
+// ask the browser to re-fetch sw.js; if a new version installs, the SW
+// activate handler posts SW_UPDATED and the banner appears.
+// No automatic check — only runs when the crew taps the button.
+function checkForUpdate() {
+  var reg = window._swReg;
+  if (!reg) { showToast('info', 'Service Worker not registered'); return; }
+  showToast('info', 'Checking for update…');
+  reg.update()
+    .then(function () {
+      // If no waiting SW after update() resolves, we are up to date.
+      if (!reg.waiting) showToast('ok', '✓ Already up to date');
+      // If a new SW is waiting, SW_UPDATED will arrive via the activate
+      // handler and show the update banner — no extra toast needed here.
+    })
+    .catch(function (err) {
+      showToast('err', 'Update check failed — check connection');
+      console.warn('[SW] update() failed:', err);
+    });
+}
+
+// ── Service Worker Registration ───────────────────────────────────────────
+// Must run after all app scripts. Non-blocking — SW failure degrades
+// gracefully (online-only mode); it must never crash or stall the app.
+// ADR-001: SW registration is fully decoupled from RulesLoader.init().
+//
+// SW_UPDATED is posted by the SW activate handler only after the browser
+// has successfully downloaded and parsed a new sw.js from the network.
+// It therefore NEVER fires when the device is offline — the update banner
+// is structurally incapable of appearing without a network connection.
+(function () {
+  if (!('serviceWorker' in navigator)) return; // not supported (rare)
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'all' })
+      .then(function (reg) {
+        console.log('[SW] Registered — scope:', reg.scope);
+        window._swReg = reg; // stored for Settings → Check for update
+      })
+      .catch(function (err) {
+        // Non-fatal. App continues in online-only mode.
+        console.warn('[SW] Registration failed (online-only mode):', err);
+      });
+    // ── Controller-change reload ────────────────────────
+    // When a new SW takes control after activation, reload once so the
+    // active SW serves the app shell from cache on the next navigation.
+    // Guard: only reload when a controller was already present — this
+    // distinguishes a SW update from the very first install, preventing
+    // a reload loop on cold-start.
+    navigator.serviceWorker.addEventListener(
+      'controllerchange',
+      function () {
+        // New SW has taken control — reload to use cached shell
+        // Only reload if we were previously controlled (not first install)
+        if (navigator.serviceWorker.controller) window.location.reload();
+      }
+    );
+    // ── Update notification listener ───────────────────
+    // Receives SW_UPDATED from the service worker activate handler.
+    // Shows a non-blocking, crew-dismissible banner. Safe to attach
+    // here even if registration fails — no message will ever arrive.
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'SW_UPDATED') {
+        var b = document.getElementById('sw-update-banner');
+        if (b) b.classList.add('visible');
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

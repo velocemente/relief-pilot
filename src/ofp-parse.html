@@ -1,0 +1,1483 @@
+// ═══════════════════════════════════════════════════════
+//  OFP RULESET  v1.9.0-r3
+//  Patterns, parsers, and utilities — loaded from ofp-rules.js
+// ═══════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════
+// § 1 · RULESET SCHEMA IDENTITY (required by RulesLoader)
+//       Source: ADR-001 §Ruleset Schema Contract
+// ═══════════════════════════════════════════════════════════════
+
+const RULESET_TYPE    = 'ofp';
+const RULESET_VERSION = '1.9.0';
+const SCHEMA_VERSION  = 1;  // increment on any breaking change to export shape
+const RULESET_SOURCE  = 'Atlas Air / Polar Air Cargo dispatch system (internal); ICAO Doc 4444 App 6';
+
+/**
+ * Human-readable OFP format identifier.
+ * Used in UI ("OFP Format: Atlas Air v2") and for diagnostic logging.
+ */
+const OFP_FORMAT = 'atlas-v2';
+
+// ═══════════════════════════════════════════════════════════════
+// § 2 · CORE FIELD PATTERNS
+//       Regex anchors for all top-level OFP header fields.
+//       Each pattern must have the same named/indexed capture groups
+//       as documented — parseOFP() depends on these.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Top-level OFP field patterns.
+ *
+ * Naming convention:
+ *   FLIGHT_ID     — flight number / date suffix
+ *   AIRCRAFT_TYPE — ICAO type designator from FPL line
+ *   DATE_DOF      — date-of-flight in DOF/YYMMDD format
+ *   DATE_PLAIN    — date-of-flight in "DD MON YY" plain-text format
+ *   ETOPS_ENTRY   — ETOPS entry elapsed time "HH:MM"
+ *   ETOPS_SPEC    — ETOPS spec "60/180" from CFS header
+ *   POR_HEADER    — POR waypoint + elapsed from DP(POR) line
+ *   POR_ROUTE     — POR waypoint from route waypoint line
+ *   POR_ELAPSED   — elapsed time near POR in route table
+ *   ALT1_FUEL     — alternate 1 fuel from fuel summary
+ *   REMF_DEST     — REMF at destination from fuel summary
+ *   POR_MINF      — POR minimum fuel from two-column MINF line
+ *   BLOCK_FUEL    — block fuel from fuel summary
+ *   MINF_FUEL     — minimum fuel from fuel summary
+ *   FRES_FUEL     — fuel reserve from fuel summary
+ *   TOGW          — takeoff gross weight + limit code + limit value
+ *   PERISHABLE    — perishables on board flag
+ *   MEL_BLOCK     — MEL/DDG block start anchor
+ *   OVERFLIGHT    — overflight permits block
+ *   TRIP_TIME     — trip time HH.MM from TRIP line
+ *   APT_LINE      — airport header line (ORIG/DEST/PALT etc.) anchor
+ *                   (built dynamically from APT_LINE_TEMPLATE)
+ */
+const PATTERNS = {
+  // Flight identification
+  FLIGHT_ID:     /\b([A-Z]{2,3}\d{3,5})\s*\/\s*(\d{2})\b/,
+  FLIGHT_ID_ALT: /[.\s]([A-Z]{2,3}\d{3,5})\s*\/[\x00-\x1f]/,
+  FLIGHT_ID_FPL: /\(FPL-([A-Z]{2,3}\d{3,5})-/,
+
+  // Aircraft type — from ICAO FPL line "-XXXX/Y" format
+  AIRCRAFT_TYPE: /\(FPL-[A-Z0-9]+-[A-Z]+\s*\n?-([A-Z0-9]{2,4})\/[A-Z]/,
+
+  // Wake turbulence category — from FPL field 9 "-XXXX/Y-" (H=Heavy, J=Super)
+  // Used to append "Heavy" to the radio callsign display.
+  FPL_WAKE:      /\(FPL-[A-Z0-9]+-[A-Z]+\s*\n?-[A-Z0-9]{2,4}\/([A-Z])-/,
+
+  // Weight unit — from OFP narrative header "B747-400F / CF680C2B1F / KGS / IFR"
+  // Position 3 field (after model / engine) is always KGS or LBS
+  WEIGHT_UNIT:   /\b(?:B\d|A\d|MD|DC|E\d|CRJ|ERJ|DHC|ATR|C\d|L\d)[^\n]*\/\s*(KGS?|LBS?)\s*\//i,
+
+  // Date of flight
+  DATE_DOF:   /DOF\/(\d{2})(\d{2})(\d{2})/i,
+  DATE_PLAIN: /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{2,4})/i,
+
+  // ETOPS
+  ETOPS_ENTRY: /ETOPS\s+Entry\s+(\d{1,2}:\d{2})/i,
+  ETOPS_EXIT:  /ETOPS\s+Exit\s+(\d{1,2}:\d{2})/i,
+  ETOPS_SPEC:  /Critical Fuel Scenario\s+ETOPS\s+(\d{2,3}\/\d{2,3})/i,
+
+  // Point of Redispatch
+  // POR header line: "DP(POR): 60N040W 06.52"
+  // Captures: [1]=waypoint token, [2]=elapsed HH, [3]=elapsed MM
+  POR_HEADER:   /DP\(POR\):\s*(\S+)\s+(\d{1,2})\.(\d{2})/i,
+  // POR from route line: "(POR) AT N60W040"
+  POR_ROUTE:    /\(POR\)\s+AT\s+(\S+)/i,
+  // Elapsed time near POR in route table (near "F" flight level column)
+  POR_ELAPSED:  /\b(\d{2})\.(\d{2})\s+F\d{3}/,
+
+  // Fuel fields — BLOCK, MINF, FRES
+  // Handles both "BLOCK\n123456" and "BLOCK 123456" formats
+  BLOCK_FUEL: /(?:^BLOCK\n(\d{5,7})|BLOCK\s+(\d{5,7}))/im,
+  MINF_FUEL:  /(?:^MINF\n(\d{5,7})|MINF\s+(\d{5,7}))/im,
+  FRES_FUEL:  /(?:^FRES\n(\d{5,7})|FRES\s+(\d{5,7}))/im,
+  TAXI_FUEL:  /(?:^TAXI\n(\d{3,7})|TAXI\s+(\d{3,7}))/im,
+  BALLAST_FUEL: /^BALLAST\s+(\d{3,7})/im,
+
+  // ALT1 fuel: "ALT1 (004016 00.23 0092)" or "ALT1 004016 00.23 0092"
+  ALT1_FUEL:    /^ALT1\s+\(?\s*(\d{5,7})/m,
+
+  // REMF at destination: first REMF value (leftmost column of fuel summary)
+  REMF_DEST:    /^REMF\s+(\d{5,7})/m,
+
+  // POR MINF: two-column MINF line (RDA OFPs only)
+  // "MINF  087301  11.39  ....  030679  04.36  083572  11.04"
+  POR_MINF:     /^MINF\s+\d{5,7}\s+[\d.]+\s+\.+\s+(\d{5,7})/m,
+
+  // TOGW: "TOGW 322195 ...... S396893" or "TOGW 322195 S396893" (dots may be absent in pdf.js output)
+  // Weight Limit Codes: S=Structural P=Performance L=LDW+trip I=By Dispatcher
+  TOGW:         /^TOGW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})/m,
+  // ZFW: "ZFW  271469 ...... S276691"  — dots optional (LDGW format)
+  ZFW:          /^ZFW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})/m,
+  // LDGW: "LDGW 287690        S302092"  — dots often absent
+  LDGW:         /^LDGW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})/m,
+
+  // ZFW increment factor for MINF adjustment calculation
+  ZFW_INCR_FACTOR: /ZFW\s+INCR\/1000\s+X\s+(\d+)\s+MINF\s+ADJ/i,
+
+  // Trip time: "TRIP 158000 13.44" → captures HH and MM
+  TRIP_TIME:    /TRIP\s+\d+\s+(\d{2})\.(\d{2})/,
+  TAXI_TIME:    /^TAXI\s+\d+\s+(\d{2})\.(\d{2})/m,
+
+  // Perishables on board
+  PERISHABLE:   /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES|LIVE\s+ANIMALS\s*:\s*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
+
+  // Format A: *OPERATING UNDER EXEMPTION DOT-SP7573*
+  DOT_EXEMPT:   /\*OPERATING UNDER EXEMPTION\s+(DOT-SP\d+)\*/i,
+  DOT_RESTRICT: /\*OPERATING UNDER EXEMPTION\s+DOT-SP\d+\*[^\n]*\nRESTRICTIONS:\s*([^\n]+(?:\n(?![\n\-\*])[^\n]+)?)/i,
+
+  // Format B/C: trigger is "EXEMPTION NO" — company prefix
+  // (e.g. "POLAR") is optional. Number includes revision
+  // letter suffix (e.g. 18486C, 18169A).
+  EXEMPTION_NO:     /EXEMPTION NO\s+(\d+[A-Z]?)/i,
+  EXEMPTION_NO_ALT: /EXEMPTION NO\s+\d+[A-Z]?[^\n]*ALTERNATE AIRPORT REQUIRED/i,
+
+  // Temperature control required (v1.9.5)
+  TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
+
+  // VZFW/CK weight limit RED alert (v1.9.5)
+  VZFW_CK_LIMIT: /\*MTOW\s+LTD\s+BY\s+VZFW\/CK\s+LIMITS\*/i,
+
+  // Wheels-up slot time window (v1.9.5) — four OFP formats:
+  //   Window:     "WHEELS UP MUST BE BETWEEN 0737Z AND 0807Z DUE TO ANC SLOT TIME"
+  //   Not before: "WHEELS UP NOT BEFORE 0737Z"
+  //   Before:     "WHEELS UP BEFORE 0807Z" / "WHEELS UP MUST BE BEFORE 0807Z"
+  //   Earliest:   "EARLIEST WHEELS UP 2247Z DUE TO ANC PARKING"
+  SLOT_TIME_WINDOW:     /WHEELS\s+UP\s+MUST\s+BE\s+BETWEEN\s+(\d{4}Z?)\s+AND\s+(\d{4}Z?)/i,
+  SLOT_TIME_NOT_BEFORE: /WHEELS\s+UP\s+NOT\s+BEFORE\s+(\d{4}Z?)/i,
+  SLOT_TIME_BEFORE:     /WHEELS\s+UP\s+(?:MUST\s+BE\s+)?BEFORE\s+(\d{4}Z?)/i,
+  SLOT_TIME_EARLIEST:   /EARLIEST\s+WHEELS\s+UP\s+(\d{4}Z?)/i,
+  SLOT_TIME_CURFEW:     /NO\s+EARLY\s+DEPARTURE\b[\s\S]{0,200}?CLOSED?\s+TILL?\s+(\d{1,2}:\d{2}Z?|\d{4}Z?)/i,
+  // Format F: bare wheels-up time — "WHEELS UP 0433Z"
+  // Negative lookahead prevents match when qualifier tokens follow
+  SLOT_TIME_AT:         /\bWHEELS\s+UP\s+(\d{4}Z?)\b(?!\s*(?:MUST|NOT|BEFORE|BETWEEN))/i,
+
+  // MEL/DDG block anchor — block ends at underline or "Flight Release"
+  MEL_BLOCK:    /MEL\/CDL\s*\r?\n([\s\S]*?)(?:_{10}|Flight Release)/i,
+
+  // ATA code in MEL/CDL block: digits-and-hyphens on their own line.
+  // CDL items are prefixed with "C" (e.g. C27-51-02).
+  ATA_CODE:     /^(C?\d{2}-[\d-]+[A-Z]?)\s*$/,
+
+  // TLR RMKS: ATA/CDL code at start of a RMKS line (CDL items also appear in TLR RMKS)
+  TLR_RMKS_ATA: /^RMKS\s+(C?[\d][\d-]+[A-Z]?)\b/mg,
+
+  // Additional fuel flow adjustment (CDL/MEL penalty): "*ADDL FF ADJ +2.22*"
+  // Captures the signed value e.g. "+2.22" or "-1.50"
+  ADDL_FF_ADJ:  /\*ADDL\s+FF\s+ADJ\s+([+\-]\d+\.?\d*)\*/i,
+
+  // Overflight permits block
+  OVERFLIGHT:   /Overflight[/]?Landing Permits?\s*([\s\S]*?)(?:AWY WPT|_{10})/i,
+
+  // Airport header line template — built dynamically by parseAptLine()
+  // Format: "ORIG VHHH/HKG HONG KONG INTL Q N22185E113549 0510Z"
+  // The keyword (ORIG/DEST/PALT etc.) is passed as a parameter.
+  APT_LINE_TEMPLATE: (keyword) => new RegExp(
+    '^' + keyword + '\\s+([A-Z]{4})\\/\\S+[^\\n]*?(\\d{4})Z\\s*$',
+    'm'
+  ),
+};
+
+// ═══════════════════════════════════════════════════════════════
+// § 3 · ALTERNATE AIRPORT PATTERNS
+//       Defines which OFP keywords map to which crew-role labels.
+//       Order determines display priority on the airport card.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Alternate airport keyword-to-role mapping.
+ * Each entry is parsed by parseAptLine(key) using APT_LINE_TEMPLATE.
+ *
+ * To add a new alternate type (e.g. company-specific "XALT"):
+ * add { key: 'XALT', role: 'XTRA ALT' } here.
+ */
+const ALT_PATTERNS = [
+  { key: 'PALT', role: 'DEST ALT'      },
+  { key: 'SALT', role: 'DEST ALT'      },
+  { key: 'RALT', role: 'EN ROUTE ALT'  },
+  { key: 'RAPT', role: 'EN ROUTE ALT'  },
+  { key: 'TALT', role: 'TKOF ALT'      },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// § 4 · CFS (CRITICAL FUEL SCENARIO) PATTERNS
+//       ETP scenario block in Atlas/Polar ETOPS OFPs.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * CFS block boundaries.
+ */
+const CFS_PATTERNS = {
+  // Block start anchor
+  BLOCK_START:  /^Critical Fuel Scenario\b/m,
+  // Block end: "END OF OFP" or underline of 40+ chars
+  BLOCK_END_OFP: 'END OF OFP',
+  BLOCK_END_UNDERLINE: /^_{40,}/m,
+
+  // ETP scenario line: "(GOEINN) ETP1  CYYR-EINN  N59 42.2  W036 03.6"
+  // Groups: [1]=continue airport, [2]=ETP name, [3]=return apt, [4]=continue apt, [5]=lat, [6]=lon
+  ETP_LINE: /\(GO([A-Z]{4})\)\s*(ETP\d*)\s+([A-Z]{4})-([A-Z]{4})(?:\s+([NS]\d{2}\s+\d{1,2}\.\d)\s+([EW]\d{3}\s+\d{1,2}\.\d))?/g,
+
+  // Data table header
+  DATA_HDR: 'MORA',
+
+  // Data row: MORA MTK GCD TIME REMF PAD MINF WX_WINDOW
+  // Groups: [1]=HH [2]=MM elapsed from dep, [3]=WX start HHMM, [4]=WX end HHMM
+  DATA_ROW: /^[A-Z]{3,4}\s+\d{3}\s+\d+\s+\d+\s+(\d{2}):(\d{2})\s+\d+\s+\d+\s+\d+\s+(\d{4})Z-(\d{4})Z/mg,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// § 5 · WEATHER / NOTAM SECTION LABELS
+//       Labels used by Atlas/Polar OFP to delineate per-airport
+//       weather and NOTAM sections within the OFP text.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Top-level section labels in the Atlas/Polar OFP weather pages.
+ * Matched as full-line anchors (^LABEL$).
+ * Order matters — labels that are substrings of others must come first.
+ */
+const WX_SECTION_LABELS = [
+  'ORIGIN',
+  'DESTINATION ALTERNATE',
+  'DESTINATION',
+  'REDISPATCH DESTINATION',
+  'OTHER',
+];
+
+/**
+ * Within each section, airport sub-blocks start on METAR or SPECI lines.
+ * Anchor: /^(?:METAR|SPECI)\s+([A-Z]{4})\b/mg
+ */
+const WX_METAR_ANCHOR = /^(?:METAR|SPECI|NO\s+METAR\s+REPORTS?\s+FOUND\s+FOR)\s+([A-Z]{4})\b/mg;
+
+/**
+ * Within each airport sub-block, NOTAMs begin at a line matching this pattern.
+ * Atlas/Polar format: "- ICAO ..." — hyphen then 4-letter ICAO.
+ */
+const WX_NOTAM_START  = /^- [A-Z]{4}\b/m;
+
+/**
+ * Page header lines to strip when extracting weather/NOTAM blocks.
+ * Matches: "ATLAS AIR BRIEF PAGE 12 OF 96"
+ */
+const WX_PAGE_HEADER  = /^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg;
+
+// ═══════════════════════════════════════════════════════════════
+// § 6.5 · CAT II/III AUTHORIZED APPROACHES (v1.9.5)
+//         For descent subcard — shows authorized runways for arrival airport.
+//         Section format:
+//           AUTHORIZED CAT II/III APPROACHES
+//           VHHH CAT II - RWY 07L/07R/25L/25C
+//           VHHH CAT III - RWY 07L/25C
+// ═══════════════════════════════════════════════════════════════
+
+const CAT_II_III_PATTERNS = {
+  SECTION_ANCHOR: /^AUTHORIZED\s+CAT\s+II\/III\s+APPROACHES/m,
+  // "ICAO CAT II/III - RWY runway_list" — captures [1]=ICAO [2]=cat level [3]=rwy list
+  AIRPORT_ENTRY:  /^([A-Z]{4})\s+CAT\s+(II\/III|II|III)\s*-\s*(?:ALL\s+RWY|RWY\s+([A-Z0-9\/]+))/,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// § 6 · COMPANY NOTAM / CURFEW SECTION LABELS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * The STATION COMPANY NOTAMS section block.
+ * Contains per-ICAO curfew and closure data.
+ */
+const COMPANY_NOTAM = {
+  SECTION_ANCHOR: /^STATION COMPANY NOTAMS\s*$/m,
+  SECTION_END:    /^(?:ROUTE|FIR|ADMIN|RELEASE|FLTNUM|AIRWAY|WAYPOINT|GEOGRAPHIC)\s+COMPANY NOTAMS\s*$/m,
+  // Per-ICAO sub-section header: "ICAO COMPANY NOTAMS"
+  ICAO_SECTION:   /^([A-Z]{4})\s+COMPANY NOTAMS\s*$/mg,
+  // Entry header within a per-ICAO sub-section
+  ENTRY_HEADER:   /^\s*[A-Z]{4}-\S+\s+Oper:\s+[YN]/mg,
+  // Curfew / closure keywords that indicate a relevant entry
+  CURFEW_KEYWORDS: /CURFEW|CURFEW CLOSED|CLOSED AT THE FOLLOWING|STANDBY CLOSURES|MAINTENANCE CLOSURES/i,
+  RWY_CLOSED:      /(?:RWY\s+\S+\s+CLOSED|\/\d{2}[LCR]?\s*=\s*CLSD\s+\d{4})/i,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// § 7 · TLR (TAKEOFF AND LANDING REPORT) SECTION PATTERNS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * TLR structural anchors.
+ */
+const TLR_PATTERNS = {
+  SECTION_START:    /TAKEOFF AND LANDING REPORT/,
+  SECTION_END:      /^END TAKEOFF AND LANDING REPORT/m,
+  TKOFF_SECTION:    /\/\/\/ TAKEOFF DATA \/\/\//,
+  LAND_SECTION:     /\/\/\/ LANDING DATA \/\/\//,
+
+  // RUNWAY INFO block: each line has RWY, LENGTH, EFP type
+  RUNWAY_INFO_HDR:  /RUNWAY INFO\s*-+\s*\nRWY\s+LENGTH\s+EFP\s+NOTES\s*\n([\s\S]*?)(?=-{5})/,
+  // Data line: "07R 12467 SPECIAL ..." or "25C 12467 DT H254 ..."
+  RUNWAY_INFO_LINE: /^(\d{2}[LRC]?(?:-\w+)?(?:\s+[A-Z]+)?)\s+\d+\s+(SPECIAL|DT\s+\S+|LT\s+\S+|RT\s+\S+)/,
+
+  // SPECIAL EFP table
+  SPECIAL_EFP_HDR:  /SPECIAL ENG FAIL TAKEOFF PROCEDURES\s*-+\s*\nRWY\s+CLB\s+VIA[^\n]*\n([\s\S]*?)(?=-{5})/,
+  // Data line: "07C H079 D7.9 IZSC *D3.2 SMT RT H185 1200"
+  SPECIAL_EFP_LINE: /^(\d{2}[LRC]?(?:-\w+)?(?:\s+[A-Z]+)?)\s+(.*)/,
+  // SHIPS variant suffix to strip for deduplication
+  SHIPS_SUFFIX:     /\s+SHIPS$/,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// § 8 · ALTERNATE ROUTES SECTION
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Alternate route section patterns.
+ */
+const ALT_ROUTE_PATTERNS = {
+  // Outer loop: each bounded by underlines, with a recognised title
+  SECTION_RE: /_{10,}\n((?:Destination Primary Alternate Route|Initial Airport Route|Initial Alternate Route))\n([\s\S]*?)(?=_{10,}|\nEND OF OFP)/g,
+  // MORA line terminates the route string
+  MORA_LINE:  /\nMORA\s+(\d+)/i,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// § 9 · DATE / TIME UTILITIES (OFP-specific)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Month name ↔ index map for date parsing.
+ * Used with DATE_PLAIN pattern captures.
+ */
+const MONTHS = {
+  JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5,
+  JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11,
+};
+const MON_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+/**
+ * Convert an OFP POR elapsed time token "HH.MM" to total minutes.
+ * @param {string} hh
+ * @param {string} mm
+ * @returns {number}
+ */
+function elapsedToMins(hh, mm) {
+  return parseInt(hh, 10) * 60 + parseInt(mm, 10);
+}
+
+/**
+ * Convert a CFS wx-window midpoint to a HHMM string.
+ * Used to derive a display ETA for CFS airports.
+ * @param {string} startHHMM
+ * @param {string} endHHMM
+ * @returns {string}
+ */
+function wxWindowMidpoint(startHHMM, endHHMM) {
+  const s = parseInt(startHHMM.slice(0,2))*60 + parseInt(startHHMM.slice(2,4));
+  const e = parseInt(endHHMM.slice(0,2))*60   + parseInt(endHHMM.slice(2,4));
+  let mid = s + Math.round((e >= s ? e - s : e + 1440 - s) / 2);
+  if (mid >= 1440) mid -= 1440;
+  return String(Math.floor(mid/60)).padStart(2,'0') + String(mid%60).padStart(2,'0');
+}
+
+/**
+ * Convert waypoint token from OFP format to N/S/E/W format.
+ * "60N040W" → "N60W040"
+ * @param {string} token
+ * @returns {string}
+ */
+function normalizeWaypointCoord(token) {
+  return token.replace(/^(\d{2})([NS])(\d{3})([EW])$/, '$2$1$4$3');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 10 · FULL OFP PARSE FUNCTION
+//        Accepts raw OFP text, returns a structured data object.
+//        This replaces parseOFP() as an independently testable,
+//        ruleset-driven function with no app-state dependencies.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Parse a raw Atlas Air / Polar Air Cargo OFP text string into
+ * a structured data object.
+ *
+ * This function is pure — it takes text in, returns data out.
+ * It has no dependency on app globals (S, airportData, pdfRawText).
+ * The caller (index.html parseOFP adapter) merges the result into
+ * app state after calling this function.
+ *
+ * @param {string} rawText — full OFP text from PDF extraction
+ * @returns {object|null}  — structured OFP data, or null if text is empty
+ */
+function _ofpRulesetParse(rawText) {
+  const t = rawText;
+  if (!t || typeof t !== 'string' || !t.trim()) return null;
+
+  // ── Helper: parse airport header line ──────────────────────────────
+  function parseAptLine(keyword) {
+    const re = PATTERNS.APT_LINE_TEMPLATE(keyword);
+    const m = t.match(re);
+    if (!m) return null;
+    return { icao: m[1], hhmm: m[2] };
+  }
+
+  // ── Flight identification ──────────────────────────────────────────
+  let fltNum = '';
+  const fltM = t.match(PATTERNS.FLIGHT_ID);
+  if (fltM) {
+    fltNum = fltM[1] + '/' + fltM[2];
+  } else {
+    const fltAlt = t.match(PATTERNS.FLIGHT_ID_ALT);
+    if (fltAlt) fltNum = fltAlt[1];
+    if (!fltNum) {
+      const fltFPL = t.match(PATTERNS.FLIGHT_ID_FPL);
+      if (fltFPL) fltNum = fltFPL[1];
+    }
+  }
+
+  // ── Aircraft type ──────────────────────────────────────────────────
+  let acftType = '';
+  const acftM = t.match(PATTERNS.AIRCRAFT_TYPE);
+  if (acftM) acftType = acftM[1];
+
+  // ── Heavy flag — from FPL field 9 wake turbulence category ─────────
+  // /H = Heavy (B744, B748, B777, B767…); /J = Super (A380, A225)
+  const wakeM = t.match(PATTERNS.FPL_WAKE);
+  const isHeavy = wakeM ? /^[HJ]$/i.test(wakeM[1]) : false;
+
+  // ── Weight unit (KGS / LBS) ─────────────────────────────────────────
+  // Parsed from OFP narrative header field 3: "B747-400F / CF680C2B1F / KGS / IFR"
+  // Defaults to KGS (Atlas Air standard) when unreadable.
+  let weightUnit = 'KGS';
+  const wuM = t.match(PATTERNS.WEIGHT_UNIT);
+  if (wuM) {
+    const wu = wuM[1].toUpperCase();
+    weightUnit = wu.startsWith('K') ? 'KGS' : 'LBS';
+  }
+
+  // ── Date ───────────────────────────────────────────────────────────
+  let dateStr = '';
+  let flightDateISO = '';
+  const dofM = t.match(PATTERNS.DATE_DOF);
+  if (dofM) {
+    const yy = 2000 + parseInt(dofM[1], 10);
+    const mo = parseInt(dofM[2], 10) - 1;
+    const dd = parseInt(dofM[3], 10);
+    flightDateISO = `${yy}-${String(mo+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+    dateStr = `${String(dd).padStart(2,'0')} ${MON_NAMES[mo]} ${String(yy).slice(-2)}`;
+  }
+  if (!flightDateISO) {
+    const pd = t.match(PATTERNS.DATE_PLAIN);
+    if (pd) {
+      let yy = parseInt(pd[3], 10);
+      if (yy < 100) yy += 2000;
+      const mo = MONTHS[pd[2].toUpperCase()];
+      const dd = parseInt(pd[1], 10);
+      flightDateISO = `${yy}-${String(mo+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+      dateStr = `${String(dd).padStart(2,'0')} ${pd[2].toUpperCase()} ${String(yy).slice(-2)}`;
+    }
+  }
+
+  // ── ETOPS ──────────────────────────────────────────────────────────
+  const etopsEntryM = t.match(PATTERNS.ETOPS_ENTRY);
+  const etopsEntry  = etopsEntryM ? etopsEntryM[1] : '';
+  const etopsSpecM  = t.match(PATTERNS.ETOPS_SPEC);
+  const etopsSpec   = etopsSpecM  ? etopsSpecM[1]  : '';
+  const etopsEntryMins = (() => {
+    if (!etopsEntry) return null;
+    const [hh, mm] = etopsEntry.split(':').map(Number);
+    return hh * 60 + mm;
+  })();
+
+  // ── ETOPS Exit ──────────────────────────────────────────────────────
+  // V2: navlog (E.EXT) primary + header fallback (PB-ENR-01)
+  const { etopsExit, etopsExitMins } = extractEtopsExitV2(t);
+
+  // ── POR ────────────────────────────────────────────────────────────
+  const porHM = t.match(PATTERNS.POR_HEADER);
+  const porRM = !porHM && t.match(PATTERNS.POR_ROUTE);
+  const porWpt = porHM
+    ? normalizeWaypointCoord(porHM[1])
+    : (porRM ? porRM[1] : '');
+
+  const porOffsetMins = (() => {
+    if (porHM) return elapsedToMins(porHM[2], porHM[3]);
+    const idx = t.indexOf('(POR) AT ');
+    if (idx === -1) return null;
+    const after = t.slice(idx, idx + 400);
+    const em = after.match(PATTERNS.POR_ELAPSED);
+    return em ? elapsedToMins(em[1], em[2]) : null;
+  })();
+
+  // ── Fuel ───────────────────────────────────────────────────────────
+  function extractFuelField(pattern) {
+    const m = t.match(pattern);
+    if (!m) return '';
+    const raw = m[1] || m[2] || '';
+    const n = parseInt(raw, 10);
+    return isNaN(n) ? '' : String(n);
+  }
+
+  const blockFuelRaw = extractFuelField(PATTERNS.BLOCK_FUEL);
+  const minfFuelRaw  = extractFuelField(PATTERNS.MINF_FUEL);
+  const fresFuelRaw  = extractFuelField(PATTERNS.FRES_FUEL);
+  var zfwIncrM = t.match(PATTERNS.ZFW_INCR_FACTOR);
+  var zfwIncrFactor = zfwIncrM
+    ? parseInt(zfwIncrM[1], 10) : null;
+  var taxiFuelRaw = extractFuelField(PATTERNS.TAXI_FUEL);
+  const ballastM     = t.match(PATTERNS.BALLAST_FUEL);
+  const ballastFuel  = ballastM ? parseInt(ballastM[1], 10) : null;
+
+  // ── Crew Members (Fit for Duty section) ──────────────────────────
+  const crewMembers = [];
+  (function parseCrew() {
+    const _ffSearch = t.search(/Fit\s+for\s+Duty\s+Affirmation/i);
+    if (_ffSearch === -1) return;
+    const block = t.slice(_ffSearch, Math.min(_ffSearch + 5000, t.length));
+    // Handles all observed Atlas Air crew line formats:
+    //   "CA 448229 MAGGIO M .."          — standard 6-digit emp#
+    //   "CA 751 REDFORD D .."            — 3-digit emp#
+    //   "CA 452980 * LINEHAN R .."       — mid-line asterisk (unusual circumstance flag)
+    //   "* FO 456969 ERIKSSON E .."      — leading asterisk (senior designee)
+    //   "* SEN FO 456942 BRAMLEY R .."   — asterisk + SEN prefix
+    //   "FO 459072 * SEN T .."           — SEN in name-field position
+    //   "CA 1234567 JONES A.."           — no space before dots (PDF whitespace collapse)
+    //   "CA 12 SMITH B .."               — short emp# (2-digit contract format)
+    //   "FO 456575 PANCHANGAM GURUPRASA K .." — compound last name (v1.2.0)
+    //   "FO 453979 * WAYBRIGHT JR D .."  — generational suffix token (v1.2.0)
+    //   "FO 456752 STROTHER II T .."     — generational suffix token (v1.2.0)
+    //   Roles: CA FO FO1 FO2 SO AO RO DH JS  (v1.2.0 — ETOPS augmented designations)
+    //   Lazy *? in name group forces backtracking so single-letter initial
+    //   lands in group [4], not consumed into group [3].
+    const re = /^\*?\s*(?:SEN\s+)?(CA|FO1?|FO2|SO|AO|RO|DH|JS)\s+(?:(\d{2,7})\s+)?\*?\s*(?:SEN\s+)?([A-Z][A-Z'\u2019\-]*(?:\s+[A-Z][A-Z'\u2019\-]*)*?)\s+([A-Z])\s*\.{1,3}/mg;
+    let m;
+    // Normalize curly apostrophes from PDF extraction
+    const _crewBlock = block.replace(/\u2019/g, "'");
+    while ((m = re.exec(_crewBlock)) !== null) {
+      const rawName = m[3].replace(/\s+$/, '');
+      if (rawName.includes('VERIFY')) continue;
+      const isSen = /^\*/.test(m[0].trimStart()) || /SEN\s/i.test(m[0]);
+      const displayName = isSen
+        ? `★ SEN ${m[4]}`
+        : `${rawName} ${m[4]}`;
+      crewMembers.push({
+        role:    m[1],
+        empNum:  m[2] || '',
+        lastName: rawName,
+        initial: m[4],
+        displayName,
+        active:  m[1] !== 'JS' && m[1] !== 'DH',
+        isSen,
+      });
+    }
+  })();
+
+  // ── TOC Elapsed Time ─────────────────────────────────────────────
+  let tocOffsetMins = null;
+  (function parseTOC() {
+    const re = /\b(?:[A-Z]\d*\s+|DCT\s+)?TOC\b\s*\r?\n[^\r\n]+\r?\n[^\r\n]*?\b(\d{2})\.(\d{2})\b/;
+    const m = t.match(re);
+    if (m) tocOffsetMins = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  })();
+  const alt1FuelRaw  = (() => {
+    const m = t.match(PATTERNS.ALT1_FUEL);
+    return m ? String(parseInt(m[1], 10)) : '';
+  })();
+  const destRemfRaw  = (() => {
+    const m = t.match(PATTERNS.REMF_DEST);
+    return m ? String(parseInt(m[1], 10)) : '';
+  })();
+  const porMinfRaw   = (() => {
+    const m = t.match(PATTERNS.POR_MINF);
+    return m ? String(parseInt(m[1], 10)) : '';
+  })();
+
+  // ── TOGW ───────────────────────────────────────────────────────────
+  let togwActual = 0, togwLimit = 0;
+  const twM = t.match(PATTERNS.TOGW);
+  if (twM) { togwActual = parseInt(twM[1], 10); togwLimit = parseInt(twM[2], 10); }
+
+  // ── ZFW ────────────────────────────────────────────────────────────
+  let zfwActual = 0, zfwLimit = 0;
+  const zfwM = t.match(PATTERNS.ZFW);
+  if (zfwM) { zfwActual = parseInt(zfwM[1], 10); zfwLimit = parseInt(zfwM[2], 10); }
+
+  // ── LDGW ───────────────────────────────────────────────────────────
+  let ldgwActual = 0, ldgwLimit = 0;
+  const ldgwM = t.match(PATTERNS.LDGW);
+  if (ldgwM) { ldgwActual = parseInt(ldgwM[1], 10); ldgwLimit = parseInt(ldgwM[2], 10); }
+
+  // ── Trip time ─────────────────────────────────────────────────────
+  const tripM = t.match(PATTERNS.TRIP_TIME);
+  const tripMinutes = tripM ? elapsedToMins(tripM[1], tripM[2]) : null;
+  const taxiM = t.match(PATTERNS.TAXI_TIME);
+  const taxiMins = taxiM ? parseInt(taxiM[1],10)*60 + parseInt(taxiM[2],10) : null;
+
+  // ── Nav log waypoints ─────────────────────────────────────────────
+  // Extract ordered {wpt, elapsedMins} from nav log rows.
+  // Atlas/Polar format: fix name at line start, cumulative elapsed HH+MM.
+  // Longest-monotonically-increasing-run isolates the real nav log
+  // from other text containing similar elapsed-time tokens.
+  const navLog = [];
+  (function parseNavLog() {
+    const rowRe = /^([A-Z][A-Z0-9]{1,5})\s+\S[^\n]*?\b(\d{1,3})\+(\d{2})\b/mg;
+    const candidates = [];
+    let m;
+    while ((m = rowRe.exec(t)) !== null) {
+      const elapsed = parseInt(m[2]) * 60 + parseInt(m[3]);
+      if (elapsed > 1440) continue;
+      candidates.push({ wpt: m[1], elapsedMins: elapsed });
+    }
+    if (!candidates.length) return;
+    let bestStart = 0, bestLen = 1, curStart = 0, curLen = 1;
+    for (let i = 1; i < candidates.length; i++) {
+      if (candidates[i].elapsedMins > candidates[i-1].elapsedMins) {
+        curLen++;
+        if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
+      } else { curStart = i; curLen = 1; }
+    }
+    for (let i = bestStart; i < bestStart + bestLen; i++) navLog.push(candidates[i]);
+  })();
+  const hasPerishables = !!t.match(PATTERNS.PERISHABLE);
+
+  // DOT Special Permit Exemption (v1.9.7)
+  // Format A: *OPERATING UNDER EXEMPTION DOT-SP7573*
+  // Format B: FLIGHT RELEASED UNDER EXEMPTION NO 18169C. ALTERNATE AIRPORT REQUIRED.
+  let dotExemption = null;
+  const dotExM = t.match(PATTERNS.DOT_EXEMPT);
+  if (dotExM) {
+    const dotRestM = t.match(PATTERNS.DOT_RESTRICT);
+    dotExemption = { number: dotExM[1], restrictions: dotRestM ? dotRestM[1].trim() : null, altRequired: false };
+  } else {
+    const exNoM = t.match(PATTERNS.EXEMPTION_NO);
+    if (exNoM) {
+      const altReq = !!t.match(PATTERNS.EXEMPTION_NO_ALT);
+      dotExemption = {
+        number: 'Exemption ' + exNoM[1],
+        restrictions: altReq ? "ALT REQ'D" : null,
+        altRequired: altReq,
+      };
+    }
+  }
+  const origLine = parseAptLine('ORIG');
+  const origIcao    = origLine ? origLine.icao : '';
+  const offFromOFP  = origLine ? origLine.hhmm : '';
+
+  const destLine = parseAptLine('DEST');
+  const destIcao = destLine ? destLine.icao : '';
+  const etaDest  = destLine ? destLine.hhmm : '';
+
+  // ── v1.9.5 fields — parsed AFTER destIcao (required by CAT II/III lookup) ──
+  const hasTemperatureControl = !!t.match(PATTERNS.TEMPERATURE_CONTROL);
+  const hasVzfwCkLimit        = !!t.match(PATTERNS.VZFW_CK_LIMIT);
+
+  // Additional fuel flow adjustment (CDL/MEL penalty)
+  let addlFfAdj = null;
+  const ffAdjM = t.match(PATTERNS.ADDL_FF_ADJ);
+  if (ffAdjM) addlFfAdj = ffAdjM[1]; // e.g. "+2.22"
+
+  // Wheels-up slot time: normalise HHMM → HH:MMZ and build display string
+  const _fmtT = s => s ? s.replace(/z$/i, 'Z').toUpperCase() : s; // keep HHMM, uppercase Z
+  let slotTime = null;
+  const slotWinM  = t.match(PATTERNS.SLOT_TIME_WINDOW);
+  const slotNBM   = !slotWinM  && t.match(PATTERNS.SLOT_TIME_NOT_BEFORE);
+  const slotBefM  = !slotNBM   && !slotWinM && t.match(PATTERNS.SLOT_TIME_BEFORE);
+  const slotEarM  = !slotWinM  && !slotNBM  && !slotBefM && t.match(PATTERNS.SLOT_TIME_EARLIEST);
+  const slotAtM   = !slotWinM && !slotNBM && !slotBefM && !slotEarM
+    && t.match(PATTERNS.SLOT_TIME_AT);
+  const slotCurfewM = !slotWinM && !slotNBM && !slotBefM && !slotEarM && !slotAtM
+    && t.match(PATTERNS.SLOT_TIME_CURFEW);
+  if (slotWinM)       slotTime = `${_fmtT(slotWinM[1])} – ${_fmtT(slotWinM[2])}`;
+  else if (slotNBM)   slotTime = `NOT BEFORE ${_fmtT(slotNBM[1])}`;
+  else if (slotBefM)  slotTime = `BEFORE ${_fmtT(slotBefM[1])}`;
+  else if (slotEarM)  slotTime = `NOT BEFORE ${_fmtT(slotEarM[1])}`;
+  else if (slotAtM) {
+    slotTime = 'AT ' + slotAtM[1];
+  }
+  else if (slotCurfewM) {
+    const raw = slotCurfewM[1].replace(':','').toUpperCase();
+    const norm = raw.endsWith('Z') ? raw : raw + 'Z';
+    slotTime = `NOT BEFORE ${norm}`;
+  }
+
+  // CAT II/III: build { [ICAO]: [ {cat, rwys} ] } — one entry per OFP line,
+  // preserving every runway/category row so the renderer can display them individually.
+  // Format in OFP (may have separate CAT II and CAT III lines per airport):
+  //   KORD CAT II  - RWY 09C/27C/09R/27L
+  //   KORD CAT III - RWY 09C/27C
+  let catIiIiiApproaches = null;
+  const catAnchorM = t.match(CAT_II_III_PATTERNS.SECTION_ANCHOR);
+  if (catAnchorM) {
+    const secStart = t.indexOf(catAnchorM[0]);
+    const secText  = t.slice(secStart, Math.min(secStart + 5000, t.length));
+    const catMap   = {}; // { [ICAO]: [ {cat, rwys} ] }
+    for (const line of secText.split('\n')) {
+      const lm = line.match(CAT_II_III_PATTERNS.AIRPORT_ENTRY);
+      if (!lm) continue;
+      const icao = lm[1], cat = lm[2], rwys = lm[3] ? lm[3].trim() : 'ALL RUNWAYS';
+      if (!catMap[icao]) catMap[icao] = [];
+      catMap[icao].push({ cat, rwys });
+    }
+    if (Object.keys(catMap).length > 0) catIiIiiApproaches = catMap;
+  }
+
+  // ── ETA offsets ───────────────────────────────────────────────────
+  const ofpOffMin = (offFromOFP.length === 4)
+    ? parseInt(offFromOFP.slice(0,2),10)*60 + parseInt(offFromOFP.slice(2,4),10)
+    : null;
+
+  let destEtaOffsetMins = null;
+  if (etaDest.length === 4 && ofpOffMin !== null) {
+    const eMin = parseInt(etaDest.slice(0,2),10)*60 + parseInt(etaDest.slice(2,4),10);
+    let off = eMin - ofpOffMin;
+    if (off < 0) off += 1440;
+    destEtaOffsetMins = off;
+  }
+
+  // ── Alternates ────────────────────────────────────────────────────
+  const altData = [];
+  ALT_PATTERNS.forEach(({ key, role }) => {
+    const line = parseAptLine(key);
+    if (!line) return;
+    const { icao, hhmm: ofpEta } = line;
+    if (altData.find(a => a.icao === icao)) return;
+
+    let ofpOffsetMins = null;
+    if (ofpEta.length === 4 && ofpOffMin !== null) {
+      const etaMin = parseInt(ofpEta.slice(0,2),10)*60 + parseInt(ofpEta.slice(2,4),10);
+      let offset = etaMin - ofpOffMin;
+      if (offset < 0) offset += 1440;
+      ofpOffsetMins = offset;
+    } else if (tripMinutes !== null) {
+      ofpOffsetMins = role === 'EN ROUTE ALT' ? Math.round(tripMinutes / 2) : tripMinutes + 30;
+    }
+    altData.push({ icao, role, ofpEta, ofpOffsetMins, currentEta: ofpEta });
+  });
+
+  // ── CFS / ETOPS alternates ────────────────────────────────────────
+  const cfsApts   = [];
+  let   cfsPoints = [];  // let — reassigned by applyNavlogEtpTimes after parseCFS (PB-ENR-01)
+
+  (function parseCFS() {
+    const cfStart = t.search(CFS_PATTERNS.BLOCK_START);
+    if (cfStart === -1) return;
+    const endOFP = t.indexOf(CFS_PATTERNS.BLOCK_END_OFP, cfStart);
+    const cfEnd  = endOFP !== -1
+      ? endOFP
+      : (() => {
+          const ub = t.slice(cfStart + 100).search(CFS_PATTERNS.BLOCK_END_UNDERLINE);
+          return ub !== -1 ? cfStart + 100 + ub : t.length;
+        })();
+
+    const block = t.slice(cfStart, cfEnd);
+    const etpRe = CFS_PATTERNS.ETP_LINE;
+    etpRe.lastIndex = 0;
+    let em;
+    while ((em = etpRe.exec(block)) !== null) {
+      const etpName = em[2], retApt = em[3], contApt = em[4];
+      const lat = em[5] || null, lon = em[6] || null;
+      if (lat && lon && !cfsPoints.find(p => p.name === etpName)) {
+        cfsPoints.push({ name: etpName, lat, lon });
+      }
+      const tableHdr = block.indexOf(CFS_PATTERNS.DATA_HDR, em.index + em[0].length);
+      if (tableHdr === -1) continue;
+      const dataStart = block.indexOf('\n', tableHdr) + 1;
+      const dataSlice = block.slice(dataStart, dataStart + 400);
+      const rowRe = CFS_PATTERNS.DATA_ROW;
+      rowRe.lastIndex = 0;
+      const rows = [];
+      let rm;
+      while ((rm = rowRe.exec(dataSlice)) !== null) {
+        // [1]=HH [2]=MM elapsed dep→ETP; [3][4]=WX window HHMM
+        rows.push({ wxWindow: rm[3] + 'Z-' + rm[4] + 'Z', elapsedMins: parseInt(rm[1])*60 + parseInt(rm[2]) });
+        if (rows.length === 2) break;
+      }
+      // Stamp elapsed time onto the ETP point so the timeline can anchor it
+      // DATA_ROW elapsedMins removed — replaced by navlog TOT-T via applyNavlogEtpTimes (PB-ENR-01)
+      // rows[0].elapsedMins is diversion-to-alternate time (BUG 1), not departure→ETP elapsed.
+      const ptRef = cfsPoints.find(p => p.name === etpName);
+      [[retApt, rows[0]||null], [contApt, rows[1]||null]].forEach(([icao, rowData]) => {
+        if (!icao || cfsApts.find(a => a.icao === icao)) return;
+        cfsApts.push({ icao, wxWindow: rowData ? rowData.wxWindow : null, etpName, role: 'CFS ALT' });
+      });
+    }
+  })();
+
+  // ENR V2 (PB-ENR-01): apply navlog TOT-T elapsed times — primary source for ETP placement.
+  // Guard inside applyNavlogEtpTimes: only writes where elapsedMins is null/undefined.
+  // cfsPoints were pushed without elapsedMins; navlog is now the sole source.
+  cfsPoints = applyNavlogEtpTimes(cfsPoints, t);
+
+  cfsApts.forEach(cfs => {
+    if (altData.find(a => a.icao === cfs.icao)) return;
+    let currentEta = null;
+    if (cfs.wxWindow) {
+      const wm = cfs.wxWindow.match(/^(\d{4})Z-(\d{4})Z$/);
+      if (wm) currentEta = wxWindowMidpoint(wm[1], wm[2]);
+    }
+    altData.push({
+      icao: cfs.icao, role: 'CFS ALT',
+      ofpEta: currentEta, ofpOffsetMins: null, currentEta,
+      wxWindow: cfs.wxWindow, etpName: cfs.etpName,
+    });
+  });
+
+  // ── MEL / DDG ─────────────────────────────────────────────────────
+  const melBlock = (() => {
+    const m = t.match(PATTERNS.MEL_BLOCK);
+    return m ? m[1] : '';
+  })();
+
+  const ddgItems = [];
+  if (melBlock) {
+    const ataRe = PATTERNS.ATA_CODE;
+    let curCode = null, curDescLines = [];
+    const flush = () => {
+      if (curCode) {
+        ddgItems.push({ code: curCode, desc: curDescLines.map(l=>l.trim()).filter(Boolean).join(' '), tlr:'' });
+      }
+      curCode = null; curDescLines = [];
+    };
+    // OFP page-footer lines that may appear inside the MEL block
+    // (e.g. "ATLAS AIR BRIEF PAGE 2 OF 65" / "PAGE 2 OF 65").
+    // Reject these so they are not captured as part of a DDG description.
+    const PAGE_FOOTER_RE = /^(?:[A-Z ]+\s+)?PAGE\s+\d+\s+OF\s+\d+\s*$/i;
+    for (const line of melBlock.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (ataRe.test(trimmed)) { flush(); curCode = trimmed; }
+      else if (curCode && !PAGE_FOOTER_RE.test(trimmed)) curDescLines.push(trimmed);
+    }
+    flush();
+    // Deduplicate code+desc
+    const seen = new Set();
+    for (let i = ddgItems.length - 1; i >= 0; i--) {
+      const key = ddgItems[i].code + '|' + ddgItems[i].desc;
+      if (seen.has(key)) { ddgItems.splice(i,1); } else { seen.add(key); }
+    }
+  }
+
+  // TLR cross-reference
+  (function crossRefTlrRmks() {
+    const tlrStart = t.search(TLR_PATTERNS.SECTION_START);
+    if (tlrStart === -1) return;
+    const tlrBlock = t.slice(tlrStart);
+    const tkOffIdx = tlrBlock.search(TLR_PATTERNS.TKOFF_SECTION);
+    const landIdx  = tlrBlock.search(TLR_PATTERNS.LAND_SECTION);
+    const endIdx   = tlrBlock.search(TLR_PATTERNS.SECTION_END);
+    const tkOffSection = tkOffIdx !== -1
+      ? tlrBlock.slice(tkOffIdx, landIdx !== -1 ? landIdx : (endIdx !== -1 ? endIdx : tlrBlock.length))
+      : '';
+    const landSection = landIdx !== -1
+      ? tlrBlock.slice(landIdx, endIdx !== -1 ? endIdx : tlrBlock.length)
+      : '';
+
+    const rmksRe = PATTERNS.TLR_RMKS_ATA;
+    const tkOffAtas = new Set(), landAtas = new Set();
+    let m;
+    rmksRe.lastIndex = 0;
+    while ((m = rmksRe.exec(tkOffSection)) !== null) tkOffAtas.add(m[1]);
+    rmksRe.lastIndex = 0;
+    while ((m = rmksRe.exec(landSection))  !== null) landAtas.add(m[1]);
+    for (const item of ddgItems) {
+      const t_ = tkOffAtas.has(item.code), l_ = landAtas.has(item.code);
+      item.tlr = t_ && l_ ? 'both' : t_ ? 'takeoff' : l_ ? 'landing' : '';
+    }
+  })();
+
+  const melItems = ddgItems.map(i => i.code + ' ' + i.desc).join(' | ').substring(0, 600);
+
+  // ── Overflight permits ────────────────────────────────────────────
+  const permM = t.match(PATTERNS.OVERFLIGHT);
+  const overflightPerms = (permM && permM[1].trim())
+    ? permM[1].replace(/\s+/g,' ').trim().substring(0, 300)
+    : '';
+
+  // ── Verbal callsign (ACMI / wet-lease operations) ─────────────────
+  // Explicit format in Remarks block:
+  //   ICAO - THY = IATA - TK = VERBAL CALLSIGN - TURKISH
+  // Pattern: "VERBAL CALLSIGN - {NAME}"
+  let parsedVerbalCallsign = null;
+  (function parseVerbalCallsign() {
+    const m = t.match(/VERBAL\s+CALLSIGN\s*[-\u2013]\s*([A-Z]+)/i);
+    if (m) parsedVerbalCallsign = m[1].toUpperCase();
+  })();
+
+  // ── Alternate routes ──────────────────────────────────────────────
+  const altRoutes = [];
+  const altRouteSeen = new Set();
+  const _stripAltPage = s => s.replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '');
+  const arrRe = ALT_ROUTE_PATTERNS.SECTION_RE;
+  arrRe.lastIndex = 0;
+  let arm;
+  while ((arm = arrRe.exec(t)) !== null) {
+    const title = arm[1].trim();
+    const block = _stripAltPage(arm[2]);
+    const moraM = block.match(ALT_ROUTE_PATTERNS.MORA_LINE);
+    const mora  = moraM ? moraM[1] : '';
+    const routeRaw = moraM ? block.slice(0, block.indexOf(moraM[0])) : block;
+    const route = routeRaw.replace(/\n+/g,' ').replace(/\s+/g,' ').trim();
+    if (!route) continue;
+    const dedupeKey = title + '|' + route;
+    if (altRouteSeen.has(dedupeKey)) continue;
+    altRouteSeen.add(dedupeKey);
+    altRoutes.push({ title, route, mora });
+  }
+
+  // ── TLR / OEI data ────────────────────────────────────────────────
+  const oeiData = [];
+  (function parseTLR() {
+    const tlrStart = t.search(TLR_PATTERNS.SECTION_START);
+    if (tlrStart === -1) return;
+    const tlrBlock = t.slice(tlrStart, tlrStart + 15000);
+    const rwEfp = {};
+    const riM = tlrBlock.match(TLR_PATTERNS.RUNWAY_INFO_HDR);
+    if (riM) {
+      for (const line of riM[1].split('\n')) {
+        const m = line.match(TLR_PATTERNS.RUNWAY_INFO_LINE);
+        if (m) rwEfp[m[1].trim()] = m[2].trim();
+      }
+    }
+    const specProc = {};
+    const sfM = tlrBlock.match(TLR_PATTERNS.SPECIAL_EFP_HDR);
+    if (sfM) {
+      let curRwy = null, curParts = [];
+      for (const line of sfM[1].split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const rwM = trimmed.match(TLR_PATTERNS.SPECIAL_EFP_LINE);
+        if (rwM) {
+          if (curRwy) specProc[curRwy] = curParts.join(' ').trim();
+          curRwy = rwM[1].trim(); curParts = rwM[2].trim() ? [rwM[2].trim()] : [];
+        } else if (curRwy) curParts.push(trimmed);
+      }
+      if (curRwy) specProc[curRwy] = curParts.join(' ').trim();
+    }
+    const seen = new Set();
+    Object.keys(rwEfp).forEach(rwy => {
+      const base = rwy.replace(TLR_PATTERNS.SHIPS_SUFFIX, '').trim();
+      if (seen.has(base)) return;
+      seen.add(base);
+      const efp    = rwEfp[rwy] || rwEfp[base] || '';
+      const isSpec = efp === 'SPECIAL';
+      const proc   = specProc[base] || specProc[rwy] || '';
+      oeiData.push({ rwy: base, efp, special: isSpec, proc, coChart: isSpec && !proc, coChartNote: '' });
+    });
+  })();
+
+  // ── Weather / NOTAM extraction ─────────────────────────────────────
+  const releaseIcaos = new Set([origIcao, destIcao, ...altData.map(a=>a.icao)].filter(Boolean));
+  const airportData = {}; // { [icao]: { weather, notams } }
+
+  (function extractAptWx() {
+    const secRe = new RegExp('^(' + WX_SECTION_LABELS.map(l => l.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')\\s*$', 'mg');
+    const hits = [];
+    let sm;
+    while ((sm = secRe.exec(t)) !== null) {
+      hits.push({ label: sm[1], start: sm.index + sm[0].length + 1 });
+    }
+    hits.forEach((hit, i) => {
+      const end = i + 1 < hits.length
+        ? hits[i+1].start - hits[i+1].label.length - 2
+        : t.length;
+      const block = t.slice(hit.start, end);
+      const metarRe = new RegExp(WX_METAR_ANCHOR.source, 'mg');
+      const metarBounds = [];
+      let mr;
+      while ((mr = metarRe.exec(block)) !== null) {
+        metarBounds.push({ icao: mr[1], pos: mr.index });
+      }
+      if (!metarBounds.length) return;
+      metarBounds.forEach((mb, mi) => {
+        const icao = mb.icao;
+        if (!releaseIcaos.has(icao)) return;
+        const subEnd = mi + 1 < metarBounds.length ? metarBounds[mi+1].pos : block.length;
+        const sub = block.slice(mb.pos, subEnd);
+        const notamIdx = sub.search(WX_NOTAM_START);
+        const wxRaw  = notamIdx > -1 ? sub.slice(0, notamIdx) : sub;
+        const notRaw = notamIdx > -1 ? sub.slice(notamIdx)    : '';
+        const strip = s => s.replace(WX_PAGE_HEADER, '').trim();
+        if (!airportData[icao]) airportData[icao] = { weather:'', notams:'' };
+        if (!airportData[icao].weather && wxRaw)  airportData[icao].weather = strip(wxRaw);
+        if (!airportData[icao].notams  && notRaw) airportData[icao].notams  = strip(notRaw);
+      });
+    });
+  })();
+
+  // ── Airport operational notes from OFP Remarks ───────────────────
+  (function extractAptOpsNotes() {
+    const txt = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    // Constrain search to remarks section — stop before Company NOTAM section which uses the same dash format
+    const notamStart = txt.search(COMPANY_NOTAM.SECTION_ANCHOR);
+    const searchTxt  = notamStart > -1 ? txt.slice(0, notamStart) : txt;
+
+    // Find each Flight Plan copy's Remarks section
+    const remarksRe = /^Remarks\s*$/m;
+    const remarksEndRe = /^(?:RAIM VALIDATION|AUTHORIZED CAT|MEL\/CDL|_{10,})/m;
+    const delimRe = /^(?:-{10,}|(?:-\s){5,}-)\s*$/mg;
+
+    let searchPos = 0;
+    let remarksMatch;
+    while ((remarksMatch = remarksRe.exec(searchTxt.slice(searchPos))) !== null) {
+      const remarksStart = searchPos + remarksMatch.index + remarksMatch[0].length;
+      const afterRemarks = searchTxt.slice(remarksStart);
+
+      // Find where this Remarks section ends
+      const endMatch = afterRemarks.search(remarksEndRe);
+      const remarksEnd = endMatch > -1 ? remarksStart + endMatch : searchTxt.length;
+
+      const remarksBlock = searchTxt.slice(remarksStart, remarksEnd);
+
+      // Find all delimiters in this Remarks section
+      const bounds = [];
+      let dm;
+      delimRe.lastIndex = 0;
+      while ((dm = delimRe.exec(remarksBlock)) !== null) {
+        bounds.push(dm.index + dm[0].length);
+      }
+
+      // Process delimiter pairs (0-1, 2-3, 4-5, etc.)
+      for (let i = 0; i < bounds.length - 1; i += 2) {
+        let block = remarksBlock.slice(bounds[i], bounds[i + 1]).trim();
+        if (!block || /^[-\s]+$/.test(block)) continue;
+        block = block.replace(/\n-\s*$/, '').trim();
+        const lines = block.split('\n');
+        const foundIcaos = [];
+        let headerLine = '';
+        let headerIdx  = 0;
+        for (let li = 0; li < Math.min(lines.length, 3); li++) {
+          const clean = lines[li].replace(/\*{1,4}|\*\*/g, ' ');
+          const codes = clean.match(/\b([A-Z]{4})\b/g) || [];
+          for (const code of codes) {
+            if (releaseIcaos.has(code) && !foundIcaos.includes(code)) {
+              foundIcaos.push(code);
+            }
+          }
+          if (foundIcaos.length) {
+            headerLine = lines[li].replace(/\*{1,4}|\*\*/g, '').trim();
+            headerIdx  = li;
+            break;
+          }
+        }
+        if (!foundIcaos.length) continue;
+        const body = lines.slice(headerIdx + 1)
+          .join('\n')
+          .replace(/^PAGE \d+ OF \d+\s*$/mg, '')
+          .trim();
+        if (!body) continue;
+        for (const icao of foundIcaos) {
+          if (!airportData[icao]) {
+            airportData[icao] = { weather:'', notams:'', opsNotes:null };
+          }
+          if (!airportData[icao].opsNotes) {
+            airportData[icao].opsNotes = { header: headerLine, body };
+          }
+        }
+      }
+
+      searchPos = remarksEnd;
+    }
+  })();
+
+  // ── Company NOTAM curfews ─────────────────────────────────────────
+  (function extractCurfews() {
+    const stationStart = t.search(COMPANY_NOTAM.SECTION_ANCHOR);
+    if (stationStart === -1) return;
+    const endM = t.slice(stationStart).search(COMPANY_NOTAM.SECTION_END);
+    const stationBlock = t.slice(stationStart, endM === -1 ? t.length : stationStart + endM);
+    const icaoRe = new RegExp(COMPANY_NOTAM.ICAO_SECTION.source, 'mg');
+    const hits = [];
+    let m;
+    while ((m = icaoRe.exec(stationBlock)) !== null) {
+      hits.push({ icao: m[1], start: m.index + m[0].length });
+    }
+    hits.forEach((hit, i) => {
+      const icao = hit.icao;
+      const end = i + 1 < hits.length
+        ? hits[i+1].start - hits[i+1].icao.length - ' COMPANY NOTAMS'.length - 2
+        : stationBlock.length;
+      const block = stationBlock.slice(hit.start, end);
+      const entryRe = new RegExp(COMPANY_NOTAM.ENTRY_HEADER.source, 'mg');
+      const entryHits = [];
+      let em;
+      while ((em = entryRe.exec(block)) !== null) entryHits.push(em.index);
+      entryHits.forEach((eStart, ei) => {
+        const eEnd = ei + 1 < entryHits.length ? entryHits[ei+1] : block.length;
+        const entry = block.slice(eStart, eEnd);
+        if (!COMPANY_NOTAM.CURFEW_KEYWORDS.test(entry) && !COMPANY_NOTAM.RWY_CLOSED.test(entry)) return;
+        const lines = entry.split('\n').map(l=>l.trim()).filter(Boolean);
+        const curfewLines = [];
+        lines.forEach(line => {
+          if (/^[A-Z]{4}-\S+\s+Oper:|^VALID FROM:|^-{4,}|^\*{4,}/.test(line)) return;
+          const seasonM = line.match(/(?:SUMMER|WINTER)[^0-9]*(\d{4})Z?[-–](\d{4})Z?/i);
+          if (seasonM) { curfewLines.push(line.trim()); return; }
+          const rwyCls = line.match(/(\w{2,5}\/\w{2,5})\s*=\s*CLSD\s*(\d{4})\s*[-–]\s*(\d{4})Z?\s*\(([^)]+)\)/i);
+          if (rwyCls) { curfewLines.push(`${rwyCls[1]} CLSD ${rwyCls[2]}–${rwyCls[3]}Z (${rwyCls[4]})`); return; }
+          const simM = line.match(/CLOSED?\s+(.+?)\s*(\d{4})Z?\s*[-–]\s*(\d{4})Z?/i);
+          if (simM) { curfewLines.push(`CLSD ${simM[2]}–${simM[3]}Z (${simM[1].trim().replace(/:$/,'')})`); return; }
+          const genM = line.match(/(\d{4})Z?\s*[-–]\s*(\d{4})Z/i);
+          if (genM) { curfewLines.push(line.trim()); return; }
+        });
+        if (curfewLines.length) {
+          if (!airportData[icao]) airportData[icao] = { weather:'', notams:'' };
+          airportData[icao].curfew = (airportData[icao].curfew || '')
+            ? airportData[icao].curfew + '\n' + curfewLines.join('\n')
+            : curfewLines.join('\n');
+        }
+      });
+    });
+  })();
+
+  // ── E-WINS WSITAF extraction ──────────────────────────────────────
+  // Atlas Air releases flights under EWINS (Enhanced Weather Information
+  // System). When present, the WSITAF in OFP Remarks replaces the standard
+  // TAF for that airport.
+  // Format in OFP Remarks:
+  //   ***FLIGHT RELEASED UNDER E-WINS AUTHORITY FOR TAF (ICAO)
+  //   ALTERNATE AIRPORT.
+  //   WSITAF ICAO DDHHmmZ DDHH/DDHH conditions...
+  //   [continuation lines]
+  (function extractEwins() {
+    const headerRe = /\*{3}FLIGHT\s+RELEASED\s+UNDER\s+E[- ]WINS\s+AUTHORITY\s+FOR\s+TAF\s+\(([A-Z]{4})\)/g;
+    var m;
+    while ((m = headerRe.exec(t)) !== null) {
+      var icao = m[1];
+      var after = t.slice(m.index + m[0].length);
+      var lines = after.split('\n');
+      var roleLine = '';
+      var wsitafLines = [];
+      var inWsitaf = false;
+      for (var i = 0; i < Math.min(lines.length, 40); i++) {
+        var line = lines[i].trim();
+        if (i === 0) { roleLine = line; continue; }
+        if (!inWsitaf && /^WSITAF\s+[A-Z]{4}/.test(line)) {
+          inWsitaf = true;
+          wsitafLines.push(line);
+          continue;
+        }
+        if (inWsitaf) {
+          if (!line || /^\*{3}/.test(line)) break;
+          wsitafLines.push(line);
+        }
+      }
+      if (!wsitafLines.length) continue;
+      var wsitaf = wsitafLines.join('\n');
+      var ewinsRole = /ALTERNATE/i.test(roleLine) ? 'ALT'
+                    : /DESTINATION|DEST/i.test(roleLine) ? 'DEST'
+                    : 'ALT';
+      // Parse validity window from "DDHHmmZ DDHH/DDHH" → "HHMMz-HHMMZ"
+      var validM = wsitaf.match(/\d{6}Z\s+(\d{2})(\d{2})\/(\d{2})(\d{2})/);
+      var ewinsWindow = validM ? (validM[2] + '00Z-' + validM[4] + '00Z') : '';
+      if (!airportData[icao]) airportData[icao] = { weather: '', notams: '' };
+      airportData[icao].ewinsWeather = wsitaf;
+      airportData[icao].ewinsRole    = ewinsRole;
+      airportData[icao].ewinsWindow  = ewinsWindow;
+    }
+  })();
+
+  // ── Enroute NOTAM sections ────────────────────────────────────────
+  // Extracts ROUTE / FIR / AIRWAY / WAYPOINT / GEOGRAPHIC COMPANY NOTAM
+  // blocks. Each key holds the raw text for that section.
+  const enrouteNotams = { route:'', fir:'', airway:'', waypoint:'', geographic:'' };
+  (function extractEnrouteNotams() {
+    const SECTIONS = [
+      { re: /^ROUTE\s+COMPANY\s+NOTAMS\s*$/m,      key: 'route'      },
+      { re: /^FIR\s+COMPANY\s+NOTAMS\s*$/m,        key: 'fir'        },
+      { re: /^AIRWAY\s+COMPANY\s+NOTAMS\s*$/m,     key: 'airway'     },
+      { re: /^WAYPOINT\s+COMPANY\s+NOTAMS\s*$/m,   key: 'waypoint'   },
+      { re: /^GEOGRAPHIC\s+COMPANY\s+NOTAMS\s*$/m, key: 'geographic' },
+    ];
+    const ANY_HDR = /^(?:STATION|ROUTE|FIR|AIRWAY|WAYPOINT|GEOGRAPHIC|ADMIN|RELEASE|FLTNUM)\s+COMPANY\s+NOTAMS\s*$/m;
+    const stripPage = s => s.replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '');
+
+    // Atlas Air briefs are issued in two identical copies (e.g. 63-page brief = 2×~31 pages).
+    // The first STATION COMPANY NOTAMS header marks the boundary between enroute content
+    // (Route/FIR/Airway/Waypoint/Geographic NOTAMs) and station-level content in Copy 1.
+    // Scoping the search to text before that boundary prevents the parser matching the
+    // second copy's section — which may be truncated — and returning an empty block.
+    const firstStationM = t.match(/^STATION\s+COMPANY\s+NOTAMS\s*$/m);
+    const searchScope = firstStationM && firstStationM.index > 0
+      ? t.slice(0, firstStationM.index)
+      : t;
+
+    SECTIONS.forEach(({ re, key }) => {
+      const m = searchScope.match(re);
+      if (!m) return;
+      const start = m.index + m[0].length;
+      const rest  = searchScope.slice(start);
+      const nextM = rest.search(ANY_HDR);
+      const block = stripPage(nextM > -1 ? rest.slice(0, nextM) : rest).trim();
+      if (block) enrouteNotams[key] = block;
+    });
+  })();
+
+  // ── NAT Track Message — delegated to nat-rules.js v1.1.0 (Atlantic only)
+  const natTrack = (typeof window.parseNatTrack === 'function')
+    ? window.parseNatTrack(t, origIcao, destIcao)
+    : null;
+
+
+  // ── Return structured result ───────────────────────────────────────
+  return {
+    fltNum,
+    acftType,
+    weightUnit,
+    isHeavy,
+    dateStr,
+    flightDateISO,
+    origIcao,
+    destIcao,
+    offFromOFP,
+    etaDest,
+    destEtaOffsetMins,
+    tripMinutes,
+    taxiMins,
+    etopsEntry,
+    etopsSpec,
+    etopsEntryMins,
+    etopsExit,
+    etopsExitMins,
+    porWpt,
+    porOffsetMins,
+    porMinf:       porMinfRaw,
+    alt1Fuel:      alt1FuelRaw,
+    destRemf:      destRemfRaw,
+    blockFuelRaw,
+    minfFuelRaw,
+    fresFuelRaw,
+    ballastFuel,
+    crewMembers,
+    tocOffsetMins,
+    togwActual,
+    togwLimit,
+    zfwActual,
+    zfwLimit,
+    ldgwActual,
+    ldgwLimit,
+    hasPerishables,
+    dotExemption,
+    hasTemperatureControl,
+    hasVzfwCkLimit,
+    slotTime,
+    catIiIiiApproaches,
+    addlFfAdj,
+    ddgItems,
+    melItems,
+    overflightPerms,
+    altRoutes,
+    altData,
+    oeiData,
+    etpPoints:    cfsPoints,
+    navLog,
+    enrouteNotams,
+    natTrack,
+    airportData,  // { [icao]: { weather, notams, curfew? } }
+    parsedVerbalCallsign,  // from "VERBAL CALLSIGN - {NAME}" in Remarks; null if absent
+    zfwIncrFactor,
+    taxiFuelRaw,
+    rawOFP: t,    // full raw text retained for navlog TOT-T extraction (ENR V2)
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════
+
+
+
+// ═══════════════════════════════════════════════════════
+//  OFP PARSER — adapter (bridges ruleset to app state)
+// ═══════════════════════════════════════════════════════
+function fuelK(raw) {
+  const n = parseFloat((raw||'').replace(/[^0-9.]/g,''));
+  return isNaN(n) ? '' : (n/1000).toFixed(1);
+}
+
+// ── Radio callsign derivation ─────────────────────────────────────
+// Derived from flight number prefix — not parsed from OFP text.
+// All Atlas/Polar aircraft are Category HEAVY (B747, B777, B767).
+// Verbal callsigns per Atlas Air SOPs:
+//   GTI → GIANT  |  PAC → POLAR  |  CMB → CAMBER
+function deriveCallsign(fltNum) {
+  if (!fltNum) return { radioCallsign: '', verbalCallsign: '', isHeavy: false };
+  const m = fltNum.match(/^(GTI|PAC|CMB|QFA)(\d+)/i);
+  if (!m) return { radioCallsign: fltNum, verbalCallsign: '', isHeavy: false };
+  const prefix = m[1].toUpperCase();
+  const verbal = { GTI: 'GIANT', PAC: 'POLAR', CMB: 'CAMBER', QFA: 'QANTAS' }[prefix] || '';
+  return {
+    radioCallsign: prefix + m[2],
+    verbalCallsign: verbal,
+    isHeavy: true,   // All Atlas/Polar fleet are heavies
+  };
+}
+
+function parseOFP() {
+  const result = _ofpRulesetParse(pdfRawText);
+  if (!result) return;
+
+  // Merge parsed airportData into global (preserves any user edits already present)
+  Object.keys(result.airportData || {}).forEach(icao => {
+    if (!airportData[icao]) airportData[icao] = { notams:'', weather:'' };
+    const src = result.airportData[icao];
+    if (!airportData[icao].weather && src.weather) airportData[icao].weather = src.weather;
+    if (!airportData[icao].notams  && src.notams)  airportData[icao].notams  = src.notams;
+    if (src.curfew) airportData[icao].curfew = src.curfew;
+    if (src.opsNotes && !airportData[icao].opsNotes) airportData[icao].opsNotes = src.opsNotes;
+    // E-WINS: always overwrite — WSITAF supersedes any previously stored TAF
+    if (src.ewinsWeather) {
+      airportData[icao].ewinsWeather = src.ewinsWeather;
+      airportData[icao].ewinsRole    = src.ewinsRole    || '';
+      airportData[icao].ewinsWindow  = src.ewinsWindow  || '';
+    }
+  });
+
+  window._flightDateISO = result.flightDateISO || '';
+
+  Object.assign(S, {
+    fltNum:     result.fltNum,
+    date:       result.dateStr,
+    outZ:       result.offFromOFP,
+    etaDest:    result.etaDest,
+    origIcao:   result.origIcao,
+    destIcao:   result.destIcao,
+    altData:    result.altData,
+    acftType:   result.acftType,
+    weightUnit: result.weightUnit || 'KGS',
+    blockFuel:  fuelK(result.blockFuelRaw),
+    minfFuel:   fuelK(result.minfFuelRaw),
+    fresFuel:   fuelK(result.fresFuelRaw),
+    ballastFuel: result.ballastFuel,
+    crewMembers:   result.crewMembers || [],
+    tocOffsetMins: result.tocOffsetMins,
+    togwActual: result.togwActual,
+    togwLimit:  result.togwLimit,
+    zfwActual:  result.zfwActual,
+    zfwOFP:     result.zfwActual,   // immutable — MINF delta baseline
+    zfwLimit:   result.zfwLimit,
+    ldgwActual: result.ldgwActual,
+    ldgwLimit:  result.ldgwLimit,
+    ddgItems:   result.ddgItems,
+    melItems:   result.melItems,
+    overflightPerms: result.overflightPerms,
+    altRoutes:  result.altRoutes,
+    navLog:         result.navLog     || [],
+    enrouteNotams:  result.enrouteNotams || null,
+    natTrack:       result.natTrack   || null,
+    oeiData:    result.oeiData,
+    oeiSelectedRwy: result.oeiData.length ? (S.oeiSelectedRwy || '') : '',
+    hasPerishables: result.hasPerishables,
+    dotExemption:   result.dotExemption   || null,
+    hasTemperatureControl: result.hasTemperatureControl,
+    hasVzfwCkLimit: result.hasVzfwCkLimit,
+    slotTime:       result.slotTime,
+    catIiIiiApproaches: result.catIiIiiApproaches,
+    addlFfAdj:      result.addlFfAdj,
+    destEtaOffsetMins: result.destEtaOffsetMins,
+    tripMinutes: result.tripMinutes,
+    taxiMins:    result.taxiMins,
+    etopsEntry:  result.etopsEntry,
+    etopsSpec:   result.etopsSpec,
+    etpPoints:   result.etpPoints,
+    etopsEntryMins: result.etopsEntryMins,
+    etopsExit:      result.etopsExit,
+    etopsExitMins:  result.etopsExitMins,
+    porWpt:      result.porWpt,
+    porOffsetMins: result.porOffsetMins,
+    porMinf:     result.porMinf,
+    alt1Fuel:    result.alt1Fuel,
+    destRemf:    result.destRemf,
+    activePhase: 'preflight',
+    offZ: '', preAtisLetter:'', preAtisNotes:'', preParkingNotes:'',
+    descAtisLetter:'', descAtisNotes:'', descParkingNotes:'',
+    enrouteScratch:'', oeiVal:'', stabTrim:'', gaFuel:'',
+    userNotes:'', fcirAsap:false, fcirNarrative:'',
+    ...deriveCallsign(result.fltNum),
+    // FPL field 9 wake turbulence category overrides deriveCallsign's default.
+    // /H = Heavy (all B744/B748/B767/B777); /J = Super (A380).
+    isHeavy: result.isHeavy !== undefined ? result.isHeavy : true,
+    // OFP Remarks "VERBAL CALLSIGN - {NAME}" takes precedence over derived callsign.
+    // This covers ACMI/wet-lease ops (e.g. THY operated by GTI → TURKISH).
+    ...(result.parsedVerbalCallsign ? {
+      verbalCallsign: result.parsedVerbalCallsign,
+    } : {}),
+  });
+  if (result.zfwIncrFactor != null)
+    S.zfwIncrFactor = result.zfwIncrFactor;
+  S.rawOFP = result.rawOFP || '';  // retained for ENR Timeline V2 navlog extraction
+  S.taxiFuel = fuelK(result.taxiFuelRaw);
+  // Raw integer fuel values for cascade arithmetic
+  S.blockFuelRaw = parseInt((result.blockFuelRaw||'').replace(/[^0-9]/g,''),10) || 0;
+  S.minfFuelRaw  = parseInt((result.minfFuelRaw||'').replace(/[^0-9]/g,''),10) || 0;
+  S.destRemfRaw  = parseInt((result.destRemf||'').replace(/[^0-9]/g,''),10) || 0;
+  S.taxiFuelRaw  = parseInt((result.taxiFuelRaw||'').replace(/[^0-9]/g,''),10) || 0;
+  // Reset override entries on each new OFP import
+  S.blockFuelEntered = null; S.zfwEntered = null; S.togwEntered = null;
+  // Preserve crewVerified across re-imports; reset buffer only on first import
+  if (!S.crewVerified) S.crewRestBuffer = 60;
+
+  renderNote();
+  saveFlight();
+}
+
+//  TIMEZONE HELPERS
+// ═══════════════════════════════════════════════════════
+const ICAO_TZ={
+  KSFO:'America/Los_Angeles',KLAX:'America/Los_Angeles',KOAK:'America/Los_Angeles',
+  KLAS:'America/Los_Angeles',KSEA:'America/Los_Angeles',KPDX:'America/Los_Angeles',
+  KDEN:'America/Denver',KSLC:'America/Denver',KPHX:'America/Phoenix',
+  KORD:'America/Chicago',KDFW:'America/Chicago',KIAH:'America/Chicago',
+  KMSP:'America/Chicago',KMEM:'America/Chicago',KSAT:'America/Chicago',KAUS:'America/Chicago',
+  KJFK:'America/New_York',KEWR:'America/New_York',KLGA:'America/New_York',
+  KBOS:'America/New_York',KMIA:'America/New_York',KATL:'America/New_York',
+  KDCA:'America/New_York',KIAD:'America/New_York',KPHL:'America/New_York',
+  KDTW:'America/New_York',KMCO:'America/New_York',KTPA:'America/New_York',
+  KBWI:'America/New_York',KCLT:'America/New_York',KRDU:'America/New_York',
+  KBNA:'America/New_York',KFLL:'America/New_York',
+  PANC:'America/Anchorage',PHNL:'Pacific/Honolulu',
+  CYYZ:'America/Toronto',CYVR:'America/Vancouver',CYYC:'America/Edmonton',
+  EGLL:'Europe/London',EGKK:'Europe/London',EGSS:'Europe/London',
+  EGNX:'Europe/London',EGCC:'Europe/London',EGPH:'Europe/London',EGBB:'Europe/London',
+  EIDW:'Europe/Dublin',EINN:'Europe/Dublin',
+  EHAM:'Europe/Amsterdam',EDDF:'Europe/Berlin',EDDM:'Europe/Berlin',
+  LFPG:'Europe/Paris',LEMD:'Europe/Madrid',LEBL:'Europe/Madrid',
+  LSZH:'Europe/Zurich',LOWW:'Europe/Vienna',EBBR:'Europe/Brussels',
+  LIRF:'Europe/Rome',LPPT:'Europe/Lisbon',
+  EKCH:'Europe/Copenhagen',ESSA:'Europe/Stockholm',ENGM:'Europe/Oslo',
+  EFHK:'Europe/Helsinki',EPWA:'Europe/Warsaw',BIKF:'Atlantic/Reykjavik',
+  OMDB:'Asia/Dubai',OMSJ:'Asia/Dubai',OTHH:'Asia/Qatar',
+  OEDF:'Asia/Riyadh',OERK:'Asia/Riyadh',
+  VIDP:'Asia/Kolkata',VABB:'Asia/Kolkata',VTBS:'Asia/Bangkok',
+  WSSS:'Asia/Singapore',RPLL:'Asia/Manila',
+  RJAA:'Asia/Tokyo',RJBB:'Asia/Tokyo',RKSI:'Asia/Seoul',
+  VHHH:'Asia/Hong_Kong',ZBAA:'Asia/Shanghai',ZSPD:'Asia/Shanghai',
+  YSSY:'Australia/Sydney',YMML:'Australia/Melbourne',YBBN:'Australia/Brisbane',YPPH:'Australia/Perth',
+  NZAA:'Pacific/Auckland',
+  HAAB:'Africa/Addis_Ababa',HECA:'Africa/Cairo',HKJK:'Africa/Nairobi',FAOR:'Africa/Johannesburg',
+  SBGR:'America/Sao_Paulo',SAEZ:'America/Argentina/Buenos_Aires',
+};
+
+function z2l(hmm, icao) {
+  const c = (hmm || '').replace(/\D/g, '');
+  if (c.length < 4) return '____L';
+  const hh = parseInt(c.slice(0, 2), 10);
+  const mm = parseInt(c.slice(2, 4), 10);
+  // Each airport uses its own IANA timezone; anchored to today's date for correct DST
+  const tz = ICAO_TZ[(icao || '').toUpperCase()] || 'UTC';
+  const now = new Date();
+  const utc = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+    hh, mm, 0
+  ));
+  try {
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false
+    });
+    const parts = fmt.formatToParts(utc);
+    const lh = parts.find(p => p.type === 'hour')?.value  || '00';
+    const lm = parts.find(p => p.type === 'minute')?.value || '00';
+    return String(parseInt(lh, 10) % 24).padStart(2, '0') + lm + 'L';
+  } catch {
+    return hmm + 'L?';
+  }
+}
+
