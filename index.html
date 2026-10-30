@@ -12302,12 +12302,18 @@ function loadPdfJs() {
       </div>
     </div>
 
-    <!-- FUTURE USE placeholder -->
-    <div class="settings-section-header" style="margin-top:var(--sp4)">Advanced</div>
+    <!-- CHECK FOR UPDATE -->
+    <div class="settings-section-header" style="margin-top:var(--sp4)">Updates</div>
     <div class="cell-group" style="margin: 0 var(--sp4)">
-      <div class="cell" style="opacity:0.4; cursor:default">
+      <div class="cell" style="cursor:pointer" onclick="checkForUpdate()" role="button" aria-label="Check for update">
+        <div class="cell-icon" style="background:var(--tint)">
+          <svg viewBox="0 0 20 20" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 3v4M10 3l-2 2M10 3l2 2"/>
+            <path d="M3 10a7 7 0 1 0 14 0 7 7 0 0 0-14 0"/>
+          </svg>
+        </div>
         <div class="cell-content">
-          <span class="cell-title" style="color:var(--label2)">More options coming soon</span>
+          <span class="cell-title">Check for update</span>
         </div>
       </div>
     </div>
@@ -12558,6 +12564,28 @@ function loadPdfJs() {
 </div>
 
 <script>
+// ── Check for update (Settings screen) ──────────────────────────────────
+// Called by the "Check for update" button. Calls registration.update() to
+// ask the browser to re-fetch sw.js; if a new version installs, the SW
+// activate handler posts SW_UPDATED and the banner appears.
+// No automatic check — only runs when the crew taps the button.
+function checkForUpdate() {
+  var reg = window._swReg;
+  if (!reg) { showToast('info', 'Service Worker not registered'); return; }
+  showToast('info', 'Checking for update…');
+  reg.update()
+    .then(function () {
+      // If no waiting SW after update() resolves, we are up to date.
+      if (!reg.waiting) showToast('ok', '✓ Already up to date');
+      // If a new SW is waiting, SW_UPDATED will arrive via the activate
+      // handler and show the update banner — no extra toast needed here.
+    })
+    .catch(function (err) {
+      showToast('err', 'Update check failed — check connection');
+      console.warn('[SW] update() failed:', err);
+    });
+}
+
 // ── Service Worker Registration ───────────────────────────────────────────
 // Must run after all app scripts. Non-blocking — SW failure degrades
 // gracefully (online-only mode); it must never crash or stall the app.
@@ -12570,9 +12598,10 @@ function loadPdfJs() {
 (function () {
   if (!('serviceWorker' in navigator)) return; // not supported (rare)
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js')
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'all' })
       .then(function (reg) {
         console.log('[SW] Registered — scope:', reg.scope);
+        window._swReg = reg; // stored for Settings → Check for update
       })
       .catch(function (err) {
         // Non-fatal. App continues in online-only mode.
