@@ -187,4 +187,5 @@
 | D15 | BTB/ATB buttons with FCIR; post-turn-back upload opens as a new flight | **Accepted** (Exec specification; two assumptions to confirm at C5) |
 | D16 | `Q` on ORIG/DEST/alternate lines = Special Qual Airport; parsed per airport (registry field) and shown as "Q" beside the airport name on the airport card | **Accepted** |
 | D17 | After an iOS reload, return to the open flight, tab and phase (HF-4) | **Open** |
+| D18 | Production release method: Exec copies the approved beta files (index.html, sw.js, manifest.json) to `velocemente/PilotBrief` by GitHub web upload; Claude has no write access to production | **Accepted — A** (29 Oct) |
 | — | Meaning of FlightKeys IA / TA windows | **Open** — Exec to define before P2b |
