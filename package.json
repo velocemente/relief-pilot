@@ -1,0 +1,13 @@
+{
+  "name": "pilotbrief-tests",
+  "private": true,
+  "description": "Test and tooling for PilotBrief. The app itself has no build step.",
+  "scripts": {
+    "check": "node test/check-syntax.js",
+    "test": "node --test \"test/unit/*.test.js\"",
+    "golden": "node test/golden/run.js compare"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "3.11.174"
+  }
+}
