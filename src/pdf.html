@@ -1,0 +1,247 @@
+// ═══════════════════════════════════════════════════════
+//  PDF / IMPORT
+// ═══════════════════════════════════════════════════════
+document.getElementById('pdfInput').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  await processPDF(f);
+});
+
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', async e => {
+  e.preventDefault(); dz.classList.remove('over');
+  const f = e.dataTransfer.files[0]; if (f) await processPDF(f);
+});
+
+// ── Global PDF drag-and-drop (iPadOS Slide Over / Split View) ─────────────────
+// Catches PDF files dragged from any other app (Safari, Files, Mail) onto
+// the PilotBrief window — not just the import screen drop zone.
+// Shows a full-screen overlay while dragging so the target is unambiguous.
+(function initGlobalDrop() {
+  const overlay = document.getElementById('dragOverlay');
+  let _dragDepth = 0;  // track enter/leave nesting
+
+  document.addEventListener('dragenter', e => {
+    // Only activate for drags that carry files
+    if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    _dragDepth++;
+    overlay.classList.add('visible');
+  }, false);
+
+  document.addEventListener('dragover', e => {
+    if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, false);
+
+  document.addEventListener('dragleave', () => {
+    _dragDepth--;
+    if (_dragDepth <= 0) { _dragDepth = 0; overlay.classList.remove('visible'); }
+  }, false);
+
+  document.addEventListener('drop', async e => {
+    e.preventDefault();
+    _dragDepth = 0;
+    overlay.classList.remove('visible');
+
+    const items = e.dataTransfer && e.dataTransfer.items;
+    let file = null;
+
+    // Prefer DataTransferItemList (gives MIME type before reading)
+    if (items) {
+      for (const item of items) {
+        if (item.kind === 'file' &&
+            (item.type === 'application/pdf' || item.type === '')) {
+          file = item.getAsFile();
+          break;
+        }
+      }
+    }
+    // Fallback: FileList
+    if (!file && e.dataTransfer.files && e.dataTransfer.files.length) {
+      const f = e.dataTransfer.files[0];
+      if (f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf') {
+        file = f;
+      }
+    }
+
+    if (!file) {
+      showToast('info', 'Drop a PDF file to import');
+      return;
+    }
+
+    // Navigate to import screen so the user sees the loading toast
+    if (!_navStack.includes('screen-import')) goToImport();
+    await processPDF(file);
+  }, false);
+})();
+
+async function processPDF(file) {
+  resetStateForNewFlight();
+  showToast('info', `Loading ${file.name}…`);
+  try {
+    await loadPdfJs();
+    const ab = await file.arrayBuffer();
+    pdfArrayBuffer = ab;   // keep as ArrayBuffer — slice a fresh Uint8Array each time so pdf.js can't transfer/neuter the master
+    clearOFPPanel();       // wipe any previously rendered canvas pages before new PDF is loaded
+    const pdf = await pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise;
+
+    let fullText = '';
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const pg   = await pdf.getPage(i);
+      const vp   = pg.getViewport({scale: 1});
+      const tc   = await pg.getTextContent({normalizeWhitespace: false, disableCombineTextItems: false});
+
+      // ── Layout-preserving reconstruction ──────────────────────────
+      // Group items into lines by their Y coordinate (within 2pt tolerance)
+      // then sort each line left→right, producing text that mirrors the
+      // printed OFP column structure (flight ID, times, alternates etc.)
+      const YTOL = 2; // points
+      const lines = [];
+
+      tc.items.forEach(item => {
+        if (!item.str) return;
+        // PDF y=0 is bottom; invert so y=0 is top
+        const y = vp.height - item.transform[5];
+        const x = item.transform[4];
+
+        // Find existing line bucket within tolerance
+        let bucket = lines.find(l => Math.abs(l.y - y) <= YTOL);
+        if (!bucket) {
+          bucket = { y, items: [] };
+          lines.push(bucket);
+        }
+        bucket.items.push({ x, str: item.str, w: item.width || 0 });
+      });
+
+      // Sort lines top→bottom
+      lines.sort((a, b) => a.y - b.y);
+
+      // For each line, sort items left→right and join with whitespace
+      // that approximates the original column spacing
+      lines.forEach(line => {
+        line.items.sort((a, b) => a.x - b.x);
+
+        let lineStr = '';
+        let prevRight = null;
+        line.items.forEach(item => {
+          if (prevRight !== null) {
+            const gap = item.x - prevRight;
+            // Map pixel gap to spaces (calibrated for typical OFP at 1x scale)
+            const spaces = gap > 20 ? '   ' : gap > 8 ? '  ' : gap > 3 ? ' ' : '';
+            lineStr += spaces;
+          }
+          lineStr += item.str;
+          prevRight = item.x + (item.w || item.str.length * 5);
+        });
+        if (lineStr.trim()) fullText += lineStr + '\n';
+      });
+
+      fullText += '\n'; // page break
+    }
+
+    pdfRawText = fullText;
+    showToast('ok', `✓ Loaded ${pdf.numPages} pages — parsing OFP…`);
+    setTimeout(() => { parseOFP(); push('screen-flight'); }, 400);
+  } catch(err) { showToast('err', 'Error: ' + err.message); }
+}
+
+function importManual() {
+  const txt = document.getElementById('manualText').value.trim();
+  if (!txt) { showToast('err', 'Please paste OFP text first.'); return; }
+  resetStateForNewFlight();
+  pdfRawText = txt;
+  pdfArrayBuffer = null;  // no PDF binary available for manual paste
+  parseOFP();
+  push('screen-flight');
+}
+
+// ── Native iOS Share entry point ──────────────────────────────────────────────
+// Called by WebViewModel.swift when a PDF arrives via the iOS Share sheet or
+// Files "Open With". Receives the PDF as a Base64 string, converts it to a
+// synthetic File object, and hands it to processPDF() exactly as if the user
+// had tapped the file picker.
+window.processPDFFromNative = async function(base64, fileName) {
+  try {
+    // Decode base64 → Uint8Array → ArrayBuffer
+    const binary = atob(base64);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const file = new File([blob], fileName || 'OFP.pdf', { type: 'application/pdf' });
+    // Navigate to the import screen first so the user sees the loading toast
+    if (!_navStack.includes('screen-import')) goToImport();
+    await processPDF(file);
+  } catch (err) {
+    showToast('err', 'Native PDF error: ' + err.message);
+  }
+};
+
+function _pbFeedback(el) {
+  if (!el) return;
+  el.classList.add('pb-copy-active');
+  var fb = document.createElement('span');
+  fb.className = 'pb-copy-feedback';
+  fb.textContent = 'COPIED';
+  el.parentNode.insertBefore(fb, el.nextSibling);
+  setTimeout(function() {
+    el.classList.remove('pb-copy-active');
+    fb.remove();
+  }, 1000);
+}
+
+function _pbCopy(text, el) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(function() { _pbFeedback(el); })
+      .catch(function() { _pbCopyFallback(text, el); });
+  } else {
+    _pbCopyFallback(text, el);
+  }
+}
+
+function _pbCopyFallback(text, el) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    var ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) _pbFeedback(el);
+  } catch(e) {}
+}
+
+// Delegated handler for DDG/MEL copy buttons — no inline onclick injection
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.ddg-copy');
+  if (btn && btn.dataset.code) {
+    _pbCopy(btn.dataset.code, btn);
+  }
+});
+
+function showToast(typeOrMsg, msg) {
+  // Support both showToast('type','msg') and showToast('msg') 
+  let type, message;
+  if (msg === undefined) { type = 'info'; message = typeOrMsg; }
+  else { type = typeOrMsg; message = msg; }
+  // Use import toast if on import screen, else use global toast
+  const el = document.getElementById('importToast');
+  const gt = document.getElementById('globalToast');
+  const target = (el && el.offsetParent !== null) ? el : (gt || el);
+  if (!target) return;
+  target.className = `import-toast ${type}`;
+  target.textContent = message;
+  target.style.display = 'block';
+  clearTimeout(target._toastTimer);
+  target._toastTimer = setTimeout(() => { target.style.display = 'none'; }, 3500);
+}
+
+// iOS Share Target — handled natively by AppDelegate / SharedFileRelay in the Xcode app.
+// Service worker approach not used.
+
+

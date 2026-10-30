@@ -1,0 +1,379 @@
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN: HOME
+     ══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-home">
+  <div class="scroll-view" style="padding-top:0">
+    <div class="home-hero">
+      <div class="home-icon">
+        <!-- Brand compass icon: navy bg, white airplane, gold wing, subtle compass ticks -->
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:56px;height:56px">
+          <!-- Compass cardinal ticks -->
+          <path d="M50 6V14M50 86V94M6 50H14M86 50H94" stroke="rgba(255,255,255,0.22)" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Gold checkmark / wing sweep -->
+          <path d="M14 63 L36 85 L90 26" stroke="#B59410" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- White airplane silhouette -->
+          <path d="M50 16 L54 34 L83 44 L83 53 L54 49 L50 67 L54 75 L46 75 L50 67 L46 49 L17 53 L17 44 L46 34 L50 16Z" fill="white"/>
+        </svg>
+      </div>
+      <div class="home-app-name">PilotBrief</div>
+      <div class="home-tagline">Your flight assistant</div>
+    </div>
+
+    <div style="padding: 0 var(--sp4); display:flex; flex-direction:column; gap: var(--sp3); max-width:400px">
+      <button class="btn-primary" onclick="goToImport()" aria-label="Start new flight from OFP">
+        <svg viewBox="0 0 24 24"><path d="M12 3v12M5 10l7-7 7 7"/><path d="M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2"/></svg>
+        New Flight
+      </button>
+      <button class="btn-secondary" onclick="push('screen-flights')" aria-label="Open saved flights">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        Flights
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN: IMPORT OFP
+     ══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-import">
+  <div class="nav-bar nav-secondary">
+    <button class="nav-back" onclick="pop()" aria-label="Go back to Flights">
+      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
+      Flights
+    </button>
+    <span class="nav-brand-title" aria-label="PilotBrief — Import OFP">
+      <span class="nb-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label">Import OFP</span>
+    </span>
+  </div>
+  <div class="scroll-view">
+    <div class="section">
+      <div class="cell-group">
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="pdfInput" accept=".pdf,application/pdf" aria-label="Select OFP PDF file">
+          <div class="dz-icon-wrap">
+            <!-- SF Symbols-style document icon, fully SVG -->
+            <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:28px;height:28px">
+              <path d="M6 4a2 2 0 012-2h8l6 6v16a2 2 0 01-2 2H8a2 2 0 01-2-2V4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <path d="M16 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 14h8M10 18h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M14 10v5M11 12l3-2 3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="dz-title">Tap to Select PDF</div>
+          <div class="dz-sub">Or drag and drop an OFP PDF here</div>
+        </div>
+      </div>
+      <div class="section-footer">Supported: Atlas Air OFP format</div>
+    </div>
+
+    <div class="section">
+      <div class="callout">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 7h.01"/></svg>
+        <span class="callout-text">
+          <span class="callout-title">Import from Safari — Drag &amp; Drop</span>
+          On iPad: open the OFP PDF in Safari, then use Slide Over or Split View to show PilotBrief alongside it. Drag the PDF from Safari and drop it anywhere on PilotBrief.
+        </span>
+      </div>
+    </div>
+
+    <!-- Global PDF drag overlay — visible when any drag enters the app window -->
+    <div id="dragOverlay" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"
+        style="width:56px;height:56px;color:var(--tint);opacity:0.8">
+        <rect x="8" y="4" width="24" height="32" rx="3"/>
+        <path d="M20 4v10h12"/>
+        <path d="M24 28v12M20 36l4 4 4-4"/>
+      </svg>
+      <div class="drag-label">Drop OFP PDF Here</div>
+      <div class="drag-sub">Release to import</div>
+    </div>
+
+    <div id="importToast" class="import-toast"></div>
+
+    <div class="section">
+      <div class="or-divider">or paste text</div>
+    </div>
+
+    <div class="section">
+      <textarea class="textarea-field" id="manualText" placeholder="Paste raw OFP text here…" rows="6"></textarea>
+    </div>
+
+    <div style="padding: 0 0 var(--sp4)">
+      <button class="btn-primary" style="max-width:100%" onclick="importManual()" aria-label="Import pasted OFP text">Import Text</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN: SAVED FLIGHTS
+     ══════════════════════════════════════════════════════ -->
+<div class="screen is-root" id="screen-flights">
+  <div class="nav-bar nav-secondary" style="padding-top:calc(var(--sat) + 12px);min-height:calc(var(--sat) + 56px)">
+    <!-- Add New Flight button — right edge 60px left of centered title -->
+    <button class="flights-add-btn" onclick="goToImport()" aria-label="Add new flight">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Add New Flight
+    </button>
+    <!-- Brand mark — centered, consistent with all screens -->
+    <span class="nav-brand-title" aria-label="PilotBrief">
+      <span class="nb-icon" style="width:28px;height:28px;border-radius:7px">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:18px">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label" style="font-size:20px;letter-spacing:-0.03em">PilotBrief</span>
+    </span>
+    <!-- Settings gear (right) -->
+    <button class="icon-btn" onclick="push('screen-settings')" aria-label="Settings" style="margin-left:auto">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
+  <div class="scroll-view" id="flightListScroll" style="padding-top: var(--sp3)">
+    <div class="empty-state" id="emptyFlights" style="display:none">
+      <svg class="empty-state-icon" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+        <rect x="12" y="8" width="32" height="40" rx="4"/>
+        <path d="M20 20h16M20 27h16M20 34h10"/>
+      </svg>
+      <div class="empty-state-title">No Saved Flights</div>
+      <div class="empty-state-sub">Import an OFP to begin your briefing.</div>
+    </div>
+    <div id="flightListBody"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN: BRIEFING NOTE
+     ══════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════
+     FLIGHT SCREEN — unified tab container
+     Replaces screen-note / screen-airports / screen-alternates
+     ══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-flight">
+
+  <!-- ── Top bar: back | FCIR toggle ── -->
+  <div class="nav-bar" id="flightNavBar" style="flex-shrink:0">
+    <button class="nav-back" onclick="popToFlights()" aria-label="Go back to Flights">
+      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1L1 8l6.5 7"/></svg>
+      Flights
+    </button>
+    <!-- Centered brand mark -->
+    <span class="nav-brand-title" aria-hidden="true">
+      <span class="nb-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8V16M50 84V92M8 50H16M84 50H92" stroke="rgba(255,255,255,0.28)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 63 L48 78 L84 30" stroke="#B59410" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 17 L54 34 L82 44 L82 56 L54 50 L50 68 L54 76 L46 76 L50 68 L46 50 L18 56 L18 44 L46 34 L50 17Z" fill="white"/>
+        </svg>
+      </span>
+      <span class="nb-label">PilotBrief</span>
+    </span>
+    <!-- Right cluster: Settings → FCIR -->
+    <div id="flightNavRight" style="display:flex;align-items:center;gap:0;margin-left:auto">
+      <button class="icon-btn" onclick="push('screen-settings')" aria-label="Settings">
+        <svg viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0
+            010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0
+            00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4
+            0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33
+            l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0
+            004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09
+            A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06
+            -.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68
+            a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65
+            0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0
+            012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65
+            0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0
+            00-1.51 1z"/>
+        </svg>
+      </button>
+      <div class="fcir-toggle-row">
+        <span class="fcir-label" id="fcirLabel" onclick="document.getElementById('fcirToggle').click()">FCIR/ASAP</span>
+        <label class="ios-toggle" aria-label="FCIR or ASAP mode">
+          <input type="checkbox" id="fcirToggle" onchange="toggleFCIR(this.checked)">
+          <span class="ios-toggle-track"></span>
+          <span class="ios-toggle-thumb"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Flight tab bar ── -->
+  <div class="flight-tab-bar" id="flightTabBar">
+    <button class="flight-tab active" id="ftab-note"       onclick="switchFlightTab('note')"       aria-label="Briefing note">
+      <!-- Brand compass icon: ring + airplane silhouette, monochromatic for tab state -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9.5" stroke-width="1.4"/>
+        <path d="M12 4.5 L12 6M12 18 L12 19.5M4.5 12 L6 12M18 12 L19.5 12" stroke-width="1.1" opacity="0.55"/>
+        <path d="M12 6.5 L12.75 9.5 L16.8 11.2 L16.8 12.8 L12.75 11.8 L12 14.8 L12.75 16.2 L11.25 16.2 L12 14.8 L11.25 11.8 L7.2 12.8 L7.2 11.2 L11.25 9.5 L12 6.5Z" fill="currentColor" stroke="none"/>
+      </svg>
+      <span>Briefing</span>
+    </button>
+    <button class="flight-tab" id="ftab-airports"  onclick="switchFlightTab('airports')"  aria-label="Airport status">
+      <!-- Control tower -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="10" y="14" width="4" height="7" rx="0.5"/>
+        <path d="M9 14h6V9l1.5-1H7.5L9 9v5z"/>
+        <rect x="7" y="6" width="10" height="3" rx="1"/>
+        <line x1="12" y1="2" x2="12" y2="6"/>
+        <line x1="5" y1="21" x2="19" y2="21"/>
+      </svg>
+      <span>Airports</span>
+    </button>
+    <button class="flight-tab" id="ftab-ofp"       onclick="switchFlightTab('ofp')"       aria-label="View OFP">
+      <!-- Document -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="9" y1="13" x2="15" y2="13"/>
+        <line x1="9" y1="17" x2="13" y2="17"/>
+      </svg>
+      <span>OFP</span>
+    </button>
+    <button class="flight-tab" id="ftab-alternates" onclick="switchFlightTab('alternates')" aria-label="Alternate routes">
+      <!-- Fork -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/>
+        <line x1="6" y1="8" x2="12" y2="16"/><line x1="18" y1="8" x2="12" y2="16"/>
+        <line x1="6" y1="8" x2="6" y2="11"/><line x1="18" y1="8" x2="18" y2="11"/>
+      </svg>
+      <span>Alternates</span>
+    </button>
+  </div>
+
+  <!-- ── Tab content panels ── -->
+  <!-- BRIEFING NOTE -->
+  <div class="flight-panel active" id="fpanel-note">
+    <div class="briefing-outer">
+      <!-- Sticky header: flight ID, date, OUT/IN, ETOPS — stays visible while scrolling -->
+      <div class="briefing-sticky-header" id="briefingStickyHeader">
+        <!-- Populated by renderNote() -->
+      </div>
+      <!-- Scrolling body: phase tabs + active phase card -->
+      <div class="briefing-scroll" id="noteBody"><!-- Rendered by renderNote() --></div>
+    </div>
+  </div>
+
+  <!-- AIRPORT STATUS -->
+  <div class="flight-panel" id="fpanel-airports">
+    <div class="scroll-view" id="airportGrid" style="padding-top:var(--sp3)">
+      <div class="empty-state" id="emptyAirports">
+        <svg class="empty-state-icon" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <circle cx="28" cy="28" r="20"/><path d="M28 18v12l6 6"/>
+        </svg>
+        <div class="empty-state-title">No Airport Data</div>
+        <div class="empty-state-sub">Import an OFP to load airport cards.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OFP VIEWER -->
+  <div class="flight-panel" id="fpanel-ofp">
+    <div class="scroll-view no-padding" id="ofpViewerContainer">
+      <!-- Populated by switchFlightTab('ofp') -->
+    </div>
+    <div style="position:absolute;top:8px;right:var(--sp4);font-size:13px;color:var(--label3);font-family:var(--font-mono);pointer-events:none" id="ofpPageCounter"></div>
+  </div>
+
+  <!-- ALTERNATES -->
+  <div class="flight-panel" id="fpanel-alternates">
+    <div class="scroll-view" id="altRouteGrid" style="padding-top:var(--sp3)">
+      <div class="empty-state" id="emptyAltRoutes">
+        <svg class="empty-state-icon" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <circle cx="14" cy="14" r="5"/><circle cx="42" cy="14" r="5"/><circle cx="28" cy="42" r="5"/>
+          <line x1="14" y1="19" x2="28" y2="37"/><line x1="42" y1="19" x2="28" y2="37"/>
+        </svg>
+        <div class="empty-state-title">No Alternate Routes</div>
+        <div class="empty-state-sub">Import an OFP to load alternate routes.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════
+     EDIT POPOVER (bottom sheet keyboard input)
+     ══════════════════════════════════════════════════════ -->
+<div class="edit-overlay" id="editOverlay" onclick="cancelEdit(event)">
+  <div class="edit-panel" id="editPanel" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp3)">
+      <div class="edit-label" id="editLabel">Edit</div>
+      <div style="font-size:11px;color:var(--label3);display:flex;align-items:center;gap:4px">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5L11 3 4 10l-2 .5.5-2L9.5 1.5z"/></svg>
+        Pencil or keyboard
+      </div>
+    </div>
+    <input class="edit-input" id="editInput"
+      autocomplete="off" autocorrect="off" spellcheck="false"
+      autocapitalize="characters"
+      inputmode="text"
+      maxlength="20"
+      aria-label="Edit field value">
+    <div class="edit-actions">
+      <button class="edit-btn" onclick="cancelEdit()" aria-label="Cancel edit">Cancel</button>
+      <button class="edit-btn confirm" onclick="confirmEdit()" aria-label="Confirm edit">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     OEI RUNWAY PICKER (bottom sheet)
+     ══════════════════════════════════════════════════════ -->
+<div class="oei-overlay" id="oeiOverlay" onclick="closeOeiPicker(event)">
+  <div class="oei-sheet" id="oeiSheet" onclick="event.stopPropagation()">
+    <div class="oei-sheet-title">Select Departure Runway</div>
+    <div id="oeiRwyList"><!-- populated by openOeiPicker() --></div>
+    <button class="oei-cancel-btn" onclick="closeOeiPicker()">Cancel</button>
+  </div>
+</div>
+
+<!-- Descent airport picker — same sheet pattern as OEI -->
+<div class="oei-overlay" id="descentAptOverlay" onclick="closeDescentAptPicker(event)">
+  <div class="oei-sheet" onclick="event.stopPropagation()">
+    <div class="oei-sheet-title">Select Airport</div>
+    <div id="descentAptList"><!-- populated by openDescentAptPicker() --></div>
+    <button class="oei-cancel-btn" onclick="closeDescentAptPicker()">Cancel</button>
+  </div>
+</div>
+
+<!-- Curfew detail — scrollable raw NOTAM text in a bottom sheet -->
+<div class="oei-overlay" id="curfewDetailOverlay" onclick="closeCurfewDetail(event)">
+  <div class="oei-sheet" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp3);flex-shrink:0">
+      <div class="oei-sheet-title" id="curfewDetailTitle" style="margin-bottom:0">Curfew</div>
+      <span id="curfewDetailDelta" style="font-size:13px;color:var(--label3)"></span>
+    </div>
+    <pre id="curfewDetailText"
+      style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+             font-family:var(--font-mono);font-size:13px;line-height:1.55;
+             color:var(--label);white-space:pre-wrap;word-break:break-word;
+             background:var(--fill4);border-radius:var(--r-md);
+             padding:var(--sp3);margin:0;min-height:80px">
+    </pre>
+    <button class="oei-cancel-btn" onclick="closeCurfewDetail()" style="margin-top:var(--sp3)">Done</button>
+  </div>
+</div>
+
+

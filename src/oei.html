@@ -1,0 +1,92 @@
+// ══════════════════════════════════════════════════════
+//  FCIR / ASAP TOGGLE
+// ══════════════════════════════════════════════════════
+let _fcirActive = false;
+
+function toggleFCIR(on) {
+  _fcirActive = on;
+  S.fcirAsap = on;
+  const label = document.getElementById('fcirLabel');
+  if (label) label.classList.toggle('active', on);
+  // Re-render the note body so FCIR Narrative section appears / disappears
+  renderNote();
+  // Save state so flight list reflects FCIR status on return to home
+  saveFlight();
+}
+
+// ═══════════════════════════════════════════════════════
+//  OEI RUNWAY PICKER
+// ═══════════════════════════════════════════════════════
+
+function openOeiPicker() {
+  const overlay = document.getElementById('oeiOverlay');
+  const list    = document.getElementById('oeiRwyList');
+  if (!overlay || !list) return;
+
+  const data = S.oeiData || [];
+  if (!data.length) return;  // no TLR parsed — fallback to legacy ev()
+
+  list.innerHTML = '';
+  data.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'oei-rwy-row' + (d.rwy === S.oeiSelectedRwy ? ' selected' : '');
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-label', `Runway ${d.rwy}: ${d.coChart ? 'SEE CO CHART' : d.special ? d.proc : d.efp}`);
+
+    // Runway ID
+    const idEl = document.createElement('span');
+    idEl.className = 'oei-rwy-id';
+    idEl.textContent = d.rwy;
+
+    // Procedure summary
+    const procEl = document.createElement('span');
+    procEl.className = 'oei-rwy-proc' + (d.coChart ? ' co-chart' : '');
+    if (d.coChart) {
+      procEl.textContent = 'SEE CO CHART';
+    } else if (d.special && d.proc) {
+      // Show abbreviated: first meaningful token (CLB VIA heading)
+      const abbr = d.proc.split(' ').slice(0,4).join(' ');
+      procEl.textContent = abbr + (d.proc.split(' ').length > 4 ? '…' : '');
+    } else {
+      procEl.textContent = d.efp;
+    }
+
+    // Checkmark for selected
+    const chk = document.createElement('span');
+    chk.className = 'oei-rwy-check';
+    chk.textContent = d.rwy === S.oeiSelectedRwy ? '✓' : '';
+
+    row.appendChild(idEl);
+    row.appendChild(procEl);
+    row.appendChild(chk);
+    row.addEventListener('click', () => selectOeiRwy(d.rwy));
+    row.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'pen') { e.preventDefault(); selectOeiRwy(d.rwy); }
+    });
+    list.appendChild(row);
+  });
+
+  overlay.classList.add('open');
+}
+
+function closeOeiPicker(e) {
+  if (e && e.target !== document.getElementById('oeiOverlay')) return;
+  document.getElementById('oeiOverlay').classList.remove('open');
+}
+
+function selectOeiRwy(rwy) {
+  S.oeiSelectedRwy = rwy;
+  saveFlight();
+  document.getElementById('oeiOverlay').classList.remove('open');
+  renderNote();
+}
+
+// Copy FCIR narrative text to clipboard
+function copyFcirNarrative() {
+  const pad = document.getElementById('fcirNarrativePad');
+  const txt = pad ? pad.value : (S.fcirNarrative || '');
+  if (!txt.trim()) { showToast('info', 'Narrative is empty'); return; }
+  const btn = document.querySelector('button[onclick="copyFcirNarrative()"]');
+  _pbCopy(txt, btn);
+}
+

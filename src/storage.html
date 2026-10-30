@@ -1,0 +1,127 @@
+function getFlights() {
+  try { return JSON.parse(localStorage.getItem('rp_flights') || '[]'); } catch(e) { return []; }
+}
+function putFlights(arr) {
+  try { localStorage.setItem('rp_flights', JSON.stringify(arr.slice(0,25))); } catch(e) {}
+}
+function saveFlight() {
+  if (!S.fltNum && !S.date) return;
+  const flights = getFlights();
+  const id = 'f_' + Date.now();
+  const idx = flights.findIndex(f => f.fltNum === S.fltNum && f.date === S.date);
+  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state:{...S}, raw:pdfRawText.substring(0,10000), aptData: JSON.parse(JSON.stringify(airportData)) };
+  const stableId = idx >= 0 ? flights[idx].id : entry.id;
+  if (idx >= 0) { flights[idx] = {...entry, id: stableId}; }
+  else { flights.unshift(entry); }
+  putFlights(flights);
+  // Persist PDF binary to IndexedDB (fire-and-forget — non-blocking)
+  if (pdfArrayBuffer) _pdfDb.set(stableId, pdfArrayBuffer).catch(() => {});
+}
+function deleteFlight(id) {
+  // Block deletion if FCIR/ASAP is active — must be turned off first
+
+  if (_fcirActive) {
+    showToast('Turn off FCIR/ASAP toggle before deleting this flight.', 'error');
+    return;
+  }
+  putFlights(getFlights().filter(f => f.id !== id));
+  _pdfDb.del(id);  // remove PDF binary from IndexedDB
+  _clearResumeView();
+  renderFlightList();
+}
+function clearOFPPanel() {
+  // Wipe the OFP viewer so the next loadOFPPanel() call renders fresh content.
+  // Must be called whenever a new flight is loaded or a new PDF is imported.
+  _pdfDocProxy = null;
+  const c = document.getElementById('ofpViewerContainer');
+  if (c) c.innerHTML = '';
+  const ctr = document.getElementById('ofpPageCounter');
+  if (ctr) ctr.textContent = '';
+}
+
+function loadFlight(entry) {
+  // Always start from a clean slate — prevents any residual state from a
+  // previously viewed flight bleeding into the loaded one.
+  resetStateForNewFlight();
+  // Restore state from saved entry
+  Object.assign(S, entry.state || {});
+  pdfRawText = entry.raw || '';
+  pdfArrayBuffer = null;   // start null; async restore from IndexedDB below
+  clearOFPPanel();         // wipe any canvas pages from the previously viewed flight
+  _fcirActive = !!(S.fcirAsap);
+  // Restore airport wx/notam data from saved entry
+  airportData = entry.aptData ? JSON.parse(JSON.stringify(entry.aptData)) : {};
+  // Restore the flight date for timezone calculations
+  window._flightDateISO = '';
+  if (S.date) {
+    // Re-derive ISO date from stored date string (e.g. "06 MAR 26")
+    try {
+      const MONTHS = {JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+      const dm = S.date.match(/(\d{2})\s+([A-Z]{3})\s+(\d{2})/);
+      if (dm) {
+        const d = new Date(Date.UTC(2000+parseInt(dm[3]), MONTHS[dm[2]], parseInt(dm[1])));
+        window._flightDateISO = d.toISOString().slice(0,10);
+      }
+    } catch(e) {}
+  }
+  // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text
+  if (entry.id) {
+    _pdfDb.get(entry.id).then(buf => {
+      if (buf) {
+        pdfArrayBuffer = buf;
+        // If the OFP panel is currently visible, re-render it with the PDF
+        const ofpPanel = document.getElementById('fpanel-ofp');
+        if (ofpPanel && ofpPanel.classList.contains('active')) {
+          clearOFPPanel();
+          loadOFPPanel();
+        }
+      }
+    }).catch(() => {});
+  }
+  renderNote();
+  push('screen-flight');
+  const tog = document.getElementById('fcirToggle');
+  if (tog) tog.checked = _fcirActive;
+  const lbl = document.getElementById('fcirLabel');
+  if (lbl) lbl.classList.toggle('active', _fcirActive);
+  _saveResumeView();
+}
+
+function renderFlightList() {
+  const flights = getFlights();
+  const body = document.getElementById('flightListBody');
+  const empty = document.getElementById('emptyFlights');
+  body.innerHTML = '';
+
+  if (!flights.length) {
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+
+  flights.forEach(f => {
+    const saved = new Date(f.at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    const isFCIR = !!(f.state && f.state.fcirAsap);
+    const cell = document.createElement('div');
+    cell.className = 'section';
+    cell.innerHTML = `
+      <div class="cell-group">
+        <div class="cell${isFCIR ? ' flight-cell-fcir' : ''}" role="button" tabindex="0" aria-label="Load flight ${f.fltNum||''}">
+          <div class="cell-content">
+            <div class="cell-title" style="font-weight:700; font-size:17px; font-family:var(--font-mono); letter-spacing:0.02em">${esc(f.fltNum||'—')}</div>
+            <div class="cell-subtitle">${esc(f.date||'')}  ·  Saved ${saved}${isFCIR ? '  ·  <span style="color:var(--sys-yellow);font-weight:600">FCIR/ASAP</span>' : ''}</div>
+          </div>
+          <button class="flight-del-btn" onclick="event.stopPropagation();deleteFlight('${f.id}')" aria-label="Delete ${f.fltNum}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+            </svg>
+          </button>
+          <svg class="cell-chevron" viewBox="0 0 9 14" aria-hidden="true"><path d="M1 1l6.5 6L1 13"/></svg>
+        </div>
+      </div>`;
+    cell.querySelector('.cell').addEventListener('click', () => loadFlight(f));
+    body.appendChild(cell);
+  });
+}
+
