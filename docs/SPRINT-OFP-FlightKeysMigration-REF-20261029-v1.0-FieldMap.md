@@ -125,6 +125,6 @@ Legend: **✅ SAME** works unchanged · **🟡 ADAPT** located, pattern change n
 
 **Safety-Critical fields affected:** `catIiIiiApproaches` 🔴, `crewMembers` 🔴, airport NOTAM/WX/curfew 🔴, `etops*` ❓, `slotTime` ❓, `dotExemption` ❓. Fuel fields `blockFuelRaw`/`minfFuelRaw` are ✅.
 
-**New FK data worth considering (additive, deferred — not in scope v1.0):** release status `-- NOT RELEASED --`, `Release Valid Until 0600Z 27OCT26`, dispatcher `FARERMAN ROSINTON DESK: 61`, `Coldest Fuel Tem
+**New FK data worth considering (additive, deferred — not in scope v1.0):** release status `-- NOT RELEASED --`, `Release Valid Until 0600Z 27OCT26`, dispatcher `FARERMAN ROSINTON DESK: 61`, `Coldest Fuel Temp`, `FF +5.4`, ADHOC penalty text, FUFI ID, alt-route GDIS/FUEL/TIME.
 
-<!-- Source text ends here (mid-word) in the Drive copy. -->
+---
