@@ -1,7 +1,7 @@
 # SPRINT-OFP-ImportPlatform
 
-**Version:** v2.3 | **Status:** UPD | **Date:** 2026-10-29
-**Supersedes:** v2.2 (same day: repository guard in every prompt; review and QA prompts inline; HF-4 approved; progress recorded), v2.1, v2.0, SPRINT-OFP-ImportPlatform v1.0 and SPRINT-OFP-FlightKeysMigration v1.0. The FlightKeys field map in the latter (§2) remains the reference.
+**Version:** v2.4 | **Status:** UPD | **Date:** 2026-10-30
+**Supersedes:** v2.3 (P2a and P2b prompts separated; matched-pair fixture name corrected; CI-1 added so intended snapshot changes are tested before merge; P5a builds the engine into the app; FlightKeys release step REL-FK and gate QA-FK added; progress recorded), v2.2, v2.1, v2.0, SPRINT-OFP-ImportPlatform v1.0 and SPRINT-OFP-FlightKeysMigration v1.0. The FlightKeys field map in the latter (§2) remains the reference.
 **Architecture:** ADR-004 v1.3 (Accepted) · **Diagnosis:** RPT-OFP-LiveDefectDiagnosis v1.1
 **Programme order:** ① OFP import platform (this plan) → ② NOTAM engine rewrite → ③ app update
 
@@ -15,7 +15,7 @@
 | **Safety first** | The two live defects (214 suppressed NOTAMs; Company Remarks dumps) and the iOS "Cellular Data is Turned Off" alert (HF-3) are fixed in **weeks 1–2**, before the rebuild. **FlightKeys is built first** and moves onto the new import in about **week 5**. Navtech and eOFP stay on today's hotfixed parser until their profile passes the golden master. |
 | **How the work is done** | In the GitHub repository. Every change is a pull request with automated tests and an independent review. You approve as domain authority from a plain-language summary and a beta check on iPad. |
 | **Duration** | ≈ 8 weeks, paced for accuracy. Each stage is gated by tests on all fixture packages. |
-| **Budget** | 40 sessions + 6 contingency: **$33.90 – $46.60**. Ceiling: **$47** (HF-4 approved). GitHub test runs cost nothing at this scale. |
+| **Budget** | 46 sessions + 6 contingency: **$35.35 – $48.90**. Ceiling: **$47** approved; **$49 proposed** (D19) to cover CI-1, REL-FK and QA-FK. GitHub test runs cost nothing at this scale. |
 | **Two repositories** | **`velocemente/relief-pilot`** = development and beta. **All** sessions work here. **`velocemente/PilotBrief`** = production; read-only for Claude, updated only by the production release step (§2, REL-PROD). |
 
 ---
@@ -24,11 +24,19 @@
 
 | Item | Status |
 |---|---|
-| Beta synced to production v1.9.9 | **Done** — PR #1 merged 29 Oct |
-| F0 Foundation (+ review) | **Done** — PR #2 merged 29 Oct; review APPROVE-FOR-EXEC |
+| Beta synced to production v1.9.9 | **Done** — PR #1 |
+| F0 Foundation (+ review) | **Done** — PR #2 |
 | Fixtures library | **Done** — `pilotbrief-fixtures`: 32 packages, text, positions, snapshots |
-| HF-1 NOTAM year | **PR #3 open** — awaiting review (prompt in §7) |
-| HF-2, HF-3, HF-4 | Not started |
+| HF-1 NOTAM year | **Done** — PR #3 |
+| HF-2 Company Remarks | **Done** — PR #5 + fixtures PR #1 |
+| HF-3 No background network | **Merged** — PR #6. **Open item:** the iOS "Cellular Data is Turned Off" alert is still seen in Slide Over (C2 not met). Deferred by Exec 30 Oct. Likely cause: iOS's own update check when it restarts the app, outside app code. |
+| HF-4 Return to the open flight | **Done** — PR #7 |
+| REL-HF 1.9.9-hf1 · QA-HF | **Done** — PR #8; gate run 30 Oct |
+| REL-PROD-HF | Files handed to Exec 30 Oct — production upload to be confirmed |
+| F1 Reorganise the code | **Done** — PR #9 (`src/` modules, `build/build.js`) |
+| E1a, E1b Engine | **Done** — PR #10, PR #11 (`src/import/`, not yet in the app) |
+| P2a | Started 30 Oct with the v2.3 prompt, corrected in chat; v2.4 prompt below |
+| Next | CI-1 → P2a review → P2b (needs IA/TA definition) → P5a → REL-FK → QA-FK |
 
 ---
 
@@ -36,10 +44,10 @@
 
 | # | When | What you decide or check | Time |
 |---|---|---|---|
-| C1 | Now | IA/TA definition when ready; supply the fixtures in §5 | 5 min |
-| C2 | Week 1–2 | Hotfix on beta: RJAA RWY 16L/34R CLSD shows; RJAA Company Remarks short; with cellular data off, move PilotBrief into Slide Over several times — no alert (or at most one from iOS itself); if HF-4 approved, it returns to the open flight → approve for production | 20 min |
+| C1 | Now | IA/TA definition — **needed before P2b (critical path)**; supply the fixtures in §5; confirm D19 and D20 | 5 min |
+| C2 | Week 1–2 | Hotfix on beta: RJAA RWY 16L/34R CLSD shows; RJAA Company Remarks short; with cellular data off, move PilotBrief into Slide Over several times — no alert (or at most one from iOS itself); it returns to the open flight → approve for production. *Alert part open — see §1.* | 20 min |
 | C3 | Week 2–3 | After the code is reorganised: beta behaves exactly as before (no visible change) | 10 min |
-| C-FK | Week 5 | **FlightKeys on the new import:** both prototypes plus any live package. NOTAMs, weather, curfews, crew, CAT II/III and MEL populated; self-check findings reviewed → approve for production | 30 min |
+| C-FK | Week 5 | **FlightKeys on the new import:** both prototypes plus any live package. NOTAMs, weather, curfews, crew, CAT II/III and MEL populated; self-check findings reviewed; QA-FK "Gate: GO" → approve for production | 30 min |
 | C4 | Week 7 | Parity report: same flight across formats; sample briefings side by side → SME sign-off | 45 min |
 | C5 | Week 7 | Revision field, changes card, kept crew entries, older-revision warning, BTB/ATB buttons and new-flight behaviour, **Q** marker on airport cards on beta; confirm the two BTB/ATB assumptions (ADR-004) | 30 min |
 | C6 | Week 8 | Production release: cold start in airplane mode, one package of each format | 20 min |
@@ -61,31 +69,36 @@ Each pull request carries a short section you can read: **What changes for crews
 
 | ID | Session | Model · Effort | Output |
 |---|---|---|---|
-| HF-1 | DEF-A NOTAM year fixes (R1, R2 only — D8) — **PR #3 open** | Sonnet 4.6 · High | PR + tests TC-110-001…006 |
-| HF-2 | DEF-B Company Remarks pairing | Sonnet 4.6 · High | PR + tests TC-110-010…012 |
-| HF-3 | No background network activity: remove background refresh; update checks only on request ("Check for update" in Settings) — iOS cellular alert in Slide Over | Sonnet 4.6 · High | PR + tests |
-| HF-4 | After an iOS reload, return to the open flight, tab and phase (**approved**, D17) | Sonnet 4.6 · High | PR + tests |
+| HF-1 ✅ | DEF-A NOTAM year fixes (R1, R2 only — D8) — **done, PR #3** | Sonnet 4.6 · High | PR + tests TC-110-001…006 |
+| HF-2 ✅ | DEF-B Company Remarks pairing — **done, PR #5** | Sonnet 4.6 · High | PR + tests TC-110-010…012 |
+| HF-3 ✅* | **Merged, PR #6 — alert still open (§1).** No background network activity: remove background refresh; update checks only on request ("Check for update" in Settings) — iOS cellular alert in Slide Over | Sonnet 4.6 · High | PR + tests |
+| HF-4 ✅ | After an iOS reload, return to the open flight, tab and phase (D17) — **done, PR #7** | Sonnet 4.6 · High | PR + tests |
 | R-HF1 … R-HF4 | Independent review of each hotfix PR | Haiku 4.5 | Review comment on each PR |
-| REL-HF | Version 1.9.9-hf1 (index.html, sw.js, manifest aligned) | Haiku 4.5 | PR → beta |
-| QA-HF | Hotfix release gate on beta | Haiku 4.5 | Report → **C2** |
+| REL-HF ✅ | Version 1.9.9-hf1 (index.html, sw.js, manifest aligned) | Haiku 4.5 | PR → beta |
+| QA-HF ✅ | Hotfix release gate on beta | Haiku 4.5 | Report → **C2** |
 | REL-PROD-HF | Copy the approved beta files to production `PilotBrief` (Method A, by you) | Exec (D18 = A) | Production updated |
 
 ### Stage F1 — Reorganise the code (weeks 2–3)
 
 | ID | Session | Model · Effort | Output |
 |---|---|---|---|
-| F1 | Split `index.html` into modules + build step that reproduces it **byte-for-byte** | Sonnet 4.6 · High | PR; automated hash check proves an identical build → **C3** |
-| R-F1 | Independent review | Haiku 4.5 | |
+| F1 ✅ | Split `index.html` into modules + build step that reproduces it **byte-for-byte** | Sonnet 4.6 · High | PR; automated hash check proves an identical build → **C3** |
+| R-F1 ✅ | Independent review | Haiku 4.5 | |
+| CI-1 | Tests use the fixtures branch with the same name as the PR branch, so an intended snapshot change goes green before anything is merged | Haiku 4.5 · Standard | PR (test workflow + one CLAUDE.md paragraph) |
+| R-CI1 | Independent review | Haiku 4.5 | |
 
 ### Stage P — Import platform (weeks 3–7) — FlightKeys first
 
 | ID | Session | Model · Effort | Output |
 |---|---|---|---|
-| E1a | Engine: PDF adapter (existing line routine + positions) and format detector | Sonnet 4.6 · High | PR + unit tests |
-| E1b | Engine: field registry, canonical NOTAM record, validation, provenance, legacy output | Sonnet 4.6 · High | PR + unit tests |
+| E1a ✅ | Engine: PDF adapter (existing line routine + positions) and format detector | Sonnet 4.6 · High | PR + unit tests |
+| E1b ✅ | Engine: field registry, canonical NOTAM record, validation, provenance, legacy output | Sonnet 4.6 · High | PR + unit tests |
 | P2a | FlightKeys profile: OFP pages, incl. **Q** (Special Qual Airport) flag per airport | Sonnet 4.6 · High | PR; field map rows 1–42 |
 | P2b | FlightKeys profile: Company NOTAMs, NOTAM & weather briefings | Sonnet 4.6 · High | PR; field map rows 43–50 |
-| P5a | **FlightKeys packages routed through the engine;** Navtech/eOFP unchanged | Haiku 4.5 · Standard | PR → beta → **C-FK** → production |
+| P5a | **Engine built into the app; FlightKeys packages routed through it;** Navtech/eOFP unchanged | Haiku 4.5 · Standard | PR → beta |
+| REL-FK | FlightKeys release version (index.html, sw.js, manifest aligned; D20) | Haiku 4.5 · Standard | PR → beta |
+| QA-FK | FlightKeys release gate on beta | Haiku 4.5 | Report → **C-FK** |
+| REL-PROD-FK | Copy the approved beta files to production `PilotBrief` (Method A, by you) | Exec (D18 = A) | Production updated |
 | P1a | Navtech profile: release, fuel, weights, remarks, CAT II/III, MEL, crew, flags, slot, exemption | Sonnet 4.6 · High | PR; golden master vs production |
 | P1b | Navtech profile: nav log, TOC, ETOPS/CFS/ETP, POR, tracks, alternate routes, TLR, overflight | Sonnet 4.6 · High | PR; golden master |
 | P1c | Navtech profile: Company NOTAMs, remarks, NOTAM records, weather, FIR | Sonnet 4.6 · High | PR; golden master (only DEF-A/B diffs allowed) |
@@ -93,7 +106,7 @@ Each pull request carries a short section you can read: **What changes for crews
 | RV1 | Revision comparison, `Revision` field, kept crew entries (D12), older-revision rule (D13), BTB/ATB new-flight rule (D15) | Sonnet 4.6 · High | PR |
 | RV2 | Header `Revision : NN` (D14) + changes card + BTB/ATB buttons beside FCIR/ASAP + **Q** marker beside airport name on airport cards (D16) | Haiku 4.5 · Standard | PR → **C5** |
 | QA-X | Cross-format parity and safety-critical audit | Sonnet 4.6 · High | Report → **C4** |
-| R-× | Independent review of every PR (F1, E1a, E1b, P2a, P2b, P5a, P1a, P1b, P1c, B1, RV1, RV2, P5) — prompt inline after each brief in §7 | Haiku 4.5 | Review comment on each PR |
+| R-× | Independent review of every PR (F1, E1a, E1b, CI-1, P2a, P2b, P5a, REL-FK, P1a, P1b, P1c, B1, RV1, RV2, P5) — prompt inline after each brief in §7 | Haiku 4.5 | Review comment on each PR |
 
 ### Stage P5 — Full switch-over and release (week 8)
 
@@ -104,12 +117,12 @@ Each pull request carries a short section you can read: **What changes for crews
 | QA-R | Release gate + RUN-111 record | Haiku 4.5 | Report → **C6** |
 | REL-PROD | Copy the approved beta release to production `PilotBrief` (Method A, by you) | Exec (D18 = A) | Production updated |
 
-**Sequence:** F0 ✅ → H (HF-1, HF-2, HF-3, HF-4 in parallel) → REL-HF → QA-HF → REL-PROD-HF → F1 → E1a → E1b → **P2a → P2b → P5a (FlightKeys live on engine)** → P1a → P1b → P1c → B1 ∥ RV1 → RV2 → QA-X → P5 → QA-R → REL-PROD.
+**Sequence:** F0 ✅ → H ✅ (HF-1, HF-2, HF-3, HF-4) → REL-HF ✅ → QA-HF ✅ → REL-PROD-HF → F1 ✅ → E1a ✅ → E1b ✅ → **CI-1 → P2a → P2b → P5a → REL-FK → QA-FK → REL-PROD-FK (FlightKeys live on engine)** → P1a → P1b → P1c → B1 ∥ RV1 → RV2 → QA-X → P5 → QA-R → REL-PROD.
 
 **Why FlightKeys first (D6):**
 - FlightKeys goes live before the platform completes, and today's parser leaves its NOTAMs, weather, crew, CAT II/III and MEL empty.
 - Navtech/eOFP already work on the hotfixed parser, so they can wait for their profile and golden master without crew impact.
-- Indicative calendar: wk1 F0, HF-1…HF-4 · wk2 REL-HF, F1 · wk3 E1a, E1b · wk4 P2a, P2b · **wk5 P5a** · wk6 P1a–c · wk7 B1, RV1, RV2, QA-X · wk8 P5, QA-R.
+- Indicative calendar: wk1 F0, HF-1…HF-4 · wk2 REL-HF, F1 · wk3 E1a, E1b, CI-1 · wk4 P2a, P2b · **wk5 P5a, REL-FK, QA-FK** · wk6 P1a–c · wk7 B1, RV1, RV2, QA-X · wk8 P5, QA-R.
 
 **Model rule (Operating Practice II-3) retained:** the authoring session never reviews its own work; reviews are separate sessions. Automated tests are the hard gate; human approval is the final gate.
 
@@ -120,15 +133,16 @@ Each pull request carries a short section you can read: **What changes for crews
 | Group | Sessions | USD |
 |---|---|---|
 | Sonnet 4.6 authoring (F0, HF-1, HF-2, HF-3, HF-4, F1, E1a, E1b, P2a–b, P1a–c, B1, RV1, QA-X) | 16 | 23.50 – 31.50 |
-| Haiku 4.5 authoring / QA (REL-HF, QA-HF, P5a, RV2, P5, QA-R) | 6 | 1.70 – 2.80 |
-| Haiku 4.5 independent reviews (one per PR) | 18 | 3.60 – 5.40 |
-| **Base** | **40** | **28.80 – 39.70** |
+| Haiku 4.5 authoring / QA (REL-HF, QA-HF, CI-1, P5a, REL-FK, QA-FK, RV2, P5, QA-R) | 9 | 2.55 – 4.20 |
+| Haiku 4.5 independent reviews (one per PR, incl. REL-HF, CI-1, REL-FK) | 21 | 4.20 – 6.30 |
+| **Base** | **46** | **30.25 – 42.00** |
 | Contingency: 3 rework loops (author + review) | 6 | 5.10 – 6.90 |
-| **Total** | **46** | **33.90 – 46.60** |
-| **Ceiling (approved with HF-4)** | | **47.00** |
+| **Total** | **52** | **35.35 – 48.90** |
+| **Ceiling** | | **47.00 approved · 49.00 proposed (D19)** |
 
 - **Hotfix track** (HF-1…HF-4, REL-HF, QA-HF and reviews): $6.00 – 7.80.
-- **Change from v2.2:** HF-4 approved and included; QA-HF added (release gate before the hotfix reaches production). F0 and its review were done within the original estimate.
+- **Change from v2.3:** review count corrected 18 → 19 (REL-HF has a review); added CI-1 + review, REL-FK + review, QA-FK (+ $1.45 – 2.30).
+- **Change from v2.2:** HF-4 approved and included; QA-HF added (release gate before the hotfix reaches production).
 
 ---
 
@@ -137,7 +151,7 @@ Each pull request carries a short section you can read: **What changes for crews
 1. **Formats:** every fixture is recognised correctly; truncated or mixed PDFs are refused with the warning.
 2. **Golden master:** the new import matches today's production output on all 30 Navtech/eOFP packages, except the documented DEF-A/DEF-B corrections.
 3. **FlightKeys:** all 50 fields resolved or flagged as absent with a reason; none silently empty.
-4. **Matched pair** (UAAA–EHAM 27 OCT, Navtech vs FlightKeys): same airports, crew, CAT II/III airports and MEL items, judged structurally. The two plans differ: the Navtech release was a redispatch plan (RAPT EDDP, RALT EDDB).
+4. **Matched pair** (UAAA–EHAM 27 OCT: `EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11` vs `FK_UAAA-EHAM_27OCT26_prototype`): same airports, crew, CAT II/III airports and MEL items, judged structurally. The two plans differ: the Navtech release was a redispatch plan (RAPT EDDP, RALT EDDB).
 5. **Self-checks:** TOF+TAXI=BLOCK, ZFW+TOF=TOGW, TOGW+TAXI=RAMP, TOGW−TRIP=LDGW on every fixture. Every release airport has NOTAMs and weather or an explicit nil.
 6. **Defects:** TC-110-001…012 pass.
 7. **Bookmarks:** same set and order on every format; each bookmark lands on the right page.
@@ -164,7 +178,7 @@ Each pull request carries a short section you can read: **What changes for crews
 | 5 | **Two revisions of the same flight** (Navtech, and later FlightKeys) | Tests the revision comparison and changes card |
 | 6 | Any FlightKeys package with WHEELS UP slot, DOT exemption, perishables, 777F | Remaining unverified fields |
 
-Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP. Move it to `NavBlue` to avoid confusion.
+Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP. Move it to `NavBlue` to avoid confusion. (In the fixtures repository it is already filed as `NB_EBLG-KORD_12OCT26_remarksdump_rev11`.)
 
 ---
 
@@ -177,7 +191,9 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 | D16 | **Q** = Special Qual Airport; show "Q" beside the airport name on each airport card whose ORIG/DEST/alternate line carries it | **Accepted** |
 | D17 | HF-4: after an iOS reload, return to the open flight, tab and phase | **Accepted** |
 | D18 | How approved releases reach production `PilotBrief`: **A** — Exec copies the three files by GitHub web upload (steps in §7, REL-PROD); **B** — grant the Claude app access to `PilotBrief` with a branch rule that requires your approval on every change, and a Haiku session opens the release PR | **Accepted — A** (29 Oct). Revisit after the platform release if wanted. |
-| — | Meaning of IA / TA windows in FlightKeys briefings | **Open** — Exec to define before P2b |
+| D19 | Budget ceiling $47 → $49 for CI-1, REL-FK and QA-FK (§3) | **Open** — Exec |
+| D20 | FlightKeys release version number (REL-FK) — proposed **1.10.0** (new capability) | **Open** — Exec |
+| — | Meaning of IA / TA windows in FlightKeys briefings | **Open** — Exec to define before P2b (**critical path**) |
 | D9 | Archive the undeployed September ruleset v1.2 | **Done** — moved to `90_Old Versions` |
 | D11 | Private fixtures repository; names may be redacted before upload | **Accepted** |
 | D12 | Keep on re-upload: notes, FCIR/ASAP, parking gate, ATIS, crew-updated times | **Accepted** |
@@ -192,12 +208,13 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 ### How every session runs
 
 1. **Start a new Claude Code session** and confirm the repository at the top of the setup screen reads **`velocemente/relief-pilot`**. It remembers the last one used; if it shows `PilotBrief`, tap it and change it. Every prompt below also checks this itself (STEP 0) and moves to `relief-pilot` if needed.
-2. **Choose the model** named in the *Start* line, paste the prompt, and let it run.
+2. **Choose the model** named in the *Start* line, paste the prompt, and let it run. If that model is no longer offered, use the current Sonnet (authoring) or Haiku (review, release, QA) model and tell Claude in the plan session, so the budget is kept right.
 3. When it reports a **PR number**, start the **review** session (Haiku 4.5) with that number in the review prompt.
 4. **Review verdict:**
-   - **APPROVE-FOR-EXEC** → do *Your check* on the beta app, then merge (companion fixtures PR first, if there is one).
+   - **APPROVE-FOR-EXEC** → do *Your check* on the beta app, then merge: the companion fixtures PR first (if there is one), then the app PR straight after.
    - **CHANGES-REQUESTED** → paste the review's findings into the authoring session (*"Address these review findings on the same PR: …"*), then run the review again on the same PR number.
-5. **Never** give Claude write access to `PilotBrief`, and never merge a PR whose CI is red.
+5. **Until CI-1 is merged:** a PR that intentionally changes golden snapshots fails *Golden compare*, because the tests still read the old snapshots. If the review's only blocker is that check and it confirms the companion fixtures PR matches every listed difference: merge the fixtures PR, open the app PR → **Checks** → **Re-run all jobs**, and merge once green.
+6. **Never** give Claude write access to `PilotBrief`, and never merge a PR whose CI is red. Recommended: GitHub → relief-pilot → Settings → Branches → rule for `main` → *Require status checks to pass* (`test`) and *Require a pull request before merging*, so the Merge button stays locked until the tests pass.
 
 ---
 
@@ -209,7 +226,7 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 
 ### HF-1 — NOTAM Year Fixes (DEF-A)
 
-**Status:** PR #3 open — run the review below with number **3**.
+**Status:** ✅ Done — PR #3 merged 30 Oct. Kept for reference.
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
@@ -270,6 +287,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -301,6 +319,8 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 ---
 
 ### HF-2 — Company Remarks Pairing (DEF-B)
+
+**Status:** ✅ Done — PR #5 merged 30 Oct (snapshots: fixtures PR #1). Kept for reference.
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
@@ -362,6 +382,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -393,6 +414,8 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 ---
 
 ### HF-3 — No Background Network Activity (iOS cellular alert)
+
+**Status:** Merged — PR #6, 30 Oct. **Open item:** the alert is still seen in Slide Over on beta (C2 not met); deferred by Exec. Next step when resumed: confirm the iPad shows v1.9.9-hf1, then test full screen vs Slide Over (§1).
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
@@ -464,6 +487,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -494,6 +518,8 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 ---
 
 ### HF-4 — Return to the Open Flight After an iOS Reload
+
+**Status:** ✅ Done — PR #7 merged 30 Oct. Kept for reference.
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
@@ -551,6 +577,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -579,6 +606,8 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 ---
 
 ### REL-HF — Hotfix Release Version
+
+**Status:** ✅ Done — PR #8 merged 30 Oct. Kept for reference.
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Haiku 4.5 · Standard** · paste the block below.
 
@@ -625,6 +654,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -651,6 +681,8 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 ---
 
 ### QA-HF — Hotfix Release Gate (QA)
+
+**Status:** ✅ Run 30 Oct. Kept for reference.
 
 > **Start (after REL-HF is merged):** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · paste the block below. No review session is needed — this produces a report, not a code change.
 
@@ -683,12 +715,15 @@ OUTPUT: post the gate report as ONE comment on the REL-HF PR (gh api repos/veloc
 
 ---
 
-### REL-PROD-HF / REL-PROD — Copy an Approved Release to Production
+### REL-PROD-HF / REL-PROD-FK / REL-PROD — Copy an Approved Release to Production
 
-**Method A (D18 = A, accepted) — you do it, about 10 minutes in Safari:**
-1. Open **github.com/velocemente/relief-pilot** → `index.html` → **Raw** → Share → **Save to Files** (folder *PilotBrief release*). Repeat for `sw.js` and `manifest.json`.
-2. Open **github.com/velocemente/PilotBrief** → **Add file → Upload files** → select the three files → commit message `Release 1.9.9-hf1 from relief-pilot <commit>` → **Commit changes**.
-3. Wait for the production site to update (a few minutes), open the production app online once, close and reopen it, and confirm Settings shows the new version.
+**Status:** REL-PROD-HF — the three 1.9.9-hf1 files (beta commit `ef8774c`) were handed to the Exec on 30 Oct; upload to be confirmed.
+
+**Method A (D18 = A, accepted) — you do it, about 10 minutes on the laptop:**
+1. **Get the three files.** Ask the plan session for them: Claude attaches `index.html`, `sw.js` and `manifest.json`, exact copies of the approved beta commit. Or, on **github.com/velocemente/relief-pilot**, open each file → **Download raw file**. Keep the exact names (no "(1)", no ".txt"). Optional: keep a copy in a Drive folder `Release <version>`.
+2. Open **github.com/velocemente/PilotBrief** → **Add file → Upload files** → drag in the three files → commit message `Release <version> from relief-pilot <commit>` → leave **Commit directly to the main branch** → **Commit changes**.
+3. Tell the plan session; it checks the production files match beta byte for byte (read-only access).
+4. On the iPad, on Wi-Fi: open the production app → Settings → **Check for update** → **Reload**, and confirm Settings shows the new version.
 
 **Method B (not in use — kept only in case D18 is revisited):** grant the Claude app access to `PilotBrief` *with* branch protection on `main` requiring your approval, then run:
 
@@ -707,6 +742,8 @@ TASK: copy index.html, sw.js and manifest.json byte-for-byte from
 ---
 
 ### F1 — Reorganise the Code (no behaviour change)
+
+**Status:** ✅ Done — PR #9 merged 30 Oct. App source is now `src/`; `index.html` is generated by `build/build.js`. Kept for reference.
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
@@ -763,6 +800,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -790,6 +828,8 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 ---
 
 ### E1a — Engine: PDF Adapter + Format Detector
+
+**Status:** ✅ Done — PR #10 merged 30 Oct. Kept for reference.
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
@@ -846,6 +886,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -873,6 +914,8 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 ---
 
 ### E1b — Engine: Field Registry, Validation, Provenance, Legacy Output
+
+**Status:** ✅ Done — PR #11 merged 30 Oct. Kept for reference.
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
@@ -932,6 +975,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -960,9 +1004,11 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 
 ---
 
-### P2a — FlightKeys Profile: OFP Pages
+### CI-1 — Test the Companion Snapshots Before Merge
 
-> **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
+**Status:** Next session (before the P2a review).
+
+> **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Haiku 4.5 · Standard** · paste the block below.
 
 ```
 STEP 0 — REPOSITORY CHECK (do this before anything else)
@@ -974,36 +1020,27 @@ STEP 0 — REPOSITORY CHECK (do this before anything else)
  Then: git fetch origin main; branch from the latest main; read CLAUDE.md fully
  before changing anything.
 
-MODEL: Sonnet 4.6 · High        REPO: velocemente/relief-pilot   BRANCH: p/p2a
-CONTEXT: ADR-004 v1.3; field map in docs/SPRINT-OFP-FlightKeysMigration v1.0 §2
- (50 fields). Profile 'atlas-fk' — built BEFORE the Navtech profile because FlightKeys
- is live (D6). The current parser is NOT an oracle for FlightKeys; the OFP text and the
- field map are. Fixtures: FK_ZUCK-UAAA, FK_UAAA-EHAM, plus any
- FlightKeys packages added under §5; matched pair JEPP_ALA-AMS_27OCT (Navtech, same
- flight; note it was a redispatch plan — compare structure, not numbers).
-SCOPE
- P2a: rows 1–42. Known forms: unit KG; "ZFW INC/1000"; "*ADDL FF ADJ +1.00 *";
-      VZFW text without asterisks; CAT lines bare in Remarks; MEL one line
-      "MEL 33-45-01 - desc" (exclude "Dispatcher applied ADHOC penalty"); crew
-      "LAST, FIRST" cut at ".." or "("; FIR rows "(ZLHW) AT OMBON 00.43 …";
-      "TOP OF STEP CLB/DSC"; alternate route "GCD … GDIS … FUEL … TIME …";
-      footers "FUFI: <uuid> PAGE n/m"; Revision "-.-" on unreleased plans; the "Q"
-      token on ORIG/DEST/alternate lines = Special Qual Airport (D16) → per-airport flag.
-      IA/TA window meaning: await Exec definition before P2b uses them.
- P2b: rows 43–50. Company NOTAMs (two copies; SUBJECT <ICAO>-<TAG>: CURFEW and
-      ARRL CRF → curfew; other airport tags → remarks; fleet tags → none). NOTAM
-      briefing: APT header, RWYS, role windows (DEPARTURE, DESTINATION, IA, TA),
-      categories, items with ISO validity (UTC; no year guessing); dedupe by NOTAM
-      ID. Weather briefing: METAR/TAF/ATIS per airport, two-column pages. FIR blocks.
-RULES: fields with no FlightKeys fixture yet return the legacy empty value AND a
- 'fixture pending' validation finding — never a guess.
-MANDATORY CHECKS: ZUCK curfew shows departure curfew 0100Z–1300Z; EHAM shows
- A2476/26 RWY 04/22 CLSD; every release airport incl. UCFM and EBBR has NOTAMs and
- weather or explicit nil; fleet NOTAM "FALSE MAIN DECK WARNINGS" filed under no
- airport; cross-checks pass on both FlightKeys fixtures.
-PULL REQUEST must include: What changes for crews · Evidence · Risk · How to check on iPad.
-Never merge your own PR. Never edit files outside the stated scope.
-THIS SESSION: P2a only (rows 1–42).
+MODEL: Haiku 4.5 · Standard     REPO: velocemente/relief-pilot   BRANCH: ci/fixtures-branch
+CONTEXT: CI (.github/workflows/test.yml) always checks out velocemente/pilotbrief-fixtures
+ at main. A PR that intentionally changes golden snapshots therefore cannot pass
+ "Golden compare" until its companion fixtures PR is merged — but approval needs green
+ CI. This blocked HF-2 (PR #5).
+TASK: change ONLY .github/workflows/test.yml and one paragraph of CLAUDE.md.
+1. Before the fixtures checkout, add a step that checks whether
+   velocemente/pilotbrief-fixtures has a branch named exactly like the PR's head branch
+   (github.head_ref), using FIXTURES_TOKEN read-only, never printed (e.g. git ls-remote
+   --heads with the token in an HTTP header). Output ref = that branch if it exists,
+   otherwise main.
+2. Check out the fixtures at that ref and print which ref was used.
+3. Keep unchanged: the fork guard, persist-credentials: false, permissions
+   (contents: read), and every existing test step.
+4. CLAUDE.md, "Golden snapshots" paragraph: the companion fixtures branch must use the
+   SAME name as the app branch; CI tests against it; merge the fixtures PR first, then
+   the app PR straight after.
+EVIDENCE: (a) this PR's own run: no fixtures branch → main, green; (b) a throw-away
+ fixtures branch with this PR's branch name and one deliberately changed snapshot makes
+ "Golden compare" fail and name that fixture — then delete that branch. Merge nothing
+ in the fixtures repository.
 
 PULL REQUEST (on velocemente/relief-pilot only)
 - Use .github/pull_request_template.md: What changes for crews · Evidence · Risk ·
@@ -1033,6 +1070,112 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
+4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
+   entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
+   positive AND a negative test.
+5. UTC only; esc() on every newly rendered string; no new UI unless the brief allows it;
+   no network activity added to app code.
+6. No crew names, employee numbers or fixture text in the PR, its files or comments.
+7. "What changes for crews" is accurate and understandable by a non-engineer;
+   "How to check on iPad" has at most 5 steps and matches the change.
+SCOPE OF THIS PR: .github/workflows/test.yml and the CLAUDE.md "Golden snapshots" paragraph only.
+SPECIFIC CHECKS FOR THIS PR
+a. The fixtures ref is the branch with the PR's branch name when it exists, otherwise main;
+   the log prints which ref was used.
+b. FIXTURES_TOKEN is never printed; persist-credentials: false and permissions
+   (contents: read) unchanged; fork guard intact.
+c. Every existing test step is unchanged.
+d. Evidence shows both runs (fallback to main green; same-name branch picked up and the
+   throw-away branch deleted afterwards).
+e. CLAUDE.md change limited to the golden-snapshots paragraph; golden snapshots unchanged.
+OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues/<number>/comments):
+ first line "Verdict: APPROVE-FOR-EXEC" or "Verdict: CHANGES-REQUESTED", then a
+ numbered findings table (severity S0–S4 · file:line · evidence · required fix).
+ Any S0/S1 finding, failing CI, or unexplained snapshot change = CHANGES-REQUESTED.
+ Finish by telling the Exec the verdict in two sentences of plain language.
+```
+
+> **Your check, after APPROVE-FOR-EXEC:** nothing changes on the iPad. Then on GitHub: open the PR → **Merge pull request** → **Confirm merge** (merge any companion fixtures PR first).
+
+---
+
+### P2a — FlightKeys Profile: OFP Pages
+
+> **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
+
+```
+STEP 0 — REPOSITORY CHECK (do this before anything else)
+ Run: git remote get-url origin
+ It must be https://github.com/velocemente/relief-pilot (development and beta).
+ If it is velocemente/PilotBrief (PRODUCTION) or anything else: STOP. Do not
+ branch, commit, push or open a PR there. Add velocemente/relief-pilot to this
+ session with push access, clone it, and continue there.
+ Then: git fetch origin main; branch from the latest main; read CLAUDE.md fully
+ before changing anything.
+
+MODEL: Sonnet 4.6 · High        REPO: velocemente/relief-pilot   BRANCH: p/p2a
+CONTEXT: ADR-004 v1.3; field map docs/SPRINT-OFP-FlightKeysMigration…FieldMap.md §2
+ (50 fields). Profile 'atlas-fk' — built BEFORE the Navtech profile because FlightKeys
+ is live (D6). The current parser is NOT an oracle for FlightKeys; the OFP text and the
+ field map are. Build on the merged engine in src/import/ (adapter-pdf, detector,
+ registry, notam-record, validate, legacy-shape): read and quote their interfaces first.
+ Fixtures: FK_ZUCK-UAAA_27OCT26_prototype, FK_UAAA-EHAM_27OCT26_prototype, plus any
+ FlightKeys packages added under §5. Matched pair: EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11
+ (iOS-printed Navtech eOFP of the same flight; a redispatch plan — compare structure,
+ not numbers).
+TASK — THIS SESSION: P2a only = field map rows 1–42 (OFP pages). Known forms: unit KG;
+ "ZFW INC/1000"; "*ADDL FF ADJ +1.00 *"; VZFW text without asterisks; CAT lines bare in
+ Remarks; MEL one line "MEL 33-45-01 - desc" (exclude "Dispatcher applied ADHOC
+ penalty"); crew "LAST, FIRST" cut at ".." or "("; FIR rows "(ZLHW) AT OMBON 00.43 …";
+ "TOP OF STEP CLB/DSC"; alternate route "GCD … GDIS … FUEL … TIME …"; footers
+ "FUFI: <uuid> PAGE n/m"; Revision "-.-" on unreleased plans; the "Q" token on
+ ORIG/DEST/alternate lines = Special Qual Airport (D16) → per-airport flag.
+OUT OF SCOPE: rows 43–50 (Company NOTAMs, NOTAM briefing, weather briefing, FIR blocks,
+ header stripping inside the briefings) — that is P2b. Do not wire the profile into the
+ app — that is P5a.
+RULES: fields with no FlightKeys fixture yet return the legacy empty value AND a
+ 'fixture pending' validation finding — never a guess. UTC only.
+ACCEPTANCE:
+- Every row 1–42 is resolved from the OFP text on both FK fixtures (a test quotes the
+  fixture line), or returns the legacy empty value plus a 'fixture pending' finding.
+- Cross-checks pass on both FK fixtures: TOF+TAXI=BLOCK, ZFW+TOF=TOGW, TOGW+TAXI=RAMP,
+  TOGW−TRIP=LDGW, MINF<=TOF.
+- Q flag set for ZUCK, UAAA, UCFM; not for EHAM, EBBR (positive and negative tests).
+- Safety-critical rows (block/min fuel, crew, CAT II/III, slot, DOT exemption, ETOPS):
+  a positive and a negative test each.
+- Matched pair: same airports, crew, CAT II/III airports and MEL items as the eOFP.
+- Not wired into the app: crews see no change; golden snapshots unchanged.
+
+PULL REQUEST (on velocemente/relief-pilot only)
+- Use .github/pull_request_template.md: What changes for crews · Evidence · Risk ·
+  How to check on iPad — plain language, no crew names or fixture text.
+- If golden snapshots change: run `node test/golden/run.js update --fixtures <clone>`,
+  push the snapshots to velocemente/pilotbrief-fixtures on a branch with the SAME
+  name, open a PR there, and link the two PRs both ways.
+- Never merge your own PR. Never edit files outside the stated scope.
+- Finish by reporting: the PR number and link, the CI result, and any companion
+  fixtures PR.
+```
+
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · replace `<number>` (and `<number>` in the URL) · paste the block below.
+
+```
+STEP 0 — REPOSITORY CHECK (do this before anything else)
+ You are reviewing https://github.com/velocemente/relief-pilot/pull/<number>
+ If this session is attached to velocemente/PilotBrief (PRODUCTION) or anything
+ else: add velocemente/relief-pilot to this session with push access (needed only
+ to post the review comment) and review there. Never review, comment on or change
+ PilotBrief. Read CLAUDE.md in relief-pilot before reviewing.
+
+You did NOT write this PR. Review only: do not push commits, do not merge.
+STANDARD CHECKS
+1. CI: the "test" check is green; open and read its output, not just the badge.
+2. Scope: list every file changed; flag any file or function outside the scope below.
+3. Golden snapshots: every snapshot difference is listed and explained in the PR's
+   Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
+   review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1048,7 +1191,10 @@ a. Every row 1–42 of docs/…FieldMap is either resolved (with a test quoting 
 b. Q (Special Qual Airport) flag set for ZUCK, UAAA, UCFM in the FK fixtures, and not for
    EHAM or EBBR.
 c. Cross-checks pass on both FK fixtures.
-d. Navtech/eOFP golden snapshots unchanged.
+d. All golden snapshots unchanged (the profile is not wired into the app).
+e. Matched pair compared with EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11: same airports,
+   crew, CAT II/III airports and MEL items (structure, not numbers).
+f. Nothing from rows 43–50 (Company NOTAMs, NOTAM/weather briefings, FIR) is in this PR.
 OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues/<number>/comments):
  first line "Verdict: APPROVE-FOR-EXEC" or "Verdict: CHANGES-REQUESTED", then a
  numbered findings table (severity S0–S4 · file:line · evidence · required fix).
@@ -1075,35 +1221,29 @@ STEP 0 — REPOSITORY CHECK (do this before anything else)
  before changing anything.
 
 MODEL: Sonnet 4.6 · High        REPO: velocemente/relief-pilot   BRANCH: p/p2b
-CONTEXT: ADR-004 v1.3; field map in docs/SPRINT-OFP-FlightKeysMigration v1.0 §2
- (50 fields). Profile 'atlas-fk' — built BEFORE the Navtech profile because FlightKeys
- is live (D6). The current parser is NOT an oracle for FlightKeys; the OFP text and the
- field map are. Fixtures: FK_ZUCK-UAAA, FK_UAAA-EHAM, plus any
- FlightKeys packages added under §5; matched pair JEPP_ALA-AMS_27OCT (Navtech, same
- flight; note it was a redispatch plan — compare structure, not numbers).
-SCOPE
- P2a: rows 1–42. Known forms: unit KG; "ZFW INC/1000"; "*ADDL FF ADJ +1.00 *";
-      VZFW text without asterisks; CAT lines bare in Remarks; MEL one line
-      "MEL 33-45-01 - desc" (exclude "Dispatcher applied ADHOC penalty"); crew
-      "LAST, FIRST" cut at ".." or "("; FIR rows "(ZLHW) AT OMBON 00.43 …";
-      "TOP OF STEP CLB/DSC"; alternate route "GCD … GDIS … FUEL … TIME …";
-      footers "FUFI: <uuid> PAGE n/m"; Revision "-.-" on unreleased plans; the "Q"
-      token on ORIG/DEST/alternate lines = Special Qual Airport (D16) → per-airport flag.
-      IA/TA window meaning: await Exec definition before P2b uses them.
- P2b: rows 43–50. Company NOTAMs (two copies; SUBJECT <ICAO>-<TAG>: CURFEW and
-      ARRL CRF → curfew; other airport tags → remarks; fleet tags → none). NOTAM
-      briefing: APT header, RWYS, role windows (DEPARTURE, DESTINATION, IA, TA),
-      categories, items with ISO validity (UTC; no year guessing); dedupe by NOTAM
-      ID. Weather briefing: METAR/TAF/ATIS per airport, two-column pages. FIR blocks.
+CONTEXT: as P2a — ADR-004 v1.3; field map docs/SPRINT-OFP-FlightKeysMigration…FieldMap.md
+ §2; engine in src/import/; fixtures FK_ZUCK-UAAA_27OCT26_prototype and
+ FK_UAAA-EHAM_27OCT26_prototype. P2a ('atlas-fk', rows 1–42) is merged: extend it, do
+ not rewrite it.
+TASK — THIS SESSION: P2b only = field map rows 43–50. Company NOTAMs (two copies;
+ SUBJECT <ICAO>-<TAG>: CURFEW and ARRL CRF → curfew; other airport tags → remarks;
+ fleet tags → none). NOTAM briefing: APT header, RWYS, role windows (DEPARTURE,
+ DESTINATION, IA, TA), categories, items with ISO validity (UTC; no year guessing);
+ dedupe by NOTAM ID. Weather briefing: METAR/TAF/ATIS per airport, two-column pages.
+ FIR blocks. Strip running headers and footers before any segmentation (row 50).
+ IA/TA windows: use only as defined by the Exec in docs/ADR-004; if still open, keep
+ them as text and do not use them for evaluation.
+OUT OF SCOPE: rows 1–42 (report any defect found there; do not fix it here); wiring
+ into the app (P5a).
 RULES: fields with no FlightKeys fixture yet return the legacy empty value AND a
- 'fixture pending' validation finding — never a guess.
-MANDATORY CHECKS: ZUCK curfew shows departure curfew 0100Z–1300Z; EHAM shows
- A2476/26 RWY 04/22 CLSD; every release airport incl. UCFM and EBBR has NOTAMs and
- weather or explicit nil; fleet NOTAM "FALSE MAIN DECK WARNINGS" filed under no
- airport; cross-checks pass on both FlightKeys fixtures.
-PULL REQUEST must include: What changes for crews · Evidence · Risk · How to check on iPad.
-Never merge your own PR. Never edit files outside the stated scope.
-THIS SESSION: P2b only (rows 43–50). IA/TA windows: use only as defined by the Exec in docs/ADR-004 (if still open, keep them as text and do not use them for evaluation).
+ 'fixture pending' validation finding — never a guess. UTC only.
+ACCEPTANCE (mandatory checks):
+- ZUCK curfew: departure curfew 0100Z–1300Z.
+- EHAM shows A2476/26 RWY 04/22 CLSD.
+- Every release airport incl. UCFM and EBBR has NOTAMs and weather or explicit nil.
+- Fleet NOTAM "FALSE MAIN DECK WARNINGS" filed under no airport.
+- Two-column weather pages: each METAR/TAF complete and under the right airport.
+- Not wired into the app: golden snapshots unchanged.
 
 PULL REQUEST (on velocemente/relief-pilot only)
 - Use .github/pull_request_template.md: What changes for crews · Evidence · Risk ·
@@ -1133,6 +1273,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1148,7 +1289,8 @@ a. The four MANDATORY CHECKS in the brief all pass (ZUCK curfew 0100Z–1300Z; E
    nil; fleet NOTAM filed under no airport).
 b. NOTAM validity from FlightKeys ISO dates — no year guessing; duplicates removed by ID.
 c. Two-column weather pages: each METAR/TAF is complete and assigned to the right airport.
-d. Navtech/eOFP golden snapshots unchanged.
+d. All golden snapshots unchanged (the profile is not wired into the app).
+e. Rows 1–42 code unchanged except where the PR explains why.
 OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues/<number>/comments):
  first line "Verdict: APPROVE-FOR-EXEC" or "Verdict: CHANGES-REQUESTED", then a
  numbered findings table (severity S0–S4 · file:line · evidence · required fix).
@@ -1177,12 +1319,25 @@ STEP 0 — REPOSITORY CHECK (do this before anything else)
 MODEL: Haiku 4.5 · Standard     REPO: velocemente/relief-pilot   BRANCH: p/p5a
 CONTEXT: ADR-004 v1.3. Engine (E1a, E1b) and 'atlas-fk' profile (P2a, P2b) are merged.
  FlightKeys is live; Navtech/eOFP must remain on the existing parser for now.
-TASK: in parseOFP(): run the engine's detector. If the profile is 'atlas-fk' → engine
- path (model → validation → legacy output merged into S exactly as today; validation
- FAIL on a safety-critical field → existing warning path with the D2 text; bookmarks
- unchanged until B1). Any other result → today's parser, unchanged.
-ACCEPTANCE: CI green; Navtech/eOFP golden snapshots unchanged; both FlightKeys fixtures
- import with NOTAMs, weather, curfews, crew, CAT II/III and MEL populated on beta.
+ The engine files src/import/*.js are Node modules (require / module.exports) used only
+ by the tests today — they are NOT in the app yet.
+TASK
+1. Bring the engine into the app: add the src/import/ modules to build/build.js so they
+   are inlined into index.html as one browser-safe script — no require, no
+   module.exports reaching the page, one namespace only (e.g. PB_IMPORT). The same files
+   must still load in Node for the tests. No network fetch of any kind; the app stays a
+   single offline file.
+2. In parseOFP() (src/ofp-parse.html): run the engine's detector. If the profile is
+   'atlas-fk' → engine path (model → validation → legacy output merged into S exactly as
+   today; validation FAIL on a safety-critical field → existing warning path with the
+   D2 text; bookmarks unchanged until B1). Any other result → today's parser, unchanged.
+3. Run node build/build.js; commit the src/ changes and the rebuilt index.html together.
+4. Do NOT change APP_VERSION, CACHE_NAME or the manifest version (REL-FK does that).
+ACCEPTANCE: CI green. Navtech/eOFP golden snapshots unchanged. The two FlightKeys
+ snapshots DO change: update them in a companion fixtures PR (same branch name) and
+ explain every difference (expected: NOTAMs, weather, curfews, crew, CAT II/III, MEL and
+ alternates now populated). Both FlightKeys fixtures import on beta with those fields
+ populated.
 
 PULL REQUEST (on velocemente/relief-pilot only)
 - Use .github/pull_request_template.md: What changes for crews · Evidence · Risk ·
@@ -1212,6 +1367,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1220,12 +1376,16 @@ STANDARD CHECKS
 6. No crew names, employee numbers or fixture text in the PR, its files or comments.
 7. "What changes for crews" is accurate and understandable by a non-engineer;
    "How to check on iPad" has at most 5 steps and matches the change.
-SCOPE OF THIS PR: parseOFP() routing only: FlightKeys → engine; everything else → today's parser.
+SCOPE OF THIS PR: build/build.js (engine inlined into index.html), parseOFP() routing (FlightKeys → engine; everything else → today's parser), rebuilt index.html, tests, companion snapshot PR.
 SPECIFIC CHECKS FOR THIS PR
 a. Navtech/eOFP golden snapshots unchanged (proves they still use today's parser).
-b. Both FK fixtures import with NOTAMs, weather, curfews, crew, CAT II/III and MEL populated.
-c. Safety-critical validation FAIL uses the existing warning path with the D2 text.
-d. No other UI change.
+b. The two FlightKeys snapshot changes are in a companion fixtures PR with the same
+   branch name; every difference is listed and explained; NOTAMs, weather, curfews, crew,
+   CAT II/III and MEL are populated for both FK fixtures.
+c. The engine is inlined in index.html: no require, import, fetch or new <script src>;
+   one namespace only; the tests still load the same src/import files.
+d. Safety-critical validation FAIL uses the existing warning path with the D2 text.
+e. No version change (REL-FK does it) and no other UI change.
 OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues/<number>/comments):
  first line "Verdict: APPROVE-FOR-EXEC" or "Verdict: CHANGES-REQUESTED", then a
  numbered findings table (severity S0–S4 · file:line · evidence · required fix).
@@ -1233,7 +1393,120 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
  Finish by telling the Exec the verdict in two sentences of plain language.
 ```
 
-> **Your check, after APPROVE-FOR-EXEC:** checkpoint **C-FK**: on beta, import both FlightKeys prototypes (and any live FlightKeys package) — NOTAMs, weather, curfews, crew, CAT II/III and MEL all populated. After merge, release to production with REL-PROD (Method A, by you). Then on GitHub: open the PR → **Merge pull request** → **Confirm merge** (merge any companion fixtures PR first).
+> **Your check, after APPROVE-FOR-EXEC:** merge the companion fixtures PR, then this PR. Beta updates within a few minutes: import both FlightKeys prototypes (and any live FlightKeys package) — NOTAMs, weather, curfews, crew, CAT II/III and MEL all populated. Not yet to production: REL-FK and QA-FK follow.
+
+---
+
+### REL-FK — FlightKeys Release Version
+
+> **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Haiku 4.5 · Standard** · paste the block below.
+
+```
+STEP 0 — REPOSITORY CHECK (do this before anything else)
+ Run: git remote get-url origin
+ It must be https://github.com/velocemente/relief-pilot (development and beta).
+ If it is velocemente/PilotBrief (PRODUCTION) or anything else: STOP. Do not
+ branch, commit, push or open a PR there. Add velocemente/relief-pilot to this
+ session with push access, clone it, and continue there.
+ Then: git fetch origin main; branch from the latest main; read CLAUDE.md fully
+ before changing anything.
+
+MODEL: Haiku 4.5 · Standard     REPO: velocemente/relief-pilot   BRANCH: rel/fk
+TASK: after P5a is merged and FlightKeys imports correctly on beta: set APP_VERSION (in
+ its src/ module, then rebuild index.html with node build/build.js), sw.js CACHE_NAME
+ 'pb-v<version>' and manifest.json version '<version>', where <version> is the number
+ the Exec approved in plan §6 D20 (proposed 1.10.0). Add plain-language release notes
+ (FlightKeys packages now fully imported: NOTAMs, weather, curfews, crew, CAT II/III,
+ MEL, alternates; Q marker data). CI green.
+
+PULL REQUEST (on velocemente/relief-pilot only)
+- Use .github/pull_request_template.md: What changes for crews · Evidence · Risk ·
+  How to check on iPad — plain language, no crew names or fixture text.
+- If golden snapshots change: run `node test/golden/run.js update --fixtures <clone>`,
+  push the snapshots to velocemente/pilotbrief-fixtures on a branch with the SAME
+  name, open a PR there, and link the two PRs both ways.
+- Never merge your own PR. Never edit files outside the stated scope.
+- Finish by reporting: the PR number and link, the CI result, and any companion
+  fixtures PR.
+```
+
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · replace `<number>` (and `<number>` in the URL) · paste the block below.
+
+```
+STEP 0 — REPOSITORY CHECK (do this before anything else)
+ You are reviewing https://github.com/velocemente/relief-pilot/pull/<number>
+ If this session is attached to velocemente/PilotBrief (PRODUCTION) or anything
+ else: add velocemente/relief-pilot to this session with push access (needed only
+ to post the review comment) and review there. Never review, comment on or change
+ PilotBrief. Read CLAUDE.md in relief-pilot before reviewing.
+
+You did NOT write this PR. Review only: do not push commits, do not merge.
+STANDARD CHECKS
+1. CI: the "test" check is green; open and read its output, not just the badge.
+2. Scope: list every file changed; flag any file or function outside the scope below.
+3. Golden snapshots: every snapshot difference is listed and explained in the PR's
+   Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
+   review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
+4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
+   entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
+   positive AND a negative test.
+5. UTC only; esc() on every newly rendered string; no new UI unless the brief allows it;
+   no network activity added to app code.
+6. No crew names, employee numbers or fixture text in the PR, its files or comments.
+7. "What changes for crews" is accurate and understandable by a non-engineer;
+   "How to check on iPad" has at most 5 steps and matches the change.
+SCOPE OF THIS PR: APP_VERSION (src/ module + rebuilt index.html), CACHE_NAME in sw.js, version in manifest.json, release notes. Nothing else.
+SPECIFIC CHECKS FOR THIS PR
+a. Exactly three version strings change and all equal the D20 version
+   (CACHE_NAME 'pb-v<version>'); index.html is the build of src/.
+b. CI-1, P2a, P2b and P5a are merged into main before this PR (check main's history).
+c. Release notes are plain language.
+d. Golden snapshots unchanged by this PR.
+OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues/<number>/comments):
+ first line "Verdict: APPROVE-FOR-EXEC" or "Verdict: CHANGES-REQUESTED", then a
+ numbered findings table (severity S0–S4 · file:line · evidence · required fix).
+ Any S0/S1 finding, failing CI, or unexplained snapshot change = CHANGES-REQUESTED.
+ Finish by telling the Exec the verdict in two sentences of plain language.
+```
+
+> **Your check, after APPROVE-FOR-EXEC:** nothing on iPad yet; QA-FK follows. Then on GitHub: open the PR → **Merge pull request** → **Confirm merge** (merge any companion fixtures PR first).
+
+---
+
+### QA-FK — FlightKeys Release Gate (QA)
+
+> **Start (after REL-FK is merged):** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · paste the block below. No review session is needed — this produces a report, not a code change.
+
+```
+STEP 0 — REPOSITORY CHECK (do this before anything else)
+ Run: git remote get-url origin
+ It must be https://github.com/velocemente/relief-pilot (development and beta).
+ If it is velocemente/PilotBrief (PRODUCTION) or anything else: STOP. Do not
+ branch, commit, push or open a PR there. Add velocemente/relief-pilot to this
+ session with push access, clone it, and continue there.
+ Then: git fetch origin main; use the latest main; read CLAUDE.md fully.
+ This is a READ-ONLY session: no code changes, no PRs.
+
+TASK — FlightKeys release gate for the D20 version (Operating Practice III-2)
+1. Confirm main contains CI-1, P2a, P2b, P5a and REL-FK (list merge commits), each with
+   a review comment "Verdict: APPROVE-FOR-EXEC".
+2. Confirm the latest CI run on main is green; read its output.
+3. Version alignment: APP_VERSION = CACHE_NAME = manifest version = D20 version.
+4. Run locally: node build/build.js (must equal index.html) · node test/check-syntax.js ·
+   npm test · node test/golden/run.js compare --fixtures <clone> ·
+   node tools/extract/verify.js <clone>. All must pass.
+5. FlightKeys audit, both FK fixtures: every field map row 1–50 listed as populated,
+   explicit nil or 'fixture pending' — zero silent empties; the P2b mandatory checks
+   pass; cross-checks pass; Q flags ZUCK, UAAA, UCFM only.
+6. Fill the Release Gate table: tests, syntax, version alignment, open S0/S1 defects
+   (none allowed), and the Exec items still to do.
+OUTPUT: post the gate report as ONE comment on the REL-FK PR (gh api repos/velocemente/relief-pilot/issues/<REL-FK PR>/comments), first
+ line "Gate: GO" or "Gate: NO-GO", then the table. End by telling the Exec, in plain
+ language, what remains for C-FK.
+```
+
+> **Your check (C-FK), after "Gate: GO":** on beta — one airplane-mode cold start; import both FlightKeys prototypes and any live FlightKeys package: NOTAMs, weather, curfews, crew, CAT II/III and MEL populated; self-check findings make sense; Settings shows the new version. Then do **REL-PROD-FK** (Method A, §7 REL-PROD).
 
 ---
 
@@ -1255,7 +1528,7 @@ MODEL: Sonnet 4.6 · High        REPO: velocemente/relief-pilot   BRANCH: p/p1a
 CONTEXT: ADR-004 v1.3. Profile 'atlas-5y' covers Navtech company PDFs and iOS-printed
  eOFPs (identical text). The engine and the 'atlas-fk' profile already exist and are
  live for FlightKeys — do not change them except through a reviewed engine fix. The
- current parser in src/ofp-parse is the behavioural oracle — port its patterns, do
+ current parser in src/ofp-parse.html is the behavioural oracle — port its patterns, do
  not reinvent them.
 SCOPE
  P1a: identity, ORIG/DEST/alternate lines, fuel, weights, ZFW INCR, ADDL FF ADJ, VZFW,
@@ -1270,7 +1543,7 @@ SCOPE
       Flight Plan copies handled as today.
 RULES: every changed anchor documented with before/after quote. ETOPS/ETP/POR values
  must trace to a quoted fixture line. UTC only.
-ACCEPTANCE: golden master — toLegacyShape(engine) equals production output on all 30
+ACCEPTANCE: golden master — toLegacyShape(engine) equals the golden snapshots on all 30
  Navtech/eOFP fixtures for every in-scope field; the only allowed diffs are those
  already approved in HF-1/HF-2.
 PULL REQUEST must include: What changes for crews · Evidence · Risk · How to check on iPad.
@@ -1305,6 +1578,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1315,7 +1589,7 @@ STANDARD CHECKS
    "How to check on iPad" has at most 5 steps and matches the change.
 SCOPE OF THIS PR: atlas-5y profile, P1a scope (identity, fuel, weights, flags, slot chain, exemption, CAT II/III, MEL, crew) + tests. Not wired into the app for Navtech yet.
 SPECIFIC CHECKS FOR THIS PR
-a. Engine output equals production output for every P1a field on all 30 Navtech/eOFP
+a. Engine output equals the golden snapshots for every P1a field on all 30 Navtech/eOFP
    fixtures (the golden comparison for those fields shows zero differences).
 b. Slot-time chain keeps all six priorities in the original order (positive and
    negative tests per priority).
@@ -1350,7 +1624,7 @@ MODEL: Sonnet 4.6 · High        REPO: velocemente/relief-pilot   BRANCH: p/p1b
 CONTEXT: ADR-004 v1.3. Profile 'atlas-5y' covers Navtech company PDFs and iOS-printed
  eOFPs (identical text). The engine and the 'atlas-fk' profile already exist and are
  live for FlightKeys — do not change them except through a reviewed engine fix. The
- current parser in src/ofp-parse is the behavioural oracle — port its patterns, do
+ current parser in src/ofp-parse.html is the behavioural oracle — port its patterns, do
  not reinvent them.
 SCOPE
  P1a: identity, ORIG/DEST/alternate lines, fuel, weights, ZFW INCR, ADDL FF ADJ, VZFW,
@@ -1365,7 +1639,7 @@ SCOPE
       Flight Plan copies handled as today.
 RULES: every changed anchor documented with before/after quote. ETOPS/ETP/POR values
  must trace to a quoted fixture line. UTC only.
-ACCEPTANCE: golden master — toLegacyShape(engine) equals production output on all 30
+ACCEPTANCE: golden master — toLegacyShape(engine) equals the golden snapshots on all 30
  Navtech/eOFP fixtures for every in-scope field; the only allowed diffs are those
  already approved in HF-1/HF-2.
 PULL REQUEST must include: What changes for crews · Evidence · Risk · How to check on iPad.
@@ -1400,6 +1674,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1410,7 +1685,7 @@ STANDARD CHECKS
    "How to check on iPad" has at most 5 steps and matches the change.
 SCOPE OF THIS PR: atlas-5y profile, P1b scope (nav log, TOC, ETOPS/CFS/ETP, POR, tracks, alternate routes, overflight, TLR) + tests.
 SPECIFIC CHECKS FOR THIS PR
-a. Engine output equals production output for every P1b field on all 30 fixtures.
+a. Engine output equals the golden snapshots for every P1b field on all 30 fixtures.
 b. ETOPS entry/exit and every ETP value trace to a quoted fixture line; positive (ETOPS
    fixtures) and negative (non-ETOPS fixture) tests exist.
 c. Revisions de-duplicated for field data as today (3-revision GTI8975 fixture).
@@ -1444,7 +1719,7 @@ MODEL: Sonnet 4.6 · High        REPO: velocemente/relief-pilot   BRANCH: p/p1c
 CONTEXT: ADR-004 v1.3. Profile 'atlas-5y' covers Navtech company PDFs and iOS-printed
  eOFPs (identical text). The engine and the 'atlas-fk' profile already exist and are
  live for FlightKeys — do not change them except through a reviewed engine fix. The
- current parser in src/ofp-parse is the behavioural oracle — port its patterns, do
+ current parser in src/ofp-parse.html is the behavioural oracle — port its patterns, do
  not reinvent them.
 SCOPE
  P1a: identity, ORIG/DEST/alternate lines, fuel, weights, ZFW INCR, ADDL FF ADJ, VZFW,
@@ -1459,7 +1734,7 @@ SCOPE
       Flight Plan copies handled as today.
 RULES: every changed anchor documented with before/after quote. ETOPS/ETP/POR values
  must trace to a quoted fixture line. UTC only.
-ACCEPTANCE: golden master — toLegacyShape(engine) equals production output on all 30
+ACCEPTANCE: golden master — toLegacyShape(engine) equals the golden snapshots on all 30
  Navtech/eOFP fixtures for every in-scope field; the only allowed diffs are those
  already approved in HF-1/HF-2.
 PULL REQUEST must include: What changes for crews · Evidence · Risk · How to check on iPad.
@@ -1494,6 +1769,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1504,7 +1780,7 @@ STANDARD CHECKS
    "How to check on iPad" has at most 5 steps and matches the change.
 SCOPE OF THIS PR: atlas-5y profile, P1c scope (Company NOTAMs, remarks, NOTAM records, weather, FIR) + tests.
 SPECIFIC CHECKS FOR THIS PR
-a. Engine output equals production output for every P1c field on all 30 fixtures — the
+a. Engine output equals the golden snapshots for every P1c field on all 30 fixtures — the
    only accepted differences are the ones HF-1 and HF-2 already approved.
 b. NOTAM record count per airport equals the count of NOTAM headers (deduplicated by ID).
 c. Legacy notams text shape is still produced (the NOTAM engine is unchanged until phase ②).
@@ -1571,6 +1847,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1582,7 +1859,8 @@ STANDARD CHECKS
 SCOPE OF THIS PR: engine buildBookmarks() + feeding the existing bookmark pills. Pill component unchanged.
 SPECIFIC CHECKS FOR THIS PR
 a. Every bookmark's target page contains its anchor text (test on all fixtures).
-b. Same label set for the matched pair (Navtech ALA–AMS vs FlightKeys UAAA–EHAM).
+b. Same label set for the matched pair (EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 vs
+   FK_UAAA-EHAM_27OCT26_prototype).
 c. PilotBrief bookmarks always replace the PDF outline (D7).
 d. Bookmark pill component and styles unchanged.
 OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues/<number>/comments):
@@ -1667,6 +1945,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1760,6 +2039,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1804,7 +2084,8 @@ STEP 0 — REPOSITORY CHECK (do this before anything else)
 MODEL: Sonnet 4.6 · High        REPO: velocemente/relief-pilot   (read-only report)
 TASK
 1. Golden master green on all Navtech/eOFP fixtures.
-2. Matched pair (Navtech ALA–AMS vs FlightKeys UAAA–EHAM): structural comparison per
+2. Matched pair (EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 vs FK_UAAA-EHAM_27OCT26_prototype):
+   structural comparison per
    §4.4; list every difference and say whether it is a plan difference or an import gap.
 3. Safety-critical audit per format: positive, negative and fallback evidence for slot
    time, DOT exemption alternate, CAT II/III, ETOPS entry/exit, block/min fuel, crew,
@@ -1874,6 +2155,7 @@ STANDARD CHECKS
 3. Golden snapshots: every snapshot difference is listed and explained in the PR's
    Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
    review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
 4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
    entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
    positive AND a negative test.
@@ -1933,4 +2215,4 @@ OUTPUT: open ONE PR adding docs/RPT-QA-RUN111-ReleaseGate.md (first line "Gate: 
 
 ### Follow-up housekeeping
 
-**Status:** ✅ Done — v2.3 added to `docs/` and the field-map §2.7 sentence restored, in the docs PR opened 29 Oct with this version.
+**Status:** v2.4 replaces v2.3 in `docs/` (docs PR, 30 Oct) and is copied to the Drive build folder by the Exec. The fixtures README now points to v2.4 and decisions D1–D18 (fixtures docs PR, 30 Oct).
