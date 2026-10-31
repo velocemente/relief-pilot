@@ -2,7 +2,7 @@
 // legacy-shape.js — Layer 5 output: toLegacyShape (ADR-004 §5).
 //
 // toLegacyShape(cbm) → exact _ofpRulesetParse return shape.
-// All 57 legacy keys are present; absent CBM fields use their legacyEmpty value.
+// All 58 legacy keys are present; absent CBM fields use their legacyEmpty value.
 // Canonical-only CBM fields (legacyKey: null) are not included in the output.
 //
 // The ordered key list matches the _ofpRulesetParse return statement in
@@ -21,7 +21,7 @@ const LEGACY_KEYS = [
   'togwActual', 'togwLimit', 'zfwActual', 'zfwLimit', 'ldgwActual', 'ldgwLimit',
   'hasPerishables', 'dotExemption', 'hasTemperatureControl', 'hasVzfwCkLimit',
   'slotTime', 'catIiIiiApproaches', 'addlFfAdj',
-  'ddgItems', 'melItems', 'overflightPerms', 'altRoutes', 'altData',
+  'ddgItems', 'melItems', 'overflightPerms', 'altRoutes', 'altData', 'qualAirports',
   'oeiData', 'etpPoints', 'navLog', 'enrouteNotams', 'natTrack', 'airportData',
   'parsedVerbalCallsign', 'zfwIncrFactor', 'taxiFuelRaw', 'rawOFP',
 ];

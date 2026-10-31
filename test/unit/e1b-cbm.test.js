@@ -166,12 +166,12 @@ test('no ETOPS completeness finding when all ETOPS fields present', () => {
 
 // ── toLegacyShape key set ─────────────────────────────────────────────────────
 
-test('toLegacyShape({}) key set equals the 57-key legacy return', () => {
+test('toLegacyShape({}) key set equals the 58-key legacy return', () => {
   const out     = toLegacyShape({});
   const actual  = new Set(Object.keys(out));
   const expected = new Set(LEGACY_KEYS);
   assert.deepEqual(actual, expected);
-  assert.equal(LEGACY_KEYS.length, 57);
+  assert.equal(LEGACY_KEYS.length, 58);
 });
 
 test('toLegacyShape uses legacyEmpty for absent fields', () => {

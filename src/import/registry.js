@@ -46,7 +46,7 @@ const REGISTRY = {
   dateStr: {
     type: 'string', unit: null, safetyClass: 'OP',
     required: null,
-    validate: null,
+    validate: v => (v && /^\d{2} [A-Z]{3} \d{2}$/.test(v)) ? null : 'must be DD MMM YY',
     legacyKey: 'dateStr', legacyEmpty: '',
   },
   flightDateISO: {
@@ -298,10 +298,10 @@ const REGISTRY = {
     legacyKey: 'melItems', legacyEmpty: [],
   },
   overflightPerms: {
-    type: 'array', unit: null, safetyClass: 'OP',
+    type: 'string', unit: null, safetyClass: 'OP',
     required: null,
     validate: null,
-    legacyKey: 'overflightPerms', legacyEmpty: [],
+    legacyKey: 'overflightPerms', legacyEmpty: '',
   },
   altRoutes: {
     type: 'array', unit: null, safetyClass: 'OP',
@@ -310,10 +310,16 @@ const REGISTRY = {
     legacyKey: 'altRoutes', legacyEmpty: [],
   },
   altData: {
-    type: 'object', unit: null, safetyClass: 'OP',
+    type: 'array', unit: null, safetyClass: 'OP',
     required: null,
     validate: null,
-    legacyKey: 'altData', legacyEmpty: {},
+    legacyKey: 'altData', legacyEmpty: [],
+  },
+  qualAirports: {
+    type: 'array', unit: null, safetyClass: 'OP',
+    required: null,
+    validate: null,
+    legacyKey: 'qualAirports', legacyEmpty: null,
   },
   oeiData: {
     type: 'array', unit: null, safetyClass: 'OP',
