@@ -64,7 +64,7 @@ function adaptItems(itemsDoc) {
       if (!text.trim()) continue; // skip blank lines, same as processPDF()
 
       // 5. Spans: raw position + string for each item.
-      const spans = bucket.items.map(it => ({ x: it.x, str: it.str }));
+      const spans = bucket.items.map(it => ({ x: it.x, str: it.str, w: it.w }));
 
       // 6. Column detection: split on gaps > COL_GAP_RATIO of page width.
       let columns = null;
@@ -85,7 +85,7 @@ function adaptItems(itemsDoc) {
 
       lines.push({ text, y: bucket.y, spans, columns });
     }
-    return { n: pg.n, lines };
+    return { n: pg.n, width: pageWidth, lines };
   });
 
   return {

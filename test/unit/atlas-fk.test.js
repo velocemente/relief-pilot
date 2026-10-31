@@ -4,7 +4,17 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { adaptItems } = require('../../src/import/adapter-pdf');
-const { extractCbm } = require('../../src/import/atlas-fk');
+const {
+  extractCbm,
+  isFkHeaderLine,
+  findFkWeatherStart,
+  parseFkCompanyNotams,
+  parseFkNotamBriefingItems,
+  parseFkAptSentinels,
+  parseFkWeatherSection,
+  parseFkFirBlocks,
+  buildFkColStreams,
+} = require('../../src/import/atlas-fk');
 const { validate } = require('../../src/import/validate');
 
 // ── Fixtures path resolution ──────────────────────────────────────────────
@@ -451,6 +461,220 @@ if (!FIXTURES_DIR) {
     const v = validate(cbm);
     const warnCodes = v.findings.filter(f => f.severity === 'WARN').map(f => f.code);
     assert.ok(warnCodes.includes('FIELD_DATESTR'), 'should have FIELD_DATESTR WARN');
+  });
+
+  // ── P2b unit tests (row 50 header detection) ──────────────────────────
+  test('P2b isFkHeaderLine: detects Page/uuid lines', () => {
+    assert.ok(isFkHeaderLine('Page 3 of 10 c1466562-9aa9-4e26-b65a-1149716c894f'), 'Page N of N uuid = header');
+    assert.ok(!isFkHeaderLine('ZUCK A0926/26'), 'NOTAM ID is not a header');
+    assert.ok(!isFkHeaderLine('TAF ZUCK 262113Z'), 'TAF line is not a header');
+    assert.ok(!isFkHeaderLine(''), 'empty string is not a header');
+    assert.ok(isFkHeaderLine('GTI8153/26 ZUCK-UAAA 2026-10-27'), 'flt/route/date = header');
+  });
+
+  // ── P2b unit tests (findFkWeatherStart) ────────────────────────────────
+  test('P2b NEGATIVE (findFkWeatherStart): no COMPANY NOTAMS → fullText.length', () => {
+    const text = 'Some text\nPage 5 of 5 aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\nMore text';
+    assert.equal(findFkWeatherStart(text), text.length, 'no COMPANY NOTAMS → length');
+  });
+
+  test('P2b NEGATIVE (findFkWeatherStart): Page 1 of 1 → not weather start', () => {
+    const text = 'COMPANY NOTAMS\nPage 1 of 1 aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\nweather';
+    assert.equal(findFkWeatherStart(text), text.length, 'Page 1 of 1 not a valid boundary');
+  });
+
+  test('P2b POSITIVE (findFkWeatherStart): Page N of N (N>1) after COMPANY NOTAMS', () => {
+    const uuid = 'c1466562-9aa9-4e26-b65a-1149716c894f';
+    const trailer = `Page 2 of 2 ${uuid}`;
+    const text = `COMPANY NOTAMS\nPage 1 of 2 ${uuid}\nsome notam\n${trailer}\nMETAR ZUCK`;
+    const start = findFkWeatherStart(text);
+    assert.ok(start > 0 && start < text.length, 'weather start found within text');
+    assert.ok(text.slice(start).trim().startsWith('METAR'), 'weather starts after last page marker');
+  });
+
+  // ── P2b unit tests (parseFkCompanyNotams) ─────────────────────────────
+  test('P2b POSITIVE (parseFkCompanyNotams): curfew NOTAM detected', () => {
+    const lines = [
+      'ZUCK A0926/26 2026-Sep-01 00:00 - UFN',
+      'SUBJECT: ZUCK-CURFEW',
+      'CURFEW APPLIES 0000-0100 UTC DAILY',
+    ];
+    const result = parseFkCompanyNotams(lines);
+    assert.ok(result.has('ZUCK A0926/26'), 'curfew NOTAM keyed by ID');
+    const entry = result.get('ZUCK A0926/26');
+    assert.equal(entry.icao, 'ZUCK', 'ICAO from subject prefix');
+    assert.equal(entry.type, 'curfew', 'type = curfew');
+    assert.ok(entry.body.includes('CURFEW'), 'body captured');
+  });
+
+  test('P2b POSITIVE (parseFkCompanyNotams): opsNotes NOTAM detected', () => {
+    const lines = [
+      'EHAM A0301/26 2026-Aug-25 00:00 - UFN',
+      'SUBJECT: EHAM-OPS',
+      'OPS NOTE BODY TEXT',
+    ];
+    const result = parseFkCompanyNotams(lines);
+    const entry = result.get('EHAM A0301/26');
+    assert.ok(entry, 'opsNotes NOTAM found');
+    assert.equal(entry.type, 'opsNotes', 'type = opsNotes');
+  });
+
+  test('P2b NEGATIVE (parseFkCompanyNotams): fleet NOTAM (no ICAO prefix) → skipped', () => {
+    const lines = [
+      'ZUCK A0099/26 2026-Jan-01 00:00 - UFN',
+      'SUBJECT: B747-FMDW400',
+      'FALSE MAIN DECK WARNINGS',
+    ];
+    const result = parseFkCompanyNotams(lines);
+    assert.equal(result.size, 0, 'fleet NOTAM must be skipped (no ICAO prefix)');
+  });
+
+  test('P2b NEGATIVE (parseFkCompanyNotams): no SUBJECT → not a company NOTAM', () => {
+    const lines = [
+      'ZUCK A0099/26 2026-Jan-01 00:00 - UFN',
+      'RUNWAY 02L/20R CLOSED',
+    ];
+    const result = parseFkCompanyNotams(lines);
+    assert.equal(result.size, 0, 'no SUBJECT = not a company NOTAM');
+  });
+
+  // ── P2b unit tests (parseFkNotamBriefingItems) ─────────────────────────
+  test('P2b POSITIVE (parseFkNotamBriefingItems): briefing item captured', () => {
+    const text = 'EHAM A2476/26 2026-Oct-26 06:00 - 2026-Oct-27\nRWY 04/22 CLSD FOR MAINTENANCE';
+    const result = parseFkNotamBriefingItems(text, new Set());
+    assert.ok(result.has('EHAM A2476/26'), 'EHAM NOTAM briefing item found');
+    const item = result.get('EHAM A2476/26');
+    assert.equal(item.icao, 'EHAM');
+    assert.ok(item.body.includes('RWY'), 'body captured');
+  });
+
+  test('P2b NEGATIVE (parseFkNotamBriefingItems): item in companyIds → skipped', () => {
+    const text = 'ZUCK A0926/26 2026-Sep-01 00:00 - UFN\nRWY CLSD';
+    const result = parseFkNotamBriefingItems(text, new Set(['ZUCK A0926/26']));
+    assert.equal(result.size, 0, 'item in companyIds must be excluded from briefing items');
+  });
+
+  test('P2b POSITIVE (parseFkNotamBriefingItems): NOTAM ID without dates (YTOL split)', () => {
+    const text = 'ZUCK U4106/26\nRWY U4106/26 NOTAM BODY TEXT';
+    const result = parseFkNotamBriefingItems(text, new Set());
+    assert.ok(result.has('ZUCK U4106/26'), 'NOTAM ID without dates must still be captured');
+  });
+
+  // ── P2b unit tests (parseFkAptSentinels) ─────────────────────────────
+  test('P2b POSITIVE (parseFkAptSentinels): RWYs parsed from APT sentinel', () => {
+    const text = 'AMS - AMSTERDAM/SCHIPHOL   DESTINATION 27 16:06 - 27 18:06\nAPTEHAM RWYS: 04/22 06/24';
+    const result = parseFkAptSentinels(text);
+    assert.ok(result.has('EHAM'), 'EHAM entry created');
+    assert.ok(result.get('EHAM').rwys.includes('04/22'), 'RWY 04/22 captured');
+  });
+
+  test('P2b POSITIVE (parseFkAptSentinels): role from city header attached to airport', () => {
+    const text = 'BRU - BRUSSELS NATIONAL   ALTN 1 27 16:33 - 27 18:33\nAPTEBBR RWYS: 01/19 07L/25R';
+    const result = parseFkAptSentinels(text);
+    assert.ok(result.has('EBBR'), 'EBBR entry created');
+    const roles = result.get('EBBR').roles;
+    assert.ok(roles.length > 0, 'EBBR has at least one role');
+  });
+
+  test('P2b NEGATIVE (parseFkAptSentinels): no APT line → empty map', () => {
+    const text = 'SOME NOTAM TEXT\nNO AIRPORT SENTINELS HERE';
+    const result = parseFkAptSentinels(text);
+    assert.equal(result.size, 0, 'no APT sentinels → empty map');
+  });
+
+  // ── P2b unit tests (parseFkWeatherSection) ─────────────────────────────
+  test('P2b POSITIVE (parseFkWeatherSection): TAF captured', () => {
+    const text = 'TAF ZUCK 262113Z 2700/2724 01003MPS 3500 -RA BR\n  TEMPO 2706/2712 5000 -RA';
+    const result = parseFkWeatherSection(text);
+    assert.ok(result.has('ZUCK'), 'ZUCK weather entry created');
+    assert.ok(result.get('ZUCK').taf && result.get('ZUCK').taf.startsWith('TAF ZUCK'), 'TAF content captured');
+  });
+
+  test('P2b POSITIVE (parseFkWeatherSection): METAR captured', () => {
+    const text = 'METAR UCFM 262200Z 24002MPS 9999 FEW020 10/04 Q1014';
+    const result = parseFkWeatherSection(text);
+    assert.ok(result.has('UCFM'), 'UCFM METAR entry created');
+    assert.ok(result.get('UCFM').metars.length > 0, 'METAR captured');
+  });
+
+  test('P2b NEGATIVE (parseFkWeatherSection): empty text → empty map', () => {
+    const result = parseFkWeatherSection('');
+    assert.equal(result.size, 0, 'empty text → empty map');
+  });
+
+  // ── P2b unit tests (parseFkFirBlocks) ─────────────────────────────────
+  test('P2b POSITIVE (parseFkFirBlocks): FIR sentinel detected', () => {
+    const text = 'KUNMING FIR\nFIRZPKM   ZPKM A0001/26   2026-Oct-27 02:00 - UFN';
+    const result = parseFkFirBlocks(text);
+    assert.ok(result.length > 0, 'FIR block created');
+    assert.equal(result[0].icao, 'ZPKM', 'ICAO from compact sentinel');
+  });
+
+  test('P2b POSITIVE (parseFkFirBlocks): item on same line as sentinel', () => {
+    // "FIRZLHW    ZWUQ A5552/26   2026-Oct-27 02:30 - UFN" — item follows sentinel on same line
+    const text = 'LANZHOU FIR\nFIRZLHW    ZWUQ A5552/26   2026-Oct-27 02:30 - UFN';
+    const result = parseFkFirBlocks(text);
+    assert.ok(result.length > 0, 'FIR block created');
+    assert.ok(result[0].items.length > 0, 'item on sentinel line captured');
+  });
+
+  test('P2b NEGATIVE (parseFkFirBlocks): no FIR sentinel → empty array', () => {
+    const text = 'SOME NOTAM TEXT WITHOUT FIR SENTINEL';
+    const result = parseFkFirBlocks(text);
+    assert.equal(result.length, 0, 'no FIR sentinel → empty array');
+  });
+
+  // ── P2b fixture integration tests ─────────────────────────────────────
+  test('P2b (ZUCK-UAAA): ZUCK has curfew in airportData', () => {
+    const doc = fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc;
+    const cbm = extractCbm(doc);
+    assert.ok(cbm.airportData, 'airportData exists');
+    assert.ok(cbm.airportData.ZUCK, 'ZUCK entry exists');
+    assert.ok(cbm.airportData.ZUCK.curfew, 'ZUCK curfew field is populated');
+  });
+
+  test('P2b (ZUCK-UAAA): UAAA has at least one NOTAM or weather entry', () => {
+    const doc = fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc;
+    const cbm = extractCbm(doc);
+    assert.ok(cbm.airportData.UAAA, 'UAAA entry exists');
+    const uaaa = cbm.airportData.UAAA;
+    const hasData = (uaaa.notams && uaaa.notams.length > 0) || uaaa.weather !== null;
+    assert.ok(hasData, 'UAAA has NOTAMs or weather');
+  });
+
+  test('P2b (UAAA-EHAM): EHAM has at least one briefing NOTAM', () => {
+    const doc = fixtureData['FK_UAAA-EHAM_27OCT26_prototype'].doc;
+    const cbm = extractCbm(doc);
+    assert.ok(cbm.airportData && cbm.airportData.EHAM, 'EHAM entry exists');
+    assert.ok(cbm.airportData.EHAM.notams.length > 0, 'EHAM has at least one briefing NOTAM');
+  });
+
+  test('P2b (UAAA-EHAM): EBBR entry created (alternate airport)', () => {
+    const doc = fixtureData['FK_UAAA-EHAM_27OCT26_prototype'].doc;
+    const cbm = extractCbm(doc);
+    assert.ok(cbm.airportData.EBBR, 'EBBR alternate entry created');
+  });
+
+  test('P2b: enrouteNotams.fir is an array', () => {
+    const doc = fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc;
+    const cbm = extractCbm(doc);
+    assert.ok(cbm.enrouteNotams, 'enrouteNotams exists');
+    assert.ok(Array.isArray(cbm.enrouteNotams.fir), 'enrouteNotams.fir is array');
+  });
+
+  test('P2b (ZUCK-UAAA): at least one FIR block with items', () => {
+    const doc = fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc;
+    const cbm = extractCbm(doc);
+    assert.ok(cbm.enrouteNotams.fir.length > 0, 'at least one FIR block');
+    const withItems = cbm.enrouteNotams.fir.filter(f => f.items && f.items.length > 0);
+    assert.ok(withItems.length > 0, 'at least one FIR block has items');
+  });
+
+  test('P2b: FIXTURE_PENDING_EWINS finding present', () => {
+    const doc = fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc;
+    const cbm = extractCbm(doc);
+    const codes = (cbm._fixtureFindings || []).map(f => f.code);
+    assert.ok(codes.includes('FIXTURE_PENDING_EWINS'), 'FIXTURE_PENDING_EWINS finding present');
   });
 
   // ── Cross-fixture comparison ───────────────────────────────────────────
