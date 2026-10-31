@@ -186,6 +186,6 @@
 | D14 | `Revision : NN` right-aligned, left of the share button | **Accepted** |
 | D15 | BTB/ATB buttons with FCIR; post-turn-back upload opens as a new flight | **Accepted** (Exec specification; two assumptions to confirm at C5) |
 | D16 | `Q` on ORIG/DEST/alternate lines = Special Qual Airport; parsed per airport (registry field) and shown as "Q" beside the airport name on the airport card | **Accepted** |
-| D17 | After an iOS reload, return to the open flight, tab and phase (HF-4) | **Open** |
+| D17 | After an iOS reload, return to the open flight, tab and phase (HF-4) | **Accepted** (29 Oct) |
 | D18 | Production release method: Exec copies the approved beta files (index.html, sw.js, manifest.json) to `velocemente/PilotBrief` by GitHub web upload; Claude has no write access to production | **Accepted — A** (29 Oct) |
-| — | Meaning of FlightKeys IA / TA windows | **Open** — Exec to define before P2b |
+| D21 | FlightKeys briefing airport roles: **EA** = Enroute Alternate · **IA** = Intermediate Alternate · **TA** = Terrain Alternate. In the FlightKeys NOTAM and weather briefings these are airport roles, each with its own UTC time window (e.g. an airport listed as DESTINATION, IA and TA, each with a window). One airport may hold several roles. | **Accepted** (31 Oct) |
