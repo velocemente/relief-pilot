@@ -36,7 +36,8 @@
 | F1 Reorganise the code | **Done** — PR #9 (`src/` modules, `build/build.js`) |
 | E1a, E1b Engine | **Done** — PR #10, PR #11 (`src/import/`, not yet in the app) |
 | P2a | **Merged** — PR #12, 30 Oct. Post-merge check against the v2.4 acceptance found defects (no Q flag, EBBR alternate missing, wrong date format, silent empties, no 'fixture pending' findings, test skipped in CI). Not in the app yet, so crews are unaffected → **P2a-fix**. |
-| Next | CI-1 → P2a-fix → P2b (IA/TA kept as text) → P5a → REL-FK → QA-FK |
+| CI-1 · P2a-fix | **Done** — PR #16; PR #17 (squash-merged 31 Oct) |
+| Next | P2b (EA/IA/TA roles per D21) → P5a → REL-FK → QA-FK |
 
 ---
 
@@ -44,7 +45,7 @@
 
 | # | When | What you decide or check | Time |
 |---|---|---|---|
-| C1 | Now | Supply the fixtures in §5; IA/TA definition when feedback arrives (on hold; does not block P2b) | 5 min |
+| C1 | Now | Supply the fixtures in §5 | 5 min |
 | C2 | Week 1–2 | Hotfix on beta: RJAA RWY 16L/34R CLSD shows; RJAA Company Remarks short; with cellular data off, move PilotBrief into Slide Over several times — no alert (or at most one from iOS itself); it returns to the open flight → approve for production. *Alert part open — see §1.* | 20 min |
 | C3 | Week 2–3 | After the code is reorganised: beta behaves exactly as before (no visible change) | 10 min |
 | C-FK | Week 5 | **FlightKeys on the new import:** both prototypes plus any live package. NOTAMs, weather, curfews, crew, CAT II/III and MEL populated; self-check findings reviewed; QA-FK "Gate: GO" → approve for production | 30 min |
@@ -194,7 +195,7 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 | D18 | How approved releases reach production `PilotBrief`: **A** — Exec copies the three files by GitHub web upload (steps in §7, REL-PROD); **B** — grant the Claude app access to `PilotBrief` with a branch rule that requires your approval on every change, and a Haiku session opens the release PR | **Accepted — A** (29 Oct). Revisit after the platform release if wanted. |
 | D19 | Budget ceiling $47 → $49 for CI-1, REL-FK and QA-FK (§3) | **Accepted** (30 Oct) |
 | D20 | FlightKeys release version number (REL-FK): **1.10.0** (new capability) | **Accepted** (30 Oct) |
-| — | Meaning of IA / TA windows in FlightKeys briefings | **On hold** (30 Oct) — awaiting outside feedback. P2b proceeds: IA/TA windows kept as text and never used for evaluation; a later small session applies the definition. |
+| D21 | FlightKeys briefing airport roles: **EA** = Enroute Alternate · **IA** = Intermediate Alternate · **TA** = Terrain Alternate. In the FlightKeys NOTAM and weather briefings these are airport roles, each with its own UTC time window (e.g. an airport listed as DESTINATION, IA and TA, each with a window). One airport may hold several roles. | **Accepted** (31 Oct) — applied in P2b |
 | D9 | Archive the undeployed September ruleset v1.2 | **Done** — moved to `90_Old Versions` |
 | D11 | Private fixtures repository; names may be redacted before upload | **Accepted** |
 | D12 | Keep on re-upload: notes, FCIR/ASAP, parking gate, ATIS, crew-updated times | **Accepted** |
@@ -1350,11 +1351,16 @@ CONTEXT: as P2a — ADR-004 v1.3; field map docs/SPRINT-OFP-FlightKeysMigration�
 TASK — THIS SESSION: P2b only = field map rows 43–50. Company NOTAMs (two copies;
  SUBJECT <ICAO>-<TAG>: CURFEW and ARRL CRF → curfew; other airport tags → remarks;
  fleet tags → none). NOTAM briefing: APT header, RWYS, role windows (DEPARTURE,
- DESTINATION, IA, TA), categories, items with ISO validity (UTC; no year guessing);
+ DESTINATION, EA, IA, TA), categories, items with ISO validity (UTC; no year guessing);
  dedupe by NOTAM ID. Weather briefing: METAR/TAF/ATIS per airport, two-column pages.
  FIR blocks. Strip running headers and footers before any segmentation (row 50).
- IA/TA windows: use only as defined by the Exec in docs/ADR-004; if still open, keep
- them as text and do not use them for evaluation.
+ Airport roles (D21, docs/ADR-004): EA = Enroute Alternate, IA = Intermediate
+ Alternate, TA = Terrain Alternate. Record every role of each airport with its UTC
+ window (one airport may be DESTINATION, IA and TA at once). Treat an airport listed
+ only as EA/IA/TA as a release airport: its NOTAMs and weather are extracted like any
+ other. Store roles and windows in the canonical model; NOTAM evaluation behaviour is
+ unchanged (D8) and no UI change. If the legacy shape has no place for a role, keep it
+ in the canonical model and raise a finding for the Exec to decide at C-FK.
 OUT OF SCOPE: rows 1–42 (report any defect found there; do not fix it here); wiring
  into the app (P5a).
 RULES: fields with no FlightKeys fixture yet return the legacy empty value AND a
@@ -1413,6 +1419,9 @@ b. NOTAM validity from FlightKeys ISO dates — no year guessing; duplicates rem
 c. Two-column weather pages: each METAR/TAF is complete and assigned to the right airport.
 d. All golden snapshots unchanged (the profile is not wired into the app).
 e. Rows 1–42 code unchanged except where the PR explains why.
+f. Airport roles per D21: every role with its UTC window is recorded per airport (e.g. UAAA in
+   FK_ZUCK-UAAA: DESTINATION, IA and TA); airports listed only as EA/IA/TA get NOTAMs and
+   weather; no change to NOTAM evaluation and no UI change.
 OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues/<number>/comments):
  first line "Verdict: APPROVE-FOR-EXEC" or "Verdict: CHANGES-REQUESTED", then a
  numbered findings table (severity S0–S4 · file:line · evidence · required fix).
