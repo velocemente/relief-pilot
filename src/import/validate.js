@@ -133,7 +133,11 @@ function validate(cbm) {
   const airports = new Set();
   if (cbm.origIcao) airports.add(cbm.origIcao);
   if (cbm.destIcao) airports.add(cbm.destIcao);
-  if (cbm.altData && typeof cbm.altData === 'object') {
+  if (Array.isArray(cbm.altData)) {
+    for (const alt of cbm.altData) {
+      if (alt && alt.icao) airports.add(alt.icao);
+    }
+  } else if (cbm.altData && typeof cbm.altData === 'object') {
     for (const k of Object.keys(cbm.altData)) airports.add(k);
   }
   const apData = cbm.airportData;

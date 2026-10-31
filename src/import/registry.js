@@ -298,10 +298,10 @@ const REGISTRY = {
     legacyKey: 'melItems', legacyEmpty: [],
   },
   overflightPerms: {
-    type: 'array', unit: null, safetyClass: 'OP',
+    type: 'string', unit: null, safetyClass: 'OP',
     required: null,
     validate: null,
-    legacyKey: 'overflightPerms', legacyEmpty: [],
+    legacyKey: 'overflightPerms', legacyEmpty: '',
   },
   altRoutes: {
     type: 'array', unit: null, safetyClass: 'OP',
@@ -310,16 +310,16 @@ const REGISTRY = {
     legacyKey: 'altRoutes', legacyEmpty: [],
   },
   altData: {
-    type: 'object', unit: null, safetyClass: 'OP',
+    type: 'array', unit: null, safetyClass: 'OP',
     required: null,
     validate: null,
-    legacyKey: 'altData', legacyEmpty: {},
+    legacyKey: 'altData', legacyEmpty: [],
   },
-  hasQualAirport: {
-    type: 'boolean', unit: null, safetyClass: 'OP',
+  qualAirports: {
+    type: 'array', unit: null, safetyClass: 'OP',
     required: null,
     validate: null,
-    legacyKey: null, legacyEmpty: false,
+    legacyKey: 'qualAirports', legacyEmpty: null,
   },
   oeiData: {
     type: 'array', unit: null, safetyClass: 'OP',
