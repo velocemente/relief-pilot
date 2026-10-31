@@ -210,8 +210,12 @@ if (!FIXTURES_DIR) {
     }
 
     assert.equal(failures.length, 0, `${failures.length} fixture(s) misclassified:\n${failures.join('\n')}`);
-    // 30 Navtech/eOFP + 2 FlightKeys
-    assert.equal(ntCount, 30, `Expected 30 atlas-5y fixtures, got ${ntCount}`);
-    assert.equal(fkCount, 2,  `Expected 2 atlas-fk fixtures, got ${fkCount}`);
+    // Expected counts come from the manifest's format field, so adding a fixture
+    // needs no test edit. Floors guard against the library silently shrinking.
+    const wantFk = manifest.fixtures.filter(fx => fx.format === 'flightkeys').length;
+    const wantNt = manifest.fixtures.length - wantFk;
+    assert.equal(ntCount, wantNt, `Expected ${wantNt} atlas-5y fixtures, got ${ntCount}`);
+    assert.equal(fkCount, wantFk, `Expected ${wantFk} atlas-fk fixtures, got ${fkCount}`);
+    assert.ok(wantNt >= 30 && wantFk >= 2, `Fixture library shrank: ${wantNt} Navtech/eOFP, ${wantFk} FlightKeys`);
   });
 }
