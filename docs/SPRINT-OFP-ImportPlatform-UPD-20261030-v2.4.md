@@ -37,7 +37,9 @@
 | E1a, E1b Engine | **Done** — PR #10, PR #11 (`src/import/`, not yet in the app) |
 | P2a | **Merged** — PR #12, 30 Oct. Post-merge check against the v2.4 acceptance found defects (no Q flag, EBBR alternate missing, wrong date format, silent empties, no 'fixture pending' findings, test skipped in CI). Not in the app yet, so crews are unaffected → **P2a-fix**. |
 | CI-1 · P2a-fix | **Done** — PR #16; PR #17 (squash-merged 31 Oct) |
-| Next | P2b (EA/IA/TA roles per D21) → P5a → REL-FK → QA-FK |
+| P2b | **Merged** — PR #20, 31 Oct (review run on Sonnet). |
+| New fixture | `FK_KLAX-RKSI_31OCT26_rda-etp_prototype` (first FlightKeys redispatch plan, POR, ETP1/ETP2, EA/IA/TA) — fixtures PR #3 + relief-pilot PR #21. On it the profile misses: redispatch alternates (RAPT/RALT), POR, ETPs, all weather, departure NOTAMs; and FIR regions / non-release airports are filed as airports → **P2c**. |
+| Next | P2c → P5a → REL-FK → QA-FK |
 
 ---
 
@@ -96,7 +98,8 @@ Each pull request carries a short section you can read: **What changes for crews
 | E1b ✅ | Engine: field registry, canonical NOTAM record, validation, provenance, legacy output | Sonnet 4.6 · High | PR + unit tests |
 | P2a ✅* | FlightKeys profile: OFP pages, incl. **Q** (Special Qual Airport) flag per airport — **merged PR #12; defects → P2a-fix** | Sonnet 4.6 · High | PR; field map rows 1–42 |
 | P2a-fix | Correct the P2a defects found after merge; real per-row tests | Sonnet 4.6 · High | PR (uses 1 of the 3 contingency loops) |
-| P2b | FlightKeys profile: Company NOTAMs, NOTAM & weather briefings | Sonnet 4.6 · High | PR; field map rows 43–50 |
+| P2b ✅ | FlightKeys profile: Company NOTAMs, NOTAM & weather briefings — **merged PR #20** | Sonnet 4.6 · High | PR; field map rows 43–50 |
+| P2c | FlightKeys profile corrections from the KLAX–RKSI fixture: redispatch, POR, ETP, weather, airport list | Sonnet 4.6 · High | PR (uses 2 of the 3 contingency loops) |
 | P5a | **Engine built into the app; FlightKeys packages routed through it;** Navtech/eOFP unchanged | Haiku 4.5 · Standard | PR → beta |
 | REL-FK | FlightKeys release version (index.html, sw.js, manifest aligned; D20) | Haiku 4.5 · Standard | PR → beta |
 | QA-FK | FlightKeys release gate on beta | Haiku 4.5 | Report → **C-FK** |
@@ -119,7 +122,7 @@ Each pull request carries a short section you can read: **What changes for crews
 | QA-R | Release gate + RUN-111 record | Haiku 4.5 | Report → **C6** |
 | REL-PROD | Copy the approved beta release to production `PilotBrief` (Method A, by you) | Exec (D18 = A) | Production updated |
 
-**Sequence:** F0 ✅ → H ✅ (HF-1, HF-2, HF-3, HF-4) → REL-HF ✅ → QA-HF ✅ → REL-PROD-HF → F1 ✅ → E1a ✅ → E1b ✅ → **CI-1 → P2a ✅ → P2a-fix → P2b → P5a → REL-FK → QA-FK → REL-PROD-FK (FlightKeys live on engine)** → P1a → P1b → P1c → B1 ∥ RV1 → RV2 → QA-X → P5 → QA-R → REL-PROD.
+**Sequence:** F0 ✅ → H ✅ (HF-1, HF-2, HF-3, HF-4) → REL-HF ✅ → QA-HF ✅ → REL-PROD-HF → F1 ✅ → E1a ✅ → E1b ✅ → **CI-1 → P2a ✅ → P2a-fix ✅ → P2b ✅ → P2c → P5a → REL-FK → QA-FK → REL-PROD-FK (FlightKeys live on engine)** → P1a → P1b → P1c → B1 ∥ RV1 → RV2 → QA-X → P5 → QA-R → REL-PROD.
 
 **Why FlightKeys first (D6):**
 - FlightKeys goes live before the platform completes, and today's parser leaves its NOTAMs, weather, crew, CAT II/III and MEL empty.
@@ -138,7 +141,7 @@ Each pull request carries a short section you can read: **What changes for crews
 | Haiku 4.5 authoring / QA (REL-HF, QA-HF, CI-1, P5a, REL-FK, QA-FK, RV2, P5, QA-R) | 9 | 2.55 – 4.20 |
 | Haiku 4.5 independent reviews (one per PR, incl. REL-HF, CI-1, REL-FK) | 21 | 4.20 – 6.30 |
 | **Base** | **46** | **30.25 – 42.00** |
-| Contingency: 3 rework loops (author + review) — 1 used by P2a-fix | 6 | 5.10 – 6.90 |
+| Contingency: 3 rework loops (author + review) — 2 used (P2a-fix, P2c) | 6 | 5.10 – 6.90 |
 | **Total** | **52** | **35.35 – 48.90** |
 | **Ceiling (D19)** | | **49.00** |
 
@@ -195,6 +198,7 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 | D18 | How approved releases reach production `PilotBrief`: **A** — Exec copies the three files by GitHub web upload (steps in §7, REL-PROD); **B** — grant the Claude app access to `PilotBrief` with a branch rule that requires your approval on every change, and a Haiku session opens the release PR | **Accepted — A** (29 Oct). Revisit after the platform release if wanted. |
 | D19 | Budget ceiling $47 → $49 for CI-1, REL-FK and QA-FK (§3) | **Accepted** (30 Oct) |
 | D20 | FlightKeys release version number (REL-FK): **1.10.0** (new capability) | **Accepted** (30 Oct) |
+| D22 | Review model for engine and profile PRs (P2c, P5a, P1a, P1b, P1c, B1, RV1): **Sonnet** instead of Haiku, because the Sonnet review of P2b caught issues the Haiku reviews of P2a missed. About +$4–6.5 → ceiling about $55. Haiku stays for docs, test-only and release PRs. | **Open** — Exec |
 | D21 | FlightKeys briefing airport roles: **EA** = Enroute Alternate · **IA** = Intermediate Alternate · **TA** = Terrain Alternate. In the FlightKeys NOTAM and weather briefings these are airport roles, each with its own UTC time window (e.g. an airport listed as DESTINATION, IA and TA, each with a window). One airport may hold several roles. | **Accepted** (31 Oct) — applied in P2b |
 | D9 | Archive the undeployed September ruleset v1.2 | **Done** — moved to `90_Old Versions` |
 | D11 | Private fixtures repository; names may be redacted before upload | **Accepted** |
@@ -1217,7 +1221,7 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 
 ### P2a-fix — Correct the FlightKeys OFP-Page Profile
 
-**Status:** Next after CI-1.
+**Status:** ✅ Done — PR #17, squash-merged 31 Oct.
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
@@ -1331,6 +1335,8 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 
 ### P2b — FlightKeys Profile: Briefings
 
+**Status:** Merged — PR #20, 31 Oct. Gaps found on the new KLAX–RKSI fixture are fixed by **P2c**. Kept for reference.
+
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
 
 ```
@@ -1433,6 +1439,121 @@ OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues
 
 ---
 
+### P2c — FlightKeys Profile Corrections (Redispatch, POR, ETP, Weather, Airport List)
+
+**Status:** Next.
+
+> **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Sonnet 4.6 · High** · paste the block below.
+
+```
+STEP 0 — REPOSITORY CHECK (do this before anything else)
+ Run: git remote get-url origin
+ It must be https://github.com/velocemente/relief-pilot (development and beta).
+ If it is velocemente/PilotBrief (PRODUCTION) or anything else: STOP. Do not
+ branch, commit, push or open a PR there. Add velocemente/relief-pilot to this
+ session with push access, clone it, and continue there.
+ Then: git fetch origin main; branch from the latest main; read CLAUDE.md fully
+ before changing anything.
+
+MODEL: Sonnet 4.6 · High        REPO: velocemente/relief-pilot   BRANCH: p/p2c
+CONTEXT: P2a, P2a-fix and P2b ('atlas-fk' profile, src/import/atlas-fk.js) are merged.
+ A new fixture, FK_KLAX-RKSI_31OCT26_rda-etp_prototype (first FlightKeys redispatch plan,
+ with POR and ETP1/ETP2, and EA/IA/TA roles — D21), shows the gaps below. Not wired into
+ the app yet, so crews are unaffected; all must be fixed before P5a. Fixtures:
+ FK_ZUCK-UAAA_27OCT26_prototype, FK_UAAA-EHAM_27OCT26_prototype,
+ FK_KLAX-RKSI_31OCT26_rda-etp_prototype.
+DEFECTS — quote the code before changing it; fix each, with positive AND negative tests:
+1. Redispatch: RAPT (RJTT) and RALT (RJGG) lines are not read. Add them to altData in
+   the legacy shape with their roles (compare how the Navtech RDA fixtures
+   NB_YSSY-RKSI_11MAR26_rda_rev6 and NB_KLAX-ZSAM_11MAR26_etops-rda_rev6 appear in the
+   golden snapshots), ETA and offset.
+2. POR: "POR: EMRON 10.03" and "(POR) AT EMRON" → porWpt, porOffsetMins, porMinf exactly
+   as the legacy parser fills them for Navtech RDA plans (field map row 40). Remove the
+   'fixture pending' finding for POR when a POR is present.
+3. ETP: "(GOPACD) ETP1 KSFO-PACD N39 04.3 W147 53.0" and ETP2 → etpPoints in the legacy
+   shape (field map row 41; compare the Navtech ETP/ETOPS fixtures' snapshots). Safety-
+   critical. Remove the ETP 'fixture pending' finding when ETPs are present; keep it for
+   CFS/ETOPS items that still have no FlightKeys example.
+4. Weather: no airport gets weather on this package (COMPLETENESS_WEATHER for KLAX,
+   RKSI, RJBB). Find why (two-column weather pages interleave airports here) and fix;
+   every release airport gets METAR/TAF/ATIS or an explicit nil.
+5. Departure NOTAMs: KLAX (and KSFO, PACD) get 0 NOTAMs although the NOTAM briefing has
+   them. Fix the airport-block segmentation; test the KLAX count.
+6. Airport list: airportData must hold only release airports — ORIG, DEST, PALT/ALTN,
+   RAPT/RALT, and EA/IA/TA airports (D21). FIR / UIR regions (e.g. KZLA, KZOA, KZAK,
+   RJJJ, RKRR, ZSHA; LRBB, LHCC, EDGG on UAAA-EHAM) belong in enrouteNotams.fir only.
+   Airports that appear only in the CAT II/III list or nowhere in the release (e.g.
+   RKJK, RKPC, RJSM, EBLG, EBOS, ELLX, EDDK, UZSA) get no airportData entry.
+7. CAT II/III: no duplicate airport+category entries (RJGG appears twice).
+SCOPE: src/import/atlas-fk.js and its tests; src/import/registry.js / validate.js only
+ where a field's type must change (explain each). Not wired into the app; golden
+ snapshots unchanged.
+ACCEPTANCE: all three FK fixtures — cross-checks pass; every release airport has
+ NOTAMs and weather or an explicit nil; no FIR or non-release airport in airportData;
+ RDA, POR and ETP values match the OFP text (test quotes the line, no names or employee
+ numbers). CI green with the atlas-fk tests running.
+
+PULL REQUEST (on velocemente/relief-pilot only)
+- Use .github/pull_request_template.md: What changes for crews · Evidence · Risk ·
+  How to check on iPad — plain language, no crew names or fixture text.
+- If golden snapshots change: run `node test/golden/run.js update --fixtures <clone>`,
+  push the snapshots to velocemente/pilotbrief-fixtures on a branch with the SAME
+  name, open a PR there, and link the two PRs both ways.
+- Never merge your own PR. Never edit files outside the stated scope.
+- Finish by reporting: the PR number and link, the CI result, and any companion
+  fixtures PR.
+```
+
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Sonnet 4.6** (D22) · replace `<number>` (and `<number>` in the URL) · paste the block below.
+
+```
+STEP 0 — REPOSITORY CHECK (do this before anything else)
+ You are reviewing https://github.com/velocemente/relief-pilot/pull/<number>
+ If this session is attached to velocemente/PilotBrief (PRODUCTION) or anything
+ else: add velocemente/relief-pilot to this session with push access (needed only
+ to post the review comment) and review there. Never review, comment on or change
+ PilotBrief. Read CLAUDE.md in relief-pilot before reviewing.
+
+You did NOT write this PR. Review only: do not push commits, do not merge.
+STANDARD CHECKS
+1. CI: the "test" check is green; open and read its output, not just the badge.
+2. Scope: list every file changed; flag any file or function outside the scope below.
+3. Golden snapshots: every snapshot difference is listed and explained in the PR's
+   Evidence section. If the PR links a companion PR in velocemente/pilotbrief-fixtures,
+   review it too: each snapshot change must match a listed difference.
+   The fixtures branch must have the SAME name as this PR's branch (CI-1 tests against it).
+4. Safety-critical fields (slot time, DOT exemption alternate, CAT II/III, ETOPS
+   entry/exit, block/min fuel, crew, airport NOTAM/weather/curfew): any change has a
+   positive AND a negative test.
+5. UTC only; esc() on every newly rendered string; no new UI unless the brief allows it;
+   no network activity added to app code.
+6. No crew names, employee numbers or fixture text in the PR, its files or comments.
+7. "What changes for crews" is accurate and understandable by a non-engineer;
+   "How to check on iPad" has at most 5 steps and matches the change.
+SCOPE OF THIS PR: src/import/atlas-fk.js and its tests; registry.js / validate.js only for type changes explained in the PR.
+SPECIFIC CHECKS FOR THIS PR
+a. RAPT/RALT present in altData for FK_KLAX-RKSI in the legacy shape, with role and ETA.
+b. POR and ETP values match the OFP lines; positive tests on KLAX-RKSI, negative tests on
+   ZUCK-UAAA (no RDA, no ETP); the 'fixture pending' findings for POR/ETP are gone only
+   where values exist.
+c. Weather present (or explicit nil) for every release airport on all three FK fixtures.
+d. KLAX NOTAM count > 0 and matches the briefing.
+e. airportData contains only release airports; FIR regions are only in enrouteNotams.fir.
+   Run the profile on all three FK fixtures and list the airportData keys.
+f. No duplicate CAT II/III entries.
+g. No crew names, employee numbers or fixture text in the repo or PR.
+h. Scope limited as stated; golden snapshots unchanged.
+OUTPUT: post ONE comment on the PR (gh api repos/velocemente/relief-pilot/issues/<number>/comments):
+ first line "Verdict: APPROVE-FOR-EXEC" or "Verdict: CHANGES-REQUESTED", then a
+ numbered findings table (severity S0–S4 · file:line · evidence · required fix).
+ Any S0/S1 finding, failing CI, or unexplained snapshot change = CHANGES-REQUESTED.
+ Finish by telling the Exec the verdict in two sentences of plain language.
+```
+
+> **Your check, after APPROVE-FOR-EXEC:** nothing visible on iPad (not wired into the app yet). Then on GitHub: open the PR → **Merge pull request** → **Confirm merge**.
+
+---
+
 ### P5a — FlightKeys on the New Import
 
 > **Start:** new Claude Code session · repository **velocemente/relief-pilot** (confirm it at the top of the setup screen before starting) · model **Haiku 4.5 · Standard** · paste the block below.
@@ -1462,12 +1583,16 @@ TASK
    'atlas-fk' → engine path (model → validation → legacy output merged into S exactly as
    today; validation FAIL on a safety-critical field → existing warning path with the
    D2 text; bookmarks unchanged until B1). Any other result → today's parser, unchanged.
+2a. toLegacyShape must convert the canonical airportData to the legacy per-airport shape
+   the app renders today (compare the Navtech golden snapshots): notams = text,
+   weather = text, opsNotes = {body, …}, curfew as today. Canonical-only data (roles,
+   windows, NOTAM records) stays in the model and never reaches the screens unconverted.
 3. Run node build/build.js; commit the src/ changes and the rebuilt index.html together.
 4. Do NOT change APP_VERSION, CACHE_NAME or the manifest version (REL-FK does that).
 ACCEPTANCE: CI green. Navtech/eOFP golden snapshots unchanged. The two FlightKeys
  snapshots DO change: update them in a companion fixtures PR (same branch name) and
  explain every difference (expected: NOTAMs, weather, curfews, crew, CAT II/III, MEL and
- alternates now populated). Both FlightKeys fixtures import on beta with those fields
+ alternates now populated). All FlightKeys fixtures import on beta with those fields
  populated.
 
 PULL REQUEST (on velocemente/relief-pilot only)
