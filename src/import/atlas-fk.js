@@ -286,6 +286,350 @@ function extractOverflightPerms(text) {
   return endMatch ? fromStart.slice(0, endMatch.index).trimEnd() : '';
 }
 
+// ── P2b: FlightKeys two-column NOTAM/weather/FIR extraction (rows 43–50) ─────
+// A4 landscape pages are ~841.89pt wide; left column is x < 40% of page width.
+const FK_COL_RATIO = 0.4;
+
+function _fkColThreshold(page) {
+  const w = (page && page.width > 0) ? page.width : 841.89;
+  return w * FK_COL_RATIO;
+}
+
+// Row 50: Detect FlightKeys running headers/footers to be skipped.
+function isFkHeaderLine(text) {
+  if (!text || !text.trim()) return false;
+  const t = text.trim();
+  // "Page N of N <uuid>"
+  if (/^Page\s+\d+\s+of\s+\d+\s+[0-9a-f-]{36}$/i.test(t)) return true;
+  // "FLTNUM/N ICAO-ICAO YYYY-MM-DD"
+  if (/^[A-Z0-9]+\/\d+\s+[A-Z]{4}\s*-\s*[A-Z]{4}\s+\d{4}-\d{2}-\d{2}/.test(t)) return true;
+  // Bare date-time line "YYYY-Mon-DD HH:MM"
+  if (/^\d{4}-[A-Z][a-z]{2}-\d{2}\s+\d{2}:\d{2}$/.test(t)) return true;
+  // FUFI: lines
+  if (/^FUFI:/i.test(t)) return true;
+  return false;
+}
+
+// Assemble spans whose x is in [minX, maxX) into a string, using gap sizes.
+function _assembleColSpans(spans, minX, maxX) {
+  const col = spans.filter(sp => sp.x >= minX && sp.x < maxX);
+  if (!col.length) return '';
+  col.sort((a, b) => a.x - b.x);
+  let s = '';
+  let prevRight = null;
+  for (const sp of col) {
+    const w = (sp.w != null && sp.w > 0) ? sp.w : sp.str.length * 5;
+    if (prevRight !== null) {
+      const gap = sp.x - prevRight;
+      s += gap > 20 ? '   ' : gap > 8 ? '  ' : gap > 3 ? ' ' : '';
+    }
+    s += sp.str;
+    prevRight = sp.x + w;
+  }
+  return s.trim();
+}
+
+// Build separate left and right column line arrays from all pages of a Doc.
+function buildFkColStreams(doc) {
+  const left = [], right = [];
+  for (const page of doc.pages) {
+    const thr = _fkColThreshold(page);
+    for (const line of page.lines) {
+      const spans = line.spans || [];
+      const lText = _assembleColSpans(spans, 0, thr);
+      const rText = _assembleColSpans(spans, thr, Infinity);
+      if (lText && !isFkHeaderLine(lText)) left.push(lText);
+      if (rText && !isFkHeaderLine(rText)) right.push(rText);
+    }
+  }
+  return { leftLines: left, rightLines: right };
+}
+
+// Find the character offset in fullText where the weather section begins.
+// Looks for "Page N of N <uuid>" (N > 1) after the main "COMPANY NOTAMS" header.
+function findFkWeatherStart(fullText) {
+  const companyIdx = fullText.search(/^COMPANY\s+NOTAMS\s*$/im);
+  if (companyIdx < 0) return fullText.length;
+  const re = /^Page\s+(\d+)\s+of\s+(\d+)\s+[0-9a-f-]{36}$/gim;
+  re.lastIndex = companyIdx;
+  let m;
+  while ((m = re.exec(fullText)) !== null) {
+    const n = parseInt(m[1], 10), total = parseInt(m[2], 10);
+    if (n === total && total > 1) return m.index + m[0].length;
+  }
+  return fullText.length;
+}
+
+// NOTAM ID: "ICAO XNNNN/NN [date - date/UFN]" — dates are OPTIONAL (YTOL split).
+const _NOTAM_ID_RE = /^([A-Z]{4})\s+([A-Z]\d{4}\/\d{2})(?:\s+(\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?)\s*-\s*(UFN(?:\s*\(EST[^)]*\))?|\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?))?/;
+const _BARE_ID_RE  = /^[A-Z]\d{4}\/\d{2}\s/;
+const _SUBJECT_RE  = /^SUBJECT:\s+(.+)$/i;
+
+// Rows 46-47: Parse Company NOTAMs from a column line array.
+// Returns Map<notamId, {icao, type, subject, notamId, body}>.
+function parseFkCompanyNotams(colLines) {
+  const results = new Map();
+  for (let i = 0; i < colLines.length; i++) {
+    const idM = _NOTAM_ID_RE.exec(colLines[i]);
+    if (!idM) continue;
+    const notamId = `${idM[1]} ${idM[2]}`;
+    if (results.has(notamId)) continue;
+    // Look ahead up to 5 lines for SUBJECT:
+    let subject = null, subjectIdx = -1;
+    for (let j = i + 1; j < Math.min(i + 6, colLines.length); j++) {
+      const sm = _SUBJECT_RE.exec(colLines[j]);
+      if (sm) { subject = sm[1].trim(); subjectIdx = j; break; }
+    }
+    if (!subject) continue;
+    // Fleet NOTAMs have no 4-letter ICAO prefix in the tag — skip them.
+    const tagM = /^([A-Z]{4})-(.+)$/.exec(subject);
+    if (!tagM) continue;
+    const tag = tagM[2].trim().toUpperCase();
+    const type = (tag === 'CURFEW' || tag === 'ARRL CRF') ? 'curfew' : 'opsNotes';
+    // Collect body lines from after SUBJECT until next NOTAM ID.
+    const bodyLines = [];
+    const bodyLimit = Math.min(subjectIdx + 50, colLines.length);
+    for (let k = subjectIdx + 1; k < bodyLimit; k++) {
+      const line = colLines[k];
+      if (_NOTAM_ID_RE.test(line) || _BARE_ID_RE.test(line)) break;
+      if (line.trim()) bodyLines.push(line.trim());
+    }
+    results.set(notamId, { icao: tagM[1], type, subject, notamId, body: bodyLines.join('\n') });
+  }
+  return results;
+}
+
+// Row 44: Parse NOTAM briefing items (non-Company) from the NOTAM section text.
+// Returns Map<notamId, {id, icao, validFrom, validTo, created, body}>.
+function parseFkNotamBriefingItems(notamText, companyIds) {
+  const items = new Map();
+  const lines = notamText.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const m = _NOTAM_ID_RE.exec(lines[i]);
+    if (!m) continue;
+    const notamId = `${m[1]} ${m[2]}`;
+    if (items.has(notamId) || companyIds.has(notamId)) continue;
+    // If SUBJECT follows within 5 lines it's a Company NOTAM — skip.
+    let isCompany = false;
+    for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+      if (_SUBJECT_RE.test(lines[j])) { isCompany = true; break; }
+    }
+    if (isCompany) continue;
+    const bodyLines = [];
+    let created = null;
+    let j = i + 1;
+    while (j < lines.length && j < i + 60) {
+      const next = lines[j].trim();
+      if (_NOTAM_ID_RE.test(lines[j]) || _BARE_ID_RE.test(lines[j])) break;
+      if (/^APT\s*[A-Z]{4}\b/i.test(next)) break;
+      if (/\bFIR[A-Z]{4}\b/.test(next)) break;
+      const cm = /^CREATED:\s*(\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?)/.exec(next);
+      if (cm) { if (!created) created = cm[1].trim(); j++; continue; }
+      if (/^FL:\s/.test(next)) { j++; continue; }
+      if (next) bodyLines.push(next);
+      j++;
+    }
+    items.set(notamId, {
+      id: notamId, icao: m[1],
+      validFrom: m[3] || null, validTo: m[4] || null,
+      created, body: bodyLines.join('\n'),
+    });
+    i = j - 1;
+  }
+  return items;
+}
+
+// APT sentinel: "APT ICAO RWYS: ..." or "APTICAO RWYS: ..."
+const _APT_RE  = /^APT\s*([A-Z]{4})\s+RWYS?:\s*(.+)$/i;
+const _ROLE_RE = /(DEPARTURE|DESTINATION|ALTN(?:\s*\d)?|EA|IA|TA)\s+(\d{2}\s+\d{2}:\d{2}\s*-\s*\d{2}\s+\d{2}:\d{2})/gi;
+// City header: "AAA - CITY NAME   ROLE DD HH:MM - DD HH:MM"
+const _CITY_RE = /^[A-Z]{3}\s+-\s+.+?(?:\s+(DEPARTURE|DESTINATION|ALTN(?:\s*\d)?|EA|IA|TA)\s+(\d{2}\s+\d{2}:\d{2}\s*-\s*\d{2}\s+\d{2}:\d{2}))\s*$/i;
+
+// Parse APT sentinels from NOTAM section text. Returns Map<icao, {roles, rwys}>.
+function parseFkAptSentinels(notamText) {
+  const apts = new Map();
+  const lines = notamText.split('\n');
+  let pending = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const cityM = _CITY_RE.exec(line);
+    if (cityM) {
+      pending = { role: cityM[1].trim().toUpperCase(), window: cityM[2].trim() };
+      continue;
+    }
+    const aptM = _APT_RE.exec(line);
+    if (!aptM) { pending = null; continue; }
+    const icao = aptM[1].toUpperCase();
+    if (!apts.has(icao)) apts.set(icao, { roles: [], rwys: [] });
+    const apt = apts.get(icao);
+    const rest = aptM[2];
+    // Separate RWYs (before first role keyword) from inline roles.
+    const roleIdx = rest.search(/(DEPARTURE|DESTINATION|ALTN(?:\s*\d)?|EA|IA|TA)\s+\d{2}\s+\d{2}:/i);
+    const rwysStr = (roleIdx >= 0 ? rest.slice(0, roleIdx) : rest).trim();
+    for (const r of rwysStr.split(/\s+/)) {
+      if (/^\d{2}[LCR]?(?:\/\d{2}[LCR]?)?$/.test(r) && !apt.rwys.includes(r)) apt.rwys.push(r);
+    }
+    // Roles from the APT sentinel line itself.
+    _ROLE_RE.lastIndex = 0;
+    let rm;
+    while ((rm = _ROLE_RE.exec(rest)) !== null) {
+      const role = rm[1].trim().toUpperCase();
+      if (!apt.roles.some(r => r.role === role)) apt.roles.push({ role, window: rm[2].trim() });
+    }
+    // Attach city-header role that preceded this APT line.
+    if (pending && !apt.roles.some(r => r.role === pending.role)) {
+      apt.roles.push({ role: pending.role, window: pending.window });
+    }
+    pending = null;
+    // Look ahead for continuation role lines.
+    for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+      const next = lines[j].trim();
+      const contM = /^(DEPARTURE|DESTINATION|ALTN(?:\s*\d)?|EA|IA|TA)\s+(\d{2}\s+\d{2}:\d{2}\s*-\s*\d{2}\s+\d{2}:\d{2})\s*$/i.exec(next);
+      if (!contM) break;
+      const role = contM[1].trim().toUpperCase();
+      if (!apt.roles.some(r => r.role === role)) apt.roles.push({ role, window: contM[2].trim() });
+    }
+  }
+  return apts;
+}
+
+// Row 43: Parse TAF/METAR from weather section text. Returns Map<icao, {taf, metars, atis}>.
+function parseFkWeatherSection(weatherText) {
+  const airports = new Map();
+  const lines = weatherText.split('\n');
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    const tafM = /^TAF\s+([A-Z]{4})\s+/.exec(line);
+    if (tafM) {
+      const icao = tafM[1];
+      if (!airports.has(icao)) airports.set(icao, { taf: null, metars: [], atis: null });
+      const tafLines = [line];
+      let j = i + 1;
+      while (j < lines.length) {
+        const next = lines[j].trim();
+        if (!next || /^(TAF|METAR)\s+[A-Z]{4}\s+/.test(next)) break;
+        if (/^[A-Z]{3}\s+-\s+/.test(next) || /^APT\s*[A-Z]{4}\b/i.test(next)) break;
+        tafLines.push(next);
+        j++;
+      }
+      airports.get(icao).taf = tafLines.join('\n');
+      i = j;
+      continue;
+    }
+    const metarM = /^METAR\s+([A-Z]{4})\s+/.exec(line);
+    if (metarM) {
+      const icao = metarM[1];
+      if (!airports.has(icao)) airports.set(icao, { taf: null, metars: [], atis: null });
+      airports.get(icao).metars.push(line);
+      i++;
+      continue;
+    }
+    const atisM = /THERE ARE NO ACTIVE ATIS FOR AIRPORT\s+([A-Z]{4})/i.exec(line);
+    if (atisM) {
+      const icao = atisM[1];
+      if (!airports.has(icao)) airports.set(icao, { taf: null, metars: [], atis: null });
+      airports.get(icao).atis = 'NIL';
+    }
+    i++;
+  }
+  return airports;
+}
+
+// Row 49: Parse FIR blocks from NOTAM section text. Returns array of {name, icao, items[]}.
+function parseFkFirBlocks(notamText) {
+  const firs = [];
+  const seen = new Set();
+  const lines = notamText.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const firM = /\bFIR([A-Z]{4})\b/.exec(line);
+    if (!firM) continue;
+    const icao = firM[1];
+    if (seen.has(icao)) continue;
+    seen.add(icao);
+    // Look back up to 3 lines for "... FIR" or "... UIR" name header.
+    let firName = '';
+    for (let j = Math.max(0, i - 3); j <= i; j++) {
+      const prev = lines[j].trim();
+      if (/^.+\s+(FIR|UIR)\s*$/.test(prev)) firName = prev;
+    }
+    // Parse NOTAM items: check sentinel line first (item may follow sentinel on same line).
+    const items = [];
+    const itemsSeen = new Set();
+    const _itemRe = () => /((?:[A-Z]{4}\s+)+)([A-Z]\d{4}\/\d{2})(?:\s+(\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?)\s*-\s*(UFN(?:\s*\(EST[^)]*\))?|\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?))?/g;
+    const scanLine = (src) => {
+      const re = _itemRe();
+      let m;
+      while ((m = re.exec(src)) !== null) {
+        const id = `${m[1].trim()} ${m[2]}`.replace(/\s+/g, ' ');
+        if (!itemsSeen.has(id)) {
+          itemsSeen.add(id);
+          items.push({ id, validFrom: m[3] || null, validTo: m[4] || null });
+        }
+      }
+    };
+    // Scan rest of the sentinel line.
+    scanLine(line.slice(firM.index + firM[0].length));
+    // Scan subsequent lines until the next FIR sentinel or APT sentinel.
+    let j = i + 1;
+    while (j < lines.length && j < i + 100) {
+      const next = lines[j].trim();
+      if (/\bFIR[A-Z]{4}\b/.test(next) || /^APT\s*[A-Z]{4}\b/i.test(next)) break;
+      scanLine(next);
+      j++;
+    }
+    firs.push({ name: firName || `FIR ${icao}`, icao, items });
+    i = j - 1;
+  }
+  return firs;
+}
+
+// Merge all parsed data into cbm.airportData.
+function _mergeFkAirportData(cbm, aptSentinels, briefingItems, companyMap, weatherMap, fixtureFindings) {
+  const ensure = (icao) => {
+    if (!cbm.airportData[icao]) {
+      cbm.airportData[icao] = { _roles: [], rwys: [], notams: [], weather: null, curfew: null, opsNotes: [] };
+    }
+    return cbm.airportData[icao];
+  };
+  for (const [icao, sd] of aptSentinels) {
+    const ad = ensure(icao);
+    ad._roles = sd.roles;
+    ad.rwys = sd.rwys;
+    for (const r of sd.roles) {
+      const roleUpper = r.role.toUpperCase();
+      if (['EA', 'IA', 'TA'].includes(roleUpper)) {
+        const code = `CANONICAL_ROLE_NO_LEGACY_${icao}`;
+        if (!fixtureFindings.some(f => f.code === code)) {
+          fixtureFindings.push({
+            code, severity: 'INFO',
+            message: `${icao} has role ${r.role} (${r.window}): kept in canonical model only`,
+          });
+        }
+      }
+    }
+  }
+  for (const [icao] of weatherMap) ensure(icao);
+  for (const [icao, w] of weatherMap) {
+    cbm.airportData[icao].weather = { taf: w.taf, metars: w.metars, atis: w.atis };
+  }
+  for (const [, item] of briefingItems) {
+    ensure(item.icao).notams.push({
+      id: item.id, validFrom: item.validFrom, validTo: item.validTo,
+      created: item.created, body: item.body,
+    });
+  }
+  for (const [, entry] of companyMap) {
+    const ad = ensure(entry.icao);
+    if (entry.type === 'curfew') {
+      ad.curfew = { notamId: entry.notamId, subject: entry.subject, body: entry.body };
+    } else {
+      ad.opsNotes.push({ notamId: entry.notamId, subject: entry.subject, body: entry.body });
+    }
+  }
+}
+
 // ── Main profile extraction function ─────────────────────────────────────────
 function extractCbm(doc) {
   if (!doc || !doc.pages || doc.pages.length === 0) {
@@ -476,9 +820,21 @@ function extractCbm(doc) {
   cbm.etpPoints = [];
   cbm.natTrack = null;
 
-  // ── P2b fields — not in P2a scope ─────────────────────────────────────────
-  cbm.enrouteNotams = null;
+  // ── P2b fields: NOTAMs, weather, FIR (rows 43–50) ────────────────────────
+  const weatherStart = findFkWeatherStart(fullText);
+  const notamSection  = weatherStart < fullText.length ? fullText.slice(0, weatherStart) : fullText;
+  const weatherSection = weatherStart < fullText.length ? fullText.slice(weatherStart) : '';
+  const { leftLines, rightLines } = buildFkColStreams(doc);
+  const companyMap = new Map([
+    ...parseFkCompanyNotams(leftLines),
+    ...parseFkCompanyNotams(rightLines),
+  ]);
+  const briefingMap  = parseFkNotamBriefingItems(notamSection, new Set(companyMap.keys()));
+  const aptSentinels = parseFkAptSentinels(notamSection);
+  const weatherMap   = parseFkWeatherSection(weatherSection);
   cbm.airportData = {};
+  _mergeFkAirportData(cbm, aptSentinels, briefingMap, companyMap, weatherMap, fixtureFindings);
+  cbm.enrouteNotams = { fir: parseFkFirBlocks(notamSection) };
   cbm.ddgItems = [];
 
   // ── Fixture pending findings ───────────────────────────────────────────────
@@ -522,6 +878,10 @@ function extractCbm(doc) {
     code: 'FIXTURE_PENDING_DDG', severity: 'WARN',
     message: 'ddgItems: fixture pending (FlightKeys source not yet available)',
   });
+  fixtureFindings.push({
+    code: 'FIXTURE_PENDING_EWINS', severity: 'WARN',
+    message: 'airportData[*].ewins*: fixture pending (no FlightKeys source available)',
+  });
 
   cbm._fixtureFindings = fixtureFindings;
 
@@ -543,4 +903,13 @@ module.exports = {
   parseNavLog,
   extractAltRoutes,
   extractOverflightPerms,
+  // P2b helpers for testing
+  isFkHeaderLine,
+  buildFkColStreams,
+  findFkWeatherStart,
+  parseFkCompanyNotams,
+  parseFkNotamBriefingItems,
+  parseFkAptSentinels,
+  parseFkWeatherSection,
+  parseFkFirBlocks,
 };
