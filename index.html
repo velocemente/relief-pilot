@@ -7637,17 +7637,17 @@ function _ofpRulesetParse(rawText) {
     if (_ffSearch === -1) return;
     const block = t.slice(_ffSearch, Math.min(_ffSearch + 5000, t.length));
     // Handles all observed Atlas Air crew line formats:
-    //   "CA 448229 MAGGIO M .."          — standard 6-digit emp#
-    //   "CA 751 REDFORD D .."            — 3-digit emp#
-    //   "CA 452980 * LINEHAN R .."       — mid-line asterisk (unusual circumstance flag)
-    //   "* FO 456969 ERIKSSON E .."      — leading asterisk (senior designee)
-    //   "* SEN FO 456942 BRAMLEY R .."   — asterisk + SEN prefix
-    //   "FO 459072 * SEN T .."           — SEN in name-field position
+    //   "CA 100001 SAMPLE M .."          — standard 6-digit emp#
+    //   "CA 101 DOE D .."                — 3-digit emp#
+    //   "CA 100002 * EXAMPLE R .."       — mid-line asterisk (unusual circumstance flag)
+    //   "* FO 100003 TESTER E .."        — leading asterisk (senior designee)
+    //   "* SEN FO 100004 PLACEHOLD R .." — asterisk + SEN prefix
+    //   "FO 100005 * SEN T .."           — SEN in name-field position
     //   "CA 1234567 JONES A.."           — no space before dots (PDF whitespace collapse)
     //   "CA 12 SMITH B .."               — short emp# (2-digit contract format)
-    //   "FO 456575 PANCHANGAM GURUPRASA K .." — compound last name (v1.2.0)
-    //   "FO 453979 * WAYBRIGHT JR D .."  — generational suffix token (v1.2.0)
-    //   "FO 456752 STROTHER II T .."     — generational suffix token (v1.2.0)
+    //   "FO 100006 VANDERLAAN DEMOSTRA K .." — compound last name (v1.2.0)
+    //   "FO 100007 * SAMPLEMAN JR D .."  — generational suffix token (v1.2.0)
+    //   "FO 100008 EXAMPLETON II T .."   — generational suffix token (v1.2.0)
     //   Roles: CA FO FO1 FO2 SO AO RO DH JS  (v1.2.0 — ETOPS augmented designations)
     //   Lazy *? in name group forces backtracking so single-letter initial
     //   lands in group [4], not consumed into group [3].
