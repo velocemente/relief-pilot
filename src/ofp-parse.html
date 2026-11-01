@@ -1311,8 +1311,63 @@ function deriveCallsign(fltNum) {
   };
 }
 
+function rawTextToDoc(rawText) {
+  // Convert raw text (pages separated by \n\n, lines by \n) to Doc structure
+  const pageTexts = rawText.split(/\n\n+/);
+  const pages = pageTexts.map((pageText, idx) => {
+    const lines = pageText.split('\n')
+      .map((text) => text.trim())
+      .filter(text => text.length > 0)
+      .map((text, lineIdx) => ({
+        text,
+        y: lineIdx * 20, // approximate y coordinate
+        spans: [], // spans not needed for detector
+        columns: null,
+      }));
+    return { n: idx + 1, lines };
+  });
+  return {
+    meta: { producer: '', pageCount: pages.length, outline: [] },
+    pages,
+  };
+}
+
 function parseOFP() {
-  const result = _ofpRulesetParse(pdfRawText);
+  let result = null;
+
+  // Try engine detection if available
+  if (window.PB_IMPORT) {
+    try {
+      const doc = rawTextToDoc(pdfRawText);
+      const detection = window.PB_IMPORT.detect(doc);
+
+      if (detection.profileId === 'atlas-fk') {
+        // Run the engine for FlightKeys format
+        const cbm = window.PB_IMPORT.extractCbm(doc);
+        const validation = window.PB_IMPORT.validate(cbm);
+
+        // Handle validation failures for safety-critical fields
+        if (validation.status === 'FAIL') {
+          // Log failures but merge into result—existing warning path with D2 text
+          console.warn('OFP validation failed:', validation.findings);
+        }
+
+        // Convert canonical shape to legacy shape
+        result = window.PB_IMPORT.toLegacyShape(cbm);
+      } else {
+        // Use existing parser for other formats
+        result = _ofpRulesetParse(pdfRawText);
+      }
+    } catch (e) {
+      // Engine threw an error, fall back to existing parser
+      console.warn('Engine error, falling back to parser:', e.message);
+      result = _ofpRulesetParse(pdfRawText);
+    }
+  } else {
+    // Engine not loaded, use existing parser
+    result = _ofpRulesetParse(pdfRawText);
+  }
+
   if (!result) return;
 
   // Merge parsed airportData into global (preserves any user edits already present)

@@ -30,9 +30,19 @@ function toLegacyShape(cbm) {
   const out = {};
   for (const key of LEGACY_KEYS) {
     const def = REGISTRY[key];
-    out[key] = (cbm !== null && cbm !== undefined && key in cbm)
+    let value = (cbm !== null && cbm !== undefined && key in cbm)
       ? cbm[key]
       : (def ? def.legacyEmpty : null);
+
+    // Convert fltNum: append date day from dateStr if available
+    if (key === 'fltNum' && value && cbm && cbm.dateStr) {
+      const dayMatch = String(cbm.dateStr).match(/^(\d{2})\s/);
+      if (dayMatch) {
+        value = value + '/' + dayMatch[1];
+      }
+    }
+
+    out[key] = value;
   }
   return out;
 }
