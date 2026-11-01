@@ -107,6 +107,7 @@ function buildEngineScript() {
   script += "    extractCbm: modules['atlas-fk'].extractCbm,\n";
   script += "    validate: modules.validate.validate,\n";
   script += "    toLegacyShape: modules['legacy-shape'].toLegacyShape,\n";
+  script += "    adaptItems: modules['adapter-pdf'].adaptItems,\n";
   script += "    REGISTRY: modules.registry.REGISTRY,\n";
   script += '  };\n';
   script += '})();\n';

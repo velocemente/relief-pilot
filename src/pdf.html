@@ -89,11 +89,22 @@ async function processPDF(file) {
     const pdf = await pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise;
 
     let fullText = '';
+    const itemsPages = []; // Store items for engine input (same format as tools/extract)
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const pg   = await pdf.getPage(i);
       const vp   = pg.getViewport({scale: 1});
       const tc   = await pg.getTextContent({normalizeWhitespace: false, disableCombineTextItems: false});
+
+      // Collect raw items for engine (before text assembly)
+      const pageItems = [];
+      tc.items.forEach(item => {
+        if (!item.str) return;
+        const y = vp.height - item.transform[5];
+        const x = item.transform[4];
+        pageItems.push({ str: item.str, x, y, w: item.width || 0, h: item.height || 0 });
+      });
+      itemsPages.push({ n: i, width: vp.width, height: vp.height, items: pageItems });
 
       // ── Layout-preserving reconstruction ──────────────────────────
       // Group items into lines by their Y coordinate (within 2pt tolerance)
@@ -144,6 +155,7 @@ async function processPDF(file) {
     }
 
     pdfRawText = fullText;
+    pdfItems = { meta: { file: file.name, pageCount: pdf.numPages, outline: [] }, pages: itemsPages };
     showToast('ok', `✓ Loaded ${pdf.numPages} pages — parsing OFP…`);
     setTimeout(() => { parseOFP(); push('screen-flight'); }, 400);
   } catch(err) { showToast('err', 'Error: ' + err.message); }

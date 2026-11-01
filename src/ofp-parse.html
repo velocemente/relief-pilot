@@ -1334,34 +1334,62 @@ function rawTextToDoc(rawText) {
 
 function parseOFP() {
   let result = null;
+  let validationFindings = null;
 
   // Try engine detection if available
   if (window.PB_IMPORT) {
+    let doc = null;
+    let detectionError = null;
+
     try {
-      const doc = rawTextToDoc(pdfRawText);
+      // Use PDF items if available (exact input used by tests), else text-only doc
+      if (typeof window.pdfItems === 'object' && window.pdfItems && window.pdfItems.pages) {
+        // PDF with items: use engine's adaptItems for exact input matching tests
+        if (typeof window.PB_IMPORT.adaptItems === 'function') {
+          doc = window.PB_IMPORT.adaptItems(window.pdfItems);
+        }
+      }
+
+      // Fallback: create text-only doc from raw text
+      if (!doc && typeof window.pdfRawText === 'string' && window.pdfRawText.trim()) {
+        const pageTexts = window.pdfRawText.split(/\n\n+/);
+        const pages = pageTexts.map((pageText, idx) => {
+          const lines = pageText.split('\n')
+            .map((text) => text.trim())
+            .filter(text => text.length > 0)
+            .map((text) => ({ text, y: 0, spans: [], columns: null }));
+          return { n: idx + 1, lines };
+        });
+        doc = { meta: { producer: '', pageCount: pages.length, outline: [] }, pages };
+      }
+
+      if (!doc || !doc.pages || doc.pages.length === 0) {
+        throw new Error('No OFP text available');
+      }
+
       const detection = window.PB_IMPORT.detect(doc);
 
       if (detection.profileId === 'atlas-fk') {
         // Run the engine for FlightKeys format
         const cbm = window.PB_IMPORT.extractCbm(doc);
         const validation = window.PB_IMPORT.validate(cbm);
-
-        // Handle validation failures for safety-critical fields
-        if (validation.status === 'FAIL') {
-          // Log failures but merge into result—existing warning path with D2 text
-          console.warn('OFP validation failed:', validation.findings);
-        }
+        validationFindings = validation;
 
         // Convert canonical shape to legacy shape
         result = window.PB_IMPORT.toLegacyShape(cbm);
       } else {
-        // Use existing parser for other formats
-        result = _ofpRulesetParse(pdfRawText);
+        // Other format detected but not supported by engine yet, use parser
+        result = _ofpRulesetParse(window.pdfRawText);
       }
     } catch (e) {
-      // Engine threw an error, fall back to existing parser
-      console.warn('Engine error, falling back to parser:', e.message);
-      result = _ofpRulesetParse(pdfRawText);
+      // Detection failed or format not recognised
+      detectionError = String(e.message || e);
+      result = _ofpRulesetParse(window.pdfRawText);
+    }
+
+    // Show error for detection failures or validation failures on safety-critical fields
+    if (detectionError || (validationFindings && validationFindings.status === 'FAIL')) {
+      showToast('err', 'OFP not recognised / incomplete — brief from the paper OFP.');
     }
   } else {
     // Engine not loaded, use existing parser
