@@ -14,6 +14,7 @@ const {
   parseFkWeatherSection,
   parseFkFirBlocks,
   parseFkEtpSection,
+  fkWxWindowMidpoint,
   buildFkColStreams,
 } = require('../../src/import/atlas-fk');
 const { validate } = require('../../src/import/validate');
@@ -760,15 +761,21 @@ if (!FIXTURES_DIR) {
     assert.ok(cfsIcaos.includes('KSFO'), 'KSFO CFS ALT present');
     assert.ok(cfsIcaos.includes('PACD'), 'PACD CFS ALT present');
     assert.ok(cfsIcaos.includes('RJCC'), 'RJCC CFS ALT present');
+    // PACD appears in ETP1 and ETP2 tables — must have exactly one entry (first wins)
+    assert.equal(cfsIcaos.filter(i => i === 'PACD').length, 1, 'PACD appears exactly once (dedup)');
     const ksfo = cfsAlts.find(a => a.icao === 'KSFO');
     assert.equal(ksfo.etpName, 'ETP1', 'KSFO etpName');
-    assert.ok(ksfo.wxWindow, 'KSFO wxWindow populated');
-    assert.strictEqual(ksfo.ofpEta, null, 'CFS ALT ofpEta is null');
+    assert.equal(ksfo.wxWindow, '0628Z-1031Z', 'KSFO wxWindow in HHMMZ-HHMMZ format');
+    assert.equal(ksfo.ofpEta, '0830', 'KSFO ofpEta = midpoint of 0628-1031');
+    assert.equal(ksfo.currentEta, '0830', 'KSFO currentEta = ofpEta');
+    assert.strictEqual(ksfo.ofpOffsetMins, null, 'CFS ALT ofpOffsetMins is null');
   });
 
-  test('D3 NEGATIVE (ETP): ZUCK-UAAA has no etpPoints', () => {
+  test('D3 NEGATIVE (ETP): ZUCK-UAAA has no etpPoints and no CFS ALT entries', () => {
     const cbm = extractCbm(fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc);
     assert.equal(cbm.etpPoints.length, 0, 'no ETP points for ZUCK-UAAA');
+    const cfsAlts = cbm.altData.filter(a => a.role === 'CFS ALT');
+    assert.equal(cfsAlts.length, 0, 'no CFS ALT entries for ZUCK-UAAA');
     const pendingCodes = (cbm._fixtureFindings || []).map(f => f.code);
     assert.ok(pendingCodes.includes('FIXTURE_PENDING_ETP'), 'FIXTURE_PENDING_ETP present for non-ETP fixture');
   });
@@ -790,6 +797,9 @@ if (!FIXTURES_DIR) {
     assert.equal(result.etpPoints[0].elapsedMins, 193, 'elapsedMins from nav log');
     assert.equal(result.altData.length, 1, 'one CFS alt');
     assert.equal(result.altData[0].icao, 'KSFO', 'KSFO CFS alt');
+    assert.equal(result.altData[0].wxWindow, '0628Z-1031Z', 'wxWindow in HHMMZ-HHMMZ format');
+    assert.equal(result.altData[0].ofpEta, '0830', 'ofpEta = midpoint 0628-1031');
+    assert.equal(result.altData[0].currentEta, '0830', 'currentEta = ofpEta');
   });
 
   test('D3 UNIT NEGATIVE (parseFkEtpSection): normal nav log lon line not matched as ETP', () => {
@@ -834,7 +844,13 @@ if (!FIXTURES_DIR) {
     assert.ok(cbm.airportData.KSFO.notams.length > 0, 'KSFO has at least one NOTAM');
   });
 
-  test('D5 UNIT (NOTAM ID regex): 3-letter FAA code format matched', () => {
+  test('D5 POSITIVE (NOTAMs): PACD has 3 NOTAMs (FAA-first CDB PACD ID format)', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    assert.ok(cbm.airportData.PACD, 'PACD has airportData entry');
+    assert.equal(cbm.airportData.PACD.notams.length, 3, 'PACD has 3 NOTAMs');
+  });
+
+  test('D5 UNIT (NOTAM ID regex): 3-letter FAA code after ICAO format matched', () => {
     // parseFkNotamBriefingItems must parse "KLAX LAX A3108/26" format.
     const text = [
       'APTKLAX RWYS: 06L',
@@ -845,6 +861,20 @@ if (!FIXTURES_DIR) {
     assert.ok(result.size > 0, 'NOTAM with 3-letter FAA code parsed');
     const entry = [...result.values()][0];
     assert.equal(entry.icao, 'KLAX', 'ICAO correctly extracted');
+  });
+
+  test('D5 UNIT (NOTAM ID regex): FAA code before ICAO format matched (CDB PACD A4074/26)', () => {
+    // parseFkNotamBriefingItems must parse "CDB PACD A4074/26" format (FAA code precedes ICAO).
+    const text = [
+      'APTPACD RWYS: 08/26',
+      'CDB PACD A4074/26',
+      'CREATED:2026-Oct-28 01:23   FL: SFC - UNL',
+      'RWY INCURSION WARNING OPERATION SUSPENDED',
+    ].join('\n');
+    const result = parseFkNotamBriefingItems(text, new Set());
+    assert.equal(result.size, 1, 'NOTAM with FAA-first format parsed');
+    const entry = [...result.values()][0];
+    assert.equal(entry.icao, 'PACD', 'ICAO correctly extracted from FAA-first format');
   });
 
   // ── Defect 6: Airport list filter ────────────────────────────────────

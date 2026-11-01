@@ -365,8 +365,9 @@ function findFkWeatherStart(fullText) {
   return fullText.length;
 }
 
-// NOTAM ID: "ICAO [FAA] XNNNN/NN [date - date/UFN]" — FAA 3-letter code and dates are OPTIONAL.
-const _NOTAM_ID_RE = /^([A-Z]{4})\s+(?:[A-Z]{3}\s+)?([A-Z]\d{4}\/\d{2})(?:\s+(\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?)\s*-\s*(UFN(?:\s*\(EST[^)]*\))?|\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?))?/;
+// NOTAM ID: "[FAA] ICAO [FAA] XNNNN/NN [date - date/UFN]" — FAA 3-letter code may appear before
+// or after the 4-letter ICAO (e.g. "KLAX LAX A3108/26" or "CDB PACD A4074/26"); dates OPTIONAL.
+const _NOTAM_ID_RE = /^(?:[A-Z]{3}\s+)?([A-Z]{4})\s+(?:[A-Z]{3}\s+)?([A-Z]\d{4}\/\d{2})(?:\s+(\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?)\s*-\s*(UFN(?:\s*\(EST[^)]*\))?|\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?))?/;
 const _BARE_ID_RE  = /^[A-Z]\d{4}\/\d{2}\s/;
 const _SUBJECT_RE  = /^SUBJECT:\s+(.+)$/i;
 
@@ -590,6 +591,15 @@ function parseFkFirBlocks(notamText) {
   return firs;
 }
 
+// Same logic as legacy wxWindowMidpoint in src/ofp-parse.html.
+function fkWxWindowMidpoint(startHHMM, endHHMM) {
+  const s = parseInt(startHHMM.slice(0,2))*60 + parseInt(startHHMM.slice(2,4));
+  const e = parseInt(endHHMM.slice(0,2))*60   + parseInt(endHHMM.slice(2,4));
+  let mid = s + Math.round((e >= s ? e - s : e + 1440 - s) / 2);
+  if (mid >= 1440) mid -= 1440;
+  return String(Math.floor(mid/60)).padStart(2,'0') + String(mid%60).padStart(2,'0');
+}
+
 // Row 41: Parse Critical Fuel Scenario section for ETP points and CFS alternates.
 // Returns { etpPoints: [{name, lat, lon, elapsedMins}],
 //           altData:   [{icao, role:'CFS ALT', etpName, ofpEta, currentEta, ofpOffsetMins, wxWindow}] }
@@ -636,11 +646,14 @@ function parseFkEtpSection(fullText) {
     }
 
     // CFS alternate row: "ICAO GCD TIME A/I REMF PAD MINF HH:MM-HH:MM"
-    const rowM = /^([A-Z]{4})\s+\d+\s+\d+:\d+\s+\S+\s+\d+\s+\d+\s+\d+\s+(\d{2}:\d{2}-\d{2}:\d{2})/.exec(line);
-    if (rowM && currentEtpName) {
+    // Capture window as 4 components to build HHMMZ-HHMMZ format without colon.
+    const rowM = /^([A-Z]{4})\s+\d+\s+\d+:\d+\s+\S+\s+\d+\s+\d+\s+\d+\s+(\d{2}):(\d{2})-(\d{2}):(\d{2})/.exec(line);
+    if (rowM && currentEtpName && !altDataCfs.find(a => a.icao === rowM[1])) {
+      const wxWindow = rowM[2] + rowM[3] + 'Z-' + rowM[4] + rowM[5] + 'Z';
+      const currentEta = fkWxWindowMidpoint(rowM[2] + rowM[3], rowM[4] + rowM[5]);
       altDataCfs.push({
         icao: rowM[1], role: 'CFS ALT', etpName: currentEtpName,
-        ofpEta: null, currentEta: null, ofpOffsetMins: null, wxWindow: rowM[2],
+        ofpEta: currentEta, currentEta, ofpOffsetMins: null, wxWindow,
       });
     }
   }
@@ -1053,4 +1066,5 @@ module.exports = {
   parseFkWeatherSection,
   parseFkFirBlocks,
   parseFkEtpSection,
+  fkWxWindowMidpoint,
 };
