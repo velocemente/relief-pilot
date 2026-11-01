@@ -69,6 +69,11 @@ const PATTERNS = {
 
   // Row 38: OFP format/source indicator
   FUFI_LINE: /^FUFI:\s+([0-9A-F\-]+)\s+PAGE\s+(\d+)\/(\d+)/im,
+
+  // Row 46: POR (Point of Reconjunction) from the FMC Reserves line
+  POR_HEADER: /\bPOR:\s+([A-Z][A-Z0-9]*)\s+(\d{2})\.(\d{2})\b/i,
+  // Row 46b: POR min fuel from 3-column MINF row (separator "....")
+  POR_MINF: /^MINF\s+\d+\s+[\d.]+\s+\.{2,}\s+(\d+)/im,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -360,8 +365,8 @@ function findFkWeatherStart(fullText) {
   return fullText.length;
 }
 
-// NOTAM ID: "ICAO XNNNN/NN [date - date/UFN]" — dates are OPTIONAL (YTOL split).
-const _NOTAM_ID_RE = /^([A-Z]{4})\s+([A-Z]\d{4}\/\d{2})(?:\s+(\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?)\s*-\s*(UFN(?:\s*\(EST[^)]*\))?|\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?))?/;
+// NOTAM ID: "ICAO [FAA] XNNNN/NN [date - date/UFN]" — FAA 3-letter code and dates are OPTIONAL.
+const _NOTAM_ID_RE = /^([A-Z]{4})\s+(?:[A-Z]{3}\s+)?([A-Z]\d{4}\/\d{2})(?:\s+(\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?)\s*-\s*(UFN(?:\s*\(EST[^)]*\))?|\d{4}-[A-Za-z]{3}-\d{2}(?:\s+\d{2}:\d{2})?))?/;
 const _BARE_ID_RE  = /^[A-Z]\d{4}\/\d{2}\s/;
 const _SUBJECT_RE  = /^SUBJECT:\s+(.+)$/i;
 
@@ -585,9 +590,69 @@ function parseFkFirBlocks(notamText) {
   return firs;
 }
 
+// Row 41: Parse Critical Fuel Scenario section for ETP points and CFS alternates.
+// Returns { etpPoints: [{name, lat, lon, elapsedMins}],
+//           altData:   [{icao, role:'CFS ALT', etpName, ofpEta, currentEta, ofpOffsetMins, wxWindow}] }
+function parseFkEtpSection(fullText) {
+  // Step 1: Collect ETP elapsed times from nav log compact lon lines (only 2 ints before HH.MM).
+  const etpTimeMap = new Map();
+  const navMarkerRe = /\(GO([A-Z]{4})\)\s+(ETP\d+)\b/g;
+  let nm;
+  while ((nm = navMarkerRe.exec(fullText)) !== null) {
+    const etpName = nm[2];
+    if (etpTimeMap.has(etpName)) continue; // first (nav log) match wins
+    const ahead = fullText.slice(nm.index + nm[0].length, nm.index + nm[0].length + 300);
+    const lonM = /^[EW]\d{3}\s+\d+\.\d+\s+\d+\s+\d+\s+(\d{2})\.(\d{2})/m.exec(ahead);
+    if (lonM) etpTimeMap.set(etpName, parseInt(lonM[1], 10) * 60 + parseInt(lonM[2], 10));
+  }
+
+  // Step 2: Parse Critical Fuel Scenario section.
+  const cfsStart = /^Critical\s+Fuel\s+Scenario\s*$/im.exec(fullText);
+  if (!cfsStart) return { etpPoints: [], altData: [] };
+
+  const etpPoints = [];
+  const altDataCfs = [];
+  let currentEtpName = null;
+  const lines = fullText.slice(cfsStart.index).split('\n');
+  let i = 1; // skip header line
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    i++;
+    if (!line || isFkHeaderLine(line) || /^FUFI:/i.test(line)) continue;
+    if (/^COMPANY\s+NOTAMS\b/i.test(line)) break;
+
+    // ETP header: "(GOXXXX) ETPN ICAO1-ICAO2 lat lon"
+    const etpM = /^\(GO([A-Z]{4})\)\s+(ETP\d+)\s+[A-Z]{4}-[A-Z]{4}\s+([NS]\d+\s+[\d.]+)\s+([EW]\d+\s+[\d.]+)/.exec(line);
+    if (etpM) {
+      currentEtpName = etpM[2];
+      etpPoints.push({
+        name: currentEtpName,
+        lat:  etpM[3],
+        lon:  etpM[4],
+        elapsedMins: etpTimeMap.get(currentEtpName) ?? null,
+      });
+      continue;
+    }
+
+    // CFS alternate row: "ICAO GCD TIME A/I REMF PAD MINF HH:MM-HH:MM"
+    const rowM = /^([A-Z]{4})\s+\d+\s+\d+:\d+\s+\S+\s+\d+\s+\d+\s+\d+\s+(\d{2}:\d{2}-\d{2}:\d{2})/.exec(line);
+    if (rowM && currentEtpName) {
+      altDataCfs.push({
+        icao: rowM[1], role: 'CFS ALT', etpName: currentEtpName,
+        ofpEta: null, currentEta: null, ofpOffsetMins: null, wxWindow: rowM[2],
+      });
+    }
+  }
+
+  return { etpPoints, altData: altDataCfs };
+}
+
 // Merge all parsed data into cbm.airportData.
-function _mergeFkAirportData(cbm, aptSentinels, briefingItems, companyMap, weatherMap, fixtureFindings) {
+// Only airports in releaseIcaos receive entries; others are silently skipped.
+function _mergeFkAirportData(cbm, aptSentinels, briefingItems, companyMap, weatherMap, releaseIcaos, fixtureFindings) {
   const ensure = (icao) => {
+    if (!releaseIcaos.has(icao)) return null;
     if (!cbm.airportData[icao]) {
       cbm.airportData[icao] = { _roles: [], rwys: [], notams: [], weather: null, curfew: null, opsNotes: [] };
     }
@@ -595,6 +660,7 @@ function _mergeFkAirportData(cbm, aptSentinels, briefingItems, companyMap, weath
   };
   for (const [icao, sd] of aptSentinels) {
     const ad = ensure(icao);
+    if (!ad) continue;
     ad._roles = sd.roles;
     ad.rwys = sd.rwys;
     for (const r of sd.roles) {
@@ -610,18 +676,22 @@ function _mergeFkAirportData(cbm, aptSentinels, briefingItems, companyMap, weath
       }
     }
   }
-  for (const [icao] of weatherMap) ensure(icao);
   for (const [icao, w] of weatherMap) {
-    cbm.airportData[icao].weather = { taf: w.taf, metars: w.metars, atis: w.atis };
+    const ad = ensure(icao);
+    if (!ad) continue;
+    ad.weather = { taf: w.taf, metars: w.metars, atis: w.atis };
   }
   for (const [, item] of briefingItems) {
-    ensure(item.icao).notams.push({
+    const ad = ensure(item.icao);
+    if (!ad) continue;
+    ad.notams.push({
       id: item.id, validFrom: item.validFrom, validTo: item.validTo,
       created: item.created, body: item.body,
     });
   }
   for (const [, entry] of companyMap) {
     const ad = ensure(entry.icao);
+    if (!ad) continue;
     if (entry.type === 'curfew') {
       ad.curfew = { notamId: entry.notamId, subject: entry.subject, body: entry.body };
     } else {
@@ -715,6 +785,26 @@ function extractCbm(doc) {
     });
   }
 
+  // ── Rows 5b-5c: RAPT / RALT (redispatch alternates) ─────────────────────────
+  for (const [kw, role] of [['RAPT', 'EN ROUTE ALT'], ['RALT', 'EN ROUTE ALT']]) {
+    const apt = parseAptLine(kw, fullText);
+    if (apt) {
+      const offMins = hhmmToMins(cbm.offFromOFP);
+      const etaMins = hhmmToMins(apt.time.replace('Z', ''));
+      let ofpOffsetMins = null;
+      if (offMins !== null && etaMins !== null) {
+        ofpOffsetMins = etaMins - offMins;
+        if (ofpOffsetMins < 0) ofpOffsetMins += 24 * 60;
+      }
+      cbm.altData.push({
+        icao: apt.icao, role,
+        ofpEta: apt.time.replace('Z', ''),
+        currentEta: apt.time.replace('Z', ''),
+        ofpOffsetMins,
+      });
+    }
+  }
+
   // qualAirports: array of ICAO codes that carry the Q flag (ORIG, DEST, PALT)
   const qualAirports = [];
   if (orig && orig.hasQualAirport) qualAirports.push(orig.icao);
@@ -768,7 +858,22 @@ function extractCbm(doc) {
 
   if (remarksStart >= 0) {
     const remarksText = fullText.substring(remarksStart, remarksEnd);
-    cbm.catIiIiiApproaches = extractCatApproaches(remarksText);
+    // Dedup: merge CAT II + CAT III entries for the same airport into II/III.
+    const rawCat = extractCatApproaches(remarksText);
+    const catByApt = new Map();
+    for (const c of rawCat) {
+      if (catByApt.has(c.airport)) {
+        const prev = catByApt.get(c.airport);
+        if (prev.category !== c.category && prev.category !== 'II/III') {
+          prev.category = 'II/III';
+          // Use the CAT II runway set (broader) as the merged value.
+          if (c.category === 'II') prev.runways = c.runways;
+        }
+      } else {
+        catByApt.set(c.airport, { ...c });
+      }
+    }
+    cbm.catIiIiiApproaches = [...catByApt.values()];
     cbm.melItems = extractMelItems(remarksText);
   } else {
     cbm.catIiIiiApproaches = [];
@@ -808,33 +913,64 @@ function extractCbm(doc) {
   cbm.ofpFormat = 'atlas-fk';
   cbm.ofpSource = 'company';
 
-  // ── Rows 39-42: ETOPS, POR, ETP, NAT — not in FK P2a fixtures ────────────
+  // ── Rows 39-42: ETOPS, POR, ETP, NAT ─────────────────────────────────────
   cbm.etopsEntry = '';
   cbm.etopsSpec = '';
   cbm.etopsEntryMins = 0;
   cbm.etopsExit = '';
   cbm.etopsExitMins = 0;
-  cbm.porWpt = '';
-  cbm.porOffsetMins = 0;
-  cbm.porMinf = '';
-  cbm.etpPoints = [];
   cbm.natTrack = null;
 
+  // Row 46: POR fields
+  const porM = PATTERNS.POR_HEADER.exec(fullText);
+  if (porM) {
+    cbm.porWpt = porM[1];
+    cbm.porOffsetMins = parseInt(porM[2], 10) * 60 + parseInt(porM[3], 10);
+    const porMinfM = PATTERNS.POR_MINF.exec(fullText);
+    cbm.porMinf = porMinfM ? porMinfM[1] : '';
+  } else {
+    cbm.porWpt = '';
+    cbm.porOffsetMins = 0;
+    cbm.porMinf = '';
+  }
+
+  // Row 41: ETP section (Critical Fuel Scenario)
+  const etpResult = parseFkEtpSection(fullText);
+  cbm.etpPoints = etpResult.etpPoints;
+  for (const alt of etpResult.altData) cbm.altData.push(alt);
+
   // ── P2b fields: NOTAMs, weather, FIR (rows 43–50) ────────────────────────
-  const weatherStart = findFkWeatherStart(fullText);
-  const notamSection  = weatherStart < fullText.length ? fullText.slice(0, weatherStart) : fullText;
-  const weatherSection = weatherStart < fullText.length ? fullText.slice(weatherStart) : '';
+  // Parse from both column streams to handle two-column A4 landscape layout.
   const { leftLines, rightLines } = buildFkColStreams(doc);
-  const companyMap = new Map([
+  const notamText   = leftLines.join('\n') + '\n' + rightLines.join('\n');
+  const companyMap  = new Map([
     ...parseFkCompanyNotams(leftLines),
     ...parseFkCompanyNotams(rightLines),
   ]);
-  const briefingMap  = parseFkNotamBriefingItems(notamSection, new Set(companyMap.keys()));
-  const aptSentinels = parseFkAptSentinels(notamSection);
-  const weatherMap   = parseFkWeatherSection(weatherSection);
+  const companyIds  = new Set(companyMap.keys());
+  const briefingMap = new Map([
+    ...parseFkNotamBriefingItems(leftLines.join('\n'), companyIds),
+    ...parseFkNotamBriefingItems(rightLines.join('\n'), companyIds),
+  ]);
+  const aptSentinels = parseFkAptSentinels(notamText);
+  const weatherMap   = new Map([
+    ...parseFkWeatherSection(leftLines.join('\n')),
+    ...parseFkWeatherSection(rightLines.join('\n')),
+  ]);
+
+  // Release airports: ORIG + DEST + OFP-release alternates (altData) + EA/IA/TA sentinel roles.
+  // ALTN-only airports that are not on the OFP release lines are excluded.
+  const releaseIcaos = new Set([cbm.origIcao, cbm.destIcao]);
+  for (const alt of cbm.altData) { if (alt.icao) releaseIcaos.add(alt.icao); }
+  for (const [icao, sd] of aptSentinels) {
+    if (sd.roles.some(r => ['EA', 'IA', 'TA'].includes(r.role.toUpperCase()))) {
+      releaseIcaos.add(icao);
+    }
+  }
+
   cbm.airportData = {};
-  _mergeFkAirportData(cbm, aptSentinels, briefingMap, companyMap, weatherMap, fixtureFindings);
-  cbm.enrouteNotams = { fir: parseFkFirBlocks(notamSection) };
+  _mergeFkAirportData(cbm, aptSentinels, briefingMap, companyMap, weatherMap, releaseIcaos, fixtureFindings);
+  cbm.enrouteNotams = { fir: parseFkFirBlocks(notamText) };
   cbm.ddgItems = [];
 
   // ── Fixture pending findings ───────────────────────────────────────────────
@@ -862,14 +998,18 @@ function extractCbm(doc) {
     code: 'FIXTURE_PENDING_ETOPS', severity: 'WARN',
     message: 'etopsEntry/etopsSpec/etopsEntryMins/etopsExit/etopsExitMins: fixture pending (FlightKeys source not yet available)',
   });
-  fixtureFindings.push({
-    code: 'FIXTURE_PENDING_POR', severity: 'WARN',
-    message: 'porWpt/porOffsetMins/porMinf: fixture pending (FlightKeys source not yet available)',
-  });
-  fixtureFindings.push({
-    code: 'FIXTURE_PENDING_ETP', severity: 'WARN',
-    message: 'etpPoints: fixture pending (FlightKeys source not yet available)',
-  });
+  if (!cbm.porWpt) {
+    fixtureFindings.push({
+      code: 'FIXTURE_PENDING_POR', severity: 'WARN',
+      message: 'porWpt/porOffsetMins/porMinf: fixture pending (FlightKeys source not yet available)',
+    });
+  }
+  if (cbm.etpPoints.length === 0) {
+    fixtureFindings.push({
+      code: 'FIXTURE_PENDING_ETP', severity: 'WARN',
+      message: 'etpPoints: fixture pending (FlightKeys source not yet available)',
+    });
+  }
   fixtureFindings.push({
     code: 'FIXTURE_PENDING_NAT_TRACK', severity: 'WARN',
     message: 'natTrack: fixture pending (FlightKeys source not yet available)',
@@ -912,4 +1052,5 @@ module.exports = {
   parseFkAptSentinels,
   parseFkWeatherSection,
   parseFkFirBlocks,
+  parseFkEtpSection,
 };
