@@ -15,7 +15,7 @@
 | **Safety first** | The two live defects (214 suppressed NOTAMs; Company Remarks dumps) and the iOS "Cellular Data is Turned Off" alert (HF-3) are fixed in **weeks 1–2**, before the rebuild. **FlightKeys is built first** and moves onto the new import in about **week 5**. Navtech and eOFP stay on today's hotfixed parser until their profile passes the golden master. |
 | **How the work is done** | In the GitHub repository. Every change is a pull request with automated tests and an independent review. You approve as domain authority from a plain-language summary and a beta check on iPad. |
 | **Duration** | ≈ 8 weeks, paced for accuracy. Each stage is gated by tests on all fixture packages. |
-| **Budget** | 46 sessions + 6 contingency: **$35.35 – $48.90**. Ceiling: **$49** (D19, approved 30 Oct). GitHub test runs cost nothing at this scale. |
+| **Budget** | 46 sessions + 6 contingency: **$39.55 – $55.20**. Ceiling: **$56** (D19 $49, raised by D22 on 31 Oct). GitHub test runs cost nothing at this scale. |
 | **Two repositories** | **`velocemente/relief-pilot`** = development and beta. **All** sessions work here. **`velocemente/PilotBrief`** = production; read-only for Claude, updated only by the production release step (§2, REL-PROD). |
 
 ---
@@ -139,13 +139,14 @@ Each pull request carries a short section you can read: **What changes for crews
 |---|---|---|
 | Sonnet 4.6 authoring (F0, HF-1, HF-2, HF-3, HF-4, F1, E1a, E1b, P2a–b, P1a–c, B1, RV1, QA-X) | 16 | 23.50 – 31.50 |
 | Haiku 4.5 authoring / QA (REL-HF, QA-HF, CI-1, P5a, REL-FK, QA-FK, RV2, P5, QA-R) | 9 | 2.55 – 4.20 |
-| Haiku 4.5 independent reviews (one per PR, incl. REL-HF, CI-1, REL-FK) | 21 | 4.20 – 6.30 |
-| **Base** | **46** | **30.25 – 42.00** |
+| Independent reviews (one per PR): 14 Haiku 4.5 (2.80 – 4.20) + 7 Sonnet 4.6 for P2c, P5a, P1a–c, B1, RV1 (D22; 5.60 – 8.40) | 21 | 8.40 – 12.60 |
+| **Base** | **46** | **34.45 – 48.30** |
 | Contingency: 3 rework loops (author + review) — 2 used (P2a-fix, P2c) | 6 | 5.10 – 6.90 |
-| **Total** | **52** | **35.35 – 48.90** |
-| **Ceiling (D19)** | | **49.00** |
+| **Total** | **52** | **39.55 – 55.20** |
+| **Ceiling (D19, D22)** | | **56.00** |
 
 - **Hotfix track** (HF-1…HF-4, REL-HF, QA-HF and reviews): $6.00 – 7.80.
+- **Change (D22, 31 Oct):** 7 engine/profile reviews move from Haiku to Sonnet (+ $4.20 – 6.30).
 - **Change from v2.3:** review count corrected 18 → 19 (REL-HF has a review); added CI-1 + review, REL-FK + review, QA-FK (+ $1.45 – 2.30).
 - **Change from v2.2:** HF-4 approved and included; QA-HF added (release gate before the hotfix reaches production).
 
@@ -198,7 +199,7 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 | D18 | How approved releases reach production `PilotBrief`: **A** — Exec copies the three files by GitHub web upload (steps in §7, REL-PROD); **B** — grant the Claude app access to `PilotBrief` with a branch rule that requires your approval on every change, and a Haiku session opens the release PR | **Accepted — A** (29 Oct). Revisit after the platform release if wanted. |
 | D19 | Budget ceiling $47 → $49 for CI-1, REL-FK and QA-FK (§3) | **Accepted** (30 Oct) |
 | D20 | FlightKeys release version number (REL-FK): **1.10.0** (new capability) | **Accepted** (30 Oct) |
-| D22 | Review model for engine and profile PRs (P2c, P5a, P1a, P1b, P1c, B1, RV1): **Sonnet** instead of Haiku, because the Sonnet review of P2b caught issues the Haiku reviews of P2a missed. About +$4–6.5 → ceiling about $55. Haiku stays for docs, test-only and release PRs. | **Open** — Exec |
+| D22 | Review model for engine and profile PRs (P2c, P5a, P1a, P1b, P1c, B1, RV1): **Sonnet**; Haiku stays for docs, test-only and release PRs. Reason: the Sonnet review of P2b caught issues the Haiku reviews of P2a missed. | **Accepted** (31 Oct) — ceiling $56 |
 | D21 | FlightKeys briefing airport roles: **EA** = Enroute Alternate · **IA** = Intermediate Alternate · **TA** = Terrain Alternate. In the FlightKeys NOTAM and weather briefings these are airport roles, each with its own UTC time window (e.g. an airport listed as DESTINATION, IA and TA, each with a window). One airport may hold several roles. | **Accepted** (31 Oct) — applied in P2b |
 | D9 | Archive the undeployed September ruleset v1.2 | **Done** — moved to `90_Old Versions` |
 | D11 | Private fixtures repository; names may be redacted before upload | **Accepted** |
@@ -215,7 +216,7 @@ Also: `Jepp Import/12 OCT 26 LGG ORD.pdf` is a Navtech company PDF, not an eOFP.
 
 1. **Start a new Claude Code session** and confirm the repository at the top of the setup screen reads **`velocemente/relief-pilot`**. It remembers the last one used; if it shows `PilotBrief`, tap it and change it. Every prompt below also checks this itself (STEP 0) and moves to `relief-pilot` if needed.
 2. **Choose the model** named in the *Start* line, paste the prompt, and let it run. If that model is no longer offered, use the current Sonnet (authoring) or Haiku (review, release, QA) model and tell Claude in the plan session, so the budget is kept right.
-3. When it reports a **PR number**, start the **review** session (Haiku 4.5) with that number in the review prompt.
+3. When it reports a **PR number**, start the **review** session with the model its review line names (Sonnet 4.6 for engine/profile PRs — D22; Haiku 4.5 otherwise) and that number in the review prompt.
 4. **Review verdict:**
    - **APPROVE-FOR-EXEC** → do *Your check* on the beta app, then merge: the companion fixtures PR first (if there is one), then the app PR straight after.
    - **CHANGES-REQUESTED** → paste the review's findings into the authoring session (*"Address these review findings on the same PR: …"*), then run the review again on the same PR number.
@@ -1606,7 +1607,7 @@ PULL REQUEST (on velocemente/relief-pilot only)
   fixtures PR.
 ```
 
-> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · replace `<number>` (and `<number>` in the URL) · paste the block below.
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Sonnet 4.6** (D22) · replace `<number>` (and `<number>` in the URL) · paste the block below.
 
 ```
 STEP 0 — REPOSITORY CHECK (do this before anything else)
@@ -1817,7 +1818,7 @@ PULL REQUEST (on velocemente/relief-pilot only)
   fixtures PR.
 ```
 
-> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · replace `<number>` (and `<number>` in the URL) · paste the block below.
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Sonnet 4.6** (D22) · replace `<number>` (and `<number>` in the URL) · paste the block below.
 
 ```
 STEP 0 — REPOSITORY CHECK (do this before anything else)
@@ -1913,7 +1914,7 @@ PULL REQUEST (on velocemente/relief-pilot only)
   fixtures PR.
 ```
 
-> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · replace `<number>` (and `<number>` in the URL) · paste the block below.
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Sonnet 4.6** (D22) · replace `<number>` (and `<number>` in the URL) · paste the block below.
 
 ```
 STEP 0 — REPOSITORY CHECK (do this before anything else)
@@ -2008,7 +2009,7 @@ PULL REQUEST (on velocemente/relief-pilot only)
   fixtures PR.
 ```
 
-> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · replace `<number>` (and `<number>` in the URL) · paste the block below.
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Sonnet 4.6** (D22) · replace `<number>` (and `<number>` in the URL) · paste the block below.
 
 ```
 STEP 0 — REPOSITORY CHECK (do this before anything else)
@@ -2086,7 +2087,7 @@ PULL REQUEST (on velocemente/relief-pilot only)
   fixtures PR.
 ```
 
-> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · replace `<number>` (and `<number>` in the URL) · paste the block below.
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Sonnet 4.6** (D22) · replace `<number>` (and `<number>` in the URL) · paste the block below.
 
 ```
 STEP 0 — REPOSITORY CHECK (do this before anything else)
@@ -2184,7 +2185,7 @@ PULL REQUEST (on velocemente/relief-pilot only)
   fixtures PR.
 ```
 
-> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Haiku 4.5** · replace `<number>` (and `<number>` in the URL) · paste the block below.
+> **Review — after the authoring session reports its PR number:** new Claude Code session · repository **velocemente/relief-pilot** · model **Sonnet 4.6** (D22) · replace `<number>` (and `<number>` in the URL) · paste the block below.
 
 ```
 STEP 0 — REPOSITORY CHECK (do this before anything else)
