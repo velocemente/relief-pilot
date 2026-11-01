@@ -13,6 +13,8 @@ const {
   parseFkAptSentinels,
   parseFkWeatherSection,
   parseFkFirBlocks,
+  parseFkEtpSection,
+  fkWxWindowMidpoint,
   buildFkColStreams,
 } = require('../../src/import/atlas-fk');
 const { validate } = require('../../src/import/validate');
@@ -206,10 +208,15 @@ if (!FIXTURES_DIR) {
     const { doc } = fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'];
     const cbm = extractCbm(doc);
     assert.ok(Array.isArray(cbm.catIiIiiApproaches), 'catIiIiiApproaches should be array');
-    assert.equal(cbm.catIiIiiApproaches.length, 4, 'should have 4 CAT approaches');
-    const uaaaIi = cbm.catIiIiiApproaches.find(a => a.airport === 'UAAA' && a.category === 'II');
-    assert.ok(uaaaIi, 'should have UAAA CAT II');
-    assert.equal(uaaaIi.runways, '23R/23L', 'UAAA CAT II runways');
+    // UAAA CAT II + CAT III are merged into one II/III entry (dedup rule).
+    assert.equal(cbm.catIiIiiApproaches.length, 3, 'should have 3 CAT approaches after II/III merge');
+    const uaaaEntry = cbm.catIiIiiApproaches.find(a => a.airport === 'UAAA');
+    assert.ok(uaaaEntry, 'should have UAAA entry');
+    assert.equal(uaaaEntry.category, 'II/III', 'UAAA CAT II and III merged');
+    assert.equal(uaaaEntry.runways, '23R/23L', 'UAAA merged runways');
+    // Each airport appears at most once.
+    const seen = new Set(cbm.catIiIiiApproaches.map(a => a.airport));
+    assert.equal(seen.size, cbm.catIiIiiApproaches.length, 'no duplicate airport entries');
   });
 
   // ── Row 26: Crew members ───────────────────────────────────────────────
@@ -684,5 +691,227 @@ if (!FIXTURES_DIR) {
     // GTI8153/27 on same B744 aircraft
     assert.equal(fkCbm.acftType, 'B744', 'matched pair: B744');
     assert.ok(fkCbm.crewMembers.length > 0, 'matched pair: crew members present');
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // KLAX-RKSI RDA-ETP fixture tests (7 defect fixes)
+  // ──────────────────────────────────────────────────────────────────────
+
+  // ── Defect 1: RAPT / RALT ─────────────────────────────────────────────
+  test('D1 POSITIVE (RAPT/RALT): KLAX-RKSI altData includes RJTT and RJGG as EN ROUTE ALT', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    const icaos = cbm.altData.map(a => a.icao);
+    assert.ok(icaos.includes('RJTT'), 'RJTT in altData');
+    assert.ok(icaos.includes('RJGG'), 'RJGG in altData');
+    const rjtt = cbm.altData.find(a => a.icao === 'RJTT');
+    const rjgg = cbm.altData.find(a => a.icao === 'RJGG');
+    assert.equal(rjtt.role, 'EN ROUTE ALT', 'RJTT role');
+    assert.equal(rjgg.role, 'EN ROUTE ALT', 'RJGG role');
+    assert.ok(rjtt.ofpEta && /^\d{4}$/.test(rjtt.ofpEta), 'RJTT ofpEta is 4-digit time');
+    assert.ok(rjgg.ofpEta && /^\d{4}$/.test(rjgg.ofpEta), 'RJGG ofpEta is 4-digit time');
+  });
+
+  test('D1 NEGATIVE (RAPT/RALT): ZUCK-UAAA has no EN ROUTE ALT entries', () => {
+    const cbm = extractCbm(fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc);
+    const enRoute = cbm.altData.filter(a => a.role === 'EN ROUTE ALT');
+    assert.equal(enRoute.length, 0, 'no EN ROUTE ALT for ZUCK-UAAA');
+  });
+
+  // ── Defect 2: POR ─────────────────────────────────────────────────────
+  test('D2 POSITIVE (POR): KLAX-RKSI porWpt, porOffsetMins, porMinf populated', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    assert.equal(cbm.porWpt, 'EMRON', 'porWpt');
+    assert.equal(cbm.porOffsetMins, 603, 'porOffsetMins (10h03m)');
+    assert.equal(cbm.porMinf, '047516', 'porMinf from POR-column MINF row');
+    const pendingCodes = (cbm._fixtureFindings || []).map(f => f.code);
+    assert.ok(!pendingCodes.includes('FIXTURE_PENDING_POR'), 'FIXTURE_PENDING_POR suppressed');
+  });
+
+  test('D2 NEGATIVE (POR): ZUCK-UAAA has empty POR fields', () => {
+    const cbm = extractCbm(fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc);
+    assert.equal(cbm.porWpt, '', 'porWpt empty');
+    assert.equal(cbm.porOffsetMins, 0, 'porOffsetMins zero');
+    assert.equal(cbm.porMinf, '', 'porMinf empty');
+    const pendingCodes = (cbm._fixtureFindings || []).map(f => f.code);
+    assert.ok(pendingCodes.includes('FIXTURE_PENDING_POR'), 'FIXTURE_PENDING_POR present for non-POR fixture');
+  });
+
+  // ── Defect 3: ETP (safety-critical — positive AND negative required) ──
+  test('D3 POSITIVE (ETP): KLAX-RKSI etpPoints has ETP1 and ETP2 with correct values', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    assert.equal(cbm.etpPoints.length, 2, 'two ETP points');
+    const etp1 = cbm.etpPoints.find(e => e.name === 'ETP1');
+    const etp2 = cbm.etpPoints.find(e => e.name === 'ETP2');
+    assert.ok(etp1, 'ETP1 present');
+    assert.ok(etp2, 'ETP2 present');
+    assert.equal(etp1.lat, 'N39 04.3', 'ETP1 lat');
+    assert.equal(etp1.lon, 'W147 53.0', 'ETP1 lon');
+    assert.equal(etp1.elapsedMins, 193, 'ETP1 elapsedMins (3h13m)');
+    assert.equal(etp2.lat, 'N39 51.0', 'ETP2 lat');
+    assert.equal(etp2.lon, 'E167 42.5', 'ETP2 lon');
+    assert.equal(etp2.elapsedMins, 478, 'ETP2 elapsedMins (7h58m)');
+    const pendingCodes = (cbm._fixtureFindings || []).map(f => f.code);
+    assert.ok(!pendingCodes.includes('FIXTURE_PENDING_ETP'), 'FIXTURE_PENDING_ETP suppressed');
+  });
+
+  test('D3 POSITIVE (ETP): KLAX-RKSI altData includes CFS ALT entries for KSFO, PACD, RJCC', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    const cfsAlts = cbm.altData.filter(a => a.role === 'CFS ALT');
+    const cfsIcaos = cfsAlts.map(a => a.icao);
+    assert.ok(cfsIcaos.includes('KSFO'), 'KSFO CFS ALT present');
+    assert.ok(cfsIcaos.includes('PACD'), 'PACD CFS ALT present');
+    assert.ok(cfsIcaos.includes('RJCC'), 'RJCC CFS ALT present');
+    // PACD appears in ETP1 and ETP2 tables — must have exactly one entry (first wins)
+    assert.equal(cfsIcaos.filter(i => i === 'PACD').length, 1, 'PACD appears exactly once (dedup)');
+    const ksfo = cfsAlts.find(a => a.icao === 'KSFO');
+    assert.equal(ksfo.etpName, 'ETP1', 'KSFO etpName');
+    assert.equal(ksfo.wxWindow, '0628Z-1031Z', 'KSFO wxWindow in HHMMZ-HHMMZ format');
+    assert.equal(ksfo.ofpEta, '0830', 'KSFO ofpEta = midpoint of 0628-1031');
+    assert.equal(ksfo.currentEta, '0830', 'KSFO currentEta = ofpEta');
+    assert.strictEqual(ksfo.ofpOffsetMins, null, 'CFS ALT ofpOffsetMins is null');
+  });
+
+  test('D3 NEGATIVE (ETP): ZUCK-UAAA has no etpPoints and no CFS ALT entries', () => {
+    const cbm = extractCbm(fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'].doc);
+    assert.equal(cbm.etpPoints.length, 0, 'no ETP points for ZUCK-UAAA');
+    const cfsAlts = cbm.altData.filter(a => a.role === 'CFS ALT');
+    assert.equal(cfsAlts.length, 0, 'no CFS ALT entries for ZUCK-UAAA');
+    const pendingCodes = (cbm._fixtureFindings || []).map(f => f.code);
+    assert.ok(pendingCodes.includes('FIXTURE_PENDING_ETP'), 'FIXTURE_PENDING_ETP present for non-ETP fixture');
+  });
+
+  test('D3 UNIT (parseFkEtpSection): compact ETP nav log elapsed time extraction', () => {
+    const text = [
+      'DCT (GOPACD) ETP1',
+      'N39 04.3   368 452 499 00.47   P07   1188',
+      'W147 53.0   307 840 03.13 F320  -41 286/038',
+      'Critical Fuel Scenario',
+      '2EO',
+      '(GOPACD) ETP1 KSFO-PACD N39 04.3 W147 53.0',
+      'GCD TIME A/I REMF PAD MINF WX WINDOW',
+      'KSFO 1203 03:05 5-008PC 118830 93756 025074 06:28-10:31',
+    ].join('\n');
+    const result = parseFkEtpSection(text);
+    assert.equal(result.etpPoints.length, 1, 'one ETP point');
+    assert.equal(result.etpPoints[0].name, 'ETP1', 'ETP1 name');
+    assert.equal(result.etpPoints[0].elapsedMins, 193, 'elapsedMins from nav log');
+    assert.equal(result.altData.length, 1, 'one CFS alt');
+    assert.equal(result.altData[0].icao, 'KSFO', 'KSFO CFS alt');
+    assert.equal(result.altData[0].wxWindow, '0628Z-1031Z', 'wxWindow in HHMMZ-HHMMZ format');
+    assert.equal(result.altData[0].ofpEta, '0830', 'ofpEta = midpoint 0628-1031');
+    assert.equal(result.altData[0].currentEta, '0830', 'currentEta = ofpEta');
+  });
+
+  test('D3 UNIT NEGATIVE (parseFkEtpSection): normal nav log lon line not matched as ETP', () => {
+    // Normal lon line has 4 integers before HH.MM — must NOT be matched as ETP elapsed time.
+    const text = [
+      'DCT (GOPACD) ETP1',
+      'N39 04.3   368 452 499 00.47   P07   1188',
+      'W147 53.0 310 294 319 837 00.17 F300', // 4 integers — normal format, not ETP
+      'Critical Fuel Scenario',
+      '(GOPACD) ETP1 KSFO-PACD N39 04.3 W147 53.0',
+    ].join('\n');
+    const result = parseFkEtpSection(text);
+    // elapsedMins should be null (no compact lon line found)
+    assert.strictEqual(result.etpPoints[0].elapsedMins, null, 'normal lon line not matched as ETP elapsed time');
+  });
+
+  test('D3 UNIT NEGATIVE (parseFkEtpSection): no CFS section → empty result', () => {
+    const result = parseFkEtpSection('some text without Critical Fuel Scenario header');
+    assert.equal(result.etpPoints.length, 0, 'no ETP points');
+    assert.equal(result.altData.length, 0, 'no CFS alts');
+  });
+
+  // ── Defect 4: Weather ─────────────────────────────────────────────────
+  test('D4 POSITIVE (weather): KLAX-RKSI all release airports have weather entries', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    for (const icao of ['KLAX', 'RKSI', 'RJBB', 'RJTT', 'RJGG', 'KSFO', 'PACD', 'RJCC']) {
+      assert.ok(cbm.airportData[icao], icao + ' has airportData entry');
+      assert.ok(cbm.airportData[icao].weather !== null, icao + ' has weather (not null)');
+    }
+  });
+
+  // ── Defect 5: NOTAMs ─────────────────────────────────────────────────
+  test('D5 POSITIVE (NOTAMs): KLAX has departure NOTAMs', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    assert.ok(cbm.airportData.KLAX, 'KLAX has airportData entry');
+    assert.ok(cbm.airportData.KLAX.notams.length > 0, 'KLAX has at least one NOTAM');
+  });
+
+  test('D5 POSITIVE (NOTAMs): KSFO has departure NOTAMs', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    assert.ok(cbm.airportData.KSFO, 'KSFO has airportData entry');
+    assert.ok(cbm.airportData.KSFO.notams.length > 0, 'KSFO has at least one NOTAM');
+  });
+
+  test('D5 POSITIVE (NOTAMs): PACD has 3 NOTAMs (FAA-first CDB PACD ID format)', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    assert.ok(cbm.airportData.PACD, 'PACD has airportData entry');
+    assert.equal(cbm.airportData.PACD.notams.length, 3, 'PACD has 3 NOTAMs');
+  });
+
+  test('D5 UNIT (NOTAM ID regex): 3-letter FAA code after ICAO format matched', () => {
+    // parseFkNotamBriefingItems must parse "KLAX LAX A3108/26" format.
+    const text = [
+      'APTKLAX RWYS: 06L',
+      'KLAX LAX A3108/26   2026-May-27 18:26 - 2027-May-28 16:00',
+      'AD AP CLSD TO NON SKED TRANSIENT GA ACFT',
+    ].join('\n');
+    const result = parseFkNotamBriefingItems(text, new Set());
+    assert.ok(result.size > 0, 'NOTAM with 3-letter FAA code parsed');
+    const entry = [...result.values()][0];
+    assert.equal(entry.icao, 'KLAX', 'ICAO correctly extracted');
+  });
+
+  test('D5 UNIT (NOTAM ID regex): FAA code before ICAO format matched (CDB PACD A4074/26)', () => {
+    // parseFkNotamBriefingItems must parse "CDB PACD A4074/26" format (FAA code precedes ICAO).
+    const text = [
+      'APTPACD RWYS: 08/26',
+      'CDB PACD A4074/26',
+      'CREATED:2026-Oct-28 01:23   FL: SFC - UNL',
+      'RWY INCURSION WARNING OPERATION SUSPENDED',
+    ].join('\n');
+    const result = parseFkNotamBriefingItems(text, new Set());
+    assert.equal(result.size, 1, 'NOTAM with FAA-first format parsed');
+    const entry = [...result.values()][0];
+    assert.equal(entry.icao, 'PACD', 'ICAO correctly extracted from FAA-first format');
+  });
+
+  // ── Defect 6: Airport list filter ────────────────────────────────────
+  test('D6 POSITIVE (airport list): KLAX-RKSI airportData contains only release airports', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    const keys = Object.keys(cbm.airportData);
+    const expected = new Set(['KLAX', 'RKSI', 'RJBB', 'RJTT', 'RJGG', 'KSFO', 'PACD', 'RJCC']);
+    for (const k of keys) assert.ok(expected.has(k), k + ' should be a release airport');
+    for (const e of expected) assert.ok(keys.includes(e), e + ' should be in airportData');
+  });
+
+  test('D6 NEGATIVE (airport list): RKJK, RKPC, RJSM not in airportData', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    assert.ok(!cbm.airportData.RKJK, 'RKJK excluded from airportData');
+    assert.ok(!cbm.airportData.RKPC, 'RKPC excluded from airportData');
+    assert.ok(!cbm.airportData.RJSM, 'RJSM excluded from airportData');
+  });
+
+  test('D6 NEGATIVE (airport list): FIR codes not in airportData', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    for (const fir of ['KZLA', 'KZOA', 'KZAK', 'RJJJ', 'RKRR', 'ZSHA']) {
+      assert.ok(!cbm.airportData[fir], fir + ' FIR not in airportData');
+    }
+  });
+
+  // ── Defect 7: CAT II/III dedup ───────────────────────────────────────
+  test('D7 POSITIVE (CAT II/III dedup): RJGG appears once with II/III in KLAX-RKSI', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    const rjgg = cbm.catIiIiiApproaches.filter(a => a.airport === 'RJGG');
+    assert.equal(rjgg.length, 1, 'RJGG appears exactly once');
+    assert.equal(rjgg[0].category, 'II/III', 'RJGG category merged to II/III');
+  });
+
+  test('D7 NEGATIVE (CAT II/III dedup): no airport appears more than once in KLAX-RKSI', () => {
+    const cbm = extractCbm(fixtureData['FK_KLAX-RKSI_31OCT26_rda-etp_prototype'].doc);
+    const airports = cbm.catIiIiiApproaches.map(a => a.airport);
+    const seen = new Set(airports);
+    assert.equal(seen.size, airports.length, 'no duplicate airport in catIiIiiApproaches');
   });
 }
