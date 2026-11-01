@@ -407,6 +407,7 @@ const S = {
 };
 let airportData = {};   // icao → { notams:'', weather:'' }
 let pdfRawText    = '';
+let pdfItems      = null;    // PDF items structure for engine input (same format as tools/extract items.json)
 let pdfArrayBuffer = null;   // ArrayBuffer of original PDF — slice a fresh Uint8Array for each pdf.js call so the master is never transferred/neutered
 let _pdfDocProxy  = null;    // active PDFDocumentProxy — nulled before each new load (M3)
 
