@@ -276,8 +276,8 @@ test('TC-110-007 year boundary: /25 January NOTAM and DEC→JAN NOTAM', () => {
 
 // ══ Fail-safe (T6) ═══════════════════════════════════════════════════════
 
-function evalShows(notam, iso) {
-  const r = app.evalNotams([notam], 'DEST', 600, 'B744', iso);
+function evalShows(notam, iso, etaMin = 600) {
+  const r = app.evalNotams([notam], 'DEST', etaMin, 'B744', iso);
   return r.issues.some(i => i.notamRaw === notam);
 }
 
@@ -307,7 +307,6 @@ test('TC-110-009 negative: no /YY ID gives the same window as main', () => {
     ['- XXXX 05DEC0000-30JAN2359',       '2026-03-10', '2026-12-05T00:00', '2027-01-30T23:59'],
     ['- XXXX 05DEC0000-30JAN2359',       '2026-01-10', '2025-12-05T00:00', '2026-01-30T23:59'],
     ['- XXXX 05AUG0000-PERM',            '2026-03-10', '2026-08-05T00:00', '2076-01-01T00:00'],
-    ['- XXXX 22OCT1455-22OCT1454 2027',  '2026-03-10', '2026-10-22T14:55', '2027-10-22T14:54'],
     ['- XXXX 01APR1410-30APR2030\n1410-2030', '2026-04-11', '2026-04-01T14:10', '2026-04-30T20:30'],
   ];
   for (const [line, iso, start, end] of cases) {
@@ -316,4 +315,153 @@ test('TC-110-009 negative: no /YY ID gives the same window as main', () => {
     assert.equal(new Date(w.startMs).toISOString().slice(0, 16), start, `${line} @ ${iso} start`);
     assert.equal(new Date(w.endMs).toISOString().slice(0, 16),   end,   `${line} @ ${iso} end`);
   }
+  // D38b (Exec): a backwards same-month window without /YY is no longer moved
+  // back a year (main gave 2026-10-22 → 2027-10-22); it has no window and is shown.
+  const back = '- XXXX 22OCT1455-22OCT1454 2027\nRWY 09/27 CLSD\n';
+  assert.equal(xNW(back, '2026-03-10'), null, 'backwards window → no window');
+  assert.equal(evalShows(back, '2026-03-10', 720), true, 'shown');
+});
+
+// ══ T6 on every date path; D38 (Exec) — all through evalNotams() ═════════
+
+const ETA = 720;   // 1200Z: no cross-midnight next-day check in nwOverlap
+const body = '\nRWY 09/27 CLSD\n';
+const iso16 = ms => new Date(ms).toISOString().slice(0, 16);
+
+test('TC-110-020 B)/C) backwards window → no window, shown', () => {
+  const n = '- XXXX A0100/26' + '\nB) 2603312359 C) 2603010000' + body;
+  assert.equal(xNW(n, '2026-06-01'), null, 'no window');
+  assert.equal(evalShows(n, '2026-06-01', ETA), true, 'shown');
+});
+
+test('TC-110-021 B)/C) valid → correct window', () => {
+  const n = '- XXXX A0100/26' + '\nB) 2603010000 C) 2603312359' + body;
+  const w = xNW(n, '2026-03-15');
+  assert.ok(w, 'window');
+  assert.equal(iso16(w.startMs), '2026-03-01T00:00');
+  assert.equal(iso16(w.endMs),   '2026-03-31T23:59');
+  assert.equal(evalShows(n, '2026-03-15', ETA), true,  'in effect inside the window');
+  assert.equal(evalShows(n, '2026-06-01', ETA), false, 'not in effect after it');
+  const p = '- XXXX A0100/26' + '\nB) 2603010000 C) PERM' + body;
+  assert.equal(iso16(xNW(p, '2026-06-01').startMs), '2026-03-01T00:00', 'PERM start');
+  assert.equal(evalShows(p, '2026-06-01', ETA), true, 'PERM in effect');
+});
+
+test('TC-110-022 10-digit pair backwards → no window, shown', () => {
+  const n = '- XXXX A0101/26 2603312359-2603010000' + body;
+  assert.equal(xNW(n, '2026-06-01'), null, 'no window');
+  assert.equal(evalShows(n, '2026-06-01', ETA), true, 'shown');
+});
+
+test('TC-110-023 10-digit pair valid → correct window', () => {
+  const n = '- XXXX A0101/26 2603010000-2603312359' + body;
+  const w = xNW(n, '2026-03-15');
+  assert.ok(w, 'window');
+  assert.equal(iso16(w.startMs), '2026-03-01T00:00');
+  assert.equal(iso16(w.endMs),   '2026-03-31T23:59');
+  assert.equal(evalShows(n, '2026-03-15', ETA), true,  'in effect inside the window');
+  assert.equal(evalShows(n, '2026-06-01', ETA), false, 'not in effect after it');
+});
+
+test('TC-110-024 impossible dates on every path → no window, shown, nothing rolled over', () => {
+  // Flight date far from every rolled-over value, so a rolled date would hide the NOTAM.
+  const FLT = '2026-09-01';
+  // 10-digit tokens (YYMMDDhhmm): month 13, month 00, day 32, 30 FEB, 29 FEB 2025,
+  // hour 25, minute 60.
+  const bad10 = ['2613010000', '2600010000', '2601320000', '2602300000',
+                 '2502290000', '2603012500', '2603010060'];
+  const cases = [];
+  for (const t of bad10) {
+    cases.push(`- XXXX A0102/26\nB) ${t} C) 2604302359`);   // B)/C) start
+    cases.push(`- XXXX A0102/26\nB) 2501010000 C) ${t}`);   // B)/C) end
+    cases.push(`- XXXX A0103/26 ${t}-2604302359`);          // 10-digit start
+    cases.push(`- XXXX A0103/25 2501010000-${t}`);          // 10-digit end
+  }
+  // DDMMMhhmm tokens (month is a name, so 13/00 cannot occur): day 32, day 00,
+  // 30 FEB, 29 FEB 2025, hour 25, minute 60.
+  const badDdmmm = ['32JAN0000', '00JAN0000', '30FEB0000', '05JAN2500', '05JAN0060'];
+  for (const t of badDdmmm) {
+    cases.push(`- XXXX A0104/26 ${t}-30APR2359`);           // dated header start (/YY)
+    cases.push(`- XXXX A0104/26 01JAN0000-${t}`);           // dated header end (/YY)
+    cases.push(`- XXXX A0105 ${t}-30APR2359`);              // dated header, no /YY
+    cases.push(`- XXXX A0106/26 ${t}-PERM`);                // PERM
+    cases.push(`- XXXX A0107 WEF ${t} UFC 30APR2359`);      // WEF start
+    cases.push(`- XXXX A0107 WEF 01JAN0000 UFC ${t}`);      // WEF end
+    cases.push(`- XXXX A0108/26 EFFECTIVE ${t} UNTIL PERM`); // EFFECTIVE PERM
+  }
+  // 29 FEB 2025 on the DDMMM paths: issue year /25 → year 2025; flight year 2025.
+  cases.push('- XXXX A0109/25 29FEB0000-30MAR2359');
+  cases.push('- XXXX A0109/25 29FEB0000-PERM');
+  cases.push('- XXXX A0109/25 WEF 29FEB0000 UFC PERM');
+  for (const c of cases) {
+    const n = c + body;
+    const flt = /A0109\/25/.test(c) ? '2025-09-01' : FLT;
+    assert.equal(xNW(n, flt), null, `no window: ${c.replace('\n', ' ')}`);
+    assert.equal(evalShows(n, flt, ETA), true, `shown: ${c.replace('\n', ' ')}`);
+  }
+  // 2400 (end of day) is accepted as before: 00:00 the next day.
+  const w = xNW('- XXXX A0110/26 2603010000-2603312400' + body, '2026-03-15');
+  assert.ok(w, '2400 accepted');
+  assert.equal(iso16(w.endMs), '2026-04-01T00:00');
+});
+
+test('TC-110-025 29 FEB 2028 is a valid date on every path', () => {
+  const lines = [
+    '- XXXX A0100/28\nB) 2802290800 C) 2802291800',
+    '- XXXX A0100/28 2802290800-2802291800',
+    '- XXXX A0100/28 29FEB0800-29FEB1800',
+    '- XXXX A0100 29FEB0800-29FEB1800',
+    '- XXXX A0100 WEF 29FEB0800 UFC 29FEB1800',
+  ];
+  for (const l of lines) {
+    const n = l + body;
+    const w = xNW(n, '2028-02-29');
+    assert.ok(w, `window: ${l.replace('\n', ' ')}`);
+    assert.equal(iso16(w.startMs), '2028-02-29T08:00', `start: ${l.replace('\n', ' ')}`);
+    assert.equal(iso16(w.endMs),   '2028-02-29T18:00', `end: ${l.replace('\n', ' ')}`);
+    assert.equal(evalShows(n, '2028-02-29', ETA), true,  `in effect 2028-02-29: ${l.replace('\n', ' ')}`);
+    assert.equal(evalShows(n, '2028-03-02', ETA), false, `not in effect 2028-03-02: ${l.replace('\n', ' ')}`);
+  }
+});
+
+test('TC-110-026 D38 year crossing without /YY: same window late DEC and early JAN', () => {
+  const n = '- XXXX A9997 28DEC0000-05JAN2359' + body;
+  const cases = [
+    ['2026-12-27', false],   // not started
+    ['2026-12-30', true],
+    ['2027-01-02', true],
+    ['2027-01-10', false],   // ended
+  ];
+  for (const [flt, shown] of cases) {
+    const w = xNW(n, flt);
+    assert.ok(w, `${flt}: window`);
+    assert.equal(iso16(w.startMs), '2026-12-28T00:00', `${flt}: start`);
+    assert.equal(iso16(w.endMs),   '2027-01-05T23:59', `${flt}: end`);
+    assert.equal(evalShows(n, flt, ETA), shown, `${flt}: ${shown ? 'in effect' : 'not in effect'}`);
+  }
+});
+
+test('TC-110-026W D38 year crossing on the WEF / UFC path (no /YY)', () => {
+  const n = '- XXXX A9997 WEF 28DEC0000 UFC 05JAN2359' + body;
+  for (const [flt, shown] of [['2026-12-30', true], ['2027-01-02', true]]) {
+    const w = xNW(n, flt);
+    assert.ok(w, `${flt}: window`);
+    assert.equal(iso16(w.startMs), '2026-12-28T00:00', `${flt}: start`);
+    assert.equal(iso16(w.endMs),   '2027-01-05T23:59', `${flt}: end`);
+    assert.equal(evalShows(n, flt, ETA), shown, `${flt}: in effect`);
+  }
+});
+
+test('TC-110-027 D38 no-/YY backwards window not crossing New Year → shown', () => {
+  const n = '- XXXX A9996 20MAR0000-10MAR2359' + body;
+  for (const flt of ['2026-03-15', '2026-06-01']) {
+    assert.equal(xNW(n, flt), null, `${flt}: no window`);
+    assert.equal(evalShows(n, flt, ETA), true, `${flt}: shown`);
+  }
+});
+
+test('TC-110-027N D38 negative: a normal no-/YY window is still not in effect outside it', () => {
+  const n = '- XXXX A9995 10MAR0000-20MAR2359' + body;
+  assert.equal(evalShows(n, '2026-03-15', ETA), true,  'in effect inside');
+  assert.equal(evalShows(n, '2026-06-01', ETA), false, 'not in effect after');
 });

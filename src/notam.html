@@ -394,6 +394,7 @@ function _parseDateToken(token, baseYear, forceYear) {
     const dd = parseInt(t.slice(4, 6));
     const hh = parseInt(t.slice(6, 8));
     const mi = parseInt(t.slice(8, 10));
+    if (!_validDateParts(yr, mo, dd, hh, mi)) return null;
     return Date.UTC(yr, mo, dd, hh, mi);
   }
 
@@ -405,10 +406,29 @@ function _parseDateToken(token, baseYear, forceYear) {
     const dd = parseInt(m9[1]);
     const hh = parseInt(m9[3].slice(0, 2));
     const mi = parseInt(m9[3].slice(2, 4));
+    if (!_validDateParts(yr, mo, dd, hh, mi)) return null;
     return Date.UTC(yr, mo, dd, hh, mi);
   }
 
   return null;
+}
+
+/**
+ * T6: reject impossible date parts BEFORE a date is built, so that an
+ * impossible value never rolls over into another date (month 13 must not
+ * become January, 30 FEB must not become 02 MAR).
+ *   month 0–11 (0-based), day 1–last day of that month (29 FEB in leap
+ *   years only), hour 00–23, minute 00–59. "2400" (end of day) is accepted,
+ *   as before: it means 00:00 the next day.
+ */
+function _validDateParts(yr, mo, dd, hh, mi) {
+  if (!(mo >= 0 && mo <= 11)) return false;
+  const leap = (yr % 4 === 0 && yr % 100 !== 0) || yr % 400 === 0;
+  const dim  = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo];
+  if (!(dd >= 1 && dd <= dim)) return false;
+  if (!(mi >= 0 && mi <= 59)) return false;
+  if (hh === 24 && mi === 0) return true;
+  return hh >= 0 && hh <= 23;
 }
 
 /**
@@ -431,6 +451,9 @@ function xNW_standalone(notamText, flightDateISO) {
   const iso = flightDateISO ||
     (typeof window !== 'undefined' && window._flightDateISO) || null;
   const baseYear = iso ? parseInt(iso.slice(0, 4)) : new Date().getUTCFullYear();
+  // Flight month anchors year crossing (D38): end month before the flight
+  // month → the window crosses into next year; otherwise it began last year.
+  const flightMo = iso ? parseInt(iso.slice(5, 7)) - 1 : new Date().getUTCMonth();
   const tu = notamText.toUpperCase();
   // Issue year from the NOTAM ID (/YY), e.g. "A0486/26" → 2026. null if absent.
   const idM     = tu.match(/\b[A-Z]\d{4}\/(\d{2})\b/);
@@ -445,21 +468,23 @@ function xNW_standalone(notamText, flightDateISO) {
     const endMs   = bcM[2] === 'PERM'
       ? Date.UTC(baseYear + 50, 0, 1)
       : _parseDateToken(bcM[2], baseYear, null);
-    if (startMs !== null && endMs !== null) return { startMs, endMs };
+    // T6: impossible date or backwards window → no window (in effect).
+    if (startMs === null || endMs === null || startMs > endMs) return null;
+    return { startMs, endMs };
   }
 
   // ── WEF … UFC/UNTIL … (inline effectivity) ────────────────────────────
   const wefRe = /WEF\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})\s+(?:UFC|UNTIL|TO)\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)/i;
   const wefM  = tu.match(wefRe);
   if (wefM) {
-    return _resolveInlineDateRange(wefM[1], wefM[2], baseYear, issYear);
+    return _resolveInlineDateRange(wefM[1], wefM[2], baseYear, issYear, flightMo);
   }
 
   // ── EFFECTIVE … UNTIL/TO … (plain language) ───────────────────────────
   const effRe = /EFFECTIVE\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})\s+(?:UNTIL|TO)\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)/i;
   const effM  = tu.match(effRe);
   if (effM) {
-    return _resolveInlineDateRange(effM[1], effM[2], baseYear, issYear);
+    return _resolveInlineDateRange(effM[1], effM[2], baseYear, issYear, flightMo);
   }
 
   // ── DDMMMHHmm-DDMMMHHmm (standard Atlas inline) ──────────────────────
@@ -482,38 +507,31 @@ function xNW_standalone(notamText, flightDateISO) {
     // Use flight month to anchor cross-year inference correctly.
     // If endMo is on or after the flight month it must be in the same year.
     // If endMo is before the flight month it has wrapped to next year.
-    const flightMo = iso ? parseInt(iso.slice(5, 7)) - 1 : new Date().getUTCMonth();
     const endYear   = trailingYear ||
                       (endMo < startMo && endMo < flightMo ? baseYear + 1 : baseYear);
     const endMs  = _parseDateToken(endToken, baseYear, endYear);
+    if (endMs === null) return null;   // T6: impossible end date → no window
     // T1/T2: when the NOTAM ID carries /YY, start year = EARLIEST Y in
     // [issue year, endYear] such that start(Y) ≤ end. The NOTAM cannot start
     // before it was issued, and the earliest such year is the one it was
     // issued for. No such Y → no window (T6: treated as in effect).
-    if (issYear !== null && endMs !== null) {
+    // An impossible start date in a candidate year (e.g. 29 FEB in a
+    // non-leap year) → no window (T6), never a different year.
+    if (issYear !== null) {
       for (let Y = issYear; Y <= endYear; Y++) {
         const tryMs = _parseDateToken(inM[1], baseYear, Y);
-        if (tryMs !== null && tryMs <= endMs) return { startMs: tryMs, endMs };
+        if (tryMs === null) return null;
+        if (tryMs <= endMs) return { startMs: tryMs, endMs };
       }
       return null;
     }
-    // T5: no /YY → original cross-month heuristic, unchanged.
+    // D38 (no /YY): end month before start month → the end rolls into the
+    // year after the start (year anchored to the flight month above). Any
+    // other backwards window, or an impossible date → no window (in effect).
     const startYear = (endMo < startMo) ? endYear - 1 : endYear;
-    let startMs = _parseDateToken(inM[1], baseYear, startYear);
-    if (startMs !== null && endMs !== null) {
-      // ── Safety net: fix any remaining inverted window ──────────────────
-      // Handles same-month NOTAMs where minute precision inverts the window.
-      // Walk startYear backward until the window is valid (max 5 y).
-      if (startMs >= endMs) {
-        for (let sy = startYear - 1, lim = 5; sy >= startYear - lim; sy--) {
-          const tryMs = _parseDateToken(inM[1], baseYear, sy);
-          if (tryMs !== null && tryMs < endMs) { startMs = tryMs; break; }
-        }
-      }
-      // T6: a window that is still inverted cannot be trusted → no window.
-      if (startMs > endMs) return null;
-      return { startMs, endMs };
-    }
+    const startMs = _parseDateToken(inM[1], baseYear, startYear);
+    if (startMs === null || startMs > endMs) return null;
+    return { startMs, endMs };
   }
 
   // ── 10-digit pair: 2603010000-2603312359 ─────────────────────────────
@@ -522,7 +540,9 @@ function xNW_standalone(notamText, flightDateISO) {
   if (tenM) {
     const startMs = _parseDateToken(tenM[1], baseYear, null);
     const endMs   = _parseDateToken(tenM[2], baseYear, null);
-    if (startMs !== null && endMs !== null) return { startMs, endMs };
+    // T6: impossible date or backwards window → no window (in effect).
+    if (startMs === null || endMs === null || startMs > endMs) return null;
+    return { startMs, endMs };
   }
 
   return null; // no parseable date range found
@@ -530,9 +550,11 @@ function xNW_standalone(notamText, flightDateISO) {
 
 /**
  * Helper: resolve an inline DDMMMHHmm date range, handling PERM and cross-year.
- * issYear — issue year from the NOTAM ID (/YY), or null. Used only for PERM (T4).
+ * issYear  — issue year from the NOTAM ID (/YY), or null. Used for PERM (T4)
+ *            and to choose the year-crossing rule below.
+ * flightMo — flight month (0–11), anchors the year crossing when there is no /YY (D38).
  */
-function _resolveInlineDateRange(startToken, endToken, baseYear, issYear) {
+function _resolveInlineDateRange(startToken, endToken, baseYear, issYear, flightMo) {
   if (/^PERM$/i.test(endToken)) {
     const sMs = _parseDateToken(startToken, baseYear, issYear || baseYear);
     if (sMs === null) return null;
@@ -541,7 +563,10 @@ function _resolveInlineDateRange(startToken, endToken, baseYear, issYear) {
   const startMo = _SMON[(startToken.slice(2, 5) || '').toUpperCase()];
   const endMo   = _SMON[(endToken.slice(2, 5) || '').toUpperCase()];
   if (startMo === undefined || endMo === undefined) return null;
-  const endYear   = endMo < startMo ? baseYear + 1 : baseYear;
+  // D38 (no /YY): a crossing window lands on the same year pair whether the
+  // flight is in late December or early January. With /YY: unchanged.
+  const endYear   = endMo < startMo && (issYear !== null || endMo < flightMo)
+                    ? baseYear + 1 : baseYear;
   const startYear = endMo < startMo ? endYear - 1 : endYear;
   const startMs   = _parseDateToken(startToken, baseYear, startYear);
   const endMs     = _parseDateToken(endToken,   baseYear, endYear);
