@@ -432,6 +432,9 @@ function xNW_standalone(notamText, flightDateISO) {
     (typeof window !== 'undefined' && window._flightDateISO) || null;
   const baseYear = iso ? parseInt(iso.slice(0, 4)) : new Date().getUTCFullYear();
   const tu = notamText.toUpperCase();
+  // Issue year from the NOTAM ID (/YY), e.g. "A0486/26" → 2026. null if absent.
+  const idM     = tu.match(/\b[A-Z]\d{4}\/(\d{2})\b/);
+  const issYear = idM ? 2000 + parseInt(idM[1]) : null;
 
   // ── B/C structured items (highest confidence) ──────────────────────────
   // B) 2603010000  C) 2603312359 | PERM
@@ -449,14 +452,14 @@ function xNW_standalone(notamText, flightDateISO) {
   const wefRe = /WEF\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})\s+(?:UFC|UNTIL|TO)\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)/i;
   const wefM  = tu.match(wefRe);
   if (wefM) {
-    return _resolveInlineDateRange(wefM[1], wefM[2], baseYear);
+    return _resolveInlineDateRange(wefM[1], wefM[2], baseYear, issYear);
   }
 
   // ── EFFECTIVE … UNTIL/TO … (plain language) ───────────────────────────
   const effRe = /EFFECTIVE\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})\s+(?:UNTIL|TO)\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)/i;
   const effM  = tu.match(effRe);
   if (effM) {
-    return _resolveInlineDateRange(effM[1], effM[2], baseYear);
+    return _resolveInlineDateRange(effM[1], effM[2], baseYear, issYear);
   }
 
   // ── DDMMMHHmm-DDMMMHHmm (standard Atlas inline) ──────────────────────
@@ -469,7 +472,8 @@ function xNW_standalone(notamText, flightDateISO) {
     const endToken      = inM[2];
     const trailingYear  = inM[3] ? parseInt(inM[3]) : null;
     if (/^PERM$/i.test(endToken)) {
-      const sMs = _parseDateToken(inM[1], baseYear, baseYear);
+      // T3: PERM start year = issue year (/YY); no /YY → flight year.
+      const sMs = _parseDateToken(inM[1], baseYear, issYear || baseYear);
       if (sMs === null) return null;
       return { startMs: sMs, endMs: Date.UTC(baseYear + 50, 0, 1) };
     }
@@ -481,42 +485,33 @@ function xNW_standalone(notamText, flightDateISO) {
     const flightMo = iso ? parseInt(iso.slice(5, 7)) - 1 : new Date().getUTCMonth();
     const endYear   = trailingYear ||
                       (endMo < startMo && endMo < flightMo ? baseYear + 1 : baseYear);
-    // R2: when NOTAM ID carries /YY, start year = latest Y in [2000+YY, endYear]
-    // such that start(Y) ≤ end.  No /YY → original cross-month heuristic.
-    const idM    = tu.match(/\b[A-Z]\d{4}\/(\d{2})\b/);
     const endMs  = _parseDateToken(endToken, baseYear, endYear);
-    let startYear;
-    if (idM && endMs !== null) {
-      const issYear = 2000 + parseInt(idM[1]);
-      startYear = endYear; // fallback if no valid Y found in range
-      for (let Y = endYear; Y >= issYear; Y--) {
+    // T1/T2: when the NOTAM ID carries /YY, start year = EARLIEST Y in
+    // [issue year, endYear] such that start(Y) ≤ end. The NOTAM cannot start
+    // before it was issued, and the earliest such year is the one it was
+    // issued for. No such Y → no window (T6: treated as in effect).
+    if (issYear !== null && endMs !== null) {
+      for (let Y = issYear; Y <= endYear; Y++) {
         const tryMs = _parseDateToken(inM[1], baseYear, Y);
-        if (tryMs !== null && tryMs <= endMs) { startYear = Y; break; }
+        if (tryMs !== null && tryMs <= endMs) return { startMs: tryMs, endMs };
       }
-    } else {
-      startYear = (endMo < startMo) ? endYear - 1 : endYear;
+      return null;
     }
+    // T5: no /YY → original cross-month heuristic, unchanged.
+    const startYear = (endMo < startMo) ? endYear - 1 : endYear;
     let startMs = _parseDateToken(inM[1], baseYear, startYear);
     if (startMs !== null && endMs !== null) {
       // ── Safety net: fix any remaining inverted window ──────────────────
-      // Handles same-month NOTAMs where minute precision inverts the window
-      // and edge cases not resolved by the /YY rule above.
+      // Handles same-month NOTAMs where minute precision inverts the window.
+      // Walk startYear backward until the window is valid (max 5 y).
       if (startMs >= endMs) {
-        if (idM) {
-          const century = Math.floor(endYear / 100) * 100;
-          let issYear = century + parseInt(idM[1]);
-          if (issYear > endYear) issYear -= 100;
-          const tryMs = _parseDateToken(inM[1], baseYear, issYear);
-          if (tryMs !== null && tryMs < endMs) startMs = tryMs;
-        }
-        // Fallback: walk startYear backward until the window is valid (max 5 y)
-        if (startMs >= endMs) {
-          for (let sy = startYear - 1, lim = 5; sy >= startYear - lim; sy--) {
-            const tryMs = _parseDateToken(inM[1], baseYear, sy);
-            if (tryMs !== null && tryMs < endMs) { startMs = tryMs; break; }
-          }
+        for (let sy = startYear - 1, lim = 5; sy >= startYear - lim; sy--) {
+          const tryMs = _parseDateToken(inM[1], baseYear, sy);
+          if (tryMs !== null && tryMs < endMs) { startMs = tryMs; break; }
         }
       }
+      // T6: a window that is still inverted cannot be trusted → no window.
+      if (startMs > endMs) return null;
       return { startMs, endMs };
     }
   }
@@ -535,10 +530,11 @@ function xNW_standalone(notamText, flightDateISO) {
 
 /**
  * Helper: resolve an inline DDMMMHHmm date range, handling PERM and cross-year.
+ * issYear — issue year from the NOTAM ID (/YY), or null. Used only for PERM (T4).
  */
-function _resolveInlineDateRange(startToken, endToken, baseYear) {
+function _resolveInlineDateRange(startToken, endToken, baseYear, issYear) {
   if (/^PERM$/i.test(endToken)) {
-    const sMs = _parseDateToken(startToken, baseYear, baseYear);
+    const sMs = _parseDateToken(startToken, baseYear, issYear || baseYear);
     if (sMs === null) return null;
     return { startMs: sMs, endMs: Date.UTC(baseYear + 50, 0, 1) };
   }
@@ -550,6 +546,8 @@ function _resolveInlineDateRange(startToken, endToken, baseYear) {
   const startMs   = _parseDateToken(startToken, baseYear, startYear);
   const endMs     = _parseDateToken(endToken,   baseYear, endYear);
   if (startMs === null || endMs === null) return null;
+  // T6: an inverted window cannot be trusted → no window (in effect).
+  if (startMs > endMs) return null;
   return { startMs, endMs };
 }
 
@@ -2119,15 +2117,11 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
     if (!_acftApplies(notamRaw, acftProfile)) continue;
 
     // ── Active status ─────────────────────────────────────────────────────
+    // T6 fail-safe: no resolvable window → in effect. The legacy xNW() is
+    // not consulted here (it still carries the pre-hotfix year rules).
     let active = true;
     const w = xNW_standalone(notamRaw, resolvedISO);
     if (w) active = nwOverlap_standalone(w, etaMin, resolvedISO);
-    if (active === true && w === null &&
-        typeof window !== 'undefined' &&
-        typeof xNW === 'function' && typeof nwOverlap === 'function') {
-      const wLeg = xNW(notamRaw);
-      if (wLeg) active = nwOverlap(wLeg, etaMin);
-    }
 
     // ── OFP inline schedule (Atlas Air format): "DD-DD DD-DD ... HHMM-HHMM" ──
     // These lines follow the NOTAM header and restrict activity to specific
