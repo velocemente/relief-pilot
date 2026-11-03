@@ -3834,14 +3834,14 @@ function xNW_standalone(notamText, flightDateISO) {
   const wefRe = /WEF\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})\s+(?:UFC|UNTIL|TO)\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)/i;
   const wefM  = tu.match(wefRe);
   if (wefM) {
-    return _resolveInlineDateRange(wefM[1], wefM[2], baseYear, issYear, flightMo);
+    return _resolveInlineDateRange(wefM[1], wefM[2], baseYear, issYear, flightMo, iso);
   }
 
   // ── EFFECTIVE … UNTIL/TO … (plain language) ───────────────────────────
   const effRe = /EFFECTIVE\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4})\s+(?:UNTIL|TO)\s+(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{4}|PERM)/i;
   const effM  = tu.match(effRe);
   if (effM) {
-    return _resolveInlineDateRange(effM[1], effM[2], baseYear, issYear, flightMo);
+    return _resolveInlineDateRange(effM[1], effM[2], baseYear, issYear, flightMo, iso);
   }
 
   // ── DDMMMHHmm-DDMMMHHmm (standard Atlas inline) ──────────────────────
@@ -3907,11 +3907,12 @@ function xNW_standalone(notamText, flightDateISO) {
 
 /**
  * Helper: resolve an inline DDMMMHHmm date range, handling PERM and cross-year.
- * issYear  — issue year from the NOTAM ID (/YY), or null. Used for PERM (T4)
- *            and to choose the year-crossing rule below.
- * flightMo — flight month (0–11), anchors the year crossing when there is no /YY (D38).
+ * issYear   — issue year from the NOTAM ID (/YY), or null. Used for PERM (T4)
+ *             and to choose the year-crossing rule below.
+ * flightMo  — flight month (0–11), anchors the year crossing (D38).
+ * flightISO — 'YYYY-MM-DD' flight date, or null; picks the /YY crossing window (D38).
  */
-function _resolveInlineDateRange(startToken, endToken, baseYear, issYear, flightMo) {
+function _resolveInlineDateRange(startToken, endToken, baseYear, issYear, flightMo, flightISO) {
   if (/^PERM$/i.test(endToken)) {
     const sMs = _parseDateToken(startToken, baseYear, issYear || baseYear);
     if (sMs === null) return null;
@@ -3920,9 +3921,30 @@ function _resolveInlineDateRange(startToken, endToken, baseYear, issYear, flight
   const startMo = _SMON[(startToken.slice(2, 5) || '').toUpperCase()];
   const endMo   = _SMON[(endToken.slice(2, 5) || '').toUpperCase()];
   if (startMo === undefined || endMo === undefined) return null;
+  // D38 with /YY (F2): end month before start month → the end is in the year
+  // after the start, and the start year is never before the issue year I.
+  // Candidate windows: start in Y, end in Y+1, Y from I to the flight year.
+  // The first candidate that covers the flight date (00:00Z–24:00Z) is used.
+  // If none covers it, use the flight-anchored window below (start year
+  // raised to I if needed): it is not in effect on the flight date.
+  // No candidate year, or an impossible date in one → no window (in effect).
+  if (endMo < startMo && issYear !== null) {
+    if (issYear > baseYear) return null;
+    const dayMs   = flightISO ? Date.parse(flightISO + 'T00:00:00Z') : NaN;
+    const anchorY = Math.max(issYear, endMo < flightMo ? baseYear : baseYear - 1);
+    let anchored  = null;
+    for (let Y = issYear; Y <= baseYear; Y++) {
+      const sMs = _parseDateToken(startToken, baseYear, Y);
+      const eMs = _parseDateToken(endToken,   baseYear, Y + 1);
+      if (sMs === null || eMs === null) return null;
+      if (sMs < dayMs + 86400000 && eMs > dayMs) return { startMs: sMs, endMs: eMs };
+      if (Y === anchorY) anchored = { startMs: sMs, endMs: eMs };
+    }
+    return anchored;
+  }
   // D38 (no /YY): a crossing window lands on the same year pair whether the
-  // flight is in late December or early January. With /YY: unchanged.
-  const endYear   = endMo < startMo && (issYear !== null || endMo < flightMo)
+  // flight is in late December or early January.
+  const endYear   = endMo < startMo && endMo < flightMo
                     ? baseYear + 1 : baseYear;
   const startYear = endMo < startMo ? endYear - 1 : endYear;
   const startMs   = _parseDateToken(startToken, baseYear, startYear);
@@ -5597,7 +5619,15 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
       }
     }
 
-    const dupKey = `${slot}:${level}:${label||shortLine.slice(0,40)}`;
+    // D43: the NOTAM ID is the unique identifier. Two NOTAMs are duplicates
+    // ONLY when they have the same location(s) and the same ID (the same
+    // NOTAM printed twice); different IDs are always both shown. A NOTAM with
+    // no readable ID is a duplicate only of one whose text is identical after
+    // whitespace is normalised. The first copy is kept.
+    const idM    = notamRaw.match(/^\s*-\s+((?:[A-Z]{4}\s+)+)([A-Z]\d{1,4}\/\d{2})(?=\s|$)/);
+    const dupKey = idM
+      ? `ID:${idM[1].trim().split(/\s+/).join(' ')} ${idM[2]}`
+      : `TXT:${notamRaw.replace(/\s+/g, ' ').trim()}`;
     if (seen.has(dupKey)) continue;
     seen.add(dupKey);
 
