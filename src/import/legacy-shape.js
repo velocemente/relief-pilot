@@ -10,6 +10,63 @@
 
 const { REGISTRY } = require('./registry.js');
 
+// Month map for FK "YYYY-Mon-DD [HH:mm]" → DDMMMHHmm
+const _FK_MON = {
+  jan:'JAN', feb:'FEB', mar:'MAR', apr:'APR', may:'MAY', jun:'JUN',
+  jul:'JUL', aug:'AUG', sep:'SEP', oct:'OCT', nov:'NOV', dec:'DEC',
+};
+
+// Convert FK ISO date string "YYYY-Mon-DD [HH:mm]" → "DDMMMHHmm".  Returns null if unparseable.
+function _fkDateToToken(s) {
+  const m = s && /^(\d{4})-([A-Za-z]{3})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/.exec(s);
+  if (!m) return null;
+  const mon = _FK_MON[m[2].toLowerCase()];
+  if (!mon) return null;
+  return `${m[3]}${mon}${m[4] || '00'}${m[5] || '00'}`;
+}
+
+// Convert FK validFrom + validTo to legacy validity string for the NOTAM header line.
+// UFN and UFN(EST …) both become "startToken-UFN [EST]" so xNW_standalone returns null
+// (always active), matching FK's intent that UFN NOTAMs are indefinitely in-effect.
+function _fkValidityStr(validFrom, validTo) {
+  const start = _fkDateToToken(validFrom);
+  if (!start) return '';
+  if (!validTo) return `${start}-UFN`;
+  if (/^UFN/i.test(validTo)) return `${start}-UFN${/EST/i.test(validTo) ? ' EST' : ''}`;
+  if (/^PERM$/i.test(validTo)) return `${start}-PERM`;
+  const end = _fkDateToToken(validTo);
+  if (!end) return `${start}-UFN`;
+  const sy = parseInt(validFrom);  // "2026-..." → 2026
+  const ey = parseInt(validTo);
+  return ey > sy ? `${start}-${end} ${ey}` : `${start}-${end}`;
+}
+
+// Convert FK canonical NOTAM record {id, validFrom, validTo, body} → legacy text block.
+// Header: "- ICAO  NOTAMID VALIDITY\nbody" (two spaces between ICAO and NOTAM ID).
+function _fkNotamToLegacyText(rec) {
+  const sp   = (rec.id || '').indexOf(' ');
+  const icao = sp > 0 ? rec.id.slice(0, sp)     : (rec.id || '');
+  const nid  = sp > 0 ? rec.id.slice(sp + 1)    : '';
+  const v    = _fkValidityStr(rec.validFrom, rec.validTo);
+  const hdr  = v ? `- ${icao}  ${nid} ${v}` : `- ${icao}  ${nid}`;
+  return rec.body ? `${hdr}\n${rec.body}` : hdr;
+}
+
+// Convert FK canonical weather {taf, metars, atis} → legacy weather string (METARs then TAF).
+function _fkWeatherToLegacy(w) {
+  if (!w || typeof w !== 'object') return '';
+  const parts = Array.isArray(w.metars) ? w.metars.filter(Boolean) : [];
+  if (w.taf) parts.push(w.taf);
+  return parts.join('\n');
+}
+
+// Convert FK canonical opsNotes array [{notamId, subject, body}] → legacy {header, body} or null.
+function _fkOpsNotesToLegacy(arr) {
+  if (!Array.isArray(arr) || !arr.length) return null;
+  const body = arr.map(o => o.body || '').filter(Boolean).join('\n');
+  return body ? { header: arr[0].subject || '', body } : null;
+}
+
 const LEGACY_KEYS = [
   'fltNum', 'acftType', 'weightUnit', 'isHeavy', 'dateStr', 'flightDateISO',
   'origIcao', 'destIcao', 'offFromOFP', 'etaDest', 'destEtaOffsetMins',
@@ -42,23 +99,28 @@ function toLegacyShape(cbm) {
       }
     }
 
-    // Convert airportData from canonical shape to legacy text format
-    // Canonical: notams = array of NOTAM records, weather = object
-    // Legacy: notams = text, weather = text, opsNotes = {body,…}, curfew unchanged
-    // Canonical-only fields (roles, windows) stay in model, don't reach screens
+    // Convert airportData from canonical shape to legacy text format.
+    // Canonical: notams = array of FK records, weather = {taf, metars, atis}, opsNotes = array.
+    // Legacy:    notams = text string, weather = text string, opsNotes = {header, body}|null.
+    // Canonical-only fields (roles, windows) stay in model, don't reach screens.
     if (key === 'airportData' && value && typeof value === 'object') {
       const legacy = {};
       for (const icao in value) {
         const apt = value[icao];
-        legacy[icao] = {
-          notams: (apt.notams && Array.isArray(apt.notams))
-            ? apt.notams.map(r => r.text || String(r)).join('\n')
-            : (typeof apt.notams === 'string' ? apt.notams : ''),
-          weather: (apt.weather && typeof apt.weather === 'object')
-            ? apt.weather.text || (typeof apt.weather.raw === 'string' ? apt.weather.raw : '')
-            : (typeof apt.weather === 'string' ? apt.weather : ''),
-        };
-        if (apt.opsNotes) legacy[icao].opsNotes = apt.opsNotes;
+        // notams: FK canonical is [{id, validFrom, validTo, body}]; Navtech is already a string.
+        const notamsText = Array.isArray(apt.notams)
+          ? apt.notams.map(_fkNotamToLegacyText).join('\n')
+          : (typeof apt.notams === 'string' ? apt.notams : '');
+        // weather: FK canonical is {taf, metars, atis}; Navtech is already a string.
+        const weatherText = (apt.weather && typeof apt.weather === 'object')
+          ? _fkWeatherToLegacy(apt.weather)
+          : (typeof apt.weather === 'string' ? apt.weather : '');
+        legacy[icao] = { notams: notamsText, weather: weatherText };
+        // opsNotes: FK canonical is [{notamId, subject, body}]; Navtech is already {header, body}.
+        const opsLegacy = Array.isArray(apt.opsNotes)
+          ? _fkOpsNotesToLegacy(apt.opsNotes)
+          : apt.opsNotes;
+        if (opsLegacy) legacy[icao].opsNotes = opsLegacy;
         if (apt.curfew) legacy[icao].curfew = apt.curfew;
         if (apt.ewinsWeather) legacy[icao].ewinsWeather = apt.ewinsWeather;
         if (apt.ewinsRole) legacy[icao].ewinsRole = apt.ewinsRole;
