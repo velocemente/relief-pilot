@@ -22,7 +22,9 @@ function notamIdOf(notamRaw) {
 //     const aptRole   = (role || 'DEST').toString().toUpperCase();
 //     const evalRole  = aptRole === 'ORIG' ? 'ORIG' : 'DEST';
 //     const flightISO = (typeof window !== 'undefined' && window._flightDateISO) || '';
-//     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO);
+//     // Departure time: gives the UTC date of the ETA for the schedule checks.
+//     const depMin    = (typeof S !== 'undefined' && S) ? pZM(S.outZ) : null;
+//     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO, depMin);
 // and evalAirport() is called (buildAirportCards / refreshAptCard / descent screens) as
 //     evalAirport(apt.icao, apt.eta, data.notams, data.weather, apt.wxWindow, apt.role, S.acftType)
 // for every airport of getAllAirports(). evalNotams() is only called when the airport has
@@ -37,11 +39,12 @@ function evalArgsFor(imp, apt) {
   const aptRole = (apt.role || 'DEST').toString().toUpperCase();
   const evalRole = aptRole === 'ORIG' ? 'ORIG' : 'DEST';
   const flightISO = (app.sandbox.window && app.sandbox.window._flightDateISO) || '';
-  return { notamArr, evalRole, etaMin, acftType: S.acftType || '', flightISO };
+  const depMin = S ? app.pZM(S.outZ) : null;
+  return { notamArr, evalRole, etaMin, acftType: S.acftType || '', flightISO, depMin };
 }
 
 function callEvalNotams(app, a, notamArr) {
-  return app.evalNotams(notamArr || a.notamArr, a.evalRole, a.etaMin, a.acftType, a.flightISO);
+  return app.evalNotams(notamArr || a.notamArr, a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin);
 }
 
 // NOTAM-evaluation golden: per release airport, the NOTAMs evalNotams() reports in effect
