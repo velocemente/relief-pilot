@@ -306,7 +306,9 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     const aptRole   = (role || 'DEST').toString().toUpperCase();
     const evalRole  = aptRole === 'ORIG' ? 'ORIG' : 'DEST';
     const flightISO = (typeof window !== 'undefined' && window._flightDateISO) || '';
-    const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO);
+    // Departure time: gives the UTC date of the ETA for the schedule checks.
+    const depMin    = (typeof S !== 'undefined' && S) ? pZM(S.outZ) : null;
+    const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO, depMin);
 
     rwyGroups = result.rwyGroups;
     sidIssues = result.sidIssues || [];
