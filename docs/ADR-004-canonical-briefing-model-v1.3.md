@@ -1,3 +1,5 @@
+> **SUPERSEDED 7 Nov 2026 by ADR-005 (docs/ADR-005-modular-ofp-platform-v1.0.md), except the decisions ADR-005 §6 carries forward.**
+
 # ADR-004 — Canonical Briefing Model & Format-Independent Import
 
 | Field | Value |

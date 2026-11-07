@@ -6,6 +6,7 @@ The decision makers are the Exec (domain authority and approver). You never merg
 
 ## Where things are
 
+- **Current plan:** SPRINT-OFP-ModularPlatform v4.0 (or later) in the Exec's Google Drive build folder. **Architecture:** `docs/ADR-005-modular-ofp-platform-v1.0.md` (ADR-004 is superseded except the decisions ADR-005 §6 carries forward). **Master module copies** live in the Exec's Drive folder "00_General Rulesets". Sessions follow only the prompt the Exec pastes.
 - `docs/` — read these before changing behaviour: `ADR-004` (architecture and decisions D1–D17), `SPRINT-OFP-ImportPlatform` (the plan and every session brief), `RPT-OFP-LiveDefectDiagnosis` (DEF-A / DEF-B), `SPRINT-OFP-FlightKeysMigration…FieldMap` (FlightKeys field map), `ADR-001`, and `OperatingPractice-IV-1-CodeMap` (where things are in `index.html`).
 - `src/` — the app source, split into 20 modules by code region: `styles`, `screens`, `weather`, `notam`, `nat`, `state`, `storage`, `pdf`, `ofp-parse`, `render-preflight`, `render-enroute`, `rest`, `render-descent`, `edit`, `airports`, `oei`, `copy`, `import`, `settings`, `sw-register`. Each is an HTML fragment; `build/build.js` concatenates them in that order into `index.html`.
 - `build/build.js` — run `node build/build.js` to assemble `src/` into `dist/index.html`. The committed `index.html` is the build output; CI verifies they match.
@@ -26,6 +27,12 @@ The decision makers are the Exec (domain authority and approver). You never merg
 9. **Version alignment.** `APP_VERSION` in `index.html`, `CACHE_NAME` in `sw.js` and `version` in `manifest.json` must match. Only release PRs change them.
 10. **Never skip, disable or quarantine a test to get green.** Never edit a golden snapshot to make a diff disappear (see below).
 11. **Never edit `index.html` directly — it is a generated file.** All changes go into the relevant `src/` module. After editing, run `node build/build.js` and commit both the `src/` change and the rebuilt `index.html` in the same PR.
+12. **NOTAM dates:** when a NOTAM's dates cannot be resolved, the NOTAM is shown (D27).
+13. **The NOTAM ID is the unique identifier;** NOTAMs with different IDs are never merged (D43).
+14. **Modules (ADR-005):** each module is one standalone file in `rules/<module>/`, byte-identical to its master copy in the Exec's Drive and listed in `rules/manifest.json` with its SHA-256. Extraction never changes behaviour. Integration into `index.html` is a separate PR.
+15. **The NavBlue OFP parser is locked:** its output may not change (D47).
+16. **FlightKeys is a format change only:** its parser gives the rulesets exactly what the NavBlue parser gives for the same content (FK-P).
+17. **Never request access to, clone or comment on `velocemente/PilotBrief`;** the production reference is `pilotbrief-fixtures/production-snapshot/`.
 
 ## Tests
 
