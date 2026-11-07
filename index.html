@@ -3355,364 +3355,76 @@ function lookupAbbreviation(abbr) {
 
 
 
-// ═══════════════════════════════════════════════════════
-//  NOTAM RULESET  v1.10.1
-//  NOTAM evaluation engine — loaded from notam-rules.js
-// ═══════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-
 /**
- * Classify a NOTAM by operational priority.
- * @param {object} notam - Parsed NOTAM
- * @returns {{ priority: number, category: string, label: string }}
- */
-function classifyNotam(notam) {
-  const q   = notam.qCode || '';
-  const txt = (notam.text || '').toUpperCase();
-
-  // Extract the 2-character subject code from the Q-code string (e.g. 'QNII' → 'NI').
-  // The full qCode stored by parseNotam is the raw string after 'Q/' in the Q-line,
-  // e.g. 'QRTCA', 'QNII', 'QNGI'. Subject = chars 1-2 (0-indexed), condition = char 3+.
-  const qSub = q.length >= 3 ? q.slice(1, 3).toUpperCase() : '';
-
-  const US_PAT = /\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL)\b/;
-
-  // ── P1 — Safety-critical: runway/airport closure, ILS precision guidance ──
-
-  if (/RC|RT|RU/.test(qSub) || (txt.includes('RWY') && txt.includes('CLSD'))) {
-    return { priority: 1, category: 'RUNWAY', label: 'Runway / Movement Area — P1 CRITICAL' };
-  }
-  if (txt.includes('ARPT CLSD') || txt.includes('AD CLSD')) {
-    return { priority: 1, category: 'AIRPORT', label: 'Airport Closure — P1 CRITICAL' };
-  }
-  // Q-code: NI=ILS complete, NL=localizer, NG=glide slope
-  if (/^(?:NI|NL|NG)$/.test(qSub)) {
-    return { priority: 1, category: 'NAVAID_ILS', label: 'ILS / Localizer / Glide Slope — P1 CRITICAL' };
-  }
-  // Text fallback: ILS/LOC/GS unserviceable when no Q-code
-  if (US_PAT.test(txt) && /\b(?:ILS|LOC|LOCALIZ(?:ER|OR)|GLIDE\s+(?:SLOPE|PATH)|GLIDESLOPE|G\/S|G\/P)\b/.test(txt)) {
-    return { priority: 1, category: 'NAVAID_ILS', label: 'ILS / Localizer / Glide Slope — P1 CRITICAL' };
-  }
-
-  // ── P2 — High: other NAVAIDs, GPS/GNSS, DME, approach procedures, approach lighting ──
-
-  // Q-codes: NA=all navaids, NB=NDB, ND=DME, NO=VOR, NT=TACAN, NV=VORTAC
-  if (/^(?:NA|NB|ND|NO|NT|NV)$/.test(qSub)) {
-    return { priority: 2, category: 'NAVAID', label: 'NAVAID Unserviceable — P2 HIGH' };
-  }
-  // Q-code: NM=marker beacon — check before generic NAVAID text fallback
-  if (/^NM$/.test(qSub)) {
-    return { priority: 2, category: 'NAVAID_MARKER', label: 'Marker Beacon Unserviceable — P2 HIGH' };
-  }
-  // GPS/GNSS unserviceable — check before generic VOR/NDB fallback
-  if (/\b(?:GPS|GNSS|SATNAV)\b/.test(txt) &&
-      /\b(?:U\/S|UNSERVICEABLE|OTS|INOP|NOT\s+AVBL|UNRELIABLE|UNREL|DEGRADED|JAMMING)\b/.test(txt)) {
-    return { priority: 2, category: 'NAVAID_GPS', label: 'GPS/GNSS Unserviceable — P2 HIGH' };
-  }
-  // RAIM not available
-  if (/\bRAIM\b/.test(txt) && /\b(?:NOT\s+AVBL|NOT\s+AVAILABLE|UNAVBL|OUTAGE)\b/.test(txt)) {
-    return { priority: 2, category: 'NAVAID_GPS', label: 'RAIM Not Available — P2 HIGH' };
-  }
-  // Text fallback: VOR/NDB/DME/TACAN/VORTAC unserviceable
-  // NOTE: LOM/LMM are compass locator navaids — check for marker-specific terms first
-  if (US_PAT.test(txt) && /\b(?:OUTER\s+MARKER|MIDDLE\s+MARKER|INNER\s+MARKER|LOM\b|LMM\b|OM\b|MM\b|IM\b)\b/.test(txt)) {
-    return { priority: 2, category: 'NAVAID_MARKER', label: 'Marker Beacon Unserviceable — P2 HIGH' };
-  }
-  if (US_PAT.test(txt) && /\b(?:VOR|NDB|DME|TACAN|VORTAC|LOCAT(?:OR|ER))\b/.test(txt)) {
-    return { priority: 2, category: 'NAVAID', label: 'NAVAID Unserviceable — P2 HIGH' };
-  }
-  // Procedure changes: PA=instrument approach, PD=SID, PE=STAR, PX=RNAV/RNP, PU=missed approach
-  if (/^(?:PA|PD|PE|PX|PU)$/.test(qSub)) {
-    return { priority: 2, category: 'PROCEDURE', label: 'Approach / Departure Procedure — P2 HIGH' };
-  }
-  // Text fallback for procedure changes
-  if (/\b(?:IAP|APCH\s+PROC|APPROACH\s+PROC|INSTRUMENT\s+APCH|SID|STAR)\b/.test(txt) &&
-      /\b(?:AMDT|CHANGE|REVISED|SUSPENDED|NOT\s+AUTH|PROC\s+NA)\b/.test(txt)) {
-    return { priority: 2, category: 'PROCEDURE', label: 'Approach / Departure Procedure — P2 HIGH' };
-  }
-  // Approach lighting Q-codes: LA=approach lights, LP=PAPI/VASI, LV=VASI
-  if (/^(?:LA|LP|LV)$/.test(qSub)) {
-    return { priority: 2, category: 'LIGHTING_APPROACH', label: 'Approach Lighting / PAPI — P2 HIGH' };
-  }
-  // Text fallback: ALS/ALSF/MALSR/SSALR/PAPI/VASI/REIL unserviceable
-  if (US_PAT.test(txt) && /\b(?:ALS[FR]?|ALSF|MALSR?|SSALR?|SSALF|ODALS|RAIL|PAPI|VASI|REIL|APPROACH\s+LIGHT)\b/.test(txt)) {
-    return { priority: 2, category: 'LIGHTING_APPROACH', label: 'Approach Lighting / PAPI — P2 HIGH' };
-  }
-
-  // ── P3 — Moderate: runway lighting, taxiways, thresholds, obstacles, warnings ──
-
-  // Runway centerline / TDZ lights Q-codes: LC=centerline, LT=threshold
-  if (/^(?:LC|LT)$/.test(qSub)) {
-    return { priority: 3, category: 'LIGHTING_CATII', label: 'Cat II/III Lighting — P3 MODERATE' };
-  }
-  if (US_PAT.test(txt) && /\b(?:RCLL?|RCLM|RUNWAY\s+(?:CENTERLINE|CENTRE\s+LINE)|TDZ|TDZL?|TOUCHDOWN\s+ZONE)\b/.test(txt)) {
-    return { priority: 3, category: 'LIGHTING_CATII', label: 'Cat II/III Lighting — P3 MODERATE' };
-  }
-  // Other runway lighting Q-codes
-  if (/^L[BCEFHILX]$/.test(qSub)) {
-    return { priority: 3, category: 'LIGHTING', label: 'Runway/Aerodrome Lighting — P3 MODERATE' };
-  }
-  if (US_PAT.test(txt) && /\b(?:HIRL|MIRL|LIRL|HIL|MIL|RUNWAY\s+EDGE\s+LIGHTS?|RUNWAY\s+LIGHTS?)\b/.test(txt)) {
-    return { priority: 3, category: 'LIGHTING', label: 'Runway/Aerodrome Lighting — P3 MODERATE' };
-  }
-  // Displaced threshold (Q-code RH = runway threshold displaced)
-  if (/^RH$/.test(qSub) ||
-      /\b(?:DSPLCD?|DISPLACED?)\s+(?:THR|THLD?|THRESHOLD)\b/.test(txt) ||
-      /\bTHRESHOLD\b.*\bDISPLACED?\b/.test(txt)) {
-    return { priority: 3, category: 'THRESHOLD', label: 'Threshold Displacement — P3 MODERATE' };
-  }
-  // Taxiway
-  if (/^(?:TA|TC)$/.test(qSub) || (txt.includes('TWY') && txt.includes('CLSD'))) {
-    return { priority: 3, category: 'TAXIWAY', label: 'Taxiway — P3 MODERATE' };
-  }
-  // Obstacle
-  if (/^(?:OA|OB|OC|OE|OH|OW)$/.test(qSub)) {
-    return { priority: 3, category: 'OBSTACLE', label: 'Obstacle — P3 MODERATE' };
-  }
-  // Warning
-  if (/^W[A-Z]$/.test(qSub)) {
-    return { priority: 3, category: 'WARNING', label: 'Airspace Warning — P3 MODERATE' };
-  }
-
-  // ── P4 — Administrative, informational ──
-  return { priority: 4, category: 'INFO', label: 'Informational — P4 LOW' };
-}
-
-/**
- * Known keywords and their operational significance.
- * @param {string} text - NOTAM Item E text
- * @returns {string[]} Keywords found
- */
-function extractNotamKeywords(text) {
-  const upper = text.toUpperCase();
-  const keywords = [];
-
-  const KEYWORD_MAP = [
-    // Closures / unserviceability
-    'CLSD', 'CLOSED', 'UNAVBL', 'UNSERVICEABLE', 'INOP', 'OTS', 'U/S', 'NOT AVBL',
-    // Construction / hazards
-    'WIP', 'CONST', 'CRANE', 'OBSTN', 'OBSTACLE',
-    // Precision approach: ILS components
-    'ILS', 'LOC', 'LOCALIZER', 'GS', 'G/S', 'G/P', 'GLIDE SLOPE', 'GLIDE PATH',
-    // Approach types
-    'APCH', 'PROC', 'IAP', 'LPV', 'LNAV', 'RNAV', 'RNP', 'VOR', 'NDB', 'LDA', 'GLS', 'GBAS',
-    // Departure
-    'SID', 'STAR',
-    // Marker beacons
-    'OM', 'MM', 'IM', 'LOM', 'LMM', 'OUTER MARKER', 'MIDDLE MARKER', 'INNER MARKER',
-    // DME / ranging
-    'DME', 'TACAN', 'VORTAC',
-    // GPS / GNSS / RAIM
-    'GPS', 'GNSS', 'SATNAV', 'RAIM', 'WAAS', 'SBAS',
-    // Runway / movement area
-    'RWY', 'TWY', 'THRESHOLD', 'DSPLCD', 'DISPLACED',
-    // Approach lighting
-    'ALS', 'ALSF', 'MALSR', 'MALSF', 'SSALR', 'SSALF', 'SSALS', 'ODALS', 'RAIL',
-    // Visual aids
-    'PAPI', 'VASI', 'PVASI', 'APAPI', 'REIL',
-    // Runway edge / centerline / TDZ lighting
-    'HIRL', 'MIRL', 'LIRL', 'RCLL', 'RCLM', 'TDZ', 'TDZL',
-    // Services
-    'ATC', 'ATIS', 'ARFF', 'FSS',
-    // LVP / ARFF / surface conditions / new ICAO §6 items
-    'LVP', 'LOW VISIBILITY PROCEDURES', 'RFFS', 'JET FUEL', 'SNOWTAM',
-    'BRAKING ACTION', 'RWYCC', 'FICON', 'RNP AR', 'DECLARED DISTANCES',
-    'TORA', 'TODA', 'ASDA', 'TRANSITION ALTITUDE', 'TRANSITION LEVEL',
-    // ICAO §6 / Annex 14 — additional safety-critical NOTAM keywords
-    'BIRD HAZARD', 'BIRD ACTIVITY', 'BIRD STRIKE', 'WILDLIFE',
-    'OCA', 'OCH', 'MOCA', 'MEA', 'MINIMA',
-    'CAT II', 'CAT III', 'CAT I', 'DOWNGRADED',
-    'PCR', 'PCN', 'RESA', 'RUNWAY END SAFETY AREA',
-    'DE-ICING', 'DEICING', 'ANTI-ICING', 'ROTATING BEACON', 'BEACON',
-    // Alteration
-    'SHORTENED', 'REDUCED', 'CHANGED', 'RAISED', 'INCREASED',
-    // Military/restricted
-    'RESTRICTED', 'PROHIBITED', 'TFR', 'MOA', 'LASER',
-    // Approach minimums
-    'MDA', 'MDH', 'DA', 'DH', 'CAT I', 'CAT II', 'CAT III',
-    // Alternate / missed approach
-    'ALTN MINS', 'ALTERNATE MINIMUMS', 'MISSED APCH', 'ALTN MA',
-  ];
-
-  for (const kw of KEYWORD_MAP) {
-    if (upper.includes(kw)) keywords.push(kw);
-  }
-
-  return [...new Set(keywords)];
-}
-
-/**
- * Derive a brief operational impact statement from a parsed NOTAM.
- * @param {object} notam
- * @returns {string}
- */
-function deriveOperationalImpact(notam) {
-  const txt = (notam.text || '').toUpperCase();
-  const cat = notam.classification?.category || '';
-
-  if (cat === 'RUNWAY') {
-    const rwy = txt.match(/RWY\s+([\dLCR\/]+)/);
-    return `Runway ${rwy ? rwy[1] : 'affected'} — verify alternate runway availability and approach procedures.`;
-  }
-  if (cat === 'AIRPORT') {
-    return 'Airport closed — coordinate alternate destination with dispatch.';
-  }
-  if (cat === 'NAVAID_ILS') {
-    // Distinguish GS-only vs full ILS vs LOC-only from text
-    if (/\b(?:GLIDE\s+(?:SLOPE|PATH)|G\/S|G\/P|GS\b)\b/.test(txt) &&
-        !/\bILS\b.*\b(?:U\/S|UNSERVICEABLE|OTS|INOP)\b/.test(txt)) {
-      return 'Glide slope unserviceable — ILS approach degrades to LOC-only. Expect non-precision minima. Verify Cat II/III availability.';
-    }
-    if (/\bLOCALIZ(?:ER|OR)\b|\bLOC\b/.test(txt) &&
-        !/\bILS\b.*\b(?:U\/S|UNSERVICEABLE|OTS|INOP)\b/.test(txt)) {
-      return 'Localizer unserviceable — ILS/LOC approach not available. Expect RNAV, VOR, or circling approach if available.';
-    }
-    return 'ILS/Localizer or Glide Slope unserviceable — expect non-precision or circling approach. Verify alternate minimums and Cat II/III applicability.';
-  }
-  if (cat === 'NAVAID_GPS') {
-    if (/\bRAIM\b/.test(txt)) {
-      return 'RAIM not available — RNP/RNAV approaches requiring RAIM are not authorized. Verify alternate approach type.';
-    }
-    if (/\b(?:UNRELIABLE|UNREL|DEGRADED)\b/.test(txt)) {
-      return 'GPS/GNSS unreliable — RNAV/RNP approach accuracy degraded. Verify RAIM prediction and consider non-RNAV backup.';
-    }
-    return 'GPS/GNSS unserviceable — all RNAV/RNP/LPV/LNAV approaches not available. Use ILS, VOR, or NDB approach if available.';
-  }
-  if (cat === 'NAVAID_MARKER') {
-    return 'Marker beacon unserviceable — DA/MDA audio cue unavailable. Cross-check with DME or alt distance source on ILS.';
-  }
-  if (cat === 'NAVAID') {
-    return 'NAVAID unserviceable — use alternate navigation. Verify route/approach viability and applicable NOTAMs for backup procedures.';
-  }
-  if (cat === 'PROCEDURE') {
-    return 'Approach or departure procedure changed — published charts may not reflect current procedure. Obtain current IAP before flight.';
-  }
-  if (cat === 'LIGHTING_APPROACH') {
-    // ALS type affects the magnitude of minima increase
-    if (/\b(?:ALSF|MALSR|SSALR|SSALF)\b/.test(txt)) {
-      return 'Primary approach lighting (ALSF/MALSR/SSALR) unserviceable — published MDA/DA increases significantly. Check current IAP for revised minima.';
-    }
-    if (/\b(?:PAPI|VASI|PVASI|APAPI)\b/.test(txt)) {
-      return 'PAPI/VASI unserviceable — visual glide path reference unavailable. Use published instrument glide path or VGSI substitute if available.';
-    }
-    if (/\bREIL\b/.test(txt)) {
-      return 'REIL unserviceable — runway end identification lights out. May increase approach difficulty in low-visibility conditions.';
-    }
-    return 'Approach lighting degraded — published MDA/DA may be higher than current IAP. Verify current minima before commencing approach.';
-  }
-  if (cat === 'LIGHTING_CATII') {
-    if (/\b(?:RCLL?|RCLM|RUNWAY\s+CENTERLINE)\b/.test(txt)) {
-      return 'Runway centerline lights unserviceable — Cat II/III operations and low-visibility taxi may not be authorized. Verify with dispatch and applicable ops specs.';
-    }
-    if (/\b(?:TDZ|TDZL?|TOUCHDOWN\s+ZONE)\b/.test(txt)) {
-      return 'Touchdown zone lights unserviceable — Cat II/III operations not authorized. Expect Cat I minima or higher.';
-    }
-    return 'Cat II/III runway lighting unserviceable — precision approach operations may be restricted. Verify applicable ops specs.';
-  }
-  if (cat === 'LIGHTING') {
-    return 'Runway edge lighting degraded — assess capability for night/low-visibility operations. Verify applicable RVR minimums.';
-  }
-  if (cat === 'THRESHOLD') {
-    const rwy = txt.match(/RWY\s+([\dLCR\/]+)/);
-    return `Threshold displaced on RWY ${rwy ? rwy[1] : 'affected'} — landing distance available (LDA) is reduced. Verify published LDA and approach minima.`;
-  }
-  if (cat === 'TAXIWAY') {
-    return 'Taxiway affected — review airport diagram for alternate routing. Check for wingspan restrictions applicable to B747.';
-  }
-  if (cat === 'OBSTACLE') {
-    return 'New or changed obstacle — verify obstacle clearance on departure/approach. Check applicable ODP or SID climb gradient.';
-  }
-  if (cat === 'WARNING') {
-    return 'Airspace restriction or warning active — check applicability to planned route and time of flight.';
-  }
-  if (cat === 'LVP') {
-    return 'Low Visibility Procedures in force — Cat II/III ops eligibility affected. Verify airport LVP compliance before commencing Cat II/III approach.';
-  }
-  if (cat === 'ARFF') {
-    return 'ARFF/RFFS category reduced — B747 requires minimum Cat 9 ARFF coverage. Verify ops spec authorization or obtain dispatch approval before operating.';
-  }
-  if (cat === 'SNOWTAM') {
-    return 'Runway/taxiway surface contamination reported — verify landing distance available against actual surface condition and braking action. Check ACARS/ATIS for current RWYCC.';
-  }
-  if (cat === 'RNP_AR') {
-    return 'RNP AR approach not available — authorization-required precision approach suspended. Use alternate approach type. Verify missed approach climb gradient without RNP AR.';
-  }
-  if (cat === 'DECL_DIST') {
-    return 'Declared distances restricted — recalculate landing/departure performance against revised LDA/TORA/TODA. Verify dispatch release reflects current distances.';
-  }
-  if (cat === 'FUEL') {
-    return 'Jet fuel unavailable — coordinate alternate fueling stop or adjust fuel uplift plan with dispatch before departure.';
-  }
-  if (cat === 'TRANS_ALT') {
-    return 'Transition altitude or level changed — update altimetry procedures and QNH/QNE transition in descent briefing.';
-  }
-  if (cat === 'BIRD_HAZARD') {
-    return 'Bird/wildlife activity reported on or around AD — heightened ingestion and bird-strike risk during takeoff and landing. Brief crew on engine fail/abort considerations.';
-  }
-  if (cat === 'MINIMA_INC') {
-    return 'Operating minima raised (OCA/OCH/MOCA/DA increased) — verify current minima against approach plate and confirm landing/missed approach margin. Recheck obstacle clearance.';
-  }
-  if (cat === 'CAT_DG') {
-    return 'ILS or approach category downgraded — verify aircraft and crew authorization for the available approach category. Cat II/III ops require active LVP and serviceable equipment.';
-  }
-  if (cat === 'PCR_CHG') {
-    return 'Pavement strength rating changed — verify aircraft weight and PCR/PCN compliance against the published runway/taxiway/apron rating. Consult dispatch if margin is tight.';
-  }
-  if (cat === 'RESA_CHG') {
-    return 'Runway End Safety Area dimensions reduced — review landing performance margin under actual surface conditions. Wet/contaminated landings may require alternate runway or aircraft.';
-  }
-  if (cat === 'DEICE_LTD') {
-    return 'De-icing/anti-icing capability limited or unavailable — coordinate with dispatch for alternate de-ice arrangements, plan for delays, or divert if conditions require treatment.';
-  }
-  if (cat === 'BEACON_US') {
-    return 'Aerodrome rotating beacon out of service — night IFR identification of AD reduced. Verify alternative visual/electronic AD identification on approach.';
-  }
-  if (cat === 'NAV_FALSE_SIG') {
-    return 'Navaid transmitting erroneous signals or not approved for operations — DO NOT USE for navigation. Use alternate navaids, RNAV/GPS, or radar vectors. Crossing a final approach fix using this navaid is prohibited.';
-  }
-  if (cat === 'DISREGARD_RESTR') {
-    return 'Taxi or movement restriction exists; specific aircraft types are exempt. Verify whether your aircraft type is on the exempt list. If not listed, the restriction applies — obtain ATC clarification before using the affected taxiway or area.';
-  }
-  if (cat === 'NEW_INFRA') {
-    return 'New taxiway, runway, or stand placed in operation — not yet on all charts. ATC may issue clearances using the new designation. Verify routing with ATC and consult current airport diagram.';
-  }
-  return 'Review NOTAM for operational relevance to planned flight.';
-}
-
-// ═══════════════════════════════════════════════════════════════
-// § 6 · NOTAM ACTIVE STATUS CHECK
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Determine if a NOTAM is currently active (UTC now).
- * Handles PERM NOTAMs, and the optional D-item schedule.
+ * notam-rules.js — NOTAM Interpretation Ruleset  (v1.11.0)
+ * ─────────────────────────────────────────────────────────────────
+ * Standalone module (ADR-005 §2.1–2.3): NOTAM splitting, header and date
+ * reading, schedules, evaluation (evalNotams) and grouping, exactly as the
+ * PilotBrief app runs them on main at the time of extraction. The GNSS NOTAM
+ * ruleset (evalGNSS) is a separate module and is not part of this file.
  *
- * @param {object} notam - Parsed NOTAM
- * @param {Date}   [now] - Optional UTC reference time (default: now)
- * @returns {boolean|null} true=active, false=not active, null=cannot determine
+ * Changelog v1.11.0 (vs master v1.10.1):
+ *   ENGINE — follows the app (src/notam.html, src/airports.html on main):
+ *     every NOTAM fix made in the app since June is carried in
+ *     (ledger P-14 … P-20: HF-1 R1/R2, HF-5 T1–T6 and audit, HF-6 D43 and
+ *     the /YY New-Year window, HF-8 schedules on the UTC date and EST/UFN).
+ *   NEW — _splitNotams() moved in from src/airports.html (unchanged).
+ *   NEW — Blueprint metadata RULESET_TYPE / RULESET_VERSION / SCHEMA_VERSION /
+ *     RULESET_SOURCE and validateSchema() (closes ledger ARCH-01, ARCH-02).
+ *   CHANGED — no app state: the window._flightDateISO fallback and write in
+ *     xNW_standalone(), nwOverlap_standalone() and evalNotams() are removed;
+ *     the caller passes the flight date (the app's only caller already does).
+ *   REMOVED — code the app never calls (classifyNotam, extractNotamKeywords,
+ *     deriveOperationalImpact, isNotamActive, notamTimeToDate, the D-item
+ *     schedule reader, the airport time-zone table, AIRCRAFT_WINGSPAN) and
+ *     the first, overridden _twyApplies(). See the SPEC for the full list.
+ *
+ * DUAL CONTEXT
+ *   Node / rules-loader: module.exports = the API object below.
+ *   Browser (built into index.html unchanged): no `module` → the API object
+ *   is published once as the global NotamRules. Every declaration stays in
+ *   the factory scope, so nothing collides with the app's own names
+ *   (e.g. the OFP ruleset's RULESET_TYPE). No DOM, no storage, no app state.
+ *   Non-strict on purpose: the code runs with the same semantics as the
+ *   app's inline script it was copied from.
+ *
+ * All times are UTC. "EST" in a NOTAM means an estimated end, never a zone.
+ *
+ * The engine sections below are verbatim copies of the app source; edits are
+ * marked "v1.11.0". test/rules/notam-rules.test.js checks the copies.
+ * ─────────────────────────────────────────────────────────────────
  */
-function isNotamActive(notam, now = new Date()) {
-  if (!notam.effectiveFrom) return null;
-
-  const fromTime = notamTimeToDate(notam.effectiveFrom);
-  if (!fromTime) return null;
-
-  if (now < fromTime) return false; // Not yet effective
-
-  // PERM NOTAMs never expire
-  if (notam.effectiveTo?.perm) return true;
-
-  const toTime = notamTimeToDate(notam.effectiveTo);
-  if (!toTime) return null;
-
-  if (now > toTime) return false; // Expired
-
-  // Check D-item schedule if present
-  if (notam.schedule) {
-    return isActiveInSchedule(notam.schedule, now);
+(function (root, factory) {
+  var api = factory();
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = api;
+  } else if (root) {
+    root.NotamRules = api;
   }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
 
-  return true;
+// ═══════════════════════════════════════════════════════════════
+// § 1 · RULESET SCHEMA IDENTITY (Blueprint / rules-loader contract)
+// ═══════════════════════════════════════════════════════════════
+
+const RULESET_TYPE    = 'notam';
+const RULESET_VERSION = '1.11.0';
+// Unchanged from the current contract: rules-loader.js v1.0.0 requires
+// SCHEMA_VERSION >= 2 for 'notam'. The export shape and the evalNotams()
+// return shape are unchanged, so the value stays 2.
+const SCHEMA_VERSION  = 2;
+const RULESET_SOURCE  = 'ICAO Annex 15, Doc 8126 and Doc 4444 App 6; FAA JO 7930.2 and AIP GEN 3.1; Atlas Air / Polar Air Cargo OFP NOTAM briefing (NavBlue)';
+
+// ═══════════════════════════════════════════════════════════════
+// § 2 · SPLITTING — copied from src/airports.html
+// ═══════════════════════════════════════════════════════════════
+
+// Split a NOTAM text blob into individual NOTAM entries.
+// Each entry starts with "- ICAO" (Atlas/Polar OFP format).
+function _splitNotams(text) {
+  // Split on lines beginning with "- XXXX" where XXXX is a 4-letter ICAO
+  const parts = text.split(/^(?=- [A-Z]{4}\b)/m).filter(s => s.trim());
+  return parts.length > 1 ? parts : [text]; // fallback: treat as single block
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3805,8 +3517,8 @@ function _validDateParts(yr, mo, dd, hh, mi) {
  * @returns {{ startMs: number, endMs: number } | null}
  */
 function xNW_standalone(notamText, flightDateISO) {
-  const iso = flightDateISO ||
-    (typeof window !== 'undefined' && window._flightDateISO) || null;
+  // v1.11.0: no window._flightDateISO fallback (no app state); the caller passes the flight date.
+  const iso = flightDateISO || null;
   const baseYear = iso ? parseInt(iso.slice(0, 4)) : new Date().getUTCFullYear();
   // Flight month anchors year crossing (D38): end month before the flight
   // month → the window crosses into next year; otherwise it began last year.
@@ -3966,8 +3678,8 @@ function _resolveInlineDateRange(startToken, endToken, baseYear, issYear, flight
  */
 function nwOverlap_standalone(w, etaMin, flightDateISO) {
   if (etaMin === null) return true; // no ETA → treat as active
-  const iso = flightDateISO ||
-    (typeof window !== 'undefined' && window._flightDateISO) || null;
+  // v1.11.0: no window._flightDateISO fallback (no app state); the caller passes the flight date.
+  const iso = flightDateISO || null;
   if (!iso) return true; // no flight date → treat as active
 
   const base   = new Date(iso + 'T00:00:00Z').getTime();
@@ -4067,259 +3779,6 @@ function _schedHM(s) {
 function _inDailyPeriod(m, startT, endT) {
   return endT >= startT ? (m >= startT && m <= endT) : (m >= startT || m <= endT);
 }
-
-/**
- * Convert a parseNotamTime result to a JS Date (UTC).
- * Uses current year/month for day-only formats.
- * @param {object|null} t - Result of parseNotamTime
- * @returns {Date|null}
- */
-function notamTimeToDate(t) {
-  if (!t || t.perm) return null;
-  const now = new Date();
-  if (t.year && t.month) {
-    return new Date(Date.UTC(t.year, t.month - 1, t.day, t.hourZ, t.minZ, 0));
-  }
-  if (t.day !== undefined && t.hourZ !== undefined) {
-    // Day-only format — use current month/year
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), t.day, t.hourZ, t.minZ, 0));
-  }
-  return null;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// § 7 · NOTAM SCHEDULE (D-ITEM) DECODER
-//       Source: ICAO Doc 4444 / FAA NOTAM formatting
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Common D-item schedule patterns and their interpretation.
- * The D-item restricts when within the B→C window the NOTAM is active.
- */
-const SCHEDULE_PATTERNS = [
-  // Daily during specific hours: "DAILY 0600-2200"
-  {
-    re:      /DAILY\s+(\d{4})-(\d{4})/i,
-    parse:   (m) => ({ type: 'daily', from: m[1], to: m[2] }),
-    describe:(v) => `Active daily ${v.from}–${v.to}Z`,
-  },
-  // Weekdays: "MON-FRI 0700-2300"
-  {
-    re:      /(MON|TUE|WED|THU|FRI|SAT|SUN)[- ](MON|TUE|WED|THU|FRI|SAT|SUN)\s+(\d{4})-(\d{4})/i,
-    parse:   (m) => ({ type: 'weekdays', dayFrom: m[1], dayTo: m[2], from: m[3], to: m[4] }),
-    describe:(v) => `Active ${v.dayFrom}–${v.dayTo} ${v.from}–${v.to}Z`,
-  },
-  // Sunrise/Sunset: "SR-SS"
-  {
-    re:      /SR[-\/]SS/i,
-    parse:   () => ({ type: 'sr_ss' }),
-    describe:() => 'Active from sunrise to sunset (local)',
-  },
-  // Sunset/Sunrise: "SS-SR"
-  {
-    re:      /SS[-\/]SR/i,
-    parse:   () => ({ type: 'ss_sr' }),
-    describe:() => 'Active from sunset to sunrise (local) — night only',
-  },
-];
-
-const DAY_ABBR = { MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6, SUN: 0 };
-
-/**
- * Decode a NOTAM D-item schedule string.
- * @param {string} schedule - Raw D-item text
- * @returns {{ patterns: object[], description: string }}
- */
-function decodeNotamSchedule(schedule) {
-  const found = [];
-  for (const pat of SCHEDULE_PATTERNS) {
-    const m = schedule.match(pat.re);
-    if (m) {
-      const parsed = pat.parse(m);
-      found.push({ ...parsed, description: pat.describe(parsed) });
-    }
-  }
-  return {
-    raw:        schedule,
-    patterns:   found,
-    description: found.length ? found.map(f => f.description).join('; ') : schedule,
-  };
-}
-
-/**
- * Check if a given UTC time falls within a D-item schedule.
- * Returns null if schedule cannot be evaluated programmatically.
- * @param {string} schedule
- * @param {Date}   now
- * @returns {boolean|null}
- */
-function isActiveInSchedule(schedule, now) {
-  for (const pat of SCHEDULE_PATTERNS) {
-    const m = schedule.match(pat.re);
-    if (!m) continue;
-    const parsed = pat.parse(m);
-
-    if (parsed.type === 'daily') {
-      const hhmm = now.getUTCHours() * 100 + now.getUTCMinutes();
-      const from = parseInt(parsed.from, 10);
-      const to   = parseInt(parsed.to, 10);
-      if (to < from) {
-        return hhmm >= from || hhmm < to; // crosses midnight
-      }
-      return hhmm >= from && hhmm < to;
-    }
-
-    if (parsed.type === 'weekdays') {
-      const day  = now.getUTCDay();
-      const hhmm = now.getUTCHours() * 100 + now.getUTCMinutes();
-      const dFrom = DAY_ABBR[parsed.dayFrom.toUpperCase()];
-      const dTo   = DAY_ABBR[parsed.dayTo.toUpperCase()];
-      const from  = parseInt(parsed.from, 10);
-      const to    = parseInt(parsed.to, 10);
-
-      const inDayRange = dFrom <= dTo ? (day >= dFrom && day <= dTo) : (day >= dFrom || day <= dTo);
-      if (!inDayRange) return false;
-      return hhmm >= from && hhmm < to;
-    }
-
-    // SR/SS — cannot compute without airport location/date
-    return null;
-  }
-  return null; // unknown schedule format
-}
-// ═══════════════════════════════════════════════════════════════
-// § 9 · AIRPORT TIMEZONE DATABASE
-//       Maps major ICAO codes to their standard UTC offsets.
-//       Used by dateutil functions in the app.
-//       Source: FAA standard / ICAO timezone assignments
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Airport timezone map — standard time offsets (non-DST).
- * For DST-aware apps, apply +1 hr for US airports Apr–Nov.
- * Format: { ICAO: { tz: 'TZ_ABBR', offsetStd: number, observesDST: bool } }
- */
-const AIRPORT_TIMEZONES = {
-  // Alaska
-  PANC: { tz:'AKST', offsetStd:-9,  observesDST:true,  city:'Anchorage, AK' },
-  PAFA: { tz:'AKST', offsetStd:-9,  observesDST:true,  city:'Fairbanks, AK' },
-  // Hawaii (no DST)
-  PHNL: { tz:'HST',  offsetStd:-10, observesDST:false, city:'Honolulu, HI' },
-  PHOG: { tz:'HST',  offsetStd:-10, observesDST:false, city:'Kahului, HI' },
-  // Pacific
-  KLAX: { tz:'PST',  offsetStd:-8,  observesDST:true,  city:'Los Angeles, CA' },
-  KSFO: { tz:'PST',  offsetStd:-8,  observesDST:true,  city:'San Francisco, CA' },
-  KSEA: { tz:'PST',  offsetStd:-8,  observesDST:true,  city:'Seattle, WA' },
-  KPDX: { tz:'PST',  offsetStd:-8,  observesDST:true,  city:'Portland, OR' },
-  KLAS: { tz:'PST',  offsetStd:-8,  observesDST:true,  city:'Las Vegas, NV' },
-  // Mountain
-  KDEN: { tz:'MST',  offsetStd:-7,  observesDST:true,  city:'Denver, CO' },
-  KPHX: { tz:'MST',  offsetStd:-7,  observesDST:false, city:'Phoenix, AZ' }, // Arizona no DST
-  KSLC: { tz:'MST',  offsetStd:-7,  observesDST:true,  city:'Salt Lake City, UT' },
-  // Central
-  KORD: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'Chicago, IL (O\'Hare)' },
-  KMDW: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'Chicago, IL (Midway)' },
-  KDFW: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'Dallas-Fort Worth, TX' },
-  KDAL: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'Dallas Love Field, TX' },
-  KIAH: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'Houston (Intercontinental), TX' },
-  KMSP: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'Minneapolis, MN' },
-  KSTL: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'St. Louis, MO' },
-  KMSY: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'New Orleans, LA' },
-  KSAT: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'San Antonio, TX' },
-  KCVG: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Cincinnati, OH' }, // KY side = ET
-  // Eastern
-  KJFK: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'New York (JFK), NY' },
-  KLGA: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'New York (LaGuardia), NY' },
-  KEWR: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Newark, NJ' },
-  KBOS: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Boston, MA' },
-  KMIA: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Miami, FL' },
-  KMCO: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Orlando, FL' },
-  KATL: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Atlanta, GA' },
-  KDTW: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Detroit, MI' },
-  KIAD: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Washington Dulles, VA' },
-  KDCA: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Washington National, DC' },
-  KBWI: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Baltimore, MD' },
-  KPHL: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Philadelphia, PA' },
-  KPIT: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Pittsburgh, PA' },
-  KCLT: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Charlotte, NC' },
-  KBDL: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Hartford/Springfield, CT' },
-  KRDU: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Raleigh-Durham, NC' },
-  KTPA: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Tampa, FL' },
-  // Territories
-  TJSJ: { tz:'AST',  offsetStd:-4,  observesDST:false, city:'San Juan, PR' }, // PR no DST
-  NSTU: { tz:'SST',  offsetStd:-11, observesDST:false, city:'Pago Pago, American Samoa' },
-  // Canada (common)
-  CYYZ: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Toronto, Canada' },
-  CYVR: { tz:'PST',  offsetStd:-8,  observesDST:true,  city:'Vancouver, Canada' },
-  CYMX: { tz:'EST',  offsetStd:-5,  observesDST:true,  city:'Montreal, Canada' },
-  // Europe (common transatlantic destinations)
-  EGLL: { tz:'UTC',  offsetStd:0,   observesDST:true,  city:'London Heathrow, UK' },
-  LFPG: { tz:'CET',  offsetStd:1,   observesDST:true,  city:'Paris CDG, France' },
-  EDDF: { tz:'CET',  offsetStd:1,   observesDST:true,  city:'Frankfurt, Germany' },
-  LEMD: { tz:'CET',  offsetStd:1,   observesDST:true,  city:'Madrid, Spain' },
-  EHAM: { tz:'CET',  offsetStd:1,   observesDST:true,  city:'Amsterdam, Netherlands' },
-  LSZH: { tz:'CET',  offsetStd:1,   observesDST:true,  city:'Zurich, Switzerland' },
-  LIRF: { tz:'CET',  offsetStd:1,   observesDST:true,  city:'Rome, Italy' },
-  LOWW: { tz:'CET',  offsetStd:1,   observesDST:true,  city:'Vienna, Austria' },
-  EPWA: { tz:'CET',  offsetStd:1,   observesDST:true,  city:'Warsaw, Poland' },
-  UUEE: { tz:'MSK',  offsetStd:3,   observesDST:false, city:'Moscow, Russia' },
-  // Middle East
-  OMDB: { tz:'GST',  offsetStd:4,   observesDST:false, city:'Dubai, UAE' },
-  OERK: { tz:'AST3', offsetStd:3,   observesDST:false, city:'Riyadh, Saudi Arabia' },
-  OTBD: { tz:'AST3', offsetStd:3,   observesDST:false, city:'Doha, Qatar' },
-  // Asia-Pacific
-  VHHH: { tz:'HKT',  offsetStd:8,   observesDST:false, city:'Hong Kong' },
-  RJTT: { tz:'JST',  offsetStd:9,   observesDST:false, city:'Tokyo Haneda, Japan' },
-  RJAA: { tz:'JST',  offsetStd:9,   observesDST:false, city:'Tokyo Narita, Japan' },
-  RKSI: { tz:'KST',  offsetStd:9,   observesDST:false, city:'Seoul Incheon, Korea' },
-  ZBAA: { tz:'CST8', offsetStd:8,   observesDST:false, city:'Beijing, China' },
-  ZSSS: { tz:'CST8', offsetStd:8,   observesDST:false, city:'Shanghai, China' },
-  WSSS: { tz:'SGT',  offsetStd:8,   observesDST:false, city:'Singapore' },
-  VTBS: { tz:'ICT',  offsetStd:7,   observesDST:false, city:'Bangkok, Thailand' },
-  WMKK: { tz:'MYT',  offsetStd:8,   observesDST:false, city:'Kuala Lumpur, Malaysia' },
-  YSSY: { tz:'AEST', offsetStd:10,  observesDST:true,  city:'Sydney, Australia' },
-  YMML: { tz:'AEST', offsetStd:10,  observesDST:true,  city:'Melbourne, Australia' },
-  // Latin America
-  SBGR: { tz:'BRT',  offsetStd:-3,  observesDST:false, city:'São Paulo, Brazil' },
-  SAEZ: { tz:'ART',  offsetStd:-3,  observesDST:false, city:'Buenos Aires, Argentina' },
-  MMMX: { tz:'CST',  offsetStd:-6,  observesDST:true,  city:'Mexico City, Mexico' },
-  // Africa
-  FAOR: { tz:'SAST', offsetStd:2,   observesDST:false, city:'Johannesburg, South Africa' },
-  HECA: { tz:'EET',  offsetStd:2,   observesDST:false, city:'Cairo, Egypt' },
-};
-
-/**
- * Get the UTC offset for an airport by ICAO code.
- * Accounts for DST if isDST = true.
- * @param {string} icao
- * @param {boolean} [isDST=false]
- * @returns {{ offset: number, tzAbbr: string, city: string } | null}
- */
-function getAirportTimezone(icao, isDST = false) {
-  const apt = AIRPORT_TIMEZONES[icao.toUpperCase()];
-  if (!apt) return null;
-  const offset = apt.observesDST && isDST ? apt.offsetStd + 1 : apt.offsetStd;
-  return { offset, tzAbbr: apt.tz, city: apt.city, observesDST: apt.observesDST };
-}
-
-/**
- * Convert a UTC HHMM time to local time at an airport.
- * @param {string} utcHHMM
- * @param {string} icao
- * @param {boolean} [isDST=false]
- * @returns {object|null}
- */
-function airportLocalTime(utcHHMM, icao, isDST = false) {
-  const tz = getAirportTimezone(icao, isDST);
-  if (!tz) return null;
-  return {
-    ...convertUtcToLocal(utcHHMM, tz.offset),
-    tzAbbr: tz.tzAbbr,
-    city:   tz.city,
-    icao:   icao.toUpperCase(),
-  };
-}
-
 
 // ═══════════════════════════════════════════════════════════════
 // § 10 · UNIVERSAL NOTAM EVALUATION ENGINE
@@ -4437,10 +3896,6 @@ const AIRCRAFT_DATA = {
   C5:   { ws:67.9, mtow:381024, code:'F', wake:'H', turbine:true },
 };
 
-// Backward-compatible AIRCRAFT_WINGSPAN (keyed by same designators)
-const AIRCRAFT_WINGSPAN = Object.fromEntries(
-  Object.entries(AIRCRAFT_DATA).map(([k,v]) => [k, v.ws])
-);
 
 /**
  * Get aircraft wingspan in metres from ICAO type designator.
@@ -4615,10 +4070,6 @@ function _acftApplies(notamText, acft) {
   return true;
 }
 
-// Backward-compatible alias so existing TWY calls still work
-function _twyApplies(notamText, acftType) {
-  return _acftApplies(notamText, acftType);
-}
 // ── Source: ICAO Doc 4444 App 6 / FAA AIP GEN 3.1 §5
 const NM = {
   // ── Shared ──
@@ -5570,11 +5021,8 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
     : buildAcftProfile(acftType || '');
 
   // Resolve flight date
-  const resolvedISO = flightDateISO ||
-    (typeof window !== 'undefined' && window._flightDateISO) || null;
-
-  const _prevISO = (typeof window !== 'undefined') ? window._flightDateISO : null;
-  if (typeof window !== 'undefined') window._flightDateISO = resolvedISO || window._flightDateISO;
+  // v1.11.0: no window._flightDateISO fallback (no app state); the caller passes the flight date.
+  const resolvedISO = flightDateISO || null;
 
   const isOrig    = role === 'ORIG';
   const seen      = new Set();
@@ -5835,9 +5283,6 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
     grp.label = grp.rwy ? `Approach RWY ${grp.rwy}` : 'Approach NOTAMs';
   }
 
-  // Restore flight date global
-  if (typeof window !== 'undefined' && _prevISO !== null) window._flightDateISO = _prevISO;
-
   // category:'SID'  → procedure changes on departure card only
   // category:'STAR' → procedure changes on arrival/alternate card only
   // category:'INFO' → General Information section (BIRD_HAZARD, NEW_INFRA,
@@ -5852,9 +5297,72 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// § 11 · SCHEMA VALIDATION (Blueprint; closes ledger ARCH-02)
+// ═══════════════════════════════════════════════════════════════
+
+// Exports the rules-loader requires of a 'notam' ruleset, then the ones the
+// app and its tests call.
+const REQUIRED_EXPORTS = {
+  RULESET_TYPE: 'string', RULESET_VERSION: 'string', SCHEMA_VERSION: 'number',
+  RULESET_SOURCE: 'string', evalNotams: 'function', NM: 'object',
+  _classifyNotamSlot: 'function',
+  _splitNotams: 'function', xNW_standalone: 'function', validateSchema: 'function',
+};
+
+/**
+ * Check a NOTAM ruleset object against the schema contract.
+ * @param {object} [ruleset] — defaults to this module's own exports
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+function validateSchema(ruleset) {
+  const r = ruleset === undefined ? API : ruleset;
+  const errors = [];
+  if (!r || typeof r !== 'object') return { valid: false, errors: ['ruleset is not an object'] };
+  for (const k of Object.keys(REQUIRED_EXPORTS)) {
+    if (!(k in r)) errors.push(`missing export: ${k}`);
+    else if (typeof r[k] !== REQUIRED_EXPORTS[k] || r[k] === null) errors.push(`${k} must be a ${REQUIRED_EXPORTS[k]}`);
+  }
+  if (r.RULESET_TYPE !== 'notam') errors.push(`RULESET_TYPE must be 'notam', got '${r.RULESET_TYPE}'`);
+  if (typeof r.RULESET_VERSION === 'string' && !/^\d+\.\d+\.\d+$/.test(r.RULESET_VERSION)) errors.push(`RULESET_VERSION '${r.RULESET_VERSION}' is not semver`);
+  if (typeof r.SCHEMA_VERSION === 'number' && !(Number.isInteger(r.SCHEMA_VERSION) && r.SCHEMA_VERSION >= 2)) errors.push(`SCHEMA_VERSION ${r.SCHEMA_VERSION} must be an integer >= 2`);
+  if (typeof r.RULESET_SOURCE === 'string' && !r.RULESET_SOURCE.trim()) errors.push('RULESET_SOURCE is empty');
+  if (r.NM && typeof r.NM === 'object') {
+    for (const k of Object.keys(r.NM)) {
+      if (Object.prototype.toString.call(r.NM[k]) !== '[object RegExp]') errors.push(`NM.${k} is not a RegExp`);
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════
 
+const API = {
+  RULESET_TYPE, RULESET_VERSION, SCHEMA_VERSION, RULESET_SOURCE,
+  validateSchema,
+  _splitNotams,
+  evalNotams,
+  xNW_standalone,
+  nwOverlap_standalone,
+  _windowEndEstimated,
+  _resolveInlineDateRange,
+  _classifyNotamSlot,
+  _apchTypeLabel,
+  _acftApplies,
+  buildAcftProfile,
+  NM,
+};
+return API;
+});
+// ═══════════════════════════════════════════════════════
+//  NOTAM RULESET — rules/notam-rules (ADR-005)
+//  The engine is the standalone module listed in rules/manifest.json.
+//  build/build.js builds it into index.html unchanged, just above this
+//  fragment; it publishes one global, NotamRules. The app calls only
+//  these two names (src/airports.html: evalAirport, _notamWindow).
+// ═══════════════════════════════════════════════════════
+const { evalNotams, _splitNotams } = NotamRules;
 
 // ═══════════════════════════════════════════════════════════════════
 //  GNSS NOTAM RULESET  v1.0.0
@@ -11805,13 +11313,7 @@ function nwOverlap(w, etaMin) {
 // Back-compat alias (used in tests/compat calls)
 function oETA(w, etaMin) { return nwOverlap(w, etaMin); }
 
-// Split a NOTAM text blob into individual NOTAM entries.
-// Each entry starts with "- ICAO" (Atlas/Polar OFP format).
-function _splitNotams(text) {
-  // Split on lines beginning with "- XXXX" where XXXX is a 4-letter ICAO
-  const parts = text.split(/^(?=- [A-Z]{4}\b)/m).filter(s => s.trim());
-  return parts.length > 1 ? parts : [text]; // fallback: treat as single block
-}
+// _splitNotams(): from the NOTAM ruleset module (bound in src/notam.html).
 
 // Find the NOTAM window for the first NOTAM in a blob that matches a keyword regex.
 // Returns xNW result for that specific NOTAM, or null if not found / no timestamp.
