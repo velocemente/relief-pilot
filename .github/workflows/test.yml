@@ -52,21 +52,44 @@ jobs:
       - name: Syntax check inline scripts
         run: node test/check-syntax.js
 
-      # Check if fixtures repo has a branch matching the PR's head branch
+      # Use the fixtures branch with the SAME name as this PR's branch if it
+      # exists, otherwise main. Only "branch does not exist" may fall back to
+      # main: any error in the lookup itself (auth, network, repo not found)
+      # fails the job. The token is passed through env and a git config
+      # environment variable; it never appears in a command line or the log.
       - name: Check for matching fixtures branch
         id: fixtures_branch
         if: github.event.pull_request.head.repo.fork != true
+        env:
+          FIXTURES_TOKEN: ${{ secrets.FIXTURES_TOKEN }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          GIT_TERMINAL_PROMPT: "0"
         run: |
-          # Use git ls-remote to check if the branch exists in the fixtures repo
-          if git ls-remote --heads \
-            "https://${{ secrets.FIXTURES_TOKEN }}@github.com/velocemente/pilotbrief-fixtures.git" \
-            "${{ github.head_ref }}" | grep -q .; then
-            echo "ref=${{ github.head_ref }}" >> $GITHUB_OUTPUT
-            echo "Found matching fixtures branch: ${{ github.head_ref }}"
-          else
-            echo "ref=main" >> $GITHUB_OUTPUT
-            echo "No matching fixtures branch, using main"
+          set -euo pipefail
+          if [ -z "$FIXTURES_TOKEN" ]; then
+            echo "::error::FIXTURES_TOKEN is empty or not available; cannot look up the fixtures branch."
+            exit 1
           fi
+          auth=$(printf 'x-access-token:%s' "$FIXTURES_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
+          # A failing ls-remote (exit != 0) aborts here via set -e; the message
+          # below makes the cause obvious.
+          if ! heads=$(git ls-remote --heads \
+            https://github.com/velocemente/pilotbrief-fixtures.git 2>ls-remote.err); then
+            echo "::error::Fixtures branch lookup FAILED (auth or network), not falling back to main: $(sed 's/^/  /' ls-remote.err | tr '\n' ' ')"
+            exit 1
+          fi
+          rm -f ls-remote.err
+          if printf '%s\n' "$heads" | awk '{print $2}' | grep -Fxq "refs/heads/$BRANCH"; then
+            ref="$BRANCH"
+          else
+            ref="main"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Fixtures ref used: $ref (app branch: $BRANCH)"
 
       # Secrets are not passed to pull requests from forks, so the fixtures
       # cannot be read there. Such a PR must be re-run by a maintainer from a
