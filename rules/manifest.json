@@ -1,0 +1,7 @@
+{
+  "notam-rules": {
+    "version": "1.11.0",
+    "file": "notam-rules/notam-rules-v1.11.0.js",
+    "sha256": "f09019f32424d3f8945c141e3bbedeabdd200d840bd46bec121d96a73e48a90e"
+  }
+}
