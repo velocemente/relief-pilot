@@ -8,7 +8,7 @@
 | **Purpose** | Input to the NOTAM evaluator sprint (programme step ② in the Import Platform sprint plan). Says what the evaluator does today, where it is weak, and what the Exec must decide. |
 | **Code read** | `src/notam.html` and `src/airports.html` (plus the callers in `src/edit.html` and `src/render-descent.html`) at `origin/main` commit `d2177a9`. Line numbers below are for that commit. |
 | **Changes** | Nothing in `src/`, `index.html`, tests or CI. This file only. |
-| **Status** | Draft for Exec review. Nothing here is a decision. |
+| **Status** | Draft for Exec review. D27, D31, D34, D43 and D44 are quoted as confirmed by the Exec on 6 Nov; everything else here is a finding, a design note or a question, not a decision. |
 
 ---
 
@@ -25,7 +25,17 @@
 
 ### What this document could not check
 
-- **D27, D31, D34, D43 and D44 are not written down in this repository.** The decision register in `docs/ADR-004-canonical-briefing-model-v1.3.md` ends at D21 and the sprint plan v2.4 at D22. What I know about them comes from the task brief and from code/test comments: D43 (the NOTAM ID is the identifier — `src/notam.html:2265`), D27 ("anything unresolvable is shown" — `test/unit/notam-merge.test.js`), D38 (year crossing — `src/notam.html:454`). For D31, D34 and D44 I used only the wording of the brief. **If a decision says something different, the decision wins; please send the text.**
+- **D27, D31, D34, D43 and D44 are not yet written down in this repository.** The decision register in `docs/ADR-004-canonical-briefing-model-v1.3.md` ends at D21 and the sprint plan v2.4 at D22. They will be added by a separate documents brief (ADR-004 v1.4). The wording below comes from the brief and was **confirmed by the Exec on 6 Nov** (plan v3.3 §6):
+
+  | ID | Decision (as confirmed) |
+  |---|---|
+  | D27 | Fail-safe NOTAM display: unreadable or ambiguous dates → the NOTAM is shown. |
+  | D31 | A date-only end = valid through 2359Z. `UFN` = no end date (also `UFN(EST …)`). `PERM` = permanent unless the NOTAM text gives a period. |
+  | D34 | Every airport-specific remark (weather or otherwise) is tied to that airport's card. Remarks weather is a second, expandable weather source used by the evaluator; it never replaces the briefing weather. |
+  | D43 | The NOTAM ID is the unique identifier; NOTAMs with different IDs are never merged. |
+  | D44 | Within a NOTAM, show only the minima for the aircraft's approach category (design only; needs the fleet category table). |
+
+  D43 and D27 are also referenced in code and test comments (`src/notam.html:2265`, `test/unit/notam-merge.test.js`); D38 (year crossing) is in `src/notam.html:454`.
 - Counts come from running the app's own code (the test harness) over the fixtures, one NOTAM at a time, at the fixture's flight date, ETA and aircraft type. They are measurements of the 30 packages, not of the whole fleet's traffic. The measuring scripts are not committed (documents only); the method is in Appendix A.
 - FlightKeys packages are not covered: the app does not store their NOTAM text today (`test/known-gaps.json`), so the evaluator never runs on them.
 - No fixture text, crew name or employee number appears here. NOTAM IDs are written as `ICAO ID` (for example `KORD A1334/26`).
@@ -134,7 +144,7 @@ Year rules (`/YY` from the NOTAM ID, D38 flight-month anchor, T1–T6) are in `:
 
 Not resolved (kept as in effect): header with a year on the start date, i.e. `ddmmmhhmm yyyy-ddmmmhhmm [yyyy]` — `LIBD B0056/24`, `RODN M2326/25`, `KMIA A3340/25`, `KMIA A3337/25`, `YSSY H0353/25` (all have a year after the start date).
 
-**PERM:** the end becomes 1 Jan of flight year + 50 (`:503`, `:562`). The start year is the issue year (`/YY`) or the flight year. The body text is not read (G-8).
+**PERM:** the end becomes 1 Jan of flight year + 50 (`:503`, `:562`). The start year is the issue year (`/YY`) or the flight year. The body text is not read, although D31 says PERM is permanent only unless the text gives a period (G-8).
 
 ### 2.4 Schedules inside the validity window
 
@@ -344,9 +354,13 @@ These are the safe direction (shown when in doubt). The dead `SCHEDULE_PATTERNS`
 
 The validity window is overlap-tested against ETA ±60 min, but S1 and S2 test the single ETA minute. A NOTAM whose daily window starts 30 minutes after the ETA is hidden although it is inside the ±60 min the crew is briefed on. In the corpus 152 NOTAMs are hidden by S1/S2 (16 + 136), and 24 of them have a daily window that touches ETA ±60: `RJAA A0489/26`, `EBBR A3859/26`, `EIDW A1035/26`, `RJTT J0030/26`, `RKSI A0291/26`, `PANC A3903/26`. Not seen in the corpus, found by reading: S1 compares the ETA's UTC day, so a window that crosses midnight (`2200-0300`, days `08-09`) is judged on the ETA day, and an ETA of 0100 on the 10th is outside `08-09` although the NOTAM is active from the 9th.
 
-### G-8 (M) PERM NOTAMs whose text gives a period  *(D31)*
+### G-8 (S) D31 is only partly implemented: PERM with a period, UFN, date-only end  *(D31)*
 
-166 distinct NOTAMs have a `-PERM` header. The evaluator sets the end to 1 Jan of the flight year + 50 and never reads the body. 20 of them state dates or periods in the body (`WEF`, `FROM`, a date, a recurring maintenance or flow-control window) and all 20 are shown (as "in effect now"): `EHAM A0511/26`, `EHAM A0439/26`, `EHAM A0438/26`, `EDDP A4559/26` (AIP pages effective one day before the header start), `AYPY A1549/25`, `LIBG B7431/25` (maintenance on the first Wednesday of April and October), `YMML H0221/25` (a daily window inside a PERM), Shown is the safe direction. The risk is the other one: a PERM NOTAM whose body says "from <future date>" is shown as active today. Because the new canonical record (`src/import/notam-record.js`, D8) will carry a flag for unresolvable windows, what the evaluator does with the body period is for the evaluator sprint.
+D31 says: `PERM` is permanent **unless the NOTAM text gives a period**; a date-only end is valid through 2359Z; `UFN` has no end date.
+
+- **PERM with a period in the text — not implemented.** 166 distinct NOTAMs have a `-PERM` header. The evaluator sets the end to 1 Jan of the flight year + 50 (`:503`, `:562`) and never reads the body. 20 of them state dates or periods in the body (`WEF`, `FROM`, a date, a recurring maintenance or flow-control window) and all 20 are shown as "in effect now": `EHAM A0511/26`, `EHAM A0439/26`, `EHAM A0438/26`, `EDDP A4559/26` (AIP pages effective one day before the header start), `AYPY A1549/25`, `LIBG B7431/25` (maintenance on the first Wednesday of April and October), `YMML H0221/25` (a daily window inside a PERM). Showing them is the D27 safe direction. The risk is the other one: a PERM NOTAM whose body says "from <future date>" is shown as active today, and one whose body gives a recurring window is shown outside it. What the evaluator should read from the body (a date range, a daily window, a recurring rule) is for the evaluator sprint; each family above is a test case.
+- **UFN — works only by accident.** `UFN` is not in any of the window patterns (§2.3). A header with `UFN` as its end does not match, so no window is found and the NOTAM is "in effect" (D27 fail-safe), which gives the D31 result. No NOTAM header in the corpus uses `UFN` or `UFN(EST …)` (the 4 NOTAMs that contain the word have it in the body: `PAED M0058/26`, `EDDK A1060/26`, `PHNL M0050/26`, `PHNL M0047/26`), so this is untested. A header such as `start-UFN(EST end)` would also fall through unread. FlightKeys prints `UFN` in its header (`src/import/atlas-fk.js:370`), so the canonical record (`src/import/notam-record.js`) has to carry "no end" explicitly.
+- **Date-only end — not implemented.** A header `ddmmmhhmm-ddmmm` (no time) does not match `inlineRe` (it needs `\d{4}` after the month), so it is unresolved and shown. D31 says it should be valid through 2359Z of that date, so a NOTAM that ended the day before would still be shown, and one that ends today would be correct only by accident. No such header in the corpus (0 of 2,755), so there is no fixture; one is needed.
 
 ### G-9 (M) Runway: first one only
 
@@ -377,7 +391,7 @@ For ORIG, `apt.eta` is the OUT time (`S.outZ`, `src/edit.html:141`); the window 
 
 ## 4. Design notes for three Exec decisions
 
-These are notes for the evaluator sprint, not decisions. The decision text is not in the repository (see "What this document could not check").
+These are notes for the evaluator sprint. The decisions are as confirmed in the table at the top; what is below is design, not decision.
 
 ### 4.1 D44 — show only the aircraft's approach-category minima within a NOTAM
 
@@ -415,12 +429,12 @@ The result is a visible change on the airport card; it needs Exec approval of th
 
 So in the 33 fixtures there is no case where the remarks hold a forecast that the app does not already have. What a second source adds is protection when the briefing weather is missing, out of date or different, and the remarks say so. That case needs a fixture; none exists yet.
 
-**Design questions the evaluator sprint has to settle.**
+**What D34 fixes, and what it leaves for the sprint.** D34 (confirmed) says the remarks weather is a second, expandable source that **never replaces** the briefing weather, and that each airport remark is tied to that airport's card. That rules out the E-WINS style "replace" for remarks. Still open:
 1. *What counts as remarks weather:* a TAF/METAR in the standard form only (header `TAF ICAO ddhhmmZ dddd/dddd …`), or also free-text such as "TEMPO WX"? Free text cannot be evaluated with the existing parsers (`pCeil`, `pVis`, `pRVR`) and should be shown, not scored.
 2. *Parsing rule:* extract the TAF block and pass it through the same `extractEtaWindow` + ceiling/visibility/RVR code; no new weather logic.
-3. *Precedence when two sources exist* (briefing TAF vs remarks TAF, or vs E-WINS): E-WINS today replaces. For remarks, options are (a) replace like E-WINS, (b) evaluate both and take the **worse** level (fail-safe), (c) evaluate both and show the difference. Option (b) is the only one that cannot hide a worse forecast; it needs the Exec's answer (Q10).
+3. *How the two sources combine in the colour:* the briefing weather always stays. Options are (a) the card colour follows the briefing weather only and the remarks weather is shown beside it, or (b) both are evaluated and the **worse** level colours the card (fail-safe, in the spirit of D27). E-WINS keeps its existing replace behaviour unless the Exec says otherwise. Needs the Exec's answer (Q10).
 4. *Validity:* the remarks TAF carries its own issue time and period; apply the same ETA ±60 window, and use the OFP CFS window when one exists.
-5. *Provenance:* the card must say which source produced a weather line (visible change, needs approval). The golden snapshot and the `opsNotes` text must not change for airports that have no remarks weather.
+5. *Provenance and placement:* the remarks weather sits on the same airport card, expandable, and labelled as remarks weather (a visible change; the screen needs approval). Remarks for an airport that has no card (for example an airport that is not in the release) have nowhere to go; the sprint must say what happens to them. The golden snapshot and the `opsNotes` text must not change for airports that have no remarks weather.
 6. *Safety class:* weather is safety-critical (rule 6): positive test (remarks TAF with a low ceiling in the window turns the card red) and negative test (remarks TAF outside the window, or free text, does not).
 
 ### 4.3 D43 — the NOTAM ID is the identifier
@@ -460,9 +474,9 @@ Additional questions:
 - **Q7 — NOTAMs that are "in effect" but no rule recognises (1,925 of 2,997 in the test packages).** Should the airport card list them in some form, or is the colour alone enough? (This would be a screen change and needs your approval of the screen.) And should the card be yellow ("REVIEW") when the only reason is such a NOTAM?
 - **Q8 — Schedules.** When a NOTAM has a schedule the app cannot read (weekday names, sunrise/sunset, "H24", several clauses, or a time marked as local time), should it be shown as active with a "check schedule" note (recommended), or treated as inactive? And should a daily window be judged on the ETA minute or on ETA ±60 minutes, as the date window is?
 - **Q9 — Estimated end (`EST`).** If the estimated end has passed but the NOTAM is still in the package, treat it as still in force (recommended)?
-- **Q10 — PERM with a period in the text (D31) and weather in remarks (D34).** For a PERM NOTAM whose text says "from <date>" or gives a recurring period: show it always, show it only when the period applies, or show it always with a note? For weather found in Remarks: when the Remarks TAF and the briefing TAF differ, use the worse of the two (recommended), the Remarks one, or show both?
+- **Q10 — Weather and PERM details (D34, D31).** (a) When the remarks weather and the briefing weather differ, should the card colour follow the **worse** of the two (recommended), or the briefing weather only with the remarks weather shown beside it? (b) For a PERM NOTAM whose text gives a period or a recurring window, is it enough that the evaluator shows it only while that period applies, and shows it (as today) when the period cannot be read?
 - **Q11 — NOTAMs about more than one runway.** File the NOTAM under every runway it names, or once under the first?
-- **Q12 — Same ID, different text (D43).** If two copies of the same NOTAM ID in one package differ, which one counts: the first printed, the later printed, or both?
+- **Q12 — Same ID, different text (D43).** D43 settles that different IDs are never merged; it does not say what happens to two copies of the same ID. If two copies of the same NOTAM ID in one package differ, which one counts: the first printed, the later printed, or both?
 - **Q13 — Which fleet data do you want kept?** The app holds wingspan, weight and aerodrome code for each type (747-400 is code E, 64.4 m; 747-8 and LCF are code F; 777F is code E; 767-300 is code D). Please confirm or correct these, and say whether the aerodrome code for a stand/taxiway restriction should follow ICAO code letters or the company's own taxi limits.
 
 ---
