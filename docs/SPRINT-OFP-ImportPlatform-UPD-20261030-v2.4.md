@@ -1,3 +1,5 @@
+> **SUPERSEDED. Current plan: SPRINT-OFP-ModularPlatform v4.0 or later (Exec's Google Drive build folder). Sessions follow only the prompt the Exec pastes.**
+
 # SPRINT-OFP-ImportPlatform
 
 **Version:** v2.4 | **Status:** UPD | **Date:** 2026-10-30
