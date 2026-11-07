@@ -1,6 +1,7 @@
 name: Test
 
 # Runs on every pull request. No build step exists for the app, so this checks:
+#   0. every file in rules/ matches rules/manifest.json (SHA-256 of each module file)
 #   1. the inline scripts of index.html (and sw.js) parse
 #   2. unit tests (test/unit)
 #   3. the extractor still reproduces the fixtures' text byte-for-byte
@@ -37,6 +38,12 @@ jobs:
 
       - name: Install (pdfjs-dist 3.11.174, pinned)
         run: npm ci
+
+      # Every file in rules/ against rules/manifest.json: each module file is listed and its
+      # SHA-256 matches; an unlisted, missing or changed module file fails the job. (The
+      # build below runs the same check before it builds a module into index.html.)
+      - name: Rule modules match rules/manifest.json (SHA-256)
+        run: node build/check-rules.js
 
       - name: Build dist/index.html from src/ modules
         run: node build/build.js

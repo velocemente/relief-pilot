@@ -679,13 +679,7 @@ function nwOverlap(w, etaMin) {
 // Back-compat alias (used in tests/compat calls)
 function oETA(w, etaMin) { return nwOverlap(w, etaMin); }
 
-// Split a NOTAM text blob into individual NOTAM entries.
-// Each entry starts with "- ICAO" (Atlas/Polar OFP format).
-function _splitNotams(text) {
-  // Split on lines beginning with "- XXXX" where XXXX is a 4-letter ICAO
-  const parts = text.split(/^(?=- [A-Z]{4}\b)/m).filter(s => s.trim());
-  return parts.length > 1 ? parts : [text]; // fallback: treat as single block
-}
+// _splitNotams(): from the NOTAM ruleset module (bound in src/notam.html).
 
 // Find the NOTAM window for the first NOTAM in a blob that matches a keyword regex.
 // Returns xNW result for that specific NOTAM, or null if not found / no timestamp.

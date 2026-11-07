@@ -17,7 +17,9 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  'processPDF', 'parseOFP', 'getAllAirports', 'pZM', 'evalAirport',
                  // NOTAM ruleset module equivalence (test/rules): the window helpers evalNotams() uses.
                  'nwOverlap_standalone', '_windowEndEstimated'];
-// The NOTAM functions the standalone module (rules/notam-rules) provides in place of the app's.
+// The NOTAM functions the standalone module (rules/notam-rules) provides. index.html builds the
+// module in (global NotamRules) and binds only evalNotams and _splitNotams as app names; for a
+// name the app does not bind, the harness reads the module's export from the same script.
 const NOTAM_MODULE_FNS = ['_splitNotams', 'evalNotams', 'xNW_standalone', 'nwOverlap_standalone', '_windowEndEstimated'];
 // Fixed "now" so anything that reads the clock is repeatable.
 const FIXED_NOW = Date.UTC(2026, 9, 30, 0, 0, 0);
@@ -164,16 +166,19 @@ function loadApp({ html, storageData, domModel } = {}) {
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
 
-  const exportLine = `\n;globalThis.__pb = { ${EXPOSED.map(n => `${n}: typeof ${n} === 'function' ? ${n} : undefined`).join(', ')}, S: (typeof S !== 'undefined' ? S : undefined), _navStack: (typeof _navStack !== 'undefined' ? _navStack : undefined), _getActiveFlightTab: function() { return typeof _activeFlightTab !== 'undefined' ? _activeFlightTab : undefined; } };\n`;
+  const fromModule = n => NOTAM_MODULE_FNS.includes(n)
+    ? `(typeof NotamRules !== 'undefined' && typeof NotamRules.${n} === 'function') ? NotamRules.${n} : undefined`
+    : 'undefined';
+  const exportLine = `\n;globalThis.__pb = { ${EXPOSED.map(n => `${n}: typeof ${n} === 'function' ? ${n} : ${fromModule(n)}`).join(', ')}, S: (typeof S !== 'undefined' ? S : undefined), _navStack: (typeof _navStack !== 'undefined' ? _navStack : undefined), _getActiveFlightTab: function() { return typeof _activeFlightTab !== 'undefined' ? _activeFlightTab : undefined; } };\n`;
   new vm.Script(scripts[mainIdx] + exportLine, { filename: 'index.html:main-inline-script' })
     .runInContext(sandbox);
 
   const api = sandbox.__pb;
   for (const n of EXPOSED) if (typeof api[n] !== 'function') throw new Error(`${n} not found in index.html main script`);
   // PB_NOTAM_ENGINE=module (or a path to a module file): the direct NOTAM calls a test makes
-  // (app.evalNotams, app._splitNotams, app.xNW_standalone, ...) go to the standalone NOTAM
-  // ruleset module instead, loaded unmodified in this same sandbox (same fixed clock).
-  // The app's own code (evalAirport, the import path) keeps using the app's engine.
+  // (app.evalNotams, app._splitNotams, app.xNW_standalone, ...) go to a second, standalone copy
+  // of the NOTAM ruleset module, loaded unmodified in this same sandbox (same fixed clock).
+  // The app's own code (evalAirport, the import path) keeps using the copy built into index.html.
   const engine = process.env.PB_NOTAM_ENGINE;
   if (engine) {
     const rulesDir = path.resolve(__dirname, '..', '..', 'rules');
