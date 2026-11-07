@@ -635,6 +635,83 @@ function nwOverlap_standalone(w, etaMin, flightDateISO) {
 }
 
 /**
+ * D31: is the end of the date range that xNW_standalone() reads an estimated
+ * end ("EST")? An estimated end is not an end: the NOTAM stays in effect until
+ * it is cancelled or replaced. Looks at the same range xNW_standalone() uses
+ * (same patterns, same order) and reports whether "EST" follows its end date:
+ *   B) 2604010000 C) 2604241130 EST
+ *   WEF 01MAY0800 UNTIL 10MAY1200 EST   /   EFFECTIVE … TO … EST
+ *   09MAY0824-11MAY0300 EST   ·   20DEC1930-20MAR2300 2026 EST
+ *   2604191606-2605031500EST
+ * A UFN end ("01MAY0800-UFN", "UFN(EST …)") is not read as a date range by
+ * xNW_standalone(): such a NOTAM has no window and is already in effect (T6).
+ * @param {string} notamText
+ * @returns {boolean}
+ */
+function _windowEndEstimated(notamText) {
+  const tu  = notamText.toUpperCase();
+  const MON = '(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)';
+  const estAfter = m => /^[ \t]*\(?EST\b/.test(tu.slice(m.index + m[0].length));
+  const order = [
+    /B\)\s*(\d{10})\s+C\)\s*(\d{10}|PERM)/,
+    new RegExp(`WEF\\s+(\\d{2}${MON}\\d{4})\\s+(?:UFC|UNTIL|TO)\\s+(\\d{2}${MON}\\d{4}|PERM)`, 'i'),
+    new RegExp(`EFFECTIVE\\s+(\\d{2}${MON}\\d{4})\\s+(?:UNTIL|TO)\\s+(\\d{2}${MON}\\d{4}|PERM)`, 'i'),
+    new RegExp(`(\\d{2}${MON}\\d{4})-(\\d{2}${MON}\\d{4}|PERM)(?:[ \\t]+(20\\d{2})\\b)?`, 'i'),
+    /(\d{10})\s*[-–]\s*(\d{10})/,
+  ];
+  for (const re of order) {
+    const m = tu.match(re);
+    if (m) return estAfter(m);
+  }
+  return false;
+}
+
+/**
+ * Exec schedule rule: a schedule is checked against the actual UTC date and
+ * time of every minute of the evaluation window (ETA − 60 min … ETA + 60 min;
+ * for ORIG the departure time ± 60 min). The NOTAM is in effect if ANY minute
+ * of the window falls in a scheduled period. A window that crosses 0000Z is
+ * checked on both UTC dates.
+ *
+ * The ETA's UTC date: the flight (departure) date D; D + 1 when the ETA time of
+ * day is earlier than the departure time (the flight has crossed 0000Z). When
+ * the departure time is unknown the date cannot be read, so both D and D + 1
+ * are tried (D27: in effect if either is).
+ *
+ * @param {number}      etaMin        — ETA as minutes-of-day (0–1439)
+ * @param {number|null} depMin        — departure (OUT) as minutes-of-day, or null
+ * @param {string}      flightDateISO — 'YYYY-MM-DD' (departure date)
+ * @returns {number[]} UTC ms of each minute of each candidate window
+ */
+function _schedWindowMinutes(etaMin, depMin, flightDateISO) {
+  const base = Date.parse(flightDateISO + 'T00:00:00Z');
+  if (isNaN(base)) return [];
+  const days = (depMin === null || depMin === undefined || isNaN(depMin))
+    ? [0, 1]
+    : [etaMin < depMin ? 1 : 0];
+  const out = [];
+  for (const d of days) {
+    const etaMs = base + d * 86400000 + etaMin * 60000;
+    for (let o = -60; o <= 60; o++) out.push(etaMs + o * 60000);
+  }
+  return out;
+}
+
+// "HHMM" → minutes of day, or null when it cannot be read (hour > 24,
+// minute > 59, or 24xx other than 2400). D27: an unreadable schedule is not applied.
+function _schedHM(s) {
+  const hh = parseInt(s.slice(0, 2), 10), mi = parseInt(s.slice(2, 4), 10);
+  if (!(mi >= 0 && mi <= 59) || !(hh >= 0 && hh <= 24) || (hh === 24 && mi !== 0)) return null;
+  return hh * 60 + mi;
+}
+
+// Is minute-of-day m inside the daily period startT–endT (both inclusive)?
+// endT < startT: the period crosses 0000Z (e.g. 2200-0300).
+function _inDailyPeriod(m, startT, endT) {
+  return endT >= startT ? (m >= startT && m <= endT) : (m >= startT || m <= endT);
+}
+
+/**
  * Convert a parseNotamTime result to a JS Date (UTC).
  * Uses current year/month for day-only formats.
  * @param {object|null} t - Result of parseNotamTime
@@ -2096,6 +2173,10 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
  *                                   called automatically. Pass the profile object
  *                                   when it has already been built from the OFP.
  * @param {string}   flightDateISO - 'YYYY-MM-DD' for NOTAM window anchoring
+ * @param {number|null} [depMin]   - departure (OUT) as minutes-of-day, or null.
+ *                                   Gives the UTC date of the ETA for the
+ *                                   schedule checks (D + 1 when etaMin < depMin).
+ *                                   Not given → both D and D + 1 are tried.
  *
  * @returns {{
  *   issues:    Array<{slot,level,text,active,notamRaw,rwy,label}>,
@@ -2121,7 +2202,7 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
  *   Single item  → label = "CLSD" | "RESTR"
  *   Multi items  → label = "N Taxiway NOTAMs"
  */
-function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
+function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
   if (!notams || !notams.length) {
     return { issues: [], rwyGroups: new Map(), worst: 'unknown' };
   }
@@ -2167,29 +2248,41 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
     // T6 fail-safe: no resolvable window → in effect. The legacy xNW() is
     // not consulted here (it still carries the pre-hotfix year rules).
     let active = true;
-    const w = xNW_standalone(notamRaw, resolvedISO);
+    let w = xNW_standalone(notamRaw, resolvedISO);
+    // D31: an estimated end (EST) is not an end — the NOTAM stays in effect
+    // until cancelled or replaced. Only its start still limits it.
+    if (w && _windowEndEstimated(notamRaw)) w = { startMs: w.startMs, endMs: Infinity };
     if (w) active = nwOverlap_standalone(w, etaMin, resolvedISO);
 
     // ── OFP inline schedule (Atlas Air format): "DD-DD DD-DD ... HHMM-HHMM" ──
     // These lines follow the NOTAM header and restrict activity to specific
     // day-of-month ranges and a daily time window within the overall validity period.
     // e.g. "08-09 13-17 20-24 1510-2020" — active only on those calendar days, 1510–2020Z.
+    // Checked on the actual UTC date and time of every minute of ETA ± 60
+    // (_schedWindowMinutes). A period that crosses 0000Z (e.g. "08-09 2200-0300")
+    // counts on the listed day from the start time on, on the listed day up to the
+    // end time, and on the day after a listed day up to the end time.
+    // D27: a day or time that cannot be read → the schedule is not applied.
     if (active !== false && etaMin !== null && resolvedISO) {
       const ofpSchedM = notamRaw.match(/^\s*((?:\d{2}-\d{2}\s+)+)(\d{4})-(\d{4})\s*$/m);
       if (ofpSchedM) {
-        const etaMs  = new Date(resolvedISO + 'T00:00:00Z').getTime() + etaMin * 60000;
-        const etaDay = new Date(etaMs).getUTCDate();
-        const etaHM  = new Date(etaMs).getUTCHours() * 60 + new Date(etaMs).getUTCMinutes();
-        const startT = parseInt(ofpSchedM[2].slice(0, 2)) * 60 + parseInt(ofpSchedM[2].slice(2));
-        const endT   = parseInt(ofpSchedM[3].slice(0, 2)) * 60 + parseInt(ofpSchedM[3].slice(2));
+        const startT = _schedHM(ofpSchedM[2]);
+        const endT   = _schedHM(ofpSchedM[3]);
         const dayRanges = [...ofpSchedM[1].matchAll(/(\d{2})-(\d{2})/g)]
-          .map(m => ({ from: parseInt(m[1]), to: parseInt(m[2]) }));
-        const dayOk  = dayRanges.some(r => etaDay >= r.from && etaDay <= r.to);
-        // Support cross-midnight time ranges (e.g. 2200-0300)
-        const timeOk = endT >= startT
-          ? (etaHM >= startT && etaHM <= endT)
-          : (etaHM >= startT || etaHM <= endT);
-        active = dayOk && timeOk;
+          .map(m => ({ from: parseInt(m[1], 10), to: parseInt(m[2], 10) }));
+        const minutes  = _schedWindowMinutes(etaMin, depMin, resolvedISO);   // [] = date unreadable
+        const readable = startT !== null && endT !== null && minutes.length > 0 &&
+          dayRanges.every(r => r.from >= 1 && r.to <= 31 && r.from <= r.to);
+        if (readable) {
+          const onDay  = d => dayRanges.some(r => d >= r.from && d <= r.to);
+          const crosses = endT < startT;
+          active = minutes.some(t => {
+            const dt = new Date(t);
+            const hm = dt.getUTCHours() * 60 + dt.getUTCMinutes();
+            if (onDay(dt.getUTCDate()) && _inDailyPeriod(hm, startT, endT)) return true;
+            return crosses && hm <= endT && onDay(new Date(t - 86400000).getUTCDate());
+          });
+        }
       }
     }
 
@@ -2202,6 +2295,9 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
     //   "DLY 0400-1000. PLEASE CTC..." — trailing qualifier after period
     // Non-numeric DLY lines ("DLY SS PLUS30-2200", "DLY NORTH ATLANTIC ADVRY")
     // do not start with \d{4} and are safely ignored (conservative: show NOTAM).
+    // A daily schedule is the same every day, so only the times matter: in
+    // effect if any minute of ETA ± 60 (wrapping past 0000Z) is in a window.
+    // D27: a time that cannot be read → the schedule is not applied.
     if (active !== false && etaMin !== null) {
       const hasDayRangeSched = /^\s*(?:\d{2}-\d{2}\s+)+\d{4}-\d{4}\s*$/m.test(notamRaw);
       if (!hasDayRangeSched) {
@@ -2209,16 +2305,15 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO) {
         const dlyLine = notamRaw.match(/^\s*(?:DLY\s+)?(\d{4}\s*-\s*\d{4}(?:\s*,\s*\d{4}\s*-\s*\d{4})*)/m);
         if (dlyLine) {
           // Extract all HHMM-HHMM window pairs from the line
-          const pairs = [...dlyLine[1].matchAll(/(\d{4})\s*-\s*(\d{4})/g)];
-          if (pairs.length > 0) {
-            const timeOk = pairs.some(([, s, e]) => {
-              const startT = parseInt(s.slice(0, 2)) * 60 + parseInt(s.slice(2));
-              const endT   = parseInt(e.slice(0, 2)) * 60 + parseInt(e.slice(2));
-              // Cross-midnight: e.g. DLY 2100-0300 → active if etaMin>=2100 OR <=300
-              return endT >= startT
-                ? (etaMin >= startT && etaMin <= endT)
-                : (etaMin >= startT || etaMin <= endT);
-            });
+          const pairs = [...dlyLine[1].matchAll(/(\d{4})\s*-\s*(\d{4})/g)]
+            .map(([, s, e]) => ({ startT: _schedHM(s), endT: _schedHM(e) }));
+          if (pairs.length > 0 && pairs.every(p => p.startT !== null && p.endT !== null)) {
+            let timeOk = false;
+            for (let o = -60; o <= 60 && !timeOk; o++) {
+              const m = (((etaMin + o) % 1440) + 1440) % 1440;
+              // Cross-midnight: e.g. DLY 2100-0300 → active if m>=2100 OR <=0300
+              timeOk = pairs.some(p => _inDailyPeriod(m, p.startT, p.endT));
+            }
             active = timeOk;
           }
         }
