@@ -66,6 +66,10 @@ jobs:
           GIT_TERMINAL_PROMPT: "0"
         run: |
           set -euo pipefail
+          # Run outside the workspace repo: actions/checkout stores its own
+          # Authorization header for github.com in that repo's git config, and
+          # GitHub rejects a request carrying two ("Duplicate header").
+          cd "$RUNNER_TEMP"
           if [ -z "$FIXTURES_TOKEN" ]; then
             echo "::error::FIXTURES_TOKEN is empty or not available; cannot look up the fixtures branch."
             exit 1
