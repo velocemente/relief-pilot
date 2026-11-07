@@ -14,7 +14,11 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  '_saveResumeView', '_clearResumeView',
                  // V0 (app-path golden, NOTAM-evaluation golden): the real import path
                  // and the helpers src/airports.html uses around evalNotams().
-                 'processPDF', 'parseOFP', 'getAllAirports', 'pZM', 'evalAirport'];
+                 'processPDF', 'parseOFP', 'getAllAirports', 'pZM', 'evalAirport',
+                 // NOTAM ruleset module equivalence (test/rules): the window helpers evalNotams() uses.
+                 'nwOverlap_standalone', '_windowEndEstimated'];
+// The NOTAM functions the standalone module (rules/notam-rules) provides in place of the app's.
+const NOTAM_MODULE_FNS = ['_splitNotams', 'evalNotams', 'xNW_standalone', 'nwOverlap_standalone', '_windowEndEstimated'];
 // Fixed "now" so anything that reads the clock is repeatable.
 const FIXED_NOW = Date.UTC(2026, 9, 30, 0, 0, 0);
 
@@ -166,6 +170,25 @@ function loadApp({ html, storageData, domModel } = {}) {
 
   const api = sandbox.__pb;
   for (const n of EXPOSED) if (typeof api[n] !== 'function') throw new Error(`${n} not found in index.html main script`);
+  // PB_NOTAM_ENGINE=module (or a path to a module file): the direct NOTAM calls a test makes
+  // (app.evalNotams, app._splitNotams, app.xNW_standalone, ...) go to the standalone NOTAM
+  // ruleset module instead, loaded unmodified in this same sandbox (same fixed clock).
+  // The app's own code (evalAirport, the import path) keeps using the app's engine.
+  const engine = process.env.PB_NOTAM_ENGINE;
+  if (engine) {
+    const rulesDir = path.resolve(__dirname, '..', '..', 'rules');
+    const file = engine === 'module'
+      ? path.join(rulesDir, JSON.parse(fs.readFileSync(path.join(rulesDir, 'manifest.json'), 'utf8'))['notam-rules'].file)
+      : path.resolve(engine);
+    const mod = { exports: {} };
+    vm.runInContext(`(function (module, exports) {\n${fs.readFileSync(file, 'utf8')}\n})`, sandbox,
+      { filename: file })(mod, mod.exports);
+    for (const n of NOTAM_MODULE_FNS) {
+      if (typeof mod.exports[n] !== 'function') throw new Error(`${n} not exported by ${file}`);
+      api[n] = mod.exports[n];
+    }
+    api.notamEngine = file;
+  }
   return { ...api, sandbox, document: doc, fireDomReady: dom ? dom.fireDomReady : () => {} };
 }
 
