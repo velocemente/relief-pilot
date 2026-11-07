@@ -57,29 +57,62 @@ function makeStorage() {
   };
 }
 
-function loadApp({ html, storageData } = {}) {
+// Opt-in model of document order (domModel: true). While the main script runs the
+// page is still 'loading': getElementById() returns null for any element whose markup
+// comes after the script in index.html, exactly as in a browser. fireDomReady() then
+// behaves like DOMContentLoaded: it runs the registered listeners and every element
+// becomes reachable. Elements start with the textContent written in the markup.
+function makeDomModel(src, scriptPos, fallback) {
+  const els = new Map();
+  const re = /<(\w+)\b[^>]*?\bid="([^"]+)"[^>]*>([^<]*)/g;
+  let m;
+  while ((m = re.exec(src))) {
+    if (els.has(m[2])) continue;
+    const own = { id: m[2], textContent: m[3].trim(), _pos: m.index };
+    els.set(m[2], new Proxy(own, {
+      get: (t, p) => (p in t ? t[p] : fallback),
+      set: (t, p, v) => { t[p] = v; return true; },
+    }));
+  }
+  const model = { loaded: false, listeners: [], els };
+  model.getElementById = id => {
+    const el = els.get(id);
+    if (!el) return null;
+    return (model.loaded || el._pos < scriptPos) ? el : null;
+  };
+  model.fireDomReady = () => {
+    model.loaded = true;
+    model.listeners.splice(0).forEach(fn => fn());
+  };
+  return model;
+}
+
+function loadApp({ html, storageData, domModel } = {}) {
   const src = html != null ? html : fs.readFileSync(INDEX_HTML, 'utf8');
   const scripts = inlineScripts(src);
   const mainIdx = scripts.findIndex(s => s.includes('function _ofpRulesetParse'));
   if (mainIdx < 0) throw new Error('main inline script (with _ofpRulesetParse) not found in index.html');
 
   const stub = makeStub();
+  const dom = domModel ? makeDomModel(src, src.indexOf(scripts[mainIdx]), stub) : null;
   const doc = new Proxy({
-    getElementById: () => stub,
+    getElementById: dom ? dom.getElementById : () => stub,
     querySelector: () => stub,
     querySelectorAll: () => [],
     getElementsByClassName: () => [],
     getElementsByTagName: () => [],
     createElement: () => stub,
     createTextNode: () => stub,
-    addEventListener: () => {},
+    addEventListener: (type, fn) => { if (dom && type === 'DOMContentLoaded') dom.listeners.push(fn); },
     removeEventListener: () => {},
     body: stub,
     documentElement: stub,
     head: stub,
-    readyState: 'complete',
     cookie: '',
-  }, { get: (t, p) => (p in t ? t[p] : stub), set: () => true });
+  }, {
+    get: (t, p) => (p === 'readyState' ? (dom && !dom.loaded ? 'loading' : 'complete') : (p in t ? t[p] : stub)),
+    set: () => true,
+  });
 
   class FakeDate extends Date {
     constructor(...a) { if (a.length) super(...a); else super(FIXED_NOW); }
@@ -130,7 +163,7 @@ function loadApp({ html, storageData } = {}) {
 
   const api = sandbox.__pb;
   for (const n of EXPOSED) if (typeof api[n] !== 'function') throw new Error(`${n} not found in index.html main script`);
-  return { ...api, sandbox };
+  return { ...api, sandbox, document: doc, fireDomReady: dom ? dom.fireDomReady : () => {} };
 }
 
 module.exports = { loadApp, inlineScripts, INDEX_HTML };

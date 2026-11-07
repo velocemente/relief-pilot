@@ -4,6 +4,8 @@
 
 **NOTAMs no longer hidden from airport cards** — NOTAMs issued in earlier years, long-term NOTAMs and permanent (PERM) NOTAMs are no longer hidden from airport cards. When a NOTAM's dates cannot be read, the NOTAM is now shown. Different NOTAMs with similar wording are no longer merged: every NOTAM in effect is shown, and a NOTAM printed twice appears once.
 
+**Settings and Help now show the correct version number.**
+
 ---
 
 # PilotBrief 1.9.9-hf1 Release Notes
