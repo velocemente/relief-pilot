@@ -261,13 +261,17 @@ function renderShareButton() {
 //  INIT
 // ═══════════════════════════════════════════════════════
 renderNote();
-// Stamp version badges
+// Stamp version badges (the badge markup comes after this script, so wait for the DOM)
 (function() {
-  const vTxt = 'PilotBrief v' + APP_VERSION;
-  ['helpVersionInline','settingsVersionBadge'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = vTxt;
-  });
+  function stamp() {
+    const vTxt = 'PilotBrief v' + APP_VERSION;
+    ['helpVersionInline','settingsVersionBadge'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = vTxt;
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', stamp);
+  else stamp();
 })();
 renderFlightList();
 // ── Resume-view restore ───────────────────────────────────────────────────
