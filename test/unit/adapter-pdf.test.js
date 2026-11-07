@@ -26,7 +26,7 @@ function item(str, x, y, w) {
   return { str, x, y, w: w || 0 };
 }
 
-// ── Locate fixtures (optional — skip if absent) ───────────────────────────────
+// ── Locate fixtures (required — the fixture test FAILS if absent) ───────────────────────────────
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const FIXTURES_CANDIDATES = [
@@ -201,10 +201,13 @@ test('docToLegacyText: multi-page concatenates with per-page breaks', () => {
   assert.equal(text, 'P1\n\nP2\n\n');
 });
 
-// ── Fixture-based tests (skipped when fixtures are absent) ────────────────────
+// ── Fixture-based tests (FAIL when fixtures are absent) ────────────────────
 
 if (!FIXTURES_DIR) {
-  test('adapter-pdf fixture test (SKIPPED — fixtures not found; set PB_FIXTURES to enable)', { skip: true }, () => {});
+  // Never skip: without fixtures this test FAILS (V0 rule: tests that need fixtures fail when they are missing).
+  test('adapter-pdf fixture test: fixtures must be present', () => {
+    assert.fail('fixtures not found (set PB_FIXTURES or clone pilotbrief-fixtures beside the repo)');
+  });
 } else {
   const manifest = JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, 'manifest.json'), 'utf8'));
 
