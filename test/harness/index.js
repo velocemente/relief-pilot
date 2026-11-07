@@ -14,7 +14,7 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  '_saveResumeView', '_clearResumeView',
                  // V0 (app-path golden, NOTAM-evaluation golden): the real import path
                  // and the helpers src/airports.html uses around evalNotams().
-                 'processPDF', 'parseOFP', 'getAllAirports', 'pZM'];
+                 'processPDF', 'parseOFP', 'getAllAirports', 'pZM', 'evalAirport'];
 // Fixed "now" so anything that reads the clock is repeatable.
 const FIXED_NOW = Date.UTC(2026, 9, 30, 0, 0, 0);
 

@@ -155,7 +155,7 @@ test('_scoreProfile: secondary boost capped at 0.1', () => {
   assert.ok(score < THRESHOLD); // secondary alone can't rescue a doc
 });
 
-// ── Fixture-based tests (skipped when fixtures are absent) ────────────────────
+// ── Fixture-based tests (FAIL when fixtures are absent) ────────────────────
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const FIXTURES_CANDIDATES = [
@@ -168,7 +168,10 @@ const FIXTURES_DIR = FIXTURES_CANDIDATES.find(d => {
 });
 
 if (!FIXTURES_DIR) {
-  test('detector fixture test (SKIPPED — fixtures not found; set PB_FIXTURES to enable)', { skip: true }, () => {});
+  // Never skip: without fixtures this test FAILS (V0 rule: tests that need fixtures fail when they are missing).
+  test('detector fixture test: fixtures must be present', () => {
+    assert.fail('fixtures not found (set PB_FIXTURES or clone pilotbrief-fixtures beside the repo)');
+  });
 } else {
   const manifest = JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, 'manifest.json'), 'utf8'));
 

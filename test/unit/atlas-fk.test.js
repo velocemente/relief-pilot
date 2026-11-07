@@ -36,10 +36,10 @@ function makeDoc(lines) {
 }
 
 if (!FIXTURES_DIR) {
-  if (process.env.CI) {
-    throw new Error('Fixtures not found and CI is set; FAIL');
-  }
-  test('atlas-fk profile tests (SKIPPED — fixtures not found)', { skip: true }, () => {});
+  // Never skip, in CI or locally: without fixtures this test FAILS (V0 rule).
+  test('atlas-fk profile tests: fixtures must be present', () => {
+    assert.fail('fixtures not found (set PB_FIXTURES or clone pilotbrief-fixtures beside the repo)');
+  });
 } else {
   const manifest = JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, 'manifest.json'), 'utf8'));
   const fkFixtures = manifest.fixtures.filter(fx => /^FK_/i.test(fx.id));
