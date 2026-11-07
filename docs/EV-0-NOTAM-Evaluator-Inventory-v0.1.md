@@ -8,7 +8,7 @@
 | **Purpose** | Input to the NOTAM evaluator sprint (programme step ② in the Import Platform sprint plan). Says what the evaluator does today, where it is weak, and what the Exec must decide. |
 | **Code read** | `src/notam.html` and `src/airports.html` (plus the callers in `src/edit.html` and `src/render-descent.html`) at `origin/main` commit `d2177a9`. Line numbers below are for that commit. |
 | **Changes** | Nothing in `src/`, `index.html`, tests or CI. This file only. |
-| **Status** | Draft for Exec review. D27, D31, D34, D43 and D44 are quoted as confirmed by the Exec on 6 Nov; everything else here is a finding, a design note or a question, not a decision. |
+| **Status** | Draft for Exec review. D27, D31, D34, D43, D44 and D46 are quoted as confirmed by the Exec on 6 Nov; everything else here is a finding, a design note or a question, not a decision. |
 
 ---
 
@@ -21,11 +21,11 @@
   3. **The obstacle filter hides every crane/obstacle NOTAM that lacks an approach keyword**, including circling-minima increases (G-4).
   4. **The departure airport is evaluated with only 17 of the 42 rules (27 are never applied there).** Approach-system U/S, runway lights, declared distances, GPS and others fall into the catch-all at the departure airport (G-3).
   5. **Schedules:** weekday wording (`MON-FRI 0800-1700`) is not read at all; the wording that is read is compared with the ETA minute, not the ETA ±60 min used everywhere else (G-6, G-7).
-- **For the Exec:** 14 plain-English questions in §5, including the approach category of each fleet type.
+- **For the Exec:** 13 plain-English questions in §5, including the approach category of each fleet type.
 
 ### What this document could not check
 
-- **D27, D31, D34, D43 and D44 are not yet written down in this repository.** The decision register in `docs/ADR-004-canonical-briefing-model-v1.3.md` ends at D21 and the sprint plan v2.4 at D22. They will be added by a separate documents brief (ADR-004 v1.4). The wording below comes from the brief and was **confirmed by the Exec on 6 Nov**, as relayed from the Exec's planning chat (plan v3.3 §6; that plan is not in this repository, so the table is the only copy here until ADR-004 v1.4 is added):
+- **D27, D31, D34, D43, D44 and D46 are not yet written down in this repository.** The decision register in `docs/ADR-004-canonical-briefing-model-v1.3.md` ends at D21 and the sprint plan v2.4 at D22. They will be added by a separate documents brief (ADR-004 v1.4). The wording below comes from the brief and was **confirmed by the Exec on 6 Nov**, as relayed from the Exec's planning chat (plan v3.3 §6; that plan is not in this repository, so the table is the only copy here until ADR-004 v1.4 is added):
 
   | ID | Decision (as confirmed) |
   |---|---|
@@ -33,6 +33,7 @@
   | D31 | A date-only end = valid through 2359Z. `UFN` = no end date (also `UFN(EST …)`). `PERM` = permanent unless the NOTAM text gives a period. |
   | D34 | Every airport-specific remark (weather or otherwise) is tied to that airport's card. Remarks weather is a second, expandable weather source used by the evaluator; it never replaces the briefing weather. |
   | D43 | The NOTAM ID is the unique identifier; NOTAMs with different IDs are never merged. |
+  | D46 | When E-WINS is issued, it overrides other weather for the airport status; both weather reports (E-WINS and the briefing weather), if issued, are presented in the RAW weather. (Confirmed by the Exec 6 Nov; the wording of D46 is as relayed in the instruction, not from plan v3.3 §6.) |
   | D44 | Within a NOTAM, show only the minima for the aircraft's approach category (design only; needs the fleet category table). |
 
   D43 and D27 are also referenced in code and test comments (`src/notam.html:2265`, `test/unit/notam-merge.test.js`); D38 (year crossing) is in `src/notam.html:454`.
@@ -436,12 +437,22 @@ So in the 33 fixtures there is no case where the remarks hold a forecast that th
 **What D34 fixes, and what it leaves for the sprint.** D34 (confirmed) says the remarks weather is a second, expandable source that **never replaces** the briefing weather, and that each airport remark is tied to that airport's card. These are **options for the sprint, not requirements**, except where D34 itself is quoted:
 1. *What counts as remarks weather:* a TAF/METAR in the standard form only (header `TAF ICAO ddhhmmZ dddd/dddd …`), or also free-text such as "TEMPO WX"? Free text cannot be evaluated with the existing parsers (`pCeil`, `pVis`, `pRVR`) and should be shown, not scored.
 2. *Option — parsing rule:* extract the TAF block and pass it through the existing `extractEtaWindow` + ceiling/visibility/RVR code, which would need no new weather logic. Another option is to write a separate reader for remarks.
-3. *How the two sources combine in the colour:* the briefing weather always stays. Options are (a) the card colour follows the briefing weather only and the remarks weather is shown beside it, or (b) both are evaluated and the **worse** level colours the card (fail-safe, in the spirit of D27). What happens to the existing E-WINS behaviour is **not settled here**: see the open conflict below (Q14). Needs the Exec's answer (Q10).
+3. *How the two sources combine in the colour:* the briefing weather always stays. Options are (a) the card colour follows the briefing weather only and the remarks weather is shown beside it, or (b) both are evaluated and the **worse** level colours the card (fail-safe, in the spirit of D27). This choice applies to airports **without** an E-WINS release; for E-WINS airports D46 (below) decides the status. Needs the Exec's answer (Q10).
 4. *Option — validity:* the remarks TAF carries its own issue time and period; the same ETA ±60 window (and the OFP CFS window where one exists) could be applied, as for the briefing weather.
 5. *Option — provenance and placement:* D34 ties the remark to the airport's card and makes remarks weather expandable. How it is labelled, and what happens to a remark for an airport that has no card (for example one that is not in the release), are for the sprint and need approval of the screen (a visible change). One possible safeguard is that golden snapshots and the `opsNotes` text stay unchanged for airports without remarks weather.
 6. *Safety class:* weather is safety-critical (rule 6): positive test (remarks TAF with a low ceiling in the window turns the card red) and negative test (remarks TAF outside the window, or free text, does not).
 
-**Open conflict for the Exec — E-WINS (Q14).** Today an E-WINS release in the Remarks (`***FLIGHT RELEASED UNDER E-WINS AUTHORITY FOR TAF (ICAO)` followed by a `WSITAF` block) is read from the OFP Remarks by `extractEwins` and **replaces** the briefing TAF for that airport in `evalAirport` (`src/airports.html:290`–`297`). D34 says remarks weather **never replaces** the briefing weather. These two cannot both hold for an E-WINS release. This document does not settle which one wins; the Exec is asked in Q14.
+**Decided — E-WINS (D46, confirmed by the Exec 6 Nov).** When E-WINS is issued, it **overrides other weather for the airport status**; both weather reports (the E-WINS forecast and the briefing weather), if issued, are **presented in the RAW weather**. This settles the earlier question of how E-WINS fits with D34: E-WINS keeps its role in the status; the briefing weather is not discarded, and the raw weather shows both. This document reads "other weather" as including the remarks weather of D34, so an E-WINS release also overrides the remarks weather for the status; the remarks weather would still be shown (D34).
+
+**What the code does today against D46** (read in `src/airports.html`, `src/ofp-parse.html`, `src/storage.html`; the E-WINS and briefing fixture `NB_KWRI-EPRZ_08APR26_cmb-nat_rev30`, airport EPPW, holds both texts after import):
+- **Status override: already as D46 says.** `evalAirport` uses `ewinsWeather` instead of the briefing weather whenever it is present (`src/airports.html:294`–`297`), with the E-WINS validity window (`ewinsWindow`) when there is one.
+- **Both reports kept in the data: yes.** The briefing weather stays in `airportData[icao].weather`; E-WINS is stored beside it in `ewinsWeather`, `ewinsRole`, `ewinsWindow`, and both are saved with the flight (`aptData` is stored whole, `src/storage.html:12`).
+- **Both shown in the raw weather: no.** The only raw weather on the airport card is the "WX" text box that opens when the card header is tapped (`toggleAptInputs`, `src/airports.html:126`). It is filled from `data.weather` only (`src/airports.html:100`). The E-WINS text is not shown anywhere as text; the only sign of E-WINS on screen is the "EWINS" badge on the card (`src/airports.html:66`) and the "EWINS AUTH" tag in the descent summary (`src/render-descent.html:489`). So for an E-WINS airport the crew can read the briefing weather but not the forecast that sets the status.
+- **Editing the box does not change the status for an E-WINS airport.** The box is editable (`updateApt`, `src/airports.html:133`), but for an E-WINS airport the status ignores `weather`. A crew member who corrects the briefing weather sees no effect and no message.
+- **A stale E-WINS stays.** `parseOFP` copies E-WINS only when the new package has it and never clears it (`src/ofp-parse.html:1327`). If a revised package for the same flight no longer carries an E-WINS release, the old E-WINS text from the earlier upload remains and still overrides. Not seen in the fixtures; found by reading.
+- **Briefing weather is not refreshed by a re-upload** (`if (!airportData[icao].weather && src.weather)`, `:1322`), existing behaviour that is out of scope here, but it means the "briefing weather" next to a fresh E-WINS can be from an earlier package.
+
+The gap for the sprint is therefore one item: put both reports into the raw weather, labelled, with E-WINS identified as the one that sets the status. That is a visible change (the box content or a new expandable section) and needs the Exec's approval of the screen (rule 3).
 
 ### 4.3 D43 — the NOTAM ID is the identifier
 
@@ -480,11 +491,10 @@ Additional questions:
 - **Q7 — NOTAMs that are "in effect" but no rule recognises (1,925 of 2,997 in the test packages).** Should the airport card list them in some form, or is the colour alone enough? (This would be a screen change and needs your approval of the screen.) And should the card be yellow ("REVIEW") when the only reason is such a NOTAM?
 - **Q8 — Schedules.** When a NOTAM has a schedule the app cannot read (weekday names, sunrise/sunset, "H24", several clauses, or a time marked as local time), should it be shown as active with a "check schedule" note (recommended), or treated as inactive? And should a daily window be judged on the ETA minute or on ETA ±60 minutes, as the date window is?
 - **Q9 — Estimated end (`EST`).** If the estimated end has passed but the NOTAM is still in the package, treat it as still in force (recommended)?
-- **Q10 — Weather and PERM details (D34, D31).** (a) When the remarks weather and the briefing weather differ, should the card colour follow the **worse** of the two, or the briefing weather only with the remarks weather shown beside it? (b) For a PERM NOTAM whose text gives a period or a recurring window, is it enough that the evaluator shows it only while that period applies, and shows it (as today) when the period cannot be read?
+- **Q10 — Weather and PERM details (D34, D31).** (a) For airports **without** an E-WINS release (D46 decides the others): when the remarks weather and the briefing weather differ, should the card colour follow the **worse** of the two, or the briefing weather only with the remarks weather shown beside it? (b) For a PERM NOTAM whose text gives a period or a recurring window, is it enough that the evaluator shows it only while that period applies, and shows it (as today) when the period cannot be read?
 - **Q11 — NOTAMs about more than one runway.** File the NOTAM under every runway it names, or once under the first?
 - **Q12 — Same ID, different text (D43).** D43 settles that different IDs are never merged; it does not say what happens to two copies of the same ID. If two copies of the same NOTAM ID in one package differ, which one counts: the first printed, the later printed, or both?
 - **Q13 — Which fleet data do you want kept?** The app holds wingspan, weight and aerodrome code for each type (747-400 is code E, 64.4 m; 747-8 and LCF are code F; 777F is code E; 767-300 is code D). Please confirm or correct these, and say whether the aerodrome code for a stand/taxiway restriction should follow ICAO code letters or the company's own taxi limits.
-- **Q14 — E-WINS and D34.** An E-WINS release (in the Remarks) replaces the briefing TAF for that airport today. D34 says remarks weather never replaces the briefing weather. For an E-WINS airport, which is right: (a) the E-WINS forecast still replaces the briefing TAF, as an authorised exception to D34; (b) the briefing TAF stays and the E-WINS forecast is shown as the second source; (c) something else?
 
 ---
 
