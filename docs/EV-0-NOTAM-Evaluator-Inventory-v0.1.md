@@ -16,16 +16,16 @@
 
 - **What this is:** a list of every rule the app applies to a NOTAM before a crew sees it, with the code quoted, a real NOTAM ID for each rule, and the places where the rules overlap, cannot read the wording, or hide a NOTAM without proof.
 - **Biggest findings** (numbers from the 30 Navtech/eOFP fixtures; see Appendix A):
-  1. **Most NOTAMs that are "in effect" get no row on the airport card.** Of 2,997 NOTAMs the evaluator keeps, only 1,072 are filed into a runway, taxiway, SID or STAR group. The other 1,925 (the "catch-all" slot and the "General Information" items) only turn the card yellow. On 27 of 142 airports with NOTAMs, no NOTAM has a row at all (G-1).
+  1. **Most NOTAMs that are "in effect" get no row on the airport card.** Of 2,997 NOTAMs the evaluator keeps, only 1,072 are filed into a runway, taxiway, SID or STAR group. The other 1,925 (the "catch-all" slot and the "General Information" items) only turn the card yellow. On 27 of 142 airports with NOTAMs (28 in an independent replay), no NOTAM has a row at all (G-1).
   2. **The aircraft filter hides NOTAMs that apply to a 747-400** by reading `CAT D ACFT` (an approach category) as an aerodrome code, `MAX ICAO CODE D` as "code D only", and a runway-end-safety-area width as a wingspan (G-5, IDs in §3).
   3. **The obstacle filter hides every crane/obstacle NOTAM that lacks an approach keyword**, including circling-minima increases (G-4).
   4. **The departure airport is evaluated with only 17 of the 42 rules (27 are never applied there).** Approach-system U/S, runway lights, declared distances, GPS and others fall into the catch-all at the departure airport (G-3).
   5. **Schedules:** weekday wording (`MON-FRI 0800-1700`) is not read at all; the wording that is read is compared with the ETA minute, not the ETA ±60 min used everywhere else (G-6, G-7).
-- **For the Exec:** 13 plain-English questions in §5, including the approach category of each fleet type.
+- **For the Exec:** 14 plain-English questions in §5, including the approach category of each fleet type.
 
 ### What this document could not check
 
-- **D27, D31, D34, D43 and D44 are not yet written down in this repository.** The decision register in `docs/ADR-004-canonical-briefing-model-v1.3.md` ends at D21 and the sprint plan v2.4 at D22. They will be added by a separate documents brief (ADR-004 v1.4). The wording below comes from the brief and was **confirmed by the Exec on 6 Nov** (plan v3.3 §6):
+- **D27, D31, D34, D43 and D44 are not yet written down in this repository.** The decision register in `docs/ADR-004-canonical-briefing-model-v1.3.md` ends at D21 and the sprint plan v2.4 at D22. They will be added by a separate documents brief (ADR-004 v1.4). The wording below comes from the brief and was **confirmed by the Exec on 6 Nov**, as relayed from the Exec's planning chat (plan v3.3 §6; that plan is not in this repository, so the table is the only copy here until ADR-004 v1.4 is added):
 
   | ID | Decision (as confirmed) |
   |---|---|
@@ -64,7 +64,7 @@ OFP text ──▶ airportData[icao].notams  (one text blob per airport)
                 ▼
    renderAptIssues(status)                                   src/edit.html:333
         draws: STARs, weather pills, runway groups, SIDs, taxiway/general groups
-        does NOT draw: status.issues NOTAM entries, infoIssues, catch-all slots 7/8
+        does NOT draw: status.issues NOTAM entries, infoIssues, the catch-all slot 7
 ```
 
 `evalAirport` is called from `buildAirportCards` (`src/airports.html:15`), `refreshAptCard` (`src/airports.html:144`, passes `null` instead of the CFS weather window) and twice in `src/render-descent.html` (lines 150 and 450), where `status.issues` feeds the NOTAM/WX/CURFEW badges through `_issueCategory` (`src/render-descent.html:422`).
@@ -142,18 +142,18 @@ Fleet values in `AIRCRAFT_DATA`: `B744 ws 64.4 code E wake H`; `B748 68.4 F H`; 
 
 Year rules (`/YY` from the NOTAM ID, D38 flight-month anchor, T1–T6) are in `:494`–`:599`. `EST` after the dates is ignored (the end date is taken as firm). The match is made by `w.startMs < winEnd && w.endMs > winStart` with `winStart/winEnd = ETA ∓ 60 min` (`:619`–`621`). When `etaMin < 720` the next day is also tried ("cross-midnight guard", `:629`), which can only show more.
 
-Not resolved (kept as in effect): header with a year on the start date, i.e. `ddmmmhhmm yyyy-ddmmmhhmm [yyyy]` — `LIBD B0056/24`, `RODN M2326/25`, `KMIA A3340/25`, `KMIA A3337/25`, `YSSY H0353/25` (all have a year after the start date).
+Not resolved (no window, so "in effect"): header with a year on the start date, i.e. `ddmmmhhmm yyyy-ddmmmhhmm [yyyy]` — 5 NOTAMs in the corpus. Two reach the crew as in effect: `KMIA A3340/25`, `KMIA A3337/25`. The other three (`LIBD B0056/24`, `RODN M2326/25`, `YSSY H0353/25`) are hidden by the obstacle filter before the window is read.
 
 **PERM:** the end becomes 1 Jan of flight year + 50 (`:503`, `:562`). The start year is the issue year (`/YY`) or the flight year. The body text is not read, although D31 says PERM is permanent only unless the text gives a period (G-8).
 
 ### 2.4 Schedules inside the validity window
 
-Two blocks in `evalNotams`, both only when `etaMin !== null`; both compare the **ETA minute**, not ETA ±60.
+Two blocks in `evalNotams`, both compare the **ETA minute**, not ETA ±60. S1 runs only when the window was not already negative, `etaMin !== null` **and** a flight date is known (`active !== false && etaMin !== null && resolvedISO`, `:2177`). S2 runs when `etaMin !== null` (`:2205`) and does not need a flight date. Without a flight date the window test also says "in effect" (`nwOverlap_standalone`, `:612`–`614`).
 
 | # | Wording read | Code | Decides | Example ID |
 |---|---|---|---|---|
 | S1 | A line that is only day-of-month ranges + one time range: `08-09 13-17 20-24 1510-2020` | `ofpSchedM`, `:2178` | ETA UTC day must be in a day range **and** ETA time in the range (both ends inclusive; cross-midnight allowed) | `EBBR G2488/26`, `RKSS Z0305/26`, `RJAA A0524/26` |
-| S2 | A line that **starts** with `HHMM-HHMM` or `DLY HHMM-HHMM`, several windows separated by commas | `dlyLine`, `:2209` | ETA time in any window (cross-midnight allowed) | `EBBR A3968/26`, `EBBR A3967/26`, `EHAM A2571/26` |
+| S2 | A line that **starts** with `HHMM-HHMM` or `DLY HHMM-HHMM`, several windows separated by commas | `dlyLine`, `:2209` | ETA time in any window (cross-midnight allowed) | `EBBR A3968/26`, `EBBR A3967/26`, `EBBR D0578/26` |
 
 S2 skips the NOTAM if S1's pattern is present (`hasDayRangeSched`). If the first matching line is not a schedule (any line that begins with two 4-digit numbers joined by a dash), it is still used as one.
 
@@ -187,7 +187,7 @@ First matching rule wins; the order below is the order in the code. `rwy` is tak
 | FICON / SNOWTAM_BA | `FICON`, `SNOWTAM`, braking action, RWYCC, MU, `FICON n/n/n`, … (poor: ice, RWYCC 0–2, BA POOR/NIL, MU ≤ 39) | 2 (runway) or 3 (`TWY`/`APN`/`RAMP`); red if poor else yellow | `RWY nn FICON` / `TWY x FICON` | `KMIA A2656/26` |
 | LVP | `LVP`/`LOW VIS PROC … IN FORCE/ACTIVATED/CANCELLED/NOT IN FORCE` | 6 red (yellow if cancelled) | `LVP IN FORCE` / `LVP CANCELLED` | — |
 | ARFF_RED | `ARFF/RFFS/RESCUE FIRE FIGHTING … REDUCED/CAT n/NIL/DOWNGRADED/…` | 6 red | `ARFF/RFFS DOWNGRADED` | `KWRI M0467/26`, `RODN M0484/26` |
-| (none) | everything else | **7 yellow if active, 8 if not; no label** | — | `UAAA A7110/26`, `UAAA A7105/26` (616 NOTAMs in the corpus) |
+| (none) | everything else | **slot 7, yellow, no label** (see note) | — | `UAAA A7110/26`, `UAAA A7105/26` (616 NOTAMs in the corpus) |
 
 **DEST / ALT role (arrival, alternates, ETP/CFS alternates — everything that is not ORIG)** — 42 rules (the 3 shared ones plus 39 of its own)
 
@@ -232,7 +232,9 @@ First matching rule wins; the order below is the order in the code. `rwy` is tak
 | NAV_FALSE_SIG | `DO NOT USE`, `FALSE INDICATIONS POSS`, `ON FLT CLBR`, `ON TEST … DO NOT USE` | 2 red | `<navaid> DO NOT USE` | `EDDB A5350/26`, `LIBG B1581/26`, `EDDF A0473/26` |
 | DISREGARD_RESTR | `DISREGARD` + restriction noun / `FOR ACFT` | 3 yellow | `TWY x RESTR (VERIFY)` | `EDDF A2178/26` |
 | NEW_INFRA | `NEW TWY/RWY/STAND x … IN OPR / OPENED` | 5 yellow, INFO | `NEW TWY x IN OPR` | `EDDF A1648/26`, `EDDF A1647/26` |
-| (none) | everything else | **7 yellow if active, 8 if not; no label** | — | `EHAM A2552/26`, `EHAM A2551/26` (1,292 NOTAMs) |
+| (none) | everything else | **slot 7, yellow, no label** (see note) | — | `EHAM A2552/26`, `EHAM A2551/26` (1,292 NOTAMs) |
+
+**Note on slots 7 and 8.** `_classifyNotamSlot` can return slot 8 ("not active"), but `evalNotams` drops every NOTAM that is not in effect before it classifies (`if (active === false) continue;`, `src/notam.html:2231`), so the function is always called with `active = true`. Slot 8 never occurs (0 of 3,870 NOTAMs in the harness), the catch-all is always slot 7, and the "active first" part of the sort (`:2293`) has no effect.
 
 Key regexes quoted from `NM` (`src/notam.html:1189`–`1451`):
 
@@ -286,12 +288,12 @@ Each item: what happens, why it matters, evidence (IDs only), and which Exec dec
 
 ### G-1 (S) In effect, but no row — the catch-all and INFO items  *(D27)*
 
-Slot 7 / 8 (no rule matched) and category-INFO items are kept, so they colour the card yellow ("REVIEW"), but they are not in any group, so `renderAptIssues` draws no row for them. Corpus: 2,997 kept; 1,072 have a row (runway, taxiway, SID, STAR group); 1,925 do not — 616 at departure airports and 1,292 at destinations/alternates in the catch-all, 17 INFO items (`KORD A0452/26`, `PANC A3259/26`, `EPRZ E0929/26`, `EDDF A1648/26`, `LIBG B7395/25`). On 27 of 142 airports with NOTAM text no NOTAM has a row. This is "shown" to the colour logic and "hidden" from the reader. Also, `status.issues` entries for NOTAMs are used only for the descent-screen badge, and `_issueCategory` decides NOTAM vs WX from the words in the label, so a NOTAM whose first line contains `VIS`, `CIG` or `TS` is counted as weather (`src/render-descent.html:427`).
+Slot 7 (no rule matched) and category-INFO items are kept, so they colour the card yellow ("REVIEW"), but they are not in any group, so `renderAptIssues` draws no row for them. Corpus: 2,997 kept; 1,072 have a row (runway, taxiway, SID, STAR group); 1,925 do not — 616 at departure airports and 1,292 at destinations/alternates in the catch-all, 17 INFO items (`KORD A0452/26`, `PANC A3259/26`, `EPRZ E0929/26`, `EDDF A1648/26`, `LIBG B7395/25`). On 27 of 142 airports with NOTAM text no NOTAM has a row (an independent replay counted 28; see Appendix A). This is "shown" to the colour logic and "hidden" from the reader. Also, `status.issues` entries for NOTAMs are used only for the descent-screen badge, and `_issueCategory` decides NOTAM vs WX from the words in the label, so a NOTAM whose first line contains `VIS`, `CIG` or `TS` is counted as weather (`src/render-descent.html:427`).
 Any change here is a visible change (rule 3): the Exec must approve it.
 
 ### G-2 (M) Rules shadow each other — first match wins
 
-132 of 1,103 NOTAMs that match any slot rule match two or more. The top pairs (winner > shadowed):
+132 NOTAMs that match two or more slot rules (out of about 1,090–1,100 that match at least one; see Appendix A for why the base is not one exact number). The top pairs (winner > shadowed):
 
 | Winner > shadowed | Count | Example IDs |
 |---|---|---|
@@ -311,11 +313,11 @@ Rules with no winner anywhere in the corpus: ORIG `VOLCANIC`, `ALT_MINS_CHG`, `A
 
 ### G-3 (S) The departure airport is a smaller evaluator  *(D27)*
 
-ORIG uses 17 rules; DEST uses 42. These are **not** applied at the departure airport: `LOC_US`, `APCH_US`, `VORTAC_US`, `MARKER_US`, `GPS_US`, `RAIM_NA`, `ALS_US`, `REIL_US`, `RWY_LGTS_US`, `RCLL_US`, `TDZ_US`, `DSPLCD_THR`, `STAR`, `NAV_FALSE_SIG`, `RNP_AR`, `DECL_DIST`, `TRANS_ALT`, `DISREGARD_RESTR`, `NEW_INFRA`, `FUEL_UNAV`, `BIRD_HAZARD`, `MINIMA_INC`, `CAT_DG`, `PCR_CHG`, `RESA_CHG`, `DEICE_LTD`, `BEACON_US`. Departure NOTAMs that match them fall into the catch-all (G-1): `APCH_US` 21 (`KORD A9544/26`, `KORD A9475/26`), `MARKER_US` 45 (`KCHS A0640/25`, `KORD A4566/26`), `RWY_LGTS_US` 15 (`KORD A0010/26`, `KORD A7060/26`), `BIRD_HAZARD` 10 (`RODN M0357/26`, `EHAM A0990/26`), `MINIMA_INC` 7 (`EHAM A1058/26`, `EHAM A1056/26`), `ALS_US` 4 (`UAAA A5153/26`), `DECL_DIST` 1 (`RJAA A0419/26`), `FUEL_UNAV` 1 (`KMIA A0448/26`), `CAT_DG` 1 (`EHAM A1043/26`), `PCR_CHG` 1 (`KGTB M0010/26`), `BEACON_US` 1 (`PGUA M0685/26`). The code comment on `DECL_DIST` itself says TORA/TODA affect departure performance. The departure airport is also the return airport after a turn-back (D15, BTB/ATB).
+ORIG uses 17 rules; DEST uses 42. These are **not** applied at the departure airport: `LOC_US`, `APCH_US`, `VORTAC_US`, `MARKER_US`, `GPS_US`, `RAIM_NA`, `ALS_US`, `REIL_US`, `RWY_LGTS_US`, `RCLL_US`, `TDZ_US`, `DSPLCD_THR`, `STAR`, `NAV_FALSE_SIG`, `RNP_AR`, `DECL_DIST`, `TRANS_ALT`, `DISREGARD_RESTR`, `NEW_INFRA`, `FUEL_UNAV`, `BIRD_HAZARD`, `MINIMA_INC`, `CAT_DG`, `PCR_CHG`, `RESA_CHG`, `DEICE_LTD`, `BEACON_US`. Departure NOTAMs that match them fall into the catch-all (G-1): `APCH_US` 21 (`KORD A9544/26`, `KORD A9475/26`), `MARKER_US` 45 (`KCHS A0640/25`, `KORD A4566/26`), `RWY_LGTS_US` 15 (`KORD A0010/26`, `KORD A7060/26`), `BIRD_HAZARD` 10 (`RODN M0357/26`, `EHAM A0990/26`), `MINIMA_INC` 7 (`EHAM A1058/26`, `EHAM A1056/26`), `ALS_US` 4 (`UAAA A5153/26`), `RCLL_US` 1 (`KMIA A2441/26`), `TDZ_US` 1 (`UAAA A5153/26`), `DECL_DIST` 1 (`RJAA A0419/26`), `FUEL_UNAV` 1 (`KMIA A0448/26`), `CAT_DG` 1 (`EHAM A1043/26`), `PCR_CHG` 1 (`KGTB M0010/26`), `BEACON_US` 1 (`PGUA M0685/26`). The code comment on `DECL_DIST` itself says TORA/TODA affect departure performance. The departure airport is also the return airport after a turn-back (D15, BTB/ATB).
 
 ### G-4 (S) Obstacle filter hides without proof  *(D27)*
 
-In the corpus the filter hides 510 chunks (356 distinct IDs). Most are obstacle-light outages and crane notices, which is the intent. But the "approach keyword" list lacks `APPROACH`, `CIRCLING`, `MINIMA`, `OCA`, `OCH`, `DEPARTURE`, `TWY`: 7 hidden NOTAMs mention minima/OCA (`EHAM A2559/26` — circling minima by category, `EHAM A0894/26`, `EHAM A0860/26`), 4 mention circling (`EHAM A3013/25`, `EHAM A2091/26`), 2 mention taxiways (`PHNL M0050/26`, `PHNL M0047/26`). A crane NOTAM that closes or restricts a taxiway without the word `RWY` is hidden. The same crane NOTAM is shown if it mentions `RWY`, `ILS`, `PROC`… anywhere (278 distinct NOTAMs pass this way), so the filter's effect depends on incidental words.
+In the corpus the filter hides 510 chunks that have a NOTAM ID (356 distinct IDs); 512 if the 2 mis-split chunks without an ID are counted. Most are obstacle-light outages and crane notices, which is the intent. But the "approach keyword" list lacks `APPROACH`, `CIRCLING`, `MINIMA`, `OCA`, `OCH`, `DEPARTURE`, `TWY`: 7 hidden NOTAMs mention minima/OCA (`EHAM A2559/26` — circling minima by category, `EHAM A0894/26`, `EHAM A0860/26`), 4 mention circling (`EHAM A3013/25`, `EHAM A2091/26`), 2 mention taxiways (`PHNL M0050/26`, `PHNL M0047/26`). A crane NOTAM that closes or restricts a taxiway without the word `RWY` is hidden. The same crane NOTAM is shown if it mentions `RWY`, `ILS`, `PROC`… anywhere (278 distinct NOTAMs pass this way), so the filter's effect depends on incidental words.
 
 ### G-5 (S) Aircraft filter reads wording wrongly  *(D44)*
 
@@ -354,6 +356,8 @@ These are the safe direction (shown when in doubt). The dead `SCHEDULE_PATTERNS`
 
 The validity window is overlap-tested against ETA ±60 min, but S1 and S2 test the single ETA minute. A NOTAM whose daily window starts 30 minutes after the ETA is hidden although it is inside the ±60 min the crew is briefed on. In the corpus 152 NOTAMs are hidden by S1/S2 (16 + 136), and 24 of them have a daily window that touches ETA ±60: `RJAA A0489/26`, `EBBR A3859/26`, `EIDW A1035/26`, `RJTT J0030/26`, `RKSI A0291/26`, `PANC A3903/26`. Not seen in the corpus, found by reading: S1 compares the ETA's UTC day, so a window that crosses midnight (`2200-0300`, days `08-09`) is judged on the ETA day, and an ETA of 0100 on the 10th is outside `08-09` although the NOTAM is active from the 9th.
 
+**A second way S1 hides a NOTAM — the next-day guard is not applied (checked in the harness with a made-up NOTAM).** For `etaMin < 720` the date window also tries the next day (`nwOverlap_standalone`, `:629`), because an evening departure arrives after midnight UTC and the ETA minute is anchored to the departure date. S1 does not: it builds the ETA from the flight date plus `etaMin` and takes its day of month (`:2180`–`2182`). Flight dated 9 Mar, DEST, ETA 0100Z, window covering 9–11 Mar: a schedule line `10-10 0000-0300` → **hidden**; `09-09 0000-0300` → shown. A NOTAM scheduled only for the arrival day is hidden, because the check uses the departure date. This is the unsafe direction (a hide without proof). No such case is in the fixtures. The same anchoring applies to S2 only through the time of day, so S2 does not have this day problem.
+
 ### G-8 (S) D31 is only partly implemented: PERM with a period, UFN, date-only end  *(D31)*
 
 D31 says: `PERM` is permanent **unless the NOTAM text gives a period**; a date-only end is valid through 2359Z; `UFN` has no end date.
@@ -368,11 +372,11 @@ D31 says: `PERM` is permanent **unless the NOTAM text gives a period**; a date-o
 
 ### G-10 (M) `EST` end dates
 
-`EST` after the dates means the end is estimated; the NOTAM stays in force until cancelled. The evaluator ignores `EST` and hides a NOTAM whose estimated end has passed (rule 1 of CLAUDE.md says `EST` is an estimated end, not a time zone). 749 NOTAM chunks in the corpus carry `EST`; 3 chunks (2 distinct NOTAMs) are hidden because the estimated end is before the flight date: `EINN A4292/25`, `RJTT J0971/26`. Whether a package would still contain such a NOTAM is a question for the Exec (§5 Q9).
+`EST` after the dates means the end is estimated; the NOTAM stays in force until cancelled. The evaluator ignores `EST` and hides a NOTAM whose estimated end has passed (rule 1 of CLAUDE.md says `EST` is an estimated end, not a time zone). 749 NOTAM chunks in the corpus carry `EST`. Four distinct NOTAMs (5 chunks) are hidden because the estimated end has passed by the time of the ETA window: `EINN A4292/25` (end in March, two fixtures), `RJTT J0971/26` (end the day before the flight date), `RJCC C1326/26` (end earlier on the flight day, alternate), and `KORD A7829/26` at a **departure** airport (estimated end 26 minutes before ETA−60 on the flight day). Testing only "end before the flight date" misses the last two. Whether a package would still contain such a NOTAM is a question for the Exec (§5 Q9).
 
 ### G-11 (L) Year form the window reader cannot parse
 
-A year after the **start** date (`ddmmmhhmm yyyy-ddmmmhhmm yyyy`) is not read; the NOTAM is "in effect": `LIBD B0056/24`, `RODN M2326/25`, `KMIA A3340/25`, `KMIA A3337/25`, `YSSY H0353/25`.
+A year after the **start** date (`ddmmmhhmm yyyy-ddmmmhhmm yyyy`) is not read, so no window is found and the NOTAM counts as in effect (D27). 5 NOTAMs have this form. Two are shown: `KMIA A3340/25`, `KMIA A3337/25`. Three are hidden by the obstacle filter (G-4) before the window matters: `LIBD B0056/24`, `RODN M2326/25`, `YSSY H0353/25`.
 
 ### G-12 (L) Splitting, GNSS detail, refresh, drift
 
@@ -429,13 +433,15 @@ The result is a visible change on the airport card; it needs Exec approval of th
 
 So in the 33 fixtures there is no case where the remarks hold a forecast that the app does not already have. What a second source adds is protection when the briefing weather is missing, out of date or different, and the remarks say so. That case needs a fixture; none exists yet.
 
-**What D34 fixes, and what it leaves for the sprint.** D34 (confirmed) says the remarks weather is a second, expandable source that **never replaces** the briefing weather, and that each airport remark is tied to that airport's card. That rules out the E-WINS style "replace" for remarks. Still open:
+**What D34 fixes, and what it leaves for the sprint.** D34 (confirmed) says the remarks weather is a second, expandable source that **never replaces** the briefing weather, and that each airport remark is tied to that airport's card. These are **options for the sprint, not requirements**, except where D34 itself is quoted:
 1. *What counts as remarks weather:* a TAF/METAR in the standard form only (header `TAF ICAO ddhhmmZ dddd/dddd …`), or also free-text such as "TEMPO WX"? Free text cannot be evaluated with the existing parsers (`pCeil`, `pVis`, `pRVR`) and should be shown, not scored.
-2. *Parsing rule:* extract the TAF block and pass it through the same `extractEtaWindow` + ceiling/visibility/RVR code; no new weather logic.
-3. *How the two sources combine in the colour:* the briefing weather always stays. Options are (a) the card colour follows the briefing weather only and the remarks weather is shown beside it, or (b) both are evaluated and the **worse** level colours the card (fail-safe, in the spirit of D27). E-WINS keeps its existing replace behaviour unless the Exec says otherwise. Needs the Exec's answer (Q10).
-4. *Validity:* the remarks TAF carries its own issue time and period; apply the same ETA ±60 window, and use the OFP CFS window when one exists.
-5. *Provenance and placement:* the remarks weather sits on the same airport card, expandable, and labelled as remarks weather (a visible change; the screen needs approval). Remarks for an airport that has no card (for example an airport that is not in the release) have nowhere to go; the sprint must say what happens to them. The golden snapshot and the `opsNotes` text must not change for airports that have no remarks weather.
+2. *Option — parsing rule:* extract the TAF block and pass it through the existing `extractEtaWindow` + ceiling/visibility/RVR code, which would need no new weather logic. Another option is to write a separate reader for remarks.
+3. *How the two sources combine in the colour:* the briefing weather always stays. Options are (a) the card colour follows the briefing weather only and the remarks weather is shown beside it, or (b) both are evaluated and the **worse** level colours the card (fail-safe, in the spirit of D27). What happens to the existing E-WINS behaviour is **not settled here**: see the open conflict below (Q14). Needs the Exec's answer (Q10).
+4. *Option — validity:* the remarks TAF carries its own issue time and period; the same ETA ±60 window (and the OFP CFS window where one exists) could be applied, as for the briefing weather.
+5. *Option — provenance and placement:* D34 ties the remark to the airport's card and makes remarks weather expandable. How it is labelled, and what happens to a remark for an airport that has no card (for example one that is not in the release), are for the sprint and need approval of the screen (a visible change). One possible safeguard is that golden snapshots and the `opsNotes` text stay unchanged for airports without remarks weather.
 6. *Safety class:* weather is safety-critical (rule 6): positive test (remarks TAF with a low ceiling in the window turns the card red) and negative test (remarks TAF outside the window, or free text, does not).
+
+**Open conflict for the Exec — E-WINS (Q14).** Today an E-WINS release in the Remarks (`***FLIGHT RELEASED UNDER E-WINS AUTHORITY FOR TAF (ICAO)` followed by a `WSITAF` block) is read from the OFP Remarks by `extractEwins` and **replaces** the briefing TAF for that airport in `evalAirport` (`src/airports.html:290`–`297`). D34 says remarks weather **never replaces** the briefing weather. These two cannot both hold for an E-WINS release. This document does not settle which one wins; the Exec is asked in Q14.
 
 ### 4.3 D43 — the NOTAM ID is the identifier
 
@@ -474,10 +480,11 @@ Additional questions:
 - **Q7 — NOTAMs that are "in effect" but no rule recognises (1,925 of 2,997 in the test packages).** Should the airport card list them in some form, or is the colour alone enough? (This would be a screen change and needs your approval of the screen.) And should the card be yellow ("REVIEW") when the only reason is such a NOTAM?
 - **Q8 — Schedules.** When a NOTAM has a schedule the app cannot read (weekday names, sunrise/sunset, "H24", several clauses, or a time marked as local time), should it be shown as active with a "check schedule" note (recommended), or treated as inactive? And should a daily window be judged on the ETA minute or on ETA ±60 minutes, as the date window is?
 - **Q9 — Estimated end (`EST`).** If the estimated end has passed but the NOTAM is still in the package, treat it as still in force (recommended)?
-- **Q10 — Weather and PERM details (D34, D31).** (a) When the remarks weather and the briefing weather differ, should the card colour follow the **worse** of the two (recommended), or the briefing weather only with the remarks weather shown beside it? (b) For a PERM NOTAM whose text gives a period or a recurring window, is it enough that the evaluator shows it only while that period applies, and shows it (as today) when the period cannot be read?
+- **Q10 — Weather and PERM details (D34, D31).** (a) When the remarks weather and the briefing weather differ, should the card colour follow the **worse** of the two, or the briefing weather only with the remarks weather shown beside it? (b) For a PERM NOTAM whose text gives a period or a recurring window, is it enough that the evaluator shows it only while that period applies, and shows it (as today) when the period cannot be read?
 - **Q11 — NOTAMs about more than one runway.** File the NOTAM under every runway it names, or once under the first?
 - **Q12 — Same ID, different text (D43).** D43 settles that different IDs are never merged; it does not say what happens to two copies of the same ID. If two copies of the same NOTAM ID in one package differ, which one counts: the first printed, the later printed, or both?
 - **Q13 — Which fleet data do you want kept?** The app holds wingspan, weight and aerodrome code for each type (747-400 is code E, 64.4 m; 747-8 and LCF are code F; 777F is code E; 767-300 is code D). Please confirm or correct these, and say whether the aerodrome code for a stand/taxiway restriction should follow ICAO code letters or the company's own taxi limits.
+- **Q14 — E-WINS and D34.** An E-WINS release (in the Remarks) replaces the briefing TAF for that airport today. D34 says remarks weather never replaces the briefing weather. For an E-WINS airport, which is right: (a) the E-WINS forecast still replaces the briefing TAF, as an authorised exception to D34; (b) the briefing TAF stays and the E-WINS forecast is shown as the second source; (c) something else?
 
 ---
 
@@ -486,7 +493,8 @@ Additional questions:
 - **Corpus:** the 30 `navtech-company` (26) and `navtech-eofp-ios-print` (4) fixtures in `velocemente/pilotbrief-fixtures` (3 FlightKeys fixtures excluded: no NOTAM text is stored). 3,870 NOTAM chunks, 2,755 distinct IDs, 142 airports with NOTAM text.
 - **Path:** the app's own import path (`test/lib/app-path.js`: `processPDF` → `parseOFP`) on each fixture's stored text items, then, per airport, `_splitNotams` and `evalNotams` exactly as `evalAirport` calls them (role mapping, ETA, aircraft type, flight date). Each NOTAM was also evaluated alone so that the duplicate check could not hide it. The harness loads `index.html` unchanged.
 - **Rule matches** use the live `NM` table from the app; "winner" is the label and slot returned. "Shadowed" counts use the rule order in §2.5.
-- **"Has a row"** = the NOTAM is in `rwyGroups`, `sidIssues` or `starIssues` of the result. `infoIssues` and slot 7/8 items are not drawn by `renderAptIssues` (read in `src/edit.html:333`; and the empty-card check was run: no airport card was empty of every row because the weather "Open" line is always drawn).
+- **"Has a row"** = the NOTAM is in `rwyGroups`, `sidIssues` or `starIssues` of the result. `infoIssues` and slot 7 items are not drawn by `renderAptIssues` (read in `src/edit.html:333`; and the empty-card check was run: no airport card was empty of every row because the weather "Open" line is always drawn).
 - **Hidden-by-reason** counts: obstacle filter and aircraft filter by re-running their tests; window by `xNW_standalone` + `nwOverlap_standalone`; schedule by the two regexes in `evalNotams`.
+- **Counting rules and small differences.** (1) "Airports" = one airport in one fixture (142 with NOTAM text). "No row" = the airport has at least one in-effect NOTAM and none of them is in `rwyGroups`, `sidIssues` or `starIssues`; I count 27 evaluating the whole airport text or each NOTAM alone, an independent replay counted 28, and I could not identify the one airport that differs. (2) "Chunks" = the pieces `_splitNotams` returns, per airport per fixture, so the same NOTAM in two fixtures counts twice; "distinct IDs" removes that. (3) The obstacle-filter count is 510 for chunks with a readable ID and 512 with the 2 chunks that have none. (4) "Match at least one slot rule" is 1,103 when the rule list is replayed by regex only (a taxiway-restriction match counts even if `_twyApplies` says it does not apply) and 1,089 in an exact replay that includes that test; the 132 NOTAMs matching two or more rules is the same in both.
 - **Not done:** no production NOTAM feed, no FlightKeys, no live clock (the harness clock is fixed at 2026-10-30), no manual review of every hidden NOTAM. Counts of "wrong" readings (G-5) are limited to the 12 aircraft-filter hits that were read by hand.
 - Re-running requires a throwaway script outside the repository; none is added here.
