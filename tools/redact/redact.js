@@ -50,9 +50,19 @@ function fakeName(name) {
 
 // ── line rules ────────────────────────────────────────────────────────────
 // Returns { found: [{kind, orig}] } entries for registry building, and spans.
-const ROSTER = /^(\s*(?:CA|FO|FA|PU|LM|MX|DH|RO|IRO|SO)\s+(?:\*\s*)?)(\d{5,7})(\s+)(.+?)(?=\s+\.\.|\s*$)/;
+// FlightKeys prints a "*" after the employee number of some crew ("FO 123456 * NAME"); it is not part of the name.
+const ROSTER = /^(\s*(?:CA|FO|FA|PU|LM|MX|DH|RO|IRO|SO)\s+(?:\*\s*)?)(\d{5,7})(\s+(?:\*\s+)?)(.+?)(?=\s+\.\.|\s*$)/;
 const DH_NONUM = /^(\s*DH\s+)([A-Za-z][A-Za-z’'\-. ]*?)(\s+(?:FA|FO|CPT|PR|CA)\s*)$/;
+// FlightKeys jump-seat line: role, a single digit (seat count), then a name with no employee number
+// ("JS 1 FIRST LAST M" or "JS 1 LAST, FIRST"). Needs two name parts so "JS 1 TBA" is left alone.
+const JS_NONUM = /^(\s*JS\s+\d\s+)([A-Za-z][A-Za-z’'\-.]*(?:[, ]+[A-Za-z][A-Za-z’'\-.()]*)+)\s*$/;
 const DISPATCHER = /^(\s*Signed by Dispatcher:\s*)([A-Za-z][A-Za-z’'\-.() ]*?)\s*$/;
+// FlightKeys dispatcher contact line: "<FIRST LAST> DESK: <nn> PHONE: ..." (name = everything before " DESK:").
+// A label made only of these words ("DISPATCH DESK:") is a desk, not a person.
+const DESK_LINE = /^(\s*)([A-Za-z][A-Za-z’'\-.]*(?:\s+[A-Za-z][A-Za-z’'\-.]*){1,3})(?=\s+DESK:)/;
+const DESK_WORDS = new Set(['ATLAS', 'POLAR', 'DISPATCH', 'DISPATCHER', 'FLIGHT', 'OPERATIONS', 'OPS', 'CREW',
+  'SCHEDULING', 'CONTROL', 'CENTER', 'OCC', 'SYSTEM', 'SYSTEMS', 'AIR', 'CARGO', 'DUTY', 'PILOT', 'MAINTENANCE',
+  'CHIEF', 'SUPERVISOR', 'THE', 'TO', 'CALL', 'CONTACT']);
 
 function ruleMatches(line) {
   const out = []; // { kind, start, end, orig }
@@ -64,7 +74,11 @@ function ruleMatches(line) {
     out.push({ kind: 'crew', start: nameStart, end: nameStart + m[4].length, orig: m[4] });
   } else if ((m = DH_NONUM.exec(line))) {
     out.push({ kind: 'crew', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
+  } else if ((m = JS_NONUM.exec(line))) {
+    out.push({ kind: 'crew', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
   } else if ((m = DISPATCHER.exec(line)) && !/NOT RELEASED/i.test(m[2])) {
+    out.push({ kind: 'dispatcher', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
+  } else if ((m = DESK_LINE.exec(line)) && !m[2].toUpperCase().split(/\s+/).every(w => DESK_WORDS.has(w))) {
     out.push({ kind: 'dispatcher', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
   }
   return out;
