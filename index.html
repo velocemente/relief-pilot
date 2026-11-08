@@ -6332,7 +6332,8 @@ function recalcAllETAs() {
     }
   });
   // D51: the same offsets on the timeline, from the dated OUT (no 24 h wrap).
-  if (_tl.outMs !== null) {
+  // An OUT that is not a valid time ("2400") leaves the timeline as it was (F1).
+  if (_tl.outMs !== null && _tlHM(S.outZ) !== null) {
     if (S.destEtaOffsetMins !== null) _tl.etaDestMs = _tl.outMs + S.destEtaOffsetMins * 60000;
     S.altData.forEach(a => {
       if (a.ofpOffsetMins !== null) _tl.alt[a.icao] = _tl.outMs + a.ofpOffsetMins * 60000;
@@ -6367,7 +6368,8 @@ function recalcAllETAsFromOff(offZval) {
     }
   });
   // D51: the same offsets on the timeline, from the dated OFF (no 24 h wrap).
-  if (_tl.offMs !== null) {
+  // An OFF that is not a valid time ("2400") leaves the timeline as it was (F1).
+  if (_tl.offMs !== null && _tlHM(offZval) !== null) {
     if (S.tripMinutes !== null) _tl.etaDestMs = _tl.offMs + S.tripMinutes * 60000;
     S.altData.forEach(a => {
       if (a.ofpOffsetMins !== null) _tl.alt[a.icao] = _tl.offMs + Math.max(0, a.ofpOffsetMins - taxiMins) * 60000;
@@ -6454,28 +6456,86 @@ function _tlBuild() {
 
 // Restores a saved timeline. False (nothing restored) when it is missing or
 // does not match the saved HHMM values; the caller then rebuilds it.
+// A saved time that is not a valid time ("003", empty, "2400") is not compared:
+// the timeline kept the last good dated value (F1). While OUT or OFF holds a
+// 4-digit entry that is not a valid time, the HHMM recalcs have moved the
+// downline HHMM but not the timeline, so the downline is not compared either.
 function _tlRestore(saved) {
   if (!saved || typeof saved !== 'object') return false;
   const num = v => v === null || (typeof v === 'number' && isFinite(v));
-  const same = (ms, hhmm) => ms === null || _tlHHMM(ms) === String(hhmm || '');
+  const same = (ms, hhmm) => ms === null || _tlHM(hhmm) === null || _tlHHMM(ms) === String(hhmm || '');
+  const bad4 = v => String(v || '').length === 4 && _tlHM(v) === null;
+  const down = !bad4(S.outZ) && !bad4(S.offZ);
   if (!num(saved.outMs) || !num(saved.offMs) || !num(saved.etaDestMs)) return false;
   if (!saved.alt || typeof saved.alt !== 'object') return false;
-  if (!same(saved.outMs, S.outZ) || !same(saved.offMs, S.offZ) || !same(saved.etaDestMs, S.etaDest)) return false;
+  if (!same(saved.outMs, S.outZ) || !same(saved.offMs, S.offZ)) return false;
+  if (down && !same(saved.etaDestMs, S.etaDest)) return false;
   for (const a of (S.altData || [])) {
     const ms = saved.alt[a.icao];
     if (ms === undefined) continue;
-    if (!num(ms) || !same(ms, a.currentEta)) return false;
+    if (!num(ms) || (down && !same(ms, a.currentEta))) return false;
   }
   _tl = { outMs: saved.outMs, offMs: saved.offMs, etaDestMs: saved.etaDestMs, alt: { ...saved.alt } };
   return true;
 }
 
+// The OFP OUT (minutes of day) from the saved OFP times: each alternate keeps
+// its OFP ETA and its OFP offset from the OFP OUT. null when the save has none,
+// or when they disagree. Only when the OFP gave a DEST offset, which means the
+// alternate offsets came from the OFP OUT (not from the trip time).
+function _tlOfpOutMin() {
+  if (typeof S.destEtaOffsetMins !== 'number') return null;
+  let m = null;
+  for (const a of (S.altData || [])) {
+    const e = _tlHM(a.ofpEta);
+    if (e === null || typeof a.ofpOffsetMins !== 'number') continue;
+    const o = ((e - a.ofpOffsetMins) % 1440 + 1440) % 1440;
+    if (m !== null && m !== o) return null;
+    m = o;
+  }
+  return m;
+}
+
+// Rebuilds the timeline of a flight saved without one (an older version), F2.
+// OUT goes nearest the OFP OUT of the save (on the DOF date, within 12 h), so a
+// delay edited past 0000Z before this version stays on its date. Each downline
+// time goes nearest its planned time from that OUT (OFF: OUT + taxi; IN and
+// alternates: OUT, or OFF once entered, + its OFP offset, as the recalcs do);
+// an ETA with no OFP offset (CFS) is the first time at or after OFF / OUT, as
+// at import. A saved OUT that is not a valid time keeps the OFP OUT (F1).
+// No OFP times in the save → as at import (_tlBuild()).
+function _tlRecover() {
+  const day = _tlDayMs(window._flightDateISO);
+  const ofpOut = _tlOfpOutMin();
+  if (day === null || ofpOut === null) { _tlBuild(); return; }
+  _tlClear();
+  const planOut = day + ofpOut * 60000;
+  _tl.outMs = _tlHM(S.outZ) === null ? planOut : _tlPlaceNear(S.outZ, planOut);
+  _tl.offMs = _tlPlaceNear(S.offZ, _tlPlannedOffMs());
+  const base = _tl.offMs !== null ? _tl.offMs : _tl.outMs;
+  const trip = typeof S.tripMinutes === 'number' ? S.tripMinutes : null;
+  const taxiMins = trip !== null ? S.destEtaOffsetMins - trip : 0;
+  const plan = off => typeof off !== 'number' ? null
+    : _tl.offMs !== null ? _tl.offMs + Math.max(0, off - taxiMins) * 60000 : _tl.outMs + off * 60000;
+  const destPlan = _tl.offMs !== null && trip !== null ? _tl.offMs + trip * 60000 : plan(S.destEtaOffsetMins);
+  _tl.etaDestMs = destPlan === null ? _tlPlaceAfter(S.etaDest, base) : _tlPlaceNear(S.etaDest, destPlan);
+  (S.altData || []).forEach(a => {
+    const p = plan(a.ofpOffsetMins);
+    const ms = p === null ? _tlPlaceAfter(a.currentEta, base) : _tlPlaceNear(a.currentEta, p);
+    if (ms !== null) _tl.alt[a.icao] = ms;
+  });
+}
+
 // confirmEdit(): places an edited OUT / OFF / IN on its UTC date (see above).
 // The time it replaces: the current dated value; for OFF not yet entered, the
 // planned OFF; for anything with no dated value, as at import.
+// An entry that is not a valid time ("003", empty, "2400", minutes > 59) does
+// not change the timeline: the last good dated value stays, and the next valid
+// entry is placed nearest it (F1).
 function _tlPlaceEdit(field, hhmm) {
   const key = { outZ: 'outMs', offZ: 'offMs', etaDest: 'etaDestMs' }[field];
   if (!key) return;
+  if (_tlHM(hhmm) === null) return;
   let ref = _tl[key];
   if (ref === null && field === 'offZ') ref = _tlPlannedOffMs();
   if (ref !== null) { _tl[key] = _tlPlaceNear(hhmm, ref); return; }
@@ -6626,8 +6686,9 @@ function loadFlight(entry) {
     } catch(e) {}
   }
   // D51: the saved timeline (dated OUT / OFF / ETAs). A flight saved by an older
-  // version has none: it is rebuilt from the saved times as at import.
-  if (!_tlRestore(entry.timeline)) _tlBuild();
+  // version has none: each saved time is placed nearest its OFP planned time
+  // (_tlRecover(); no OFP times in the save → as at import).
+  if (!_tlRestore(entry.timeline)) _tlRecover();
   // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text
   if (entry.id) {
     _pdfDb.get(entry.id).then(buf => {

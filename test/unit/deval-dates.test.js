@@ -297,9 +297,10 @@ test('TC-140-007 IN (destination ETA) edit: placed nearest the time it replaces'
   edit(a, 'etaDest', '2200');
   assert.equal(at(tl(a).etaDestMs), '2026-03-10 22:00Z', '1000 → 2200: exactly 12 h → later');
   assert.equal(at(tl(a).outMs), '2026-03-09 23:00Z', 'OUT unchanged by an IN edit');
-  // Cleared → no dated IN (evaluation falls back to the flight date).
+  // Cleared → the dated IN is kept (F1, TC-141: an entry that is not a valid time never
+  // clears the timeline; before TC-141 this cleared it).
   edit(a, 'etaDest', '');
-  assert.equal(tl(a).etaDestMs, null);
+  assert.equal(at(tl(a).etaDestMs), '2026-03-10 22:00Z');
 });
 
 // ══ TC-140-008 ════════════════════════════════════════════════════════════
@@ -473,4 +474,246 @@ test('TC-140-014 TAF month end without an edit: a TAF issued the previous month'
   // Negative: the same TAF read at 01 MAY 0500Z selects FM010300, not FM302000.
   const late = a.extractEtaWindow(taf, hm('0500'), null, '2026-05-01');
   assert.match(late, /FM010300/); assert.doesNotMatch(late, /FM302000/);
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// TC-141 — QA findings on the D51 timeline (app PR #43).
+//   F1  an entry that is not a valid time ("003", empty, "2400", letters, minutes > 59)
+//       never clears, resets or re-dates the dated OUT, OFF or IN; the next valid entry
+//       is placed nearest the last good dated value. The field shows the entry as before.
+//   F2  a flight saved by an older version (no timeline) is reopened with each saved time
+//       nearest its OFP planned time from the save; no OFP times → as at import.
+//   D53 (Exec, 8 Nov) an IN edit does not move the alternate ETAs (as on main).
+//
+//   TC-141-001  OUT: invalid entries keep the dated OUT; the next valid one is dated from it
+//   TC-141-002  OFF: the same for OFF (and the IN computed from it)
+//   TC-141-003  IN: the same for IN
+//   TC-141-004  the QA sequence on the real package: OUT 2300 → "003" → 0030 = next day
+//   TC-141-005  OUT delayed past 0000Z after an invalid entry, real packages: no NOTAM in
+//               effect on the actual date is hidden
+//   TC-141-006  save → reload with an invalid entry standing keeps the last good dates
+//   TC-141-007  older save: recovery from the OFP times, with and without OFP times
+//   TC-141-008  D53: an IN edit leaves the alternate ETAs unchanged
+// ══════════════════════════════════════════════════════════════════════════
+// Entries that are not a valid time, as typed. confirmEdit() keeps the digits only (first 4).
+const INVALID = ['003', '', '2400', 'ABCD', '2360', '23'];
+const typed = v => v.replace(/\D/g, '').slice(0, 4);
+// The HHMM the screens read (S), to show the display is what it was before TC-141.
+const shown = a => ({ outZ: a.S.outZ, offZ: a.S.offZ, etaDest: a.S.etaDest, alts: a.S.altData.map(x => x.currentEta) });
+
+test('TC-141-001 OUT: an invalid entry keeps the dated OUT; the next valid entry is placed nearest it', () => {
+  for (const bad of INVALID) {
+    // OUT 09 MAR 2300 → 0030 (10 MAR) → invalid → 0045: 10 MAR, not 09 MAR.
+    const a = flight({ dof: '2026-03-09', out: '2300', destOff: 600, alts: [{ icao: 'XXXA', role: 'DEST ALT', off: 630 }] });
+    edit(a, 'outZ', '0030');
+    const good = tl(a);
+    assert.equal(at(good.outMs), '2026-03-10 00:30Z');
+    edit(a, 'outZ', bad);
+    // negative: nothing on the timeline changes
+    assert.deepEqual(tl(a), good, `"${bad}": timeline unchanged`);
+    // the field shows the entry, as before TC-141
+    assert.equal(a.S.outZ, typed(bad), `"${bad}": OUT field shows the entry`);
+    // positive: the next valid entry is placed nearest the last good OUT (10 MAR 0030)
+    edit(a, 'outZ', '0045');
+    const t = tl(a);
+    assert.equal(at(t.outMs), '2026-03-10 00:45Z', `"${bad}" then 0045: next day`);
+    assert.equal(at(t.etaDestMs), '2026-03-10 10:45Z', `"${bad}" then 0045: IN follows`);
+    assert.equal(at(t.alt.XXXA), '2026-03-10 11:15Z', `"${bad}" then 0045: ALT follows`);
+  }
+  // The other way (QA): 0100 → "23" → 2300 is the previous day.
+  const b = flight({ dof: '2026-03-10', out: '0100', destOff: 600 });
+  edit(b, 'outZ', '23');
+  assert.equal(at(tl(b).outMs), '2026-03-10 01:00Z', '"23": OUT unchanged');
+  edit(b, 'outZ', '2300');
+  assert.equal(at(tl(b).outMs), '2026-03-09 23:00Z', '0100 → "23" → 2300: previous day');
+  assert.equal(at(tl(b).etaDestMs), '2026-03-10 09:00Z');
+  // "2400" runs the HHMM recalc as before (display); the timeline downline is not reset.
+  const c = flight({ dof: '2026-03-09', out: '2300', destOff: 600 });
+  edit(c, 'etaDest', '1000');                       // IN 10 MAR 1000
+  edit(c, 'outZ', '2400');
+  assert.equal(c.S.etaDest, '1000', '"2400": IN shown as the recalc gives it (0000 + 600), as before');
+  assert.equal(at(tl(c).etaDestMs), '2026-03-10 10:00Z', '"2400": dated IN not reset');
+  assert.equal(at(tl(c).outMs), '2026-03-09 23:00Z', '"2400": dated OUT not reset');
+});
+
+test('TC-141-002 OFF: an invalid entry keeps the dated OFF; the next valid entry is placed nearest it', () => {
+  for (const bad of INVALID) {
+    // OUT 09 MAR 2300, OFF delayed to 10 MAR 0600 (7 h after OUT), invalid, then 1200.
+    // Nearest the last good OFF (0600) → 10 MAR 1200. Nearest the planned OFF (2320) would
+    // be 09 MAR 1200, before OUT.
+    const a = flight({ dof: '2026-03-09', out: '2300', destOff: 600, taxi: 20, alts: [{ icao: 'XXXA', role: 'DEST ALT', off: 630 }] });
+    edit(a, 'offZ', '0600');
+    const good = tl(a);
+    assert.equal(at(good.offMs), '2026-03-10 06:00Z');
+    assert.equal(at(good.etaDestMs), '2026-03-10 15:40Z', 'IN = OFF + trip 580');
+    const before = shown(a);
+    edit(a, 'offZ', bad);
+    assert.deepEqual(tl(a), good, `"${bad}": timeline unchanged (OFF and IN)`);
+    assert.equal(a.S.offZ, typed(bad), `"${bad}": OFF field shows the entry`);
+    if (typed(bad).length !== 4) assert.deepEqual({ ...shown(a), offZ: before.offZ }, before, `"${bad}": other times shown as before`);
+    edit(a, 'offZ', '1200');
+    const t = tl(a);
+    assert.equal(at(t.offMs), '2026-03-10 12:00Z', `"${bad}" then 1200: on 10 MAR`);
+    assert.equal(at(t.etaDestMs), '2026-03-10 21:40Z', `"${bad}" then 1200: IN follows`);
+    assert.equal(at(t.alt.XXXA), '2026-03-10 22:10Z', `"${bad}" then 1200: ALT follows`);
+    assert.equal(at(t.outMs), '2026-03-09 23:00Z', 'OUT unchanged');
+  }
+});
+
+test('TC-141-003 IN: an invalid entry keeps the dated IN; the next valid entry is placed nearest it', () => {
+  for (const bad of INVALID) {
+    // OUT 09 MAR 0100, IN 1100 → 2000 → 0400 (10 MAR), invalid, then 0500 → 10 MAR.
+    const a = flight({ dof: '2026-03-09', out: '0100', destOff: 600, alts: [{ icao: 'XXXA', role: 'DEST ALT', off: 630 }] });
+    edit(a, 'etaDest', '2000');
+    edit(a, 'etaDest', '0400');
+    const good = tl(a);
+    assert.equal(at(good.etaDestMs), '2026-03-10 04:00Z');
+    edit(a, 'etaDest', bad);
+    assert.deepEqual(tl(a), good, `"${bad}": timeline unchanged`);
+    assert.equal(a.S.etaDest, typed(bad), `"${bad}": IN field shows the entry`);
+    edit(a, 'etaDest', '0500');
+    assert.equal(at(tl(a).etaDestMs), '2026-03-10 05:00Z', `"${bad}" then 0500: on 10 MAR`);
+    assert.equal(at(tl(a).outMs), '2026-03-09 01:00Z', 'OUT unchanged');
+  }
+});
+
+test('TC-141-004 the QA sequence on the real package: OUT 2300 → "003" → 0030 is on the next day', async () => {
+  const dir = requireFixtures();
+  const fx = readManifest(dir).fixtures.find(f => f.id === 'NB_YSSY-RKSI_11MAR26_rda_rev6');
+  assert.ok(fx, 'package in the fixtures');
+  const { app } = await importFixture(fx, dir);
+  assert.equal(app.S.outZ, '2300');
+  const before = shown(app), good = tl(app);
+  edit(app, 'outZ', '003');
+  assert.deepEqual(tl(app), good, '"003": timeline unchanged');
+  assert.deepEqual({ ...shown(app), outZ: before.outZ }, before, '"003": the other times are shown as before');
+  assert.equal(app.S.outZ, '003', '"003": OUT shows the entry, as before');
+  edit(app, 'outZ', '0030');
+  const t = tl(app);
+  assert.equal(at(t.outMs), '2026-03-12 00:30Z', 'OUT 12 MAR 0030 (QA expected)');
+  assert.equal(at(t.etaDestMs), '2026-03-12 10:48Z', 'IN 12 MAR 1048 (QA expected)');
+  for (const a of app.S.altData) {
+    if (typeof a.ofpOffsetMins === 'number') assert.equal(iso(t.alt[a.icao]), '2026-03-12', `${a.icao} on 12 MAR`);
+  }
+  // The departure NOTAM date is the date of the current OUT.
+  assert.equal(run(app, `_tlNotamDate(${t.outMs}, ${hm('0030')})`).flightISO, '2026-03-12');
+});
+
+test('TC-141-005 OUT delayed past 0000Z after an invalid entry, real packages: no NOTAM in effect on the actual date is hidden', async () => {
+  const dir = requireFixtures();
+  const man = readManifest(dir);
+  let inEffect = 0;
+  for (const [id, newOut] of QA_EDITS) {
+    const fx = man.fixtures.find(f => f.id === id);
+    assert.ok(fx, `${id} in the fixtures`);
+    const imp = await importFixture(fx, dir);
+    const app = imp.app, dof = app.sandbox.window._flightDateISO;
+    edit(app, 'outZ', newOut.slice(0, 3));            // the incomplete entry first ("003")
+    edit(app, 'outZ', newOut);
+    assert.equal(iso(tl(app).outMs), iso(Date.parse(dof + 'T00:00:00Z') + DAY), `${id}: OUT moved to D + 1`);
+    for (const apt of app.getAllAirports()) {
+      const data = imp.airportData[apt.icao] || {};
+      if (!(data.notams && data.notams.trim()) || !apt.eta) continue;
+      const e = run(app, `_tlEtaMs(${JSON.stringify(apt.icao)}, ${JSON.stringify(apt.role)}, ${JSON.stringify(apt.eta)})`);
+      const role = apt.role === 'ORIG' ? 'ORIG' : 'DEST';
+      const ref = app.evalNotams(app._splitNotams(data.notams), role, hm(apt.eta), imp.S.acftType, iso(e), hm(apt.eta));
+      const want = [];
+      for (const [, g] of ref.rwyGroups) for (const it of g.items) want.push(it.notamRaw);
+      (ref.sidIssues || []).concat(ref.starIssues || []).forEach(i => want.push(i.notamRaw));
+      const shownN = new Set(card(app, apt.icao).notams);
+      inEffect += want.length;
+      assert.deepEqual(want.filter(n => !shownN.has(n)).map(n => n.split('\n')[0].slice(0, 22)), [], `${id} ${apt.icao} ${apt.role}: NOTAMs in effect at ${at(e)} hidden`);
+    }
+  }
+  assert.ok(inEffect > 100, `${inEffect} NOTAMs in effect checked`);
+});
+
+test('TC-141-006 save → reload with an invalid entry standing keeps the last good dates', () => {
+  for (const bad of ['003', '', '2400']) {
+    const a = flight({ dof: '2026-03-09', out: '2300', destOff: 600, alts: [{ icao: 'XXXA', role: 'DEST ALT', off: 630 }] });
+    edit(a, 'outZ', '0030');                          // 10 MAR 0030
+    const good = tl(a);
+    edit(a, 'outZ', bad);                             // saved with the invalid entry
+    const b = reload(a);
+    assert.deepEqual(tl(b), good, `"${bad}": reloaded timeline = the last good one`);
+    assert.equal(b.S.outZ, typed(bad), `"${bad}": OUT field shows the entry after reload`);
+    edit(b, 'outZ', '0045');
+    assert.equal(at(tl(b).outMs), '2026-03-10 00:45Z', `"${bad}", reload, 0045: next day`);
+  }
+  // Empty OFF after a dated OFF: kept across reload.
+  const c = flight({ dof: '2026-03-09', out: '2300', destOff: 600 });
+  edit(c, 'offZ', '0600');
+  edit(c, 'offZ', '');
+  assert.equal(at(tl(reload(c)).offMs), '2026-03-10 06:00Z', 'empty OFF: dated OFF kept after reload');
+  // negative: a saved timeline that does not match a valid saved time is still not used
+  const d = flight({ dof: '2026-03-09', out: '2300', destOff: 600 });
+  edit(d, 'outZ', '0030');
+  const fl = d.getFlights(); fl[0].timeline.outMs -= 3600000;   // 2330 ≠ saved 0030
+  const e = loadApp({ storageData: { rp_flights: fl } });
+  e.loadFlight(e.getFlights()[0]);
+  assert.notEqual(tl(e).outMs, fl[0].timeline.outMs, 'mismatched timeline not restored');
+});
+
+test('TC-141-007 older save: each saved time nearest its OFP planned time; no OFP times → as at import', async () => {
+  const oldSave = a => { a.saveFlight(); const f = a.getFlights(); delete f[0].timeline; return f; };
+  const open = f => { const b = loadApp({ storageData: { rp_flights: f } }); b.loadFlight(b.getFlights()[0]); return b; };
+  // OUT 09 MAR 2300 edited to 0030 by an older version (no timeline in the save).
+  const mk = () => flight({ dof: '2026-03-09', out: '2300', destOff: 600, alts: [{ icao: 'XXXA', role: 'DEST ALT', off: 630 }] });
+  let a = mk();
+  edit(a, 'outZ', '0030');
+  let t = tl(open(oldSave(a)));
+  assert.equal(at(t.outMs), '2026-03-10 00:30Z', 'OUT nearest the OFP OUT (09 MAR 2300) → 10 MAR');
+  assert.equal(at(t.etaDestMs), '2026-03-10 10:30Z', 'IN follows');
+  assert.equal(at(t.alt.XXXA), '2026-03-10 11:00Z', 'ALT follows');
+  // An earlier OUT (2230) stays on 09 MAR; no edit is as at import.
+  a = mk(); edit(a, 'outZ', '2230');
+  assert.equal(at(tl(open(oldSave(a))).outMs), '2026-03-09 22:30Z', 'OUT 2230 → 09 MAR');
+  a = mk();
+  const imp = tl(a);
+  assert.deepEqual(tl(open(oldSave(a))), imp, 'no edit → the same timeline as at import');
+  // OFF and IN entered: OFF nearest OUT + taxi, IN nearest OFF + trip.
+  a = mk(); edit(a, 'outZ', '0030'); edit(a, 'offZ', '0100'); edit(a, 'etaDest', '1030');
+  t = tl(open(oldSave(a)));
+  assert.equal(at(t.offMs), '2026-03-10 01:00Z');
+  assert.equal(at(t.etaDestMs), '2026-03-10 10:30Z');
+  assert.equal(at(t.alt.XXXA), '2026-03-10 11:10Z', 'ALT = OFF + (630 - taxi 20)');
+  // A saved OUT that is not a valid time: the OFP OUT is kept; the next entry is nearest it.
+  a = mk(); edit(a, 'outZ', '003');
+  const b = open(oldSave(a));
+  assert.equal(at(tl(b).outMs), '2026-03-09 23:00Z');
+  edit(b, 'outZ', '0030');
+  assert.equal(at(tl(b).outMs), '2026-03-10 00:30Z');
+  // negative: no OFP times in the save → as at import (OUT on the DOF date).
+  a = flight({ dof: '2026-03-09', out: '2300', destOff: 600 });   // no alternates
+  edit(a, 'outZ', '0030');
+  assert.equal(at(tl(open(oldSave(a))).outMs), '2026-03-09 00:30Z', 'no alternates → as at import');
+  a = mk(); edit(a, 'outZ', '0030');
+  let f = oldSave(a); f[0].state.destEtaOffsetMins = null;         // offsets not from the OFP OUT
+  assert.equal(at(tl(open(f)).outMs), '2026-03-09 00:30Z', 'no OFP DEST offset → as at import');
+  a = flight({ dof: '2026-03-09', out: '2300', destOff: 600, alts: [{ icao: 'XXXA', role: 'DEST ALT', off: 630 }, { icao: 'XXXB', role: 'DEST ALT', off: 640 }] });
+  edit(a, 'outZ', '0030');
+  f = oldSave(a); f[0].state.altData[1].ofpOffsetMins = 700;       // the OFP times disagree
+  assert.equal(at(tl(open(f)).outMs), '2026-03-09 00:30Z', 'OFP times disagree → as at import');
+  // QA Q14 on the real package: saved by an older version after OUT 2300 → 0030.
+  const dir = requireFixtures();
+  const fx = readManifest(dir).fixtures.find(x => x.id === 'NB_YSSY-RKSI_11MAR26_rda_rev6');
+  const { app } = await importFixture(fx, dir);
+  edit(app, 'outZ', '0030');
+  const want = tl(app);
+  const r = tl(open(oldSave(app)));
+  assert.equal(at(r.outMs), '2026-03-12 00:30Z', 'Q14: OUT 12 MAR 0030');
+  assert.deepEqual(r, want, 'Q14: the same timeline as before the save');
+});
+
+test('TC-141-008 D53: an IN edit leaves the alternate ETAs unchanged', () => {
+  const a = flight({ dof: '2026-03-13', out: '1200', destOff: 560, alts: [{ icao: 'XXXA', role: 'DEST ALT', off: 576 }] });
+  const alt0 = a.S.altData[0].currentEta, altMs = tl(a).alt.XXXA;
+  edit(a, 'etaDest', '0045');                        // IN 2120 → 0045 (14 MAR)
+  assert.equal(at(tl(a).etaDestMs), '2026-03-14 00:45Z', 'IN moved to 14 MAR');
+  assert.equal(a.S.altData[0].currentEta, alt0, 'ALT shown unchanged');
+  assert.equal(tl(a).alt.XXXA, altMs, 'dated ALT unchanged');
+  // negative: an OUT edit does move the alternates
+  edit(a, 'outZ', '1300');
+  assert.notEqual(a.S.altData[0].currentEta, alt0, 'OUT edit moves the ALT');
+  assert.equal(tl(a).alt.XXXA, altMs + 3600000, 'OUT +1 h → dated ALT +1 h');
 });
