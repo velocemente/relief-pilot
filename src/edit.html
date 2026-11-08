@@ -96,6 +96,11 @@ function confirmEdit() {
   }
   S[_editField] = val;
 
+  // D51: an edited OUT / OFF / IN goes on the UTC date nearest the time it
+  // replaces (2300Z → 0100Z is the next day); the recalcs below date every
+  // downline time from it.
+  if (_editField === 'outZ' || _editField === 'offZ' || _editField === 'etaDest') _tlPlaceEdit(_editField, val);
+
   // Block fuel change → apply delta to TOGW
   if (_editField === 'blockFuel') _togwDeltaFromBlock(_prevBlockFuel);
 
