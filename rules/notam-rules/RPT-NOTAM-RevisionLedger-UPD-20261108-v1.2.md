@@ -1,12 +1,12 @@
 # NOTAM Ruleset — Revision Ledger
 
-**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261107-v1.1.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20260609-v1.0.md`)
-**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.11.0.js`
-**Current Version:** 1.11.0
-**Lines:** 2,000
+**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.2.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261107-v1.1.md`)
+**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.11.1.js`
+**Current Version:** 1.11.1
+**Lines:** 2,021
 **Patterns:** 66 NM (v1.10.1 also has 66; the "39 NM" in ledger v1.0 did not match its own file)
-**QA Status:** TC-120-001 … 030 PASS (11/11); existing NOTAM tests 66/66 PASS against the module
-**Last Updated:** 2026-11-07
+**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); NOTAM unit tests 73/73 PASS against the module
+**Last Updated:** 2026-11-08
 
 ---
 
@@ -14,11 +14,11 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total Patches | 21 (P-01 through P-21) |
-| Current Version | 1.11.0 |
+| Total Patches | 22 (P-01 through P-22) |
+| Current Version | 1.11.1 |
 | First Integration | v1.9.7 |
-| Latest Integration | app 1.9.9-hf2 (P-14 … P-18); app `main`, unreleased (P-19, P-20); module 1.11.0 not yet integrated (P-21) |
-| Gate Status | P-01 … P-20 PASS; P-21 pending Exec gate (ADR-005 §2.2.6) |
+| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 pending (P-22) |
+| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 pending Exec gate (ADR-005 §2.2.6) |
 | Open DEFs Against This Ruleset | 4 (ARCH-03 through ARCH-06, all DEFERRED S4). ARCH-01 and ARCH-02 closed by P-21. |
 
 **What changed in v1.1 of this ledger.** The entries P-01 … P-13 of v1.0 are kept unchanged below. P-14 … P-20 record the NOTAM fixes made in the app (`src/notam.html`) since June, which the master v1.10.1 never received (ADR-005 §1.2). P-21 is the extraction of the module. The planned patch numbers of the ARCH items (v1.0: P-14 … P-19) are therefore re-assigned (see "Pending Architecture Items"). A reconciliation of master v1.10.1 against the app follows the patch chain.
@@ -371,6 +371,23 @@
 
 ---
 
+### P-22 — Next-day arrival at or after 1200Z: the window check uses the ETA's UTC date (v1.11.1)
+
+| Field | Value |
+|:------|:------|
+| Date | 2026-11-08 |
+| Ruleset Version | 1.11.1 |
+| Type | BUG |
+| DEF-ID | HF-8 QA S2 (velocemente/relief-pilot#36), 1.9.9-hf3 gate known item (velocemente/relief-pilot#40); D27 |
+| PR | relief-pilot, branch `claude/zealous-wozniak-gpofza` |
+| Summary | `nwOverlap_standalone` anchored the ETA on the departure date D and tried D + 1 only when the ETA time was before 1200Z (`etaMin < 720`). On a flight that lands on D + 1 at or after 1200Z, a NOTAM dated only for the arrival day failed the window check and was skipped before its schedule was read; the schedule check (`_schedWindowMinutes`, P-19) already used D + 1. Now `nwOverlap_standalone` takes `depMin` (passed by `evalNotams`) and also tries D + 1 when the departure time is known and `etaMin < depMin`, the same rule as the schedule check. Additive: every date tried before is still tried (hidden → shown only). Departure time unknown: unchanged. |
+| Patterns Affected | none (NM unchanged); `nwOverlap_standalone` (new optional 4th argument `depMin`), `evalNotams` window call |
+| Gate Result | Pending — Exec gate and independent QA session (ADR-005 §2.2.6) |
+| Integrated In | this PR (module revision, plan v4.1 §2) |
+| QA Verification | TC-121-001 … 007 (7/7; 6 of 7 fail on v1.11.0, the negatives pass on both). All existing tests pass. Corpus: no NOTAM result changes on 30 Navtech/eOFP fixtures / 142 airports / 3,870 NOTAMs (43 airports land on D + 1, none at or after 1200Z); golden, V0 NOTAM and app-path snapshots unchanged. |
+
+---
+
 ## Reconciliation — master v1.10.1 vs the app (2026-11-07)
 
 Method: the master `notam-rules-v110-1.js` (128,922 bytes, SHA-256 `5b95b64a…913bd`) was compared line by line with the app's NOTAM engine on `main` and with the engine as synced from production v1.9.9 (relief-pilot#1, commit c849cd9, before any hotfix).
@@ -429,3 +446,4 @@ These are tracked in the Defect Register as ARCH-01 through ARCH-06. ARCH-01 and
 |:-----|:-------|
 | 2026-06-09 | Initial ledger created. 13 patches documented (P-01 through P-13). All gate results PASS. |
 | 2026-11-07 | v1.1: P-14 … P-20 (app hotfixes since June: HF-1, HF-5, HF-6, HF-8) and P-21 (module extraction v1.11.0) added; reconciliation of master v1.10.1 against the app; ARCH-01/02 closed. v1.0 entries unchanged. |
+| 2026-11-08 | v1.2: P-22 (v1.11.1, next-day arrival at or after 1200Z) added; summary updated for the 1.9.9-hf3 integration of P-21. P-01 … P-21 entries unchanged. |

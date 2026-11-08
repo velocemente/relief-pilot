@@ -3356,12 +3356,22 @@ function lookupAbbreviation(abbr) {
 
 
 /**
- * notam-rules.js — NOTAM Interpretation Ruleset  (v1.11.0)
+ * notam-rules.js — NOTAM Interpretation Ruleset  (v1.11.1)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.3): NOTAM splitting, header and date
  * reading, schedules, evaluation (evalNotams) and grouping, exactly as the
  * PilotBrief app runs them on main at the time of extraction. The GNSS NOTAM
  * ruleset (evalGNSS) is a separate module and is not part of this file.
+ *
+ * Changelog v1.11.1 (vs v1.11.0; ledger P-22):
+ *   FIX — next-day arrival at or after 1200Z: the date-range check
+ *     (nwOverlap_standalone) now also tries D + 1 when the ETA time of day
+ *     is earlier than the departure time (the flight crossed 0000Z) — the
+ *     same rule the schedule check (_schedWindowMinutes) uses for the ETA's
+ *     UTC date. Before, it tried D + 1 only for an ETA before 1200Z, so a
+ *     NOTAM dated only for the arrival day was hidden before its schedule
+ *     was read. Additive: every date tried before is still tried, so a NOTAM
+ *     can only change from hidden to shown. Departure time unknown: as before.
  *
  * Changelog v1.11.0 (vs master v1.10.1):
  *   ENGINE — follows the app (src/notam.html, src/airports.html on main):
@@ -3408,7 +3418,7 @@ function lookupAbbreviation(abbr) {
 // ═══════════════════════════════════════════════════════════════
 
 const RULESET_TYPE    = 'notam';
-const RULESET_VERSION = '1.11.0';
+const RULESET_VERSION = '1.11.1';
 // Unchanged from the current contract: rules-loader.js v1.0.0 requires
 // SCHEMA_VERSION >= 2 for 'notam'. The export shape and the evalNotams()
 // return shape are unchanged, so the value stays 2.
@@ -3671,12 +3681,18 @@ function _resolveInlineDateRange(startToken, endToken, baseYear, issYear, flight
  * Check whether a NOTAM UTC window overlaps with the ETA window (ETA ±60 min).
  * Uses full UTC millisecond comparison — immune to midnight/day rollover.
  *
+ * v1.11.1: when the departure time is known and the ETA time of day is
+ * earlier than it, the ETA is on D + 1 (the rule of _schedWindowMinutes) and
+ * D + 1 is tried whatever the ETA time. Every anchor tried before is still
+ * tried (additive).
+ *
  * @param {{ startMs:number, endMs:number }} w
  * @param {number|null} etaMin        — ETA as minutes-of-day (0–1439), or null
  * @param {string|null} flightDateISO — 'YYYY-MM-DD'
+ * @param {number|null} [depMin]      — departure (OUT) as minutes-of-day, or null/omitted
  * @returns {boolean}
  */
-function nwOverlap_standalone(w, etaMin, flightDateISO) {
+function nwOverlap_standalone(w, etaMin, flightDateISO, depMin) {
   if (etaMin === null) return true; // no ETA → treat as active
   // v1.11.0: no window._flightDateISO fallback (no app state); the caller passes the flight date.
   const iso = flightDateISO || null;
@@ -3695,7 +3711,12 @@ function nwOverlap_standalone(w, etaMin, flightDateISO) {
   // to the DEPARTURE date — one day too early. When etaMin is before noon
   // (< 720), the ETA is almost certainly the next calendar day. Evaluate
   // the NOTAM window against the next-day anchor as a conservative fallback.
-  if (etaMin < 720) {
+  // v1.11.1: the departure time, when known, gives the ETA's UTC date as in
+  // _schedWindowMinutes(): ETA time earlier than the departure time → D + 1.
+  // Before, an arrival on D + 1 at or after 1200Z was checked on D only, and
+  // a NOTAM dated only for the arrival day was hidden.
+  const depKnown = depMin !== null && depMin !== undefined && !isNaN(depMin);
+  if (etaMin < 720 || (depKnown && etaMin < depMin)) {
     const nextMs = etaMs + 86400000;
     return w.startMs < nextMs + 3600000 && w.endMs > nextMs - 3600000;
   }
@@ -5057,7 +5078,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
     // D31: an estimated end (EST) is not an end — the NOTAM stays in effect
     // until cancelled or replaced. Only its start still limits it.
     if (w && _windowEndEstimated(notamRaw)) w = { startMs: w.startMs, endMs: Infinity };
-    if (w) active = nwOverlap_standalone(w, etaMin, resolvedISO);
+    if (w) active = nwOverlap_standalone(w, etaMin, resolvedISO, depMin);   // v1.11.1: depMin
 
     // ── OFP inline schedule (Atlas Air format): "DD-DD DD-DD ... HHMM-HHMM" ──
     // These lines follow the NOTAM header and restrict activity to specific

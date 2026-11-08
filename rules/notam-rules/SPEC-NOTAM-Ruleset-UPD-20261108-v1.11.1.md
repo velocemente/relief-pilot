@@ -1,12 +1,12 @@
 # SPEC-NOTAM-Ruleset
 
-**Version:** v1.11.0 | **Status:** UPD | **Date:** 2026-11-07
+**Version:** v1.11.1 | **Status:** UPD | **Date:** 2026-11-08
 **Owner:** Engineering | **Approver:** Exec
 **Tier:** 2 — Platform Architecture
-**Module file:** `rules/notam-rules/notam-rules-v1.11.0.js` (SHA-256 in `rules/manifest.json`)
+**Module file:** `rules/notam-rules/notam-rules-v1.11.1.js` (SHA-256 in `rules/manifest.json`)
 **Architecture:** ADR-005 §2.1–2.3, §2.5 (module catalogue, module standard, master copies and CI)
-**Ledger:** `RPT-NOTAM-RevisionLedger-UPD-20261107-v1.1.md` (beside this file)
-**Supersedes:** master `notam-rules-v110-1.js` (v1.10.1, Drive "00_General Rulesets / 00_Notam Rules")
+**Ledger:** `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.2.md` (beside this file)
+**Supersedes:** v1.11.0 (previous master, Drive "00_General Rulesets / 00_Notam Rules"), which superseded master `notam-rules-v110-1.js` (v1.10.1)
 
 ---
 
@@ -18,6 +18,8 @@ v1.11.0 is an **extraction**: it is the NOTAM engine the PilotBrief app runs tod
 
 The app is **not** changed by this version. Integration into `index.html` is a separate PR (ADR-005 §2.3.3).
 
+**v1.11.1** is a **revision** (ledger P-22): one fix to the date-range check for a flight that lands on the next UTC day at or after 1200Z (§6). Nothing else changes. It is integrated in the same PR (plan v4.1 §2 module revision).
+
 **Not in this module:** the GNSS NOTAM ruleset (`evalGNSS`, a separate module), weather, the airport card (`evalAirport`, `renderAptIssues`), and the legacy window code `xNW` / `nwOverlap` / `oETA` / `_notamWindow` in `src/airports.html` (not used by the NOTAM path since HF-5).
 
 ---
@@ -28,7 +30,7 @@ The app is **not** changed by this version. Integration into `index.html` is a s
 | :--- | :--- |
 | One standalone file | Yes. No `require`, no imports. |
 | Dual context | Node: `module.exports = API`. rules-loader (`new Function('module','exports','require', code)`): same. Browser, built into `index.html` unchanged: no `module` exists, so the API object is published once as the global **`NotamRules`**. All declarations live inside one factory function, so none of them collides with the app's names (for example the OFP ruleset's own `RULESET_TYPE`). |
-| Metadata | `RULESET_TYPE = 'notam'`, `RULESET_VERSION = '1.11.0'`, `SCHEMA_VERSION = 2`, `RULESET_SOURCE` (ICAO Annex 15, Doc 8126, Doc 4444 App 6; FAA JO 7930.2, AIP GEN 3.1; Atlas Air / Polar Air Cargo OFP NOTAM briefing (NavBlue)). |
+| Metadata | `RULESET_TYPE = 'notam'`, `RULESET_VERSION = '1.11.1'`, `SCHEMA_VERSION = 2`, `RULESET_SOURCE` (ICAO Annex 15, Doc 8126, Doc 4444 App 6; FAA JO 7930.2, AIP GEN 3.1; Atlas Air / Polar Air Cargo OFP NOTAM briefing (NavBlue)). |
 | `SCHEMA_VERSION` | **2 — the current contract's value, kept.** It is the minimum `rules-loader.js` v1.0.0 requires for `'notam'` (`SCHEMA_VERSION_REQUIRED.notam = 2`) and the `schemaVersion` of the customer configuration. The export shape and the `evalNotams()` return shape did not change, so no increment. |
 | `validateSchema()` | Yes (closes ledger ARCH-02). See §3. |
 | No app state, no DOM, no UI | No `window`, `document`, storage, network or app state. (`evalNotams` still returns its display text with the `nt-red` / `nt-yel` span markup, exactly as today — this is part of the return contract the card renders, see §8.) |
@@ -47,7 +49,7 @@ The app is **not** changed by this version. Integration into `index.html` is a s
   _splitNotams,              // (text) -> string[]
   evalNotams,                // (notams, role, etaMin, acftType, flightDateISO, depMin?) -> result (§8)
   xNW_standalone,            // (notamText, flightDateISO) -> { startMs, endMs } | null
-  nwOverlap_standalone,      // (window, etaMin, flightDateISO) -> boolean
+  nwOverlap_standalone,      // (window, etaMin, flightDateISO, depMin?) -> boolean   (depMin: v1.11.1)
   _windowEndEstimated,       // (notamText) -> boolean   (D31 "EST" end)
   _resolveInlineDateRange,   // (startToken, endToken, baseYear, issYear, flightMo, flightISO) -> window | null
   _classifyNotamSlot,        // (nu, notamRaw, role, acftType, active) -> { slot, level, label, keyRe, rwy, category }
@@ -74,7 +76,7 @@ The app is **not** changed by this version. Integration into `index.html` is a s
 | `etaMin` | ETA (or departure time for ORIG) as minutes of the UTC day, 0–1439; `null` when unknown (no date or schedule check then: in effect). |
 | `acftType` | ICAO type (`'B744'`) or a profile from `buildAcftProfile`. Unknown type → worst-case profile (nothing hidden by mistake). |
 | `flightDateISO` | `'YYYY-MM-DD'` departure date. **The caller must pass it** (v1.11.0 has no `window._flightDateISO` fallback). Falsy → no flight date: dates are read against the device clock year (§2) and the window/day-of-month checks are not applied (in effect). |
-| `depMin` | Departure (OUT) as minutes of the UTC day, or `null`/absent. Gives the UTC date of the ETA for schedule checks: D + 1 when `etaMin < depMin`. Unknown → both D and D + 1 are tried. |
+| `depMin` | Departure (OUT) as minutes of the UTC day, or `null`/absent. Gives the UTC date of the ETA: D + 1 when `etaMin < depMin`. Schedule checks (§7): unknown → both D and D + 1 are tried. Window check (§6, v1.11.1): D + 1 is also tried when `etaMin < depMin`; unknown → as before. |
 
 ---
 
@@ -109,7 +111,9 @@ The year rules (`/YY` = the issue year from the NOTAM ID, e.g. `A0486/26` → 20
 | **D38** | Year crossing. No `/YY`: when the end month is before the start month the end is in the next year, anchored to the flight month, so a late-DEC and an early-JAN flight get the same window. With `/YY` on `WEF`/`EFFECTIVE` (the New-Year window, HF-6): every start year from the issue year to the flight year is tried (end in the year after) and the first window that covers the flight date is used; if none does, the flight-anchored window (start never before the issue year). An issue year after the flight year → no window. |
 | **D31** | `UFN` / `UFN(EST …)`: no date range is read → no window → in effect. An **estimated end** (`EST` right after the end of the range that was read, any of the 5 patterns) is **not an end**: `evalNotams` keeps the start and sets the end to infinity (`_windowEndEstimated`). PERM: see §11 (the body text is not read). |
 
-**In effect at the ETA** — `nwOverlap_standalone(w, etaMin, flightDateISO)`: true when the window overlaps ETA − 60 min … ETA + 60 min on the flight date; when `etaMin < 720` the next UTC day is also tried (cross-midnight guard). No ETA or no flight date → true.
+**In effect at the ETA** — `nwOverlap_standalone(w, etaMin, flightDateISO, depMin)`: true when the window overlaps ETA − 60 min … ETA + 60 min on the flight date; the next UTC day (D + 1) is also tried when `etaMin < 720` (cross-midnight guard) **or, v1.11.1, when the departure time is known and `etaMin < depMin`** (the flight crossed 0000Z: the ETA is on D + 1, the same rule as the schedule check in §7). No ETA or no flight date → true.
+
+*v1.11.1 fix (P-22).* In v1.11.0 D + 1 was tried only for an ETA before 1200Z. On a flight that lands on D + 1 at or after 1200Z, a NOTAM dated only for the arrival day failed this check on D and was skipped before its schedule (§7) was read, although the schedule check itself already used the right date. The change is additive: every date tried before is still tried, so a NOTAM can only change from hidden to shown. Departure time unknown: unchanged (D, and D + 1 only for an ETA before 1200Z).
 
 ---
 
@@ -181,9 +185,10 @@ The only edits to the copied code: the `window._flightDateISO` fallback is remov
 | TC-120-011 | **Equivalence** of every NOTAM's window, EST flag and overlap (airport text and the whole OFP text) | 11,574 NOTAMs; **0 differences** |
 | TC-120-012 | **Equivalence** beyond the ETA: both roles, 9 times of day, departure known/unknown, no flight date | 7,668 calls; **0 differences** |
 | TC-120-013 | The app's output does not depend on `window._flightDateISO` beyond the date passed (so removing the fallback is invisible) | 568 calls; 0 differences |
-| TC-120-020 | Every existing NOTAM unit test (TC-110, TC-111, TC-113, copies-agree synthetic set) against the module | 66/66 (same as against the app) |
+| TC-120-020 | Every existing NOTAM unit test (TC-110, TC-111, TC-113, copies-agree synthetic set; TC-121 from v1.11.1) against the module | 66/66 (same as against the app); v1.11.1: 73/73 |
 | TC-120-021 | The gate bites: the EST rule removed from a copy → NOTAM tests fail and the corpus comparison differs | 3 tests fail; 5 airports differ |
 | TC-120-030 | Fixtures missing → TC-120-010..013 fail | pass |
+| TC-121-001 … 007 | **v1.11.1** (`test/unit/notam-next-day.test.js`): arrival-day-only schedule, ETA on D + 1 at 0030Z, 1159Z, 1200Z, 1800Z, 2330Z → in effect (also through `evalAirport`); departure-day-only schedule with the window wholly on D + 1 and other negatives → not in effect; window crossing 0000Z both ways; day-of-month, weekday and `DLY` forms; unreadable schedule → shown; `nwOverlap_standalone` with and without `depMin` | 7/7 pass on v1.11.1; 6/7 fail on v1.11.0 (the negatives pass on both) |
 
 To run the existing NOTAM tests against the module by hand: `PB_NOTAM_ENGINE=module npm test` (the harness then routes the tests' direct NOTAM calls to the module; the app's own `evalAirport` keeps the app engine).
 
@@ -215,4 +220,5 @@ To run the existing NOTAM tests against the module by hand: `PB_NOTAM_ENGINE=mod
 | Version | Date | Status | Changes |
 | :--- | :--- | :--- | :--- |
 | 1.10.1 | 2026-06-05 | Master | Ledger P-01 … P-13 (SPEC not in this repository). |
-| **1.11.0** | 2026-11-07 | UPD | Extracted from the app. Carries HF-1, HF-5, HF-6, HF-8 (ledger P-14 … P-20). `_splitNotams` moved in. Blueprint metadata and `validateSchema()` (ARCH-01, ARCH-02 closed). No app state. Unused code not carried. Behaviour identical to the app (§10). |
+| 1.11.0 | 2026-11-07 | Master (previous) | Extracted from the app. Carries HF-1, HF-5, HF-6, HF-8 (ledger P-14 … P-20). `_splitNotams` moved in. Blueprint metadata and `validateSchema()` (ARCH-01, ARCH-02 closed). No app state. Unused code not carried. Behaviour identical to the app (§10). |
+| **1.11.1** | 2026-11-08 | UPD | P-22: the window check also tries D + 1 when the departure time places the ETA on D + 1 (`nwOverlap_standalone` gets `depMin`), so a NOTAM for the arrival day is no longer hidden on a flight that lands on D + 1 at or after 1200Z. Additive (hidden → shown only). Corpus: no NOTAM result changes on the 30 Navtech/eOFP fixtures. |
