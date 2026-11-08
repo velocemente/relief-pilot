@@ -1,3 +1,11 @@
+# PilotBrief 1.9.9-hf3 Release Notes
+
+## What's Fixed
+
+**NOTAMs no longer hidden** — NOTAMs scheduled for the arrival day and NOTAMs with an estimated end date are no longer hidden. The NOTAM rules now run from a separate, versioned module (NOTAM ruleset 1.11.0); what you see is otherwise unchanged.
+
+---
+
 # PilotBrief 1.9.9-hf2 Release Notes
 
 ## What's Fixed
