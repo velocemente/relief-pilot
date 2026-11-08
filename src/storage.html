@@ -66,8 +66,9 @@ function loadFlight(entry) {
     } catch(e) {}
   }
   // D51: the saved timeline (dated OUT / OFF / ETAs). A flight saved by an older
-  // version has none: it is rebuilt from the saved times as at import.
-  if (!_tlRestore(entry.timeline)) _tlBuild();
+  // version has none: each saved time is placed nearest its OFP planned time
+  // (_tlRecover(); no OFP times in the save → as at import).
+  if (!_tlRestore(entry.timeline)) _tlRecover();
   // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text
   if (entry.id) {
     _pdfDb.get(entry.id).then(buf => {
