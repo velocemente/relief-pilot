@@ -19,8 +19,9 @@
  *               airports' ETA (and an EST NOTAM that has not started stays hidden)
  *   TC-113-005  H2 synthetic: UFN(EST …) and an EST end, after the estimated date → in effect
  *   TC-113-006  corpus: the NOTAMs that change from hidden to shown on every
- *               Navtech/eOFP fixture are exactly the reviewed list; none changes
- *               from shown to hidden
+ *               Navtech/eOFP fixture are exactly the reviewed list; the NOTAMs that
+ *               change from shown to hidden are exactly the v1.11.2 (P-23) list,
+ *               each with dates wholly outside the actual evaluation window
  *   TC-113-010..015  further positive/negative cases of the same rules
  *
  * Fixture tests FAIL (never skip) when the fixtures are missing.
@@ -321,7 +322,40 @@ const EXPECTED_NEWLY_SHOWN = [
   ['NB_VHHH-PANC_11MAY26_wheelsup_rev23',      'RJTT', 'RJTT J0955/26', 'WIN'],
 ];
 
-test('TC-113-006 corpus: hidden → shown is exactly the reviewed list; nothing shown → hidden', async () => {
+// v1.11.2 (ledger P-23, Exec rule 7 Nov): the "before" above still tries a second UTC date
+// (D + 1 for an ETA before 1200Z, and D for an ETA on D + 1). The NOTAMs below were shown
+// only because of that second date: their dates lie wholly outside the evaluation window
+// (ETA ± 60) on its actual UTC date. Reviewed one by one in
+// test/reports/NOTAM-v1.11.2-corpus-changes.md (test/corpus/notam-window-changes.js).
+//   D    = in effect only on the departure date D; the ETA is on D + 1
+//   D+1  = in effect only from D + 1; the window is on D (ETA before 1200Z)
+const EXPECTED_NEWLY_HIDDEN = [
+  ['EOFP_EHBK-RKSI_09SEP26_pkgC_rev16',        'RKSS', 'RKSS A1065/26', 'D'],
+  ['NB_ELLX-KHSV_08MAR26_baseline_rev16',      'KBHM', 'KBHM A0403/26', 'D'],
+  ['NB_ELLX-KHSV_08MAR26_baseline_rev16',      'KBHM', 'KBHM A0404/26', 'D'],
+  ['NB_KCHS-LIBG_12MAR26_lcf_rev16',           'EDDF', 'EDDF A6692/25', 'D'],
+  ['NB_KLAX-RJAA_01MAY26_notam_rev5',          'KLAX', 'KLAX A2522/26', 'D+1'],
+  ['NB_KLAX-RJAA_01MAY26_notam_rev5',          'KLAX', 'KLAX A2540/26', 'D+1'],
+  ['NB_KLAX-RJAA_01MAY26_notam_rev5',          'KLAX', 'KLAX A2545/26', 'D+1'],
+  ['NB_KLAX-RJAA_01MAY26_notam_rev5',          'KLAX', 'KLAX A2546/26', 'D+1'],
+  ['NB_KLAX-RJAA_01MAY26_notam_rev5',          'KLAX', 'KLAX A2547/26', 'D+1'],
+  ['NB_KLAX-RJAA_01MAY26_notam_rev5',          'KLAX', 'KLAX A2548/26', 'D+1'],
+  ['NB_KORD-RJAA_05APR26_tempcontrol_rev8',    'KORD', 'KORD A6436/26', 'D+1'],
+  ['NB_KORD-RKSI_08APR26_catii_rev14',         'KORD', 'KORD A7034/26', 'D+1'],
+  ['NB_KORD-RKSI_08APR26_catii_rev14',         'KORD', 'KORD A7035/26', 'D+1'],
+  ['NB_KORD-RKSI_31MAY26_altroute_rev10',      'RJTT', 'RJTT E2130/26', 'D'],
+  ['NB_KORD-RKSI_31MAY26_altroute_rev10',      'RJTT', 'RJTT E2182/26', 'D'],
+  ['NB_KORD-RKSI_31MAY26_altroute_rev10',      'RJTT', 'RJTT E2243/26', 'D'],
+  ['NB_KORD-RKSI_31MAY26_altroute_rev10',      'RJTT', 'RJTT J0903/26', 'D'],
+  ['NB_KORD-RKSI_31MAY26_altroute_rev10',      'RJTT', 'RJTT J0904/26', 'D'],
+  ['NB_KORD-RKSI_31MAY26_altroute_rev10',      'RJTT', 'RJTT J0905/26', 'D'],
+  ['NB_KORD-RKSI_31MAY26_altroute_rev10',      'RJTT', 'RJTT J0957/26', 'D'],
+  ['NB_KORD-RKSI_31MAY26_altroute_rev10',      'RJTT', 'RJTT J0958/26', 'D'],
+  ['NB_PANC-KORD_10APR26_maxldgw_rev6',        'KORD', 'KORD A6859/26', 'D'],
+  ['NB_RJAA-PANC_11APR26_notamschedule_rev5',  'PANC', 'PANC A3258/26', 'D'],
+];
+
+test('TC-113-006 corpus: hidden → shown is exactly the reviewed list; shown → hidden is exactly the P-23 list', async () => {
   const all = await imports();
   const newlyShown = [], newlyHidden = [];
   let airports = 0;
@@ -336,7 +370,8 @@ test('TC-113-006 corpus: hidden → shown is exactly the reviewed list; nothing 
   }
   console.log(`TC-113-006: ${all.length} Navtech/eOFP fixtures, ${airports} airports; hidden -> shown ${newlyShown.length}, shown -> hidden ${newlyHidden.length}`);
   assert.ok(all.length >= 30, `expected at least 30 Navtech/eOFP fixtures, found ${all.length}`);
-  assert.deepEqual(newlyHidden, [], 'NOTAM(s) that were shown are now hidden');
+  assert.deepEqual(newlyHidden.sort(), EXPECTED_NEWLY_HIDDEN.map(([f, a, id]) => `${f} ${a} ${id}`).sort(),
+    'the NOTAMs that change from shown to hidden differ from the reviewed P-23 list');
   assert.deepEqual(newlyShown.sort(), EXPECTED_NEWLY_SHOWN.map(([f, a, id]) => `${f} ${a} ${id}`).sort(),
     'the NOTAMs that change from hidden to shown differ from the reviewed list');
 });
