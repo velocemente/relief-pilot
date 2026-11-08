@@ -2,15 +2,21 @@
 /**
  * TC-120 — NOTAM ruleset module v1.11.0 (rules/notam-rules) is the app's NOTAM engine
  *
- * The module is extracted from the app (src/notam.html, src/airports.html on main) and
- * must behave IDENTICALLY to the engine the app runs today (ADR-005 §2.1–2.3).
+ * The module was extracted from the app (src/notam.html, src/airports.html) and behaves
+ * IDENTICALLY to the engine the app ran (ADR-005 §2.1–2.3). Since the integration PR the
+ * app runs the module itself, built into index.html: TC-120-010..013 now compare the copy
+ * built into index.html (in the app's strict main script) with this standalone file.
  *
  *   TC-120-001  metadata present; validateSchema() valid; a broken ruleset is rejected
  *   TC-120-002  rules/manifest.json: version, file and SHA-256 match every module file
  *   TC-120-003  dual context: Node (module.exports), rules-loader (new Function), browser
  *               (plain script → one global NotamRules); runs with no DOM / window / app state
- *   TC-120-004  copy check: every declaration equals the app source, except the
- *               documented v1.11.0 edits (window._flightDateISO fallback removed)
+ *   TC-120-004  ONE copy (integration, ADR-005 §2.3.3): index.html carries the module
+ *               byte for byte, once, in the main script before the app binds it; src/ and
+ *               the rest of index.html declare none of its names; the app's evalNotams and
+ *               _splitNotams ARE the module's; index.html is the build of src/ + rules/
+ *               (the v1.11.0 copy check against the app source ran in the extraction PR,
+ *               whose app copy is now removed)
  *   TC-120-010  EQUIVALENCE: every Navtech/eOFP fixture, every release airport at its OFP
  *               ETA, called exactly as evalAirport() calls it: same split, same evalNotams()
  *               output field by field (issues, rwyGroups, sid/star/infoIssues, worst)
@@ -184,7 +190,7 @@ test('TC-120-003 dual context: Node, rules-loader and browser script give the sa
   }
 });
 
-// ══ TC-120-004 copy check against the app source ═════════════════════════════
+// ══ TC-120-004 one copy: the app runs the module ═════════════════════════════
 
 // Column-0 declarations: "function NAME(" … first column-0 "}", "const NAME =" … first column-0 "};"/");".
 function declarations(src) {
@@ -205,68 +211,87 @@ function declarations(src) {
   }
   return out;
 }
-const NOWIN = '  // v1.11.0: no window._flightDateISO fallback (no app state); the caller passes the flight date.';
-// The only edits v1.11.0 makes to the app's code (applied to the app text before comparing).
-const EDITS = {
-  xNW_standalone: [["  const iso = flightDateISO ||\n    (typeof window !== 'undefined' && window._flightDateISO) || null;",
-                    `${NOWIN}\n  const iso = flightDateISO || null;`]],
-  nwOverlap_standalone: [["  const iso = flightDateISO ||\n    (typeof window !== 'undefined' && window._flightDateISO) || null;",
-                          `${NOWIN}\n  const iso = flightDateISO || null;`]],
-  evalNotams: [
-    ["  const resolvedISO = flightDateISO ||\n    (typeof window !== 'undefined' && window._flightDateISO) || null;\n\n" +
-     "  const _prevISO = (typeof window !== 'undefined') ? window._flightDateISO : null;\n" +
-     "  if (typeof window !== 'undefined') window._flightDateISO = resolvedISO || window._flightDateISO;\n",
-     `${NOWIN}\n  const resolvedISO = flightDateISO || null;\n`],
-    ["  // Restore flight date global\n  if (typeof window !== 'undefined' && _prevISO !== null) window._flightDateISO = _prevISO;\n\n", ''],
-  ],
-};
-// Declarations of the module's own frame (not copied from the app).
+// Declarations of the module's own frame (not engine code).
 const OWN = new Set(['RULESET_TYPE', 'RULESET_VERSION', 'SCHEMA_VERSION', 'RULESET_SOURCE', 'REQUIRED_EXPORTS', 'validateSchema', 'API']);
-// App declarations deliberately not carried into the module (never called by the app's NOTAM path).
+// Declarations the app's engine had that the module does not carry (never called by the app).
+// The integration removed them from the app with the rest of the engine.
 const NOT_CARRIED = ['classifyNotam', 'extractNotamKeywords', 'deriveOperationalImpact', 'isNotamActive', 'notamTimeToDate',
   'SCHEDULE_PATTERNS', 'DAY_ABBR', 'decodeNotamSchedule', 'isActiveInSchedule', 'AIRPORT_TIMEZONES',
   'getAirportTimezone', 'airportLocalTime', 'AIRCRAFT_WINGSPAN'];
+// The binding the app uses (src/notam.html), right after the module in the main script.
+const BINDING = 'const { evalNotams, _splitNotams } = NotamRules;';
+const stripComments = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-test('TC-120-004 copy check: every module declaration equals the app source except the documented edits', () => {
-  const appNotam = fs.readFileSync(path.join(ROOT, 'src', 'notam.html'), 'utf8');
-  const engineEnd = appNotam.indexOf('//  GNSS NOTAM RULESET');   // the GNSS ruleset stays separate
-  assert.ok(engineEnd > 0, 'GNSS ruleset marker found in src/notam.html');
-  const appDecls = [...declarations(appNotam.slice(0, engineEnd)),
-                    ...declarations(fs.readFileSync(path.join(ROOT, 'src', 'airports.html'), 'utf8'))];
-  const appByName = new Map();
-  for (const d of appDecls) appByName.set(d.name, d);   // later declaration wins, as in the browser
-  const modDecls = declarations(MOD_SRC);
-  const seen = new Set();
-  let compared = 0;
-  for (const d of modDecls) {
-    assert.ok(!seen.has(d.name), `${d.name} declared once in the module`);
-    seen.add(d.name);
-    if (OWN.has(d.name)) continue;
-    const app = appByName.get(d.name);
-    assert.ok(app, `${d.name} exists in the app`);
-    let expected = app.text;
-    for (const [from, to] of EDITS[d.name] || []) {
-      assert.ok(expected.includes(from), `${d.name}: documented edit site still present in the app`);
-      expected = expected.replace(from, to);
+// Problems with "one copy of the NOTAM engine, and it is the module" in an index.html text.
+function oneCopyProblems(html) {
+  const problems = [];
+  const first = html.indexOf(MOD_SRC);
+  if (first < 0) return ['index.html does not contain the module file byte for byte'];
+  if (html.indexOf(MOD_SRC, first + 1) >= 0) problems.push('index.html contains the module more than once');
+  const { inlineScripts } = require('../harness');
+  const main = inlineScripts(html).find(x => x.includes('function _ofpRulesetParse'));
+  if (!main || !main.includes(MOD_SRC)) problems.push('the module is not inside the main inline script');
+  else {
+    const at = main.indexOf(MOD_SRC), bind = main.indexOf(BINDING);
+    if (bind < 0) problems.push(`the app binding "${BINDING}" is missing`);
+    else if (bind < at + MOD_SRC.length) problems.push('the app binds NotamRules before the module runs');
+  }
+  // Outside the module: no declaration of any engine name (a second copy, or a stray leftover).
+  const rest = stripComments(html.slice(0, first) + html.slice(first + MOD_SRC.length));
+  const engineNames = declarations(MOD_SRC).map(d => d.name).filter(n => !OWN.has(n));
+  for (const n of [...new Set([...engineNames, ...NOT_CARRIED])]) {
+    const re = new RegExp(`(?:\\bfunction\\s+${n}\\s*\\(|\\b(?:const|let|var)\\s+${n}\\b)`);
+    if (re.test(rest)) problems.push(`${n} is declared outside the module`);
+  }
+  return problems;
+}
+
+test('TC-120-004 ONE copy: index.html runs the module, built in byte for byte; no engine code left in the app', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  assert.deepEqual(oneCopyProblems(html), []);
+  // index.html is exactly the build of src/ + rules/ (CI also compares the hashes).
+  const { assemble } = require('../../build/build.js');
+  assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html = node build/build.js output');
+  // No src/ fragment declares an engine name.
+  const engineNames = declarations(MOD_SRC).map(d => d.name).filter(n => !OWN.has(n));
+  assert.ok(engineNames.length >= 20, `engine declarations in the module: ${engineNames.length}`);
+  const srcDir = path.join(ROOT, 'src');
+  for (const f of fs.readdirSync(srcDir).filter(f => f.endsWith('.html'))) {
+    const code = stripComments(fs.readFileSync(path.join(srcDir, f), 'utf8'));
+    for (const n of [...engineNames, ...NOT_CARRIED]) {
+      assert.ok(!new RegExp(`(?:\\bfunction\\s+${n}\\s*\\(|\\b(?:const|let|var)\\s+${n}\\b)`).test(code), `src/${f} declares ${n}`);
     }
-    assert.equal(d.text, expected, `${d.name}: module copy equals the app source`);
-    compared++;
   }
-  // _twyApplies: the app declares it twice; the browser uses the second, and so does the module.
-  assert.equal(appDecls.filter(d => d.name === '_twyApplies').length, 2);
-  for (const n of NOT_CARRIED) {
-    assert.ok(appByName.has(n), `${n} exists in the app`);
-    assert.ok(!seen.has(n), `${n} is not carried into the module`);
-    assert.ok(!new RegExp(`\\b${n}\\b`).test(MOD_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')),
-      `${n} is not referenced by module code`);
+  // The app's names are the module's own functions (same realm, same objects).
+  const app = loadApp();
+  const NR = app.sandbox.NotamRules;
+  assert.ok(NR && typeof NR === 'object', 'the app publishes NotamRules');
+  assert.equal(NR.RULESET_VERSION, MANIFEST['notam-rules'].version, 'the built-in module is the manifest version');
+  assert.equal(JSON.stringify(NR.validateSchema()), JSON.stringify({ valid: true, errors: [] }));   // another realm
+  assert.deepEqual([...Object.keys(NR)], Object.keys(mod), 'same API as the standalone file');
+  for (const n of ['evalNotams', '_splitNotams', 'xNW_standalone', 'nwOverlap_standalone', '_windowEndEstimated']) {
+    assert.equal(app[n], NR[n], `the app's ${n} is NotamRules.${n}`);
   }
-  // Every declaration of the app's NOTAM engine (src/notam.html up to the GNSS ruleset) is
-  // either in the module or listed as not carried.
-  for (const d of declarations(appNotam.slice(0, engineEnd))) {
-    assert.ok(seen.has(d.name) || NOT_CARRIED.includes(d.name), `${d.name}: in the module or listed as not carried`);
-  }
-  assert.ok(compared >= 20, `declarations compared: ${compared}`);
-  console.log(`TC-120-004: ${compared} declarations equal the app source (${Object.keys(EDITS).length} with documented edits); ${NOT_CARRIED.length} unused app declarations not carried`);
+  // The module does not reference the declarations it does not carry.
+  for (const n of NOT_CARRIED) assert.ok(!new RegExp(`\\b${n}\\b`).test(stripComments(MOD_SRC)), `${n} is not referenced by module code`);
+  console.log(`TC-120-004: module built into index.html once, before the app binding; ${engineNames.length} engine and ` +
+    `${NOT_CARRIED.length} removed declarations absent from src/ and the rest of index.html`);
+});
+
+test('TC-120-004 negative: a second copy, an edited module or a missing binding is caught', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const first = html.indexOf(MOD_SRC);
+  // (a) the module edited by one character → not byte for byte
+  const edited = html.slice(0, first) + MOD_SRC.replace("RULESET_VERSION = '1.11.0'", "RULESET_VERSION = '1.11.1'") + html.slice(first + MOD_SRC.length);
+  assert.deepEqual(oneCopyProblems(edited), ['index.html does not contain the module file byte for byte']);
+  // (b) an engine function declared again by the app (a duplicate copy left behind)
+  const dup = html.replace(BINDING, `${BINDING}\nfunction _splitNotams(text) { return [text]; }`);
+  assert.ok(oneCopyProblems(dup).includes('_splitNotams is declared outside the module'));
+  // (c) a removed declaration left in the app
+  const left = html.replace(BINDING, `${BINDING}\nconst AIRPORT_TIMEZONES = {};`);
+  assert.ok(oneCopyProblems(left).includes('AIRPORT_TIMEZONES is declared outside the module'));
+  // (d) binding missing
+  assert.ok(oneCopyProblems(html.replace(BINDING, '')).some(p => p.includes('binding')));
 });
 
 // ══ TC-120-010 equivalence at the OFP ETA ════════════════════════════════════
