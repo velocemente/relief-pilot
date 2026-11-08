@@ -2,6 +2,7 @@
 // V0 snapshot builders. Both take the result of importFixture() (app-path.js), i.e. the
 // state the app is in after its real import path has run on a fixture.
 const crypto = require('crypto');
+const vm = require('vm');
 const { notamKey } = require('./app-path');
 
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
@@ -21,10 +22,14 @@ function notamIdOf(notamRaw) {
 //     const notamArr  = _splitNotams(notamText);
 //     const aptRole   = (role || 'DEST').toString().toUpperCase();
 //     const evalRole  = aptRole === 'ORIG' ? 'ORIG' : 'DEST';
-//     const flightISO = (typeof window !== 'undefined' && window._flightDateISO) || '';
+//     const nd        = _tlNotamDate(etaMs, etaMin);
+//     const flightISO = nd.flightISO;
 //     // Departure time: gives the UTC date of the ETA for the schedule checks.
-//     const depMin    = (typeof S !== 'undefined' && S) ? pZM(S.outZ) : null;
+//     const depMin    = nd.depMin;
 //     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO, depMin);
+// with etaMs = _tlEtaMs(icao, role, etaZ) (D51 timeline, src/state.html). With no edit this is
+// the flight date (DOF) and pZM(S.outZ), as before. A build without the timeline (before D51)
+// is read as before: window._flightDateISO and pZM(S.outZ).
 // and evalAirport() is called (buildAirportCards / refreshAptCard / descent screens) as
 //     evalAirport(apt.icao, apt.eta, data.notams, data.weather, apt.wxWindow, apt.role, S.acftType)
 // for every airport of getAllAirports(). evalNotams() is only called when the airport has
@@ -38,8 +43,13 @@ function evalArgsFor(imp, apt) {
   const notamArr = app._splitNotams(notamText);
   const aptRole = (apt.role || 'DEST').toString().toUpperCase();
   const evalRole = aptRole === 'ORIG' ? 'ORIG' : 'DEST';
-  const flightISO = (app.sandbox.window && app.sandbox.window._flightDateISO) || '';
-  const depMin = S ? app.pZM(S.outZ) : null;
+  let flightISO = (app.sandbox.window && app.sandbox.window._flightDateISO) || '';
+  let depMin = S ? app.pZM(S.outZ) : null;
+  if (vm.runInContext("typeof _tlNotamDate === 'function'", app.sandbox)) {
+    const j = JSON.stringify;
+    const nd = vm.runInContext(`_tlNotamDate(${apt.eta == null ? null : `_tlEtaMs(${j(apt.icao)}, ${j(apt.role)}, ${j(apt.eta)})`}, ${etaMin})`, app.sandbox);
+    flightISO = nd.flightISO; depMin = nd.depMin;
+  }
   return { notamArr, evalRole, etaMin, acftType: S.acftType || '', flightISO, depMin };
 }
 

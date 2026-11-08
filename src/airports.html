@@ -299,15 +299,20 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   if (!hN && !hW_eff) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
 
   const etaMin = pZM(etaZ);   // ETA/DEP as minutes-of-day, null if unknown
+  // D51: the same ETA/DEP as a UTC date-and-time from the timeline, null if unknown.
+  const etaMs  = etaMin === null ? null : _tlEtaMs(icao, role, etaZ);
 
   // ── NOTAM evaluation — evalNotams() from notam-rules.js ──────────────────
   if (hN) {
     const notamArr  = _splitNotams(notamText);
     const aptRole   = (role || 'DEST').toString().toUpperCase();
     const evalRole  = aptRole === 'ORIG' ? 'ORIG' : 'DEST';
-    const flightISO = (typeof window !== 'undefined' && window._flightDateISO) || '';
+    // D51: the UTC date of the CURRENT OUT and the OUT time (_tlNotamDate); the
+    // module's rule places the ETA on its actual date. No dated OUT → flight date.
+    const nd        = _tlNotamDate(etaMs, etaMin);
+    const flightISO = nd.flightISO;
     // Departure time: gives the UTC date of the ETA for the schedule checks.
-    const depMin    = (typeof S !== 'undefined' && S) ? pZM(S.outZ) : null;
+    const depMin    = nd.depMin;
     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO, depMin);
 
     rwyGroups = result.rwyGroups;
@@ -356,7 +361,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   //   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
   //   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
   if (hW_eff) {
-    const relevantWx = extractEtaWindow(effectiveWx, etaMin, effectiveWin);
+    const relevantWx = extractEtaWindow(effectiveWx, etaMin, effectiveWin, etaMs === null ? null : _tlISO(etaMs));
     const wx = relevantWx.toUpperCase();
 
     const ceil      = pCeil(wx);
@@ -477,20 +482,43 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
 //
 // All day-hours converted to absolute minutes (day*1440 + HH*60 + MM).
 // ETA window = etaDay*1440 + etaMin ± 60.
-function extractEtaWindow(weatherText, etaMin, wxWindowOverride) {
+// etaISO (D51): the UTC date of this airport's ETA ('YYYY-MM-DD', from the
+// timeline). The window is anchored on that date, not on the flight date, so a
+// next-day arrival reads the TAF for the arrival day. Without it: flight date.
+// Each TAF day of month is read as the date with that day nearest the ETA date
+// (previous, same or next month), so 31 → 01 crosses the month end correctly.
+function extractEtaWindow(weatherText, etaMin, wxWindowOverride, etaISO) {
   if (etaMin === null && !wxWindowOverride) return weatherText;
 
-  // Determine flight date day-of-month from _flightDateISO for day anchoring
-  const iso = window._flightDateISO; // "YYYY-MM-DD"
-  const flightDay = iso ? parseInt(iso.slice(8,10)) : null;
+  // Anchor date: the ETA's own UTC date (D51), else the flight date
+  const iso = etaISO || window._flightDateISO; // "YYYY-MM-DD"
+  const anchorMs = iso ? Date.parse(iso + 'T00:00:00Z') : NaN;
+  const anchored = !isNaN(anchorMs);
+  const anchorDom = anchored ? new Date(anchorMs).getUTCDate() : null;
 
-  // Convert DDHH or DDHHMM to absolute minutes (DD * 1440 + HH*60 + MM)
-  function toAbsMin(dd, hh, mm) {
-    return parseInt(dd)*1440 + parseInt(hh)*60 + (mm ? parseInt(mm) : 0);
+  // TAF day of month → day number on the same scale as etaDay. Anchored: the
+  // date with that day of month nearest the anchor date (counted from the
+  // anchor day). Not anchored: the day of month itself, as before.
+  function tafDay(dd) {
+    const d = parseInt(dd);
+    if (!anchored) return d;
+    const a = new Date(anchorMs);
+    let best = null;
+    for (let k = -1; k <= 1; k++) {
+      const t = Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + k, d);
+      if (new Date(t).getUTCDate() !== d) continue;   // no such day in that month
+      if (best === null || Math.abs(t - anchorMs) < Math.abs(best - anchorMs)) best = t;
+    }
+    return best === null ? d : anchorDom + Math.round((best - anchorMs) / 86400000);
   }
 
-  // ETA absolute minutes — anchor on flight day
-  const etaDay = flightDay || 1;
+  // Convert DDHH or DDHHMM to absolute minutes (day * 1440 + HH*60 + MM)
+  function toAbsMin(dd, hh, mm) {
+    return tafDay(dd)*1440 + parseInt(hh)*60 + (mm ? parseInt(mm) : 0);
+  }
+
+  // ETA absolute minutes — anchor on the ETA date (D51), else the flight day
+  const etaDay = anchorDom || 1;
   let winStart, winEnd;
 
   if (wxWindowOverride) {
@@ -499,8 +527,11 @@ function extractEtaWindow(weatherText, etaMin, wxWindowOverride) {
     if (wm) {
       const wsMin = parseInt(wm[1].slice(0,2))*60 + parseInt(wm[1].slice(2,4));
       const weMin = parseInt(wm[2].slice(0,2))*60 + parseInt(wm[2].slice(2,4));
-      winStart = etaDay * 1440 + wsMin;
-      winEnd   = etaDay * 1440 + weMin;
+      // D51: on the ETA's date. A window that crosses 0000Z with the ETA in its
+      // after-midnight part (e.g. 2230Z-0135Z, ETA 0003Z) began the day before.
+      const day = (etaISO && etaMin !== null && weMin < wsMin && etaMin <= weMin) ? etaDay - 1 : etaDay;
+      winStart = day * 1440 + wsMin;
+      winEnd   = day * 1440 + weMin;
       if (winEnd < winStart) winEnd += 1440; // crosses midnight
     } else {
       winStart = etaDay * 1440 + (etaMin||0) - 60;
