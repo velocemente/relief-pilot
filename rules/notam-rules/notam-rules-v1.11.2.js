@@ -1,10 +1,29 @@
 /**
- * notam-rules.js — NOTAM Interpretation Ruleset  (v1.11.1)
+ * notam-rules.js — NOTAM Interpretation Ruleset  (v1.11.2)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.3): NOTAM splitting, header and date
  * reading, schedules, evaluation (evalNotams) and grouping, exactly as the
  * PilotBrief app runs them on main at the time of extraction. The GNSS NOTAM
  * ruleset (evalGNSS) is a separate module and is not part of this file.
+ *
+ * Changelog v1.11.2 (vs v1.11.1; ledger P-23):
+ *   FIX — NOTAMs not in effect during the evaluation window were shown
+ *     (Exec, beta 1.9.9-hf3; app #41 QA). Exec rule (7 Nov): a NOTAM is shown
+ *     only if it is in effect at some time during the airport's evaluation
+ *     window (ETA ± 60 min) on the window's ACTUAL UTC date and time.
+ *   NEW — _evalWindows(): the ONE place the window is built. ETA date = flight
+ *     date D (DOF); D + 1 when the ETA time of day is earlier than the
+ *     departure (OUT) time. Departure time unknown → two candidate windows,
+ *     on D and on D + 1 (fail-safe). The date-range check
+ *     (nwOverlap_standalone) and the day-of-month schedule check
+ *     (_schedWindowMinutes) both use it; DLY schedules keep using its times
+ *     of day.
+ *   REMOVED — the "ETA before 1200Z → also try D + 1" guard, and every
+ *     "try both days" path when the departure time is known.
+ *   CHANGED — window edges are included: a NOTAM ending exactly at ETA − 60
+ *     or starting exactly at ETA + 60 is in effect.
+ *   CHANGED — a flight date that is given but cannot be read → in effect
+ *     (D27), as with no flight date.
  *
  * Changelog v1.11.1 (vs v1.11.0; ledger P-22):
  *   FIX — next-day arrival at or after 1200Z: the date-range check
@@ -61,7 +80,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 const RULESET_TYPE    = 'notam';
-const RULESET_VERSION = '1.11.1';
+const RULESET_VERSION = '1.11.2';
 // Unchanged from the current contract: rules-loader.js v1.0.0 requires
 // SCHEMA_VERSION >= 2 for 'notam'. The export shape and the evalNotams()
 // return shape are unchanged, so the value stays 2.
@@ -321,13 +340,46 @@ function _resolveInlineDateRange(startToken, endToken, baseYear, issYear, flight
 }
 
 /**
- * Check whether a NOTAM UTC window overlaps with the ETA window (ETA ±60 min).
- * Uses full UTC millisecond comparison — immune to midnight/day rollover.
+ * v1.11.2 (P-23): THE evaluation window — the one function that builds it.
+ * Exec rule (7 Nov): a NOTAM is shown only if it is in effect at some time
+ * during the airport's evaluation window (ETA ± 60 min) on the window's
+ * ACTUAL UTC date and time.
  *
- * v1.11.1: when the departure time is known and the ETA time of day is
- * earlier than it, the ETA is on D + 1 (the rule of _schedWindowMinutes) and
- * D + 1 is tried whatever the ETA time. Every anchor tried before is still
- * tried (additive).
+ * The ETA's UTC date: the flight date D (DOF, the departure UTC date); D + 1
+ * when the ETA time of day is earlier than the departure (OUT) time (the
+ * flight has crossed 0000Z). The same for every airport role; for the
+ * departure airport the "ETA" is the departure time itself, so its window
+ * is always on D. Departure time unknown → the date cannot be read, so two
+ * candidate windows are returned, on D and on D + 1 (fail-safe: in effect if
+ * in effect in either).
+ *
+ * @param {number}      etaMin        — ETA as minutes-of-day (0–1439)
+ * @param {number|null} depMin        — departure (OUT) as minutes-of-day, or null/omitted
+ * @param {string}      flightDateISO — 'YYYY-MM-DD' (departure date, DOF)
+ * @returns {Array<{ startMs:number, endMs:number }>} ETA − 60 … ETA + 60 in UTC ms,
+ *          edges included; one window, or two when the departure time is unknown;
+ *          [] when the flight date cannot be read
+ */
+function _evalWindows(etaMin, depMin, flightDateISO) {
+  const base = Date.parse(flightDateISO + 'T00:00:00Z');
+  if (isNaN(base)) return [];
+  const depKnown = depMin !== null && depMin !== undefined && !isNaN(depMin);
+  const days = depKnown ? [etaMin < depMin ? 1 : 0] : [0, 1];
+  return days.map(d => {
+    const etaMs = base + d * 86400000 + etaMin * 60000;
+    return { startMs: etaMs - 3600000, endMs: etaMs + 3600000 };
+  });
+}
+
+/**
+ * Check whether a NOTAM UTC window overlaps with the evaluation window
+ * (ETA ± 60 min) on its actual UTC date (_evalWindows). Full UTC millisecond
+ * comparison; edges included (a NOTAM ending exactly at ETA − 60, or starting
+ * exactly at ETA + 60, is in effect).
+ *
+ * v1.11.2: the window comes from _evalWindows() only. The v1.11.0 "ETA before
+ * 1200Z → also try D + 1" guard and the v1.11.1 extra D + 1 try are removed:
+ * with the departure time known exactly one date is checked.
  *
  * @param {{ startMs:number, endMs:number }} w
  * @param {number|null} etaMin        — ETA as minutes-of-day (0–1439), or null
@@ -340,31 +392,9 @@ function nwOverlap_standalone(w, etaMin, flightDateISO, depMin) {
   // v1.11.0: no window._flightDateISO fallback (no app state); the caller passes the flight date.
   const iso = flightDateISO || null;
   if (!iso) return true; // no flight date → treat as active
-
-  const base   = new Date(iso + 'T00:00:00Z').getTime();
-  const etaMs  = base + Math.floor(etaMin / 60) * 3600000 + (etaMin % 60) * 60000;
-
-  const winStart = etaMs - 3600000; // ETA − 1 hour
-  const winEnd   = etaMs + 3600000; // ETA + 1 hour
-  if (w.startMs < winEnd && w.endMs > winStart) return true;
-
-  // ── Cross-midnight guard ───────────────────────────────────────────
-  // Long-haul flights departing in the evening (e.g. 2230Z) arrive the
-  // following UTC day. pZM converts "0448Z" to 288 min, which anchors
-  // to the DEPARTURE date — one day too early. When etaMin is before noon
-  // (< 720), the ETA is almost certainly the next calendar day. Evaluate
-  // the NOTAM window against the next-day anchor as a conservative fallback.
-  // v1.11.1: the departure time, when known, gives the ETA's UTC date as in
-  // _schedWindowMinutes(): ETA time earlier than the departure time → D + 1.
-  // Before, an arrival on D + 1 at or after 1200Z was checked on D only, and
-  // a NOTAM dated only for the arrival day was hidden.
-  const depKnown = depMin !== null && depMin !== undefined && !isNaN(depMin);
-  if (etaMin < 720 || (depKnown && etaMin < depMin)) {
-    const nextMs = etaMs + 86400000;
-    return w.startMs < nextMs + 3600000 && w.endMs > nextMs - 3600000;
-  }
-
-  return false;
+  const wins = _evalWindows(etaMin, depMin, iso);
+  if (!wins.length) return true; // v1.11.2: flight date unreadable → treat as active (D27)
+  return wins.some(x => w.startMs <= x.endMs && w.endMs >= x.startMs);
 }
 
 /**
@@ -406,10 +436,9 @@ function _windowEndEstimated(notamText) {
  * of the window falls in a scheduled period. A window that crosses 0000Z is
  * checked on both UTC dates.
  *
- * The ETA's UTC date: the flight (departure) date D; D + 1 when the ETA time of
- * day is earlier than the departure time (the flight has crossed 0000Z). When
- * the departure time is unknown the date cannot be read, so both D and D + 1
- * are tried (D27: in effect if either is).
+ * v1.11.2: the window is the one _evalWindows() builds (the same window the
+ * date-range check uses); this only lists its minutes. Departure time
+ * unknown → the minutes of both candidate windows (D and D + 1).
  *
  * @param {number}      etaMin        — ETA as minutes-of-day (0–1439)
  * @param {number|null} depMin        — departure (OUT) as minutes-of-day, or null
@@ -417,15 +446,9 @@ function _windowEndEstimated(notamText) {
  * @returns {number[]} UTC ms of each minute of each candidate window
  */
 function _schedWindowMinutes(etaMin, depMin, flightDateISO) {
-  const base = Date.parse(flightDateISO + 'T00:00:00Z');
-  if (isNaN(base)) return [];
-  const days = (depMin === null || depMin === undefined || isNaN(depMin))
-    ? [0, 1]
-    : [etaMin < depMin ? 1 : 0];
   const out = [];
-  for (const d of days) {
-    const etaMs = base + d * 86400000 + etaMin * 60000;
-    for (let o = -60; o <= 60; o++) out.push(etaMs + o * 60000);
+  for (const x of _evalWindows(etaMin, depMin, flightDateISO)) {
+    for (let t = x.startMs; t <= x.endMs; t += 60000) out.push(t);
   }
   return out;
 }
@@ -1647,7 +1670,8 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
  * @param {string}   flightDateISO - 'YYYY-MM-DD' for NOTAM window anchoring
  * @param {number|null} [depMin]   - departure (OUT) as minutes-of-day, or null.
  *                                   Gives the UTC date of the ETA for the
- *                                   schedule checks (D + 1 when etaMin < depMin).
+ *                                   date-range and schedule checks (D + 1 when
+ *                                   etaMin < depMin; _evalWindows).
  *                                   Not given → both D and D + 1 are tried.
  *
  * @returns {{
@@ -1721,14 +1745,14 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
     // D31: an estimated end (EST) is not an end — the NOTAM stays in effect
     // until cancelled or replaced. Only its start still limits it.
     if (w && _windowEndEstimated(notamRaw)) w = { startMs: w.startMs, endMs: Infinity };
-    if (w) active = nwOverlap_standalone(w, etaMin, resolvedISO, depMin);   // v1.11.1: depMin
+    if (w) active = nwOverlap_standalone(w, etaMin, resolvedISO, depMin);   // v1.11.2: _evalWindows
 
     // ── OFP inline schedule (Atlas Air format): "DD-DD DD-DD ... HHMM-HHMM" ──
     // These lines follow the NOTAM header and restrict activity to specific
     // day-of-month ranges and a daily time window within the overall validity period.
     // e.g. "08-09 13-17 20-24 1510-2020" — active only on those calendar days, 1510–2020Z.
     // Checked on the actual UTC date and time of every minute of ETA ± 60
-    // (_schedWindowMinutes). A period that crosses 0000Z (e.g. "08-09 2200-0300")
+    // (_schedWindowMinutes, from the one window of _evalWindows). A period that crosses 0000Z (e.g. "08-09 2200-0300")
     // counts on the listed day from the start time on, on the listed day up to the
     // end time, and on the day after a listed day up to the end time.
     // D27: a day or time that cannot be read → the schedule is not applied.
@@ -1765,7 +1789,8 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
     // Non-numeric DLY lines ("DLY SS PLUS30-2200", "DLY NORTH ATLANTIC ADVRY")
     // do not start with \d{4} and are safely ignored (conservative: show NOTAM).
     // A daily schedule is the same every day, so only the times matter: in
-    // effect if any minute of ETA ± 60 (wrapping past 0000Z) is in a window.
+    // effect if any minute of ETA ± 60 (wrapping past 0000Z) is in a window
+    // (v1.11.2: the times of day of the _evalWindows window).
     // D27: a time that cannot be read → the schedule is not applied.
     if (active !== false && etaMin !== null) {
       const hasDayRangeSched = /^\s*(?:\d{2}-\d{2}\s+)+\d{4}-\d{4}\s*$/m.test(notamRaw);
@@ -2009,6 +2034,7 @@ const API = {
   evalNotams,
   xNW_standalone,
   nwOverlap_standalone,
+  _evalWindows,
   _windowEndEstimated,
   _resolveInlineDateRange,
   _classifyNotamSlot,

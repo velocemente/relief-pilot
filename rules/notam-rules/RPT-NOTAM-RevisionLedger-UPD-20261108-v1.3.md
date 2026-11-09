@@ -1,11 +1,11 @@
 # NOTAM Ruleset — Revision Ledger
 
-**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.2.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261107-v1.1.md`)
-**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.11.1.js`
-**Current Version:** 1.11.1
-**Lines:** 2,021
+**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.3.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.2.md`)
+**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.11.2.js`
+**Current Version:** 1.11.2
+**Lines:** 2,047
 **Patterns:** 66 NM (v1.10.1 also has 66; the "39 NM" in ledger v1.0 did not match its own file)
-**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); NOTAM unit tests 73/73 PASS against the module
+**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); TC-122-001 … 009 PASS (9/9); NOTAM unit tests 82/82 PASS against the module
 **Last Updated:** 2026-11-08
 
 ---
@@ -14,11 +14,11 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total Patches | 22 (P-01 through P-22) |
-| Current Version | 1.11.1 |
+| Total Patches | 23 (P-01 through P-23) |
+| Current Version | 1.11.2 |
 | First Integration | v1.9.7 |
-| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 pending (P-22) |
-| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 pending Exec gate (ADR-005 §2.2.6) |
+| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 pending (P-23) |
+| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 independent QA APPROVE-FOR-EXEC, merged (#41); P-23 pending Exec gate (ADR-005 §2.2.6) |
 | Open DEFs Against This Ruleset | 4 (ARCH-03 through ARCH-06, all DEFERRED S4). ARCH-01 and ARCH-02 closed by P-21. |
 
 **What changed in v1.1 of this ledger.** The entries P-01 … P-13 of v1.0 are kept unchanged below. P-14 … P-20 record the NOTAM fixes made in the app (`src/notam.html`) since June, which the master v1.10.1 never received (ADR-005 §1.2). P-21 is the extraction of the module. The planned patch numbers of the ARCH items (v1.0: P-14 … P-19) are therefore re-assigned (see "Pending Architecture Items"). A reconciliation of master v1.10.1 against the app follows the patch chain.
@@ -382,9 +382,26 @@
 | PR | relief-pilot, branch `claude/zealous-wozniak-gpofza` |
 | Summary | `nwOverlap_standalone` anchored the ETA on the departure date D and tried D + 1 only when the ETA time was before 1200Z (`etaMin < 720`). On a flight that lands on D + 1 at or after 1200Z, a NOTAM dated only for the arrival day failed the window check and was skipped before its schedule was read; the schedule check (`_schedWindowMinutes`, P-19) already used D + 1. Now `nwOverlap_standalone` takes `depMin` (passed by `evalNotams`) and also tries D + 1 when the departure time is known and `etaMin < depMin`, the same rule as the schedule check. Additive: every date tried before is still tried (hidden → shown only). Departure time unknown: unchanged. |
 | Patterns Affected | none (NM unchanged); `nwOverlap_standalone` (new optional 4th argument `depMin`), `evalNotams` window call |
-| Gate Result | Pending — Exec gate and independent QA session (ADR-005 §2.2.6) |
-| Integrated In | this PR (module revision, plan v4.1 §2) |
+| Gate Result | Independent QA APPROVE-FOR-EXEC (velocemente/relief-pilot#41); merged to `main` |
+| Integrated In | velocemente/relief-pilot#41 (module revision, plan v4.1 §2) |
 | QA Verification | TC-121-001 … 007 (7/7; 6 of 7 fail on v1.11.0, the negatives pass on both). All existing tests pass. Corpus: no NOTAM result changes on 30 Navtech/eOFP fixtures / 142 airports / 3,870 NOTAMs (43 airports land on D + 1, none at or after 1200Z); golden, V0 NOTAM and app-path snapshots unchanged. |
+
+---
+
+### P-23 — The evaluation window on its actual UTC date only; one window builder (v1.11.2)
+
+| Field | Value |
+|:------|:------|
+| Date | 2026-11-08 |
+| Ruleset Version | 1.11.2 |
+| Type | BUG (safety: NOTAMs not in effect were shown) |
+| DEF-ID | Exec finding on beta 1.9.9-hf3; app #41 QA finding 14 (a) and (b); Exec rule 7 Nov |
+| PR | relief-pilot, branch `claude/charming-mccarthy-lq7k8y`; companion fixtures branch of the same name |
+| Summary | Exec rule (7 Nov): a NOTAM is shown only if it is in effect at some time during the airport's evaluation window (ETA ± 60 min) on the window's **actual** UTC date and time. v1.11.1 placed the ETA on the flight date D **and** also tried D + 1 (ETA before 1200Z, or ETA earlier than the departure time), so a NOTAM in effect only on the other day was shown. New `_evalWindows(etaMin, depMin, flightDateISO)` is the one function that builds the window: D (DOF), or D + 1 when the ETA time of day is earlier than the departure (OUT) time; departure time unknown → two candidate windows, D and D + 1 (fail-safe). `nwOverlap_standalone` and `_schedWindowMinutes` both use it; DLY keeps the window's times of day. The `etaMin < 720` rule and every second-day try with the departure time known are removed. Window edges are included (a NOTAM ending exactly at ETA − 60, or starting exactly at ETA + 60, is in effect). A flight date that is given but cannot be read → in effect (D27). Unchanged: no ETA / no flight date / no readable window → in effect (T6, D27); UFN / EST → no end (D31); PERM → no end; T1–T5. |
+| Patterns Affected | none (NM unchanged); new `_evalWindows` (exported); `nwOverlap_standalone`, `_schedWindowMinutes` rewritten on it |
+| Gate Result | Pending — Exec gate and independent QA session (ADR-005 §2.2.6) |
+| Integrated In | this PR (module revision, plan v4.3 §2) |
+| QA Verification | TC-122-001 … 009 (9/9; on v1.11.1 23 of their assertions fail — every new "hidden" case, the edges, the departure-time-unknown arrival-day case at or after 1200Z — and TC-121-007's departure-unknown case fails). TC-121-001 … 006 unchanged. Updated for the new rule (SPEC §10): TC-121-007 (departure time unknown → D and D + 1), TC-113-006 (the 23 shown → hidden are now an exact reviewed list), and the synthetic cases of `notam-year` (T6/D38 section) and `notam-merge` evaluated at ETA 1200Z now pass a departure time of 0000Z so the ETA stays on the flight date, as v1.11.1 gave them with no departure time. Corpus vs v1.11.1: 30 Navtech/eOFP fixtures, 142 airports, 3,870 NOTAMs: **23 shown → hidden, 0 hidden → shown**; every one of the 23 has readable dates wholly outside the actual window (`test/reports/NOTAM-v1.11.2-corpus-changes.md`). HF-5 oracle: hidden 0. V0 NOTAM-at-ETA and app-path snapshots of 9 fixtures updated (the 23 IDs only); golden unchanged. |
 
 ---
 
@@ -447,3 +464,4 @@ These are tracked in the Defect Register as ARCH-01 through ARCH-06. ARCH-01 and
 | 2026-06-09 | Initial ledger created. 13 patches documented (P-01 through P-13). All gate results PASS. |
 | 2026-11-07 | v1.1: P-14 … P-20 (app hotfixes since June: HF-1, HF-5, HF-6, HF-8) and P-21 (module extraction v1.11.0) added; reconciliation of master v1.10.1 against the app; ARCH-01/02 closed. v1.0 entries unchanged. |
 | 2026-11-08 | v1.2: P-22 (v1.11.1, next-day arrival at or after 1200Z) added; summary updated for the 1.9.9-hf3 integration of P-21. P-01 … P-21 entries unchanged. |
+| 2026-11-08 | v1.3: P-23 (v1.11.2, the evaluation window on its actual UTC date; `_evalWindows`) added; P-22 gate result and integration recorded (#41). P-01 … P-21 entries unchanged. |
