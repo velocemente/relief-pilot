@@ -9,7 +9,8 @@ function saveFlight() {
   const flights = getFlights();
   const id = 'f_' + Date.now();
   const idx = flights.findIndex(f => f.fltNum === S.fltNum && f.date === S.date);
-  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state:{...S}, raw:pdfRawText.substring(0,10000), aptData: JSON.parse(JSON.stringify(airportData)) };
+  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state:{...S}, raw:pdfRawText.substring(0,10000), aptData: JSON.parse(JSON.stringify(airportData)),
+                  timeline: JSON.parse(JSON.stringify(_tl)) };   // D51: dated OUT / OFF / ETAs
   const stableId = idx >= 0 ? flights[idx].id : entry.id;
   if (idx >= 0) { flights[idx] = {...entry, id: stableId}; }
   else { flights.unshift(entry); }
@@ -64,6 +65,10 @@ function loadFlight(entry) {
       }
     } catch(e) {}
   }
+  // D51: the saved timeline (dated OUT / OFF / ETAs). A flight saved by an older
+  // version has none: each saved time is placed nearest its OFP planned time
+  // (_tlRecover(); no OFP times in the save → as at import).
+  if (!_tlRestore(entry.timeline)) _tlRecover();
   // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text
   if (entry.id) {
     _pdfDb.get(entry.id).then(buf => {
