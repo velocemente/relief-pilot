@@ -1,7 +1,8 @@
 'use strict';
 /**
  * TC-121 — NOTAMs for the arrival day are not hidden when the flight lands on the
- * next UTC day at or after 1200Z (NOTAM ruleset module v1.11.1, ledger P-22).
+ * next UTC day at or after 1200Z (NOTAM ruleset module v1.11.1, ledger P-22; TC-121-007
+ * updated for v1.11.2, ledger P-23).
  * Source: HF-8 QA (app PR #36, S2 finding) and the 1.9.9-hf3 gate (app PR #40).
  *
  * Exec rule (HF-8, unchanged): schedules are checked against the actual UTC date and
@@ -23,7 +24,7 @@
  *   TC-121-005  day-of-month (single, range, several ranges), day-of-week and DLY forms
  *   TC-121-006  unreadable schedule on the arrival day → shown (D27)
  *   TC-121-007  nwOverlap_standalone(): D + 1 tried when the departure time says so;
- *               the 3-argument call and the departure-time-unknown case are unchanged
+ *               departure time unknown (or the 3-argument call) → D and D + 1 (v1.11.2)
  *
  * Synthetic NOTAMs only (XXXX); no fixture text. All times are UTC.
  */
@@ -139,8 +140,10 @@ test('TC-121-007 nwOverlap_standalone(): D+1 tried when the departure time place
   assert.equal(app.nwOverlap_standalone(w, hm('1200'), D, hm('2300')), true,  'ETA 1200Z, departed 2300Z → D+1 → in effect');
   assert.equal(app.nwOverlap_standalone(w, hm('1200'), D, hm('1100')), false, 'ETA 1200Z, departed 1100Z → D → not in effect');
   assert.equal(app.nwOverlap_standalone(w, hm('1200'), D, hm('1200')), false, 'ETA = departure time → D');
-  // Unchanged: no departure time → as v1.11.0 (D + 1 only for an ETA before 1200Z).
-  assert.equal(app.nwOverlap_standalone(w, hm('1200'), D), false, '3-argument call unchanged');
-  assert.equal(app.nwOverlap_standalone(w, hm('1200'), D, null), false, 'departure time unknown unchanged');
-  assert.equal(app.nwOverlap_standalone(w, hm('1159'), D, null), true, 'ETA before 1200Z: next-day guard unchanged');
+  // v1.11.2 (P-23): no departure time → the date cannot be read, D and D + 1 are both
+  // tried whatever the ETA time (fail-safe). v1.11.1 tried D + 1 only before 1200Z.
+  assert.equal(app.nwOverlap_standalone(w, hm('1200'), D), true, '3-argument call: D and D+1 → in effect on D+1');
+  assert.equal(app.nwOverlap_standalone(w, hm('1200'), D, null), true, 'departure time unknown: D and D+1 → in effect on D+1');
+  assert.equal(app.nwOverlap_standalone(w, hm('1159'), D, null), true, 'departure time unknown, ETA before 1200Z → in effect on D+1');
+  assert.equal(app.nwOverlap_standalone(w, hm('1500'), D, null), false, 'departure time unknown: neither D nor D+1 (10 MAR 1400–1600) → not in effect');
 });

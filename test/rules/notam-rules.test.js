@@ -1,6 +1,6 @@
 'use strict';
 /**
- * TC-120 — NOTAM ruleset module (rules/notam-rules, v1.11.1) is the app's NOTAM engine
+ * TC-120 — NOTAM ruleset module (rules/notam-rules, v1.11.2) is the app's NOTAM engine
  *
  * The module was extracted from the app (src/notam.html, src/airports.html) and behaves
  * IDENTICALLY to the engine the app ran (ADR-005 §2.1–2.3). Since the integration PR the
@@ -25,7 +25,7 @@
  *   TC-120-012  EQUIVALENCE beyond the ETA: every airport, both roles, 9 times of day,
  *               departure time known and unknown, no flight date
  *   TC-120-013  removing the window._flightDateISO fallback is invisible to the app's call
- *   TC-120-020  every existing NOTAM unit test (TC-110-*, TC-111-*, TC-113-*, TC-121-*, the
+ *   TC-120-020  every existing NOTAM unit test (TC-110-*, TC-111-*, TC-113-*, TC-121-*, TC-122-*, the
  *               copies-agree synthetic set) passes against the MODULE as well
  *   TC-120-021  the gate bites: a module with one rule broken fails 020 and 010
  *   TC-120-030  fixtures missing → the fixture tests FAIL (never skip)
@@ -116,7 +116,7 @@ const idOf = raw => { const k = notamKey(raw); return k ? `${k.loc} ${k.id}` : '
 
 test('TC-120-001 metadata present; validateSchema() is valid; a broken ruleset is rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'notam');
-  assert.equal(mod.RULESET_VERSION, '1.11.1');
+  assert.equal(mod.RULESET_VERSION, '1.11.2');
   assert.equal(mod.SCHEMA_VERSION, 2, 'SCHEMA_VERSION stays at the current contract value (rules-loader: notam >= 2)');
   assert.equal(typeof mod.RULESET_SOURCE, 'string');
   assert.ok(mod.RULESET_SOURCE.trim().length > 0);
@@ -447,7 +447,8 @@ test('TC-120-013 the app\'s evalNotams() output does not depend on window._fligh
 
 // ══ TC-120-020 / 021 existing NOTAM tests against the module ═════════════════
 
-const NOTAM_TESTS = ['notam-year', 'notam-merge', 'notam-schedule-est', 'notam-copies-agree', 'notam-next-day']
+const NOTAM_TESTS = ['notam-year', 'notam-merge', 'notam-schedule-est', 'notam-copies-agree', 'notam-next-day',
+                     'notam-actual-window']
   .map(f => path.join(ROOT, 'test', 'unit', `${f}.test.js`));
 
 function runTests(files, env, extra = []) {
@@ -463,7 +464,7 @@ function runTests(files, env, extra = []) {
   return { status: r.status, tests: num('tests'), pass: num('pass'), fail: num('fail'), skipped: num('skipped'), todo: num('todo'), ids, out };
 }
 
-test('TC-120-020 every existing NOTAM unit test (TC-110, TC-111, TC-113, TC-121, copies-agree set) passes against the module', () => {
+test('TC-120-020 every existing NOTAM unit test (TC-110, TC-111, TC-113, TC-121, TC-122, copies-agree set) passes against the module', () => {
   const dir = requireFixturesDir();
   const onApp = runTests(NOTAM_TESTS, { PB_FIXTURES: dir, PB_NOTAM_ENGINE: '' });
   const onMod = runTests(NOTAM_TESTS, { PB_FIXTURES: dir, PB_NOTAM_ENGINE: 'module' });
