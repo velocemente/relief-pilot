@@ -1,8 +1,20 @@
+# PilotBrief 1.9.9-hf4 Release Notes
+
+## What's Fixed
+
+- When OUT or OFF is changed past 0000Z, the date moves with it. NOTAM and weather windows for every downline airport use the actual UTC date and time.
+- Weather for a next-day arrival is now read for the arrival day.
+- NOTAMs not in effect during an airport's evaluation window (ETA ± 60 minutes) are no longer shown; NOTAMs for the arrival day are no longer hidden when landing on the next UTC day.
+
+---
+
 # PilotBrief 1.9.9-hf3 Release Notes
 
 ## What's Fixed
 
 **NOTAMs no longer hidden** — NOTAMs scheduled for the arrival day and NOTAMs with an estimated end date are no longer hidden. The NOTAM rules now run from a separate, versioned module (NOTAM ruleset 1.11.0); what you see is otherwise unchanged.
+
+**Settings and Help now show the correct version number.**
 
 ---
 
@@ -11,8 +23,6 @@
 ## What's Fixed
 
 **NOTAMs no longer hidden from airport cards** — NOTAMs issued in earlier years, long-term NOTAMs and permanent (PERM) NOTAMs are no longer hidden from airport cards. When a NOTAM's dates cannot be read, the NOTAM is now shown. Different NOTAMs with similar wording are no longer merged: every NOTAM in effect is shown, and a NOTAM printed twice appears once.
-
-**Settings and Help now show the correct version number.**
 
 ---
 
