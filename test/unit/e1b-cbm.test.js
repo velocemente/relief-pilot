@@ -2,14 +2,24 @@
 // E1b CBM unit tests (ADR-004 layers 4–5).
 //
 // Covers:
-//   - validate: cross-checks pass on GTI7134 and FK ZUCK-UAAA baselines
+//   - baselines: each selected by fixture id from the fixtures manifest; its values
+//     agree with that fixture's golden snapshot
+//   - validate: cross-checks pass on the eOFP and FlightKeys baselines
 //   - validate: 1-unit change on any of the 8 fuel/weight values → status WARN
 //   - validate: completeness (CA, ETOPS, airports)
 //   - toLegacyShape: key set equals the 57-key legacy return
 //   - resolveValidity: Atlas inline (with R1/R2), FlightKeys ISO, unresolvable
+//
+// Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
+// Missing fixtures FAIL the baseline-selection test (never skip). Test names use neutral
+// labels; messages name fixture ids and values by hash only; no flight numbers.
 
 const { test } = require('node:test');
 const assert   = require('node:assert/strict');
+const fs       = require('fs');
+const path     = require('path');
+const crypto   = require('crypto');
+const { findFixtures, readManifest } = require('../lib/app-path');
 
 const { validate }                     = require('../../src/import/validate.js');
 const { toLegacyShape, LEGACY_KEYS }   = require('../../src/import/legacy-shape.js');
@@ -33,26 +43,71 @@ function mkCbm({ block, tof, taxi, zfw, togw, ramp, trip, ldgw }) {
   };
 }
 
-// GTI7134 reference values.
+// eOFP reference values (fixture EOFP_BASELINE_ID).
+const EOFP_BASELINE_ID = 'EOFP_RJAA-PANC_12SEP26_pkgB_rev3';
 const GTI = { block: 78500, tof: 77300, taxi: 1200,
                zfw: 260345, togw: 337645, ramp: 338845,
                trip: 62099, ldgw: 275546 };
 
-// FlightKeys ZUCK-UAAA reference values.
+// FlightKeys reference values (fixture FK_BASELINE_ID).
+const FK_BASELINE_ID = 'FK_ZUCK-UAAA_27OCT26_prototype';
 const FK  = { block: 78200, tof: 76850, taxi: 1350,
                zfw: 270718, togw: 347568, ramp: 348918,
                trip: 50584, ldgw: 296984 };
 
+// ── Baselines selected by fixture id ──────────────────────────────────────────
+
+const hash = v => `#${crypto.createHash('sha256').update(String(v)).digest('hex').slice(0, 8)}`;
+
+function fixturesDir() {
+  if (process.env.PB_FIXTURES) {
+    const d = path.resolve(process.env.PB_FIXTURES);
+    return fs.existsSync(path.join(d, 'manifest.json')) ? d : null;
+  }
+  return findFixtures();
+}
+
+// The baseline's values that the golden snapshot (the app's parse) also carries.
+// tof, ramp and trip are canonical-only and are not in the snapshot.
+function checkBaselineAgainstFixture(id, vals) {
+  const dir = fixturesDir();
+  if (!dir) assert.fail('fixtures not found (set PB_FIXTURES or clone pilotbrief-fixtures beside the repo)');
+  const fx = readManifest(dir).fixtures.find(f => f.id === id);
+  assert.ok(fx, `${id}: listed in the fixtures manifest`);
+  const file = path.join(dir, 'snapshots', `${fx.id}.json`);
+  assert.ok(fs.existsSync(file), `${fx.id}: golden snapshot present`);
+  const r = JSON.parse(fs.readFileSync(file, 'utf8')).result;
+  const pairs = [
+    ['block', String(r.blockFuelRaw)],
+    ['taxi',  String(r.taxiFuelRaw)],
+    ['zfw',   String(r.zfwActual)],
+    ['togw',  String(r.togwActual)],
+    ['ldgw',  String(r.ldgwActual)],
+  ];
+  for (const [field, snap] of pairs) {
+    assert.ok(String(vals[field]) === snap,
+      `${fx.id}: ${field} baseline ${hash(vals[field])} != snapshot ${hash(snap)}`);
+  }
+}
+
+test('eOFP baseline is the fixture selected by id and matches its snapshot', () => {
+  checkBaselineAgainstFixture(EOFP_BASELINE_ID, GTI);
+});
+
+test('FlightKeys baseline is the fixture selected by id and matches its snapshot', () => {
+  checkBaselineAgainstFixture(FK_BASELINE_ID, FK);
+});
+
 // ── Cross-check baseline: all 5 checks pass ───────────────────────────────────
 
-test('validate cross-checks GTI7134 baseline → OK', () => {
+test('validate cross-checks eOFP baseline → OK', () => {
   const { status, findings } = validate(mkCbm(GTI));
   const xchk = findings.filter(f => f.code.startsWith('XCHK_'));
   assert.equal(xchk.length, 0, `unexpected cross-check findings: ${JSON.stringify(xchk)}`);
   assert.equal(status, 'OK');
 });
 
-test('validate cross-checks FK ZUCK-UAAA baseline → OK', () => {
+test('validate cross-checks FlightKeys baseline → OK', () => {
   const { status, findings } = validate(mkCbm(FK));
   const xchk = findings.filter(f => f.code.startsWith('XCHK_'));
   assert.equal(xchk.length, 0, `unexpected cross-check findings: ${JSON.stringify(xchk)}`);
@@ -64,12 +119,12 @@ test('validate cross-checks FK ZUCK-UAAA baseline → OK', () => {
 const FIELDS = ['block', 'tof', 'taxi', 'zfw', 'togw', 'ramp', 'trip', 'ldgw'];
 
 for (const field of FIELDS) {
-  test(`GTI7134: ${field}+1 → WARN`, () => {
+  test(`eOFP baseline: ${field}+1 → WARN`, () => {
     const vals = { ...GTI, [field]: GTI[field] + 1 };
     const { status } = validate(mkCbm(vals));
     assert.equal(status, 'WARN', `expected WARN when ${field} is off by 1`);
   });
-  test(`FK ZUCK-UAAA: ${field}+1 → WARN`, () => {
+  test(`FlightKeys baseline: ${field}+1 → WARN`, () => {
     const vals = { ...FK, [field]: FK[field] + 1 };
     const { status } = validate(mkCbm(vals));
     assert.equal(status, 'WARN', `expected WARN when ${field} is off by 1`);
@@ -185,8 +240,8 @@ test('toLegacyShape uses legacyEmpty for absent fields', () => {
 });
 
 test('toLegacyShape uses CBM value when present', () => {
-  const out = toLegacyShape({ fltNum: 'GTI7134', blockFuelRaw: '78500' });
-  assert.equal(out.fltNum, 'GTI7134');
+  const out = toLegacyShape({ fltNum: 'TST0001', blockFuelRaw: '78500' });
+  assert.equal(out.fltNum, 'TST0001');
   assert.equal(out.blockFuelRaw, '78500');
 });
 
