@@ -6331,6 +6331,7 @@ function resetStateForNewFlight() {
   _pdfDocProxy = null;
   _fcirActive = false;
   window._flightDateISO = '';
+  _tlClear();
   clearOFPPanel();
   // Reset FCIR toggle UI
   const tog = document.getElementById('fcirToggle');
@@ -6356,6 +6357,14 @@ function recalcAllETAs() {
       a.currentEta = addMin(baseMin, a.ofpOffsetMins);
     }
   });
+  // D51: the same offsets on the timeline, from the dated OUT (no 24 h wrap).
+  // An OUT that is not a valid time ("2400") leaves the timeline as it was (F1).
+  if (_tl.outMs !== null && _tlHM(S.outZ) !== null) {
+    if (S.destEtaOffsetMins !== null) _tl.etaDestMs = _tl.outMs + S.destEtaOffsetMins * 60000;
+    S.altData.forEach(a => {
+      if (a.ofpOffsetMins !== null) _tl.alt[a.icao] = _tl.outMs + a.ofpOffsetMins * 60000;
+    });
+  }
 }
 
 // Recalculate IN time and alternate ETAs from the actual OFF (wheels-up) time.
@@ -6384,6 +6393,240 @@ function recalcAllETAsFromOff(offZval) {
       a.currentEta = addMin(baseMin, Math.max(0, a.ofpOffsetMins - taxiMins));
     }
   });
+  // D51: the same offsets on the timeline, from the dated OFF (no 24 h wrap).
+  // An OFF that is not a valid time ("2400") leaves the timeline as it was (F1).
+  if (_tl.offMs !== null && _tlHM(offZval) !== null) {
+    if (S.tripMinutes !== null) _tl.etaDestMs = _tl.offMs + S.tripMinutes * 60000;
+    S.altData.forEach(a => {
+      if (a.ofpOffsetMins !== null) _tl.alt[a.icao] = _tl.offMs + Math.max(0, a.ofpOffsetMins - taxiMins) * 60000;
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  D-EVAL TIMELINE (D51)
+//  Every time that feeds an evaluation is kept as a UTC date-and-time (ms)
+//  beside its HHMM display value in S:
+//    outMs     ↔ S.outZ            offMs ↔ S.offZ
+//    etaDestMs ↔ S.etaDest         alt[icao] ↔ S.altData[i].currentEta
+//  null = the time or the flight date is unknown (evaluation then uses the
+//  flight date, as before). Kept beside S, not in it, so the state the screens
+//  read is unchanged; saveFlight() stores it with the flight.
+//  Import: OUT on the DOF date; each downline time is OUT (or OFF) + its OFP
+//  offset in minutes, with no 24 h wrap.
+//  Edit: the new HHMM goes on the UTC date that puts it nearest the time it
+//  replaces (within 12 h; exactly 12 h → later). 2300Z → 0100Z is 2 h later,
+//  next day; 0100Z → 2300Z is 2 h earlier, previous day.
+// ═══════════════════════════════════════════════════════
+const _TL_DAY = 86400000;
+let _tl = { outMs: null, offMs: null, etaDestMs: null, alt: {} };
+
+function _tlClear() { _tl = { outMs: null, offMs: null, etaDestMs: null, alt: {} }; }
+
+// "HHMM" → minutes of day (0–1439), or null when it is not a valid UTC time.
+function _tlHM(hhmm) {
+  const c = String(hhmm || '').replace(/\D/g, '');
+  if (c.length !== 4) return null;
+  const h = parseInt(c.slice(0, 2), 10), m = parseInt(c.slice(2, 4), 10);
+  return (h <= 23 && m <= 59) ? h * 60 + m : null;
+}
+// 'YYYY-MM-DD' → UTC ms of 0000Z that day, or null.
+function _tlDayMs(iso) {
+  const t = iso ? Date.parse(iso + 'T00:00:00Z') : NaN;
+  return isNaN(t) ? null : t;
+}
+// UTC ms → 'YYYY-MM-DD' / 'HHMM'.
+function _tlISO(ms)  { return ms == null ? '' : new Date(ms).toISOString().slice(0, 10); }
+function _tlHHMM(ms) { return ms == null ? '' : new Date(ms).toISOString().slice(11, 16).replace(':', ''); }
+
+// The first time HHMM at or after refMs (refMs itself counts). Downline times.
+function _tlPlaceAfter(hhmm, refMs) {
+  const m = _tlHM(hhmm);
+  if (m === null || refMs == null) return null;
+  let t = refMs - (((refMs % _TL_DAY) + _TL_DAY) % _TL_DAY) + m * 60000;
+  if (t < refMs) t += _TL_DAY;
+  return t;
+}
+// HHMM on the UTC date that puts it nearest refMs (within 12 h; a tie → later).
+function _tlPlaceNear(hhmm, refMs) {
+  const m = _tlHM(hhmm);
+  if (m === null || refMs == null) return null;
+  let t = refMs - (((refMs % _TL_DAY) + _TL_DAY) % _TL_DAY) + m * 60000;
+  if (t - refMs > _TL_DAY / 2) t -= _TL_DAY;
+  else if (t - refMs <= -_TL_DAY / 2) t += _TL_DAY;
+  return t;
+}
+// Planned OFF (what the screens show while S.offZ is empty, _deriveOffZ): OUT + taxi.
+function _tlPlannedOffMs() {
+  return _tl.outMs === null ? null : _tl.outMs + (S.taxiMins || 0) * 60000;
+}
+
+// Builds the timeline from S as at import: OUT on the flight date (DOF), OFF
+// nearest the planned OFF, each ETA the first time at or after OFF (or OUT).
+// After an import the ETAs are the OFP's, so each one is OUT + its OFP offset.
+// Also rebuilds a flight saved by a version without a timeline.
+function _tlBuild() {
+  _tlClear();
+  const day = _tlDayMs(window._flightDateISO);
+  const outMin = _tlHM(S.outZ);
+  if (day === null || outMin === null) return;
+  _tl.outMs = day + outMin * 60000;
+  _tl.offMs = _tlPlaceNear(S.offZ, _tlPlannedOffMs());
+  const base = _tl.offMs !== null ? _tl.offMs : _tl.outMs;
+  _tl.etaDestMs = _tlPlaceAfter(S.etaDest, base);
+  (S.altData || []).forEach(a => {
+    const ms = _tlPlaceAfter(a.currentEta, base);
+    if (ms !== null) _tl.alt[a.icao] = ms;
+  });
+}
+
+// Restores a saved timeline. False (nothing restored) when it is missing or
+// does not match the saved HHMM values; the caller then rebuilds it.
+// A saved time that is not a valid time ("003", empty, "2400") is not compared:
+// the timeline kept the last good dated value (F1). While OUT or OFF holds a
+// 4-digit entry that is not a valid time, the HHMM recalcs have moved the
+// downline HHMM but not the timeline, so the downline is not compared either.
+function _tlRestore(saved) {
+  if (!saved || typeof saved !== 'object') return false;
+  const num = v => v === null || (typeof v === 'number' && isFinite(v));
+  const same = (ms, hhmm) => ms === null || _tlHM(hhmm) === null || _tlHHMM(ms) === String(hhmm || '');
+  const bad4 = v => String(v || '').length === 4 && _tlHM(v) === null;
+  const down = !bad4(S.outZ) && !bad4(S.offZ);
+  if (!num(saved.outMs) || !num(saved.offMs) || !num(saved.etaDestMs)) return false;
+  if (!saved.alt || typeof saved.alt !== 'object') return false;
+  if (!same(saved.outMs, S.outZ) || !same(saved.offMs, S.offZ)) return false;
+  if (down && !same(saved.etaDestMs, S.etaDest)) return false;
+  for (const a of (S.altData || [])) {
+    const ms = saved.alt[a.icao];
+    if (ms === undefined) continue;
+    if (!num(ms) || (down && !same(ms, a.currentEta))) return false;
+  }
+  _tl = { outMs: saved.outMs, offMs: saved.offMs, etaDestMs: saved.etaDestMs, alt: { ...saved.alt } };
+  return true;
+}
+
+// The OFP OUT (minutes of day) from the saved OFP times: each alternate keeps
+// its OFP ETA and its OFP offset from the OFP OUT. null when the save has none,
+// or when they disagree. Only when the OFP gave a DEST offset, which means the
+// alternate offsets came from the OFP OUT (not from the trip time).
+function _tlOfpOutMin() {
+  if (typeof S.destEtaOffsetMins !== 'number') return null;
+  let m = null;
+  for (const a of (S.altData || [])) {
+    const e = _tlHM(a.ofpEta);
+    if (e === null || typeof a.ofpOffsetMins !== 'number') continue;
+    const o = ((e - a.ofpOffsetMins) % 1440 + 1440) % 1440;
+    if (m !== null && m !== o) return null;
+    m = o;
+  }
+  return m;
+}
+
+// Rebuilds the timeline of a flight saved without one (an older version), F2.
+// OUT goes nearest the OFP OUT of the save (on the DOF date, within 12 h), so a
+// delay edited past 0000Z before this version stays on its date. Each downline
+// time goes nearest its planned time from that OUT (OFF: OUT + taxi; IN and
+// alternates: OUT, or OFF once entered, + its OFP offset, as the recalcs do);
+// an ETA with no OFP offset (CFS) is the first time at or after OFF / OUT, as
+// at import. A saved OUT that is not a valid time keeps the OFP OUT (F1).
+// F5: a saved IN that is not a valid time is its planned time. While OUT or OFF
+// holds a 4-digit entry that is not a valid time ("2400"), the saved downline
+// HHMM were recalculated from that entry, so IN and the alternates are their
+// planned times, not those HHMM.
+// No OFP times in the save → as at import (_tlBuild()).
+function _tlRecover() {
+  const day = _tlDayMs(window._flightDateISO);
+  const ofpOut = _tlOfpOutMin();
+  if (day === null || ofpOut === null) { _tlBuild(); return; }
+  _tlClear();
+  const planOut = day + ofpOut * 60000;
+  _tl.outMs = _tlHM(S.outZ) === null ? planOut : _tlPlaceNear(S.outZ, planOut);
+  _tl.offMs = _tlPlaceNear(S.offZ, _tlPlannedOffMs());
+  const base = _tl.offMs !== null ? _tl.offMs : _tl.outMs;
+  const trip = typeof S.tripMinutes === 'number' ? S.tripMinutes : null;
+  const taxiMins = trip !== null ? S.destEtaOffsetMins - trip : 0;
+  const plan = off => typeof off !== 'number' ? null
+    : _tl.offMs !== null ? _tl.offMs + Math.max(0, off - taxiMins) * 60000 : _tl.outMs + off * 60000;
+  const destPlan = _tl.offMs !== null && trip !== null ? _tl.offMs + trip * 60000 : plan(S.destEtaOffsetMins);
+  const bad4 = v => String(v || '').length === 4 && _tlHM(v) === null;
+  const shifted = bad4(S.outZ) || bad4(S.offZ);
+  _tl.etaDestMs = destPlan === null ? _tlPlaceAfter(S.etaDest, base)
+    : (shifted || _tlHM(S.etaDest) === null) ? destPlan : _tlPlaceNear(S.etaDest, destPlan);
+  (S.altData || []).forEach(a => {
+    const p = plan(a.ofpOffsetMins);
+    const ms = p === null ? _tlPlaceAfter(a.currentEta, base) : shifted ? p : _tlPlaceNear(a.currentEta, p);
+    if (ms !== null) _tl.alt[a.icao] = ms;
+  });
+}
+
+// confirmEdit(): places an edited OUT / OFF / IN on its UTC date (see above).
+// The time it replaces: the current dated value; for OFF not yet entered, the
+// planned OFF; for anything with no dated value, as at import.
+// An entry that is not a valid time ("003", empty, "2400", minutes > 59) does
+// not change the timeline: the last good dated value stays, and the next valid
+// entry is placed nearest it (F1).
+function _tlPlaceEdit(field, hhmm) {
+  const key = { outZ: 'outMs', offZ: 'offMs', etaDest: 'etaDestMs' }[field];
+  if (!key) return;
+  if (_tlHM(hhmm) === null) return;
+  let ref = _tl[key];
+  if (ref === null && field === 'offZ') ref = _tlPlannedOffMs();
+  if (ref !== null) { _tl[key] = _tlPlaceNear(hhmm, ref); return; }
+  if (field === 'outZ') {
+    const day = _tlDayMs(window._flightDateISO), m = _tlHM(hhmm);
+    _tl.outMs = (day === null || m === null) ? null : day + m * 60000;
+  } else if (field === 'etaDest') {
+    _tl.etaDestMs = _tlPlaceAfter(hhmm, _tl.offMs !== null ? _tl.offMs : _tl.outMs);
+  } else {
+    _tl[key] = null;
+  }
+}
+
+// The dated ETA (DEP for ORIG) of an airport: the timeline entry for its role,
+// its date AND its time (F5). null when the timeline has none. With no role
+// (a curfew detail), the role is the airport's first on getAllAirports():
+// departure, then destination, then alternate.
+function _tlEtaMs(icao, role) {
+  const k = (icao || '').toString().toUpperCase();
+  let r = (role || '').toString().toUpperCase();
+  if (!r) r = k === (S.origIcao || '').toUpperCase() ? 'ORIG' : 'DEST';
+  if (r === 'ORIG') return _tl.outMs;
+  if (r === 'DEST' && k === (S.destIcao || '').toUpperCase()) return _tl.etaDestMs;
+  return typeof _tl.alt[k] === 'number' ? _tl.alt[k] : null;
+}
+// UTC ms → minutes of day (0–1439).
+function _tlMin(ms) { return Math.floor((((ms % _TL_DAY) + _TL_DAY) % _TL_DAY) / 60000); }
+
+// The one dated value every evaluation of an airport reads (NOTAMs, weather,
+// curfew): { ms, min } = the timeline entry's UTC date-and-time and its minutes
+// of day, both from the SAME valid entry (F5). The field's text (etaZ, the HHMM
+// on the screen) is not read while the timeline has an entry, so an entry that
+// is not a valid time standing in OUT, OFF or IN ("2400", "2360", "003", empty)
+// never reaches an evaluation: the timeline kept the last valid value (F1).
+// No timeline entry (no flight date, or an airport not on it): { ms: null,
+// min: the HHMM as before }.
+function _tlEvalTime(icao, role, etaZ) {
+  const ms = _tlEtaMs(icao, role);
+  if (ms !== null) return { ms, min: _tlMin(ms) };
+  return { ms: null, min: pZM(etaZ) };
+}
+
+// The flight date and departure time evalNotams() is given for one airport:
+// the UTC date of the CURRENT OUT and its time, both from the dated OUT (F5:
+// not the OUT field, which may hold an entry that is not a valid time). The
+// module's rule then puts the ETA on its actual date (D + 1 when the ETA time
+// is earlier than OUT). That rule covers an ETA from OUT to OUT + 24 h; an ETA
+// outside it (e.g. an OFF delayed by more than a day) is passed on its own
+// date, as the departure. No dated OUT → the flight date and OUT time, as before.
+function _tlNotamDate(etaMs, etaMin) {
+  if (_tl.outMs === null) {
+    const depMin = (typeof S !== 'undefined' && S) ? pZM(S.outZ) : null;
+    return { flightISO: (typeof window !== 'undefined' && window._flightDateISO) || '', depMin };
+  }
+  if (etaMs !== null && etaMin !== null && (etaMs < _tl.outMs || etaMs - _tl.outMs >= _TL_DAY)) {
+    return { flightISO: _tlISO(etaMs), depMin: etaMin };
+  }
+  return { flightISO: _tlISO(_tl.outMs), depMin: _tlMin(_tl.outMs) };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -6436,7 +6679,8 @@ function saveFlight() {
   const flights = getFlights();
   const id = 'f_' + Date.now();
   const idx = flights.findIndex(f => f.fltNum === S.fltNum && f.date === S.date);
-  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state:{...S}, raw:pdfRawText.substring(0,10000), aptData: JSON.parse(JSON.stringify(airportData)) };
+  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state:{...S}, raw:pdfRawText.substring(0,10000), aptData: JSON.parse(JSON.stringify(airportData)),
+                  timeline: JSON.parse(JSON.stringify(_tl)) };   // D51: dated OUT / OFF / ETAs
   const stableId = idx >= 0 ? flights[idx].id : entry.id;
   if (idx >= 0) { flights[idx] = {...entry, id: stableId}; }
   else { flights.unshift(entry); }
@@ -6491,6 +6735,10 @@ function loadFlight(entry) {
       }
     } catch(e) {}
   }
+  // D51: the saved timeline (dated OUT / OFF / ETAs). A flight saved by an older
+  // version has none: each saved time is placed nearest its OFP planned time
+  // (_tlRecover(); no OFP times in the save → as at import).
+  if (!_tlRestore(entry.timeline)) _tlRecover();
   // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text
   if (entry.id) {
     _pdfDb.get(entry.id).then(buf => {
@@ -8215,6 +8463,8 @@ function parseOFP() {
   S.blockFuelEntered = null; S.zfwEntered = null; S.togwEntered = null;
   // Preserve crewVerified across re-imports; reset buffer only on first import
   if (!S.crewVerified) S.crewRestBuffer = 60;
+  // D51: dated OUT and downline times (OUT on the DOF date + OFP offsets).
+  _tlBuild();
 
   renderNote();
   saveFlight();
@@ -9741,7 +9991,7 @@ function renderDescentAirportSummary() {
     if (!c || c === 'CURFEW') return;
     if (_RANK[i.level] > _RANK[cat[c]]) cat[c] = i.level;
   });
-  const cf          = evalCurfew(selApt.icao, selApt.eta);
+  const cf          = evalCurfew(selApt.icao, selApt.eta, selApt.role);
   const curfewLevel = (cf.color === 'red' || cf.color === 'yellow') ? cf.color : null;
   const worst       = Math.max(_RANK[cat.WX], _RANK[cat.NOTAM], curfewLevel ? _RANK[curfewLevel] : 0);
   const dotCls      = worst === 2 ? 'red' : worst === 1 ? 'yellow' : 'green';
@@ -10049,7 +10299,7 @@ function buildAptStatusLines() {
     });
 
     // Curfew: independent engine
-    const cf = evalCurfew(apt.icao, apt.eta);
+    const cf = evalCurfew(apt.icao, apt.eta, apt.role);
     const curfewLevel = (cf.color === 'red' || cf.color === 'yellow') ? cf.color : null;
 
     // ── Overall dot colour ────────────────────────────────────────────────
@@ -10131,7 +10381,11 @@ function curfewDeltaMins(windows, etaMin) {
   return closest;
 }
 
-function evalCurfew(icao, etaZ) {
+// role: the airport's role (ORIG / DEST / alternate); the curfew is checked at
+// the airport's dated ETA (DEP for ORIG) from the timeline, as the NOTAMs and
+// weather are (D51 F5): a field holding an entry that is not a valid time is
+// not read. No timeline entry → etaZ, as before.
+function evalCurfew(icao, etaZ, role) {
   const apt = airportData[icao] || {};
   const curfewText = apt.curfew || '';
   if (!curfewText.trim()) return { color: 'none', windows: [], detail: '' };
@@ -10139,7 +10393,7 @@ function evalCurfew(icao, etaZ) {
   const windows = parseCurfewWindows(curfewText);
   if (!windows.length) return { color: 'none', windows: [], detail: curfewText };
 
-  const etaMin = pZM(etaZ);
+  const etaMin = _tlEvalTime(icao, role, etaZ).min;
   const delta  = curfewDeltaMins(windows, etaMin);
 
   let color;
@@ -10175,7 +10429,7 @@ function buildCurfewEntries() {
     const etaZ = apt ? apt.eta : null;
 
     // 1. Structured curfew field from STATION COMPANY NOTAMS parser
-    const cf = evalCurfew(icao, etaZ);
+    const cf = evalCurfew(icao, etaZ, apt ? apt.role : null);
     if (cf.color !== 'none') {
       // Only show on briefing card if within 120-min window (yellow or red)
       if (cf.color === 'yellow' || cf.color === 'red') {
@@ -10334,6 +10588,11 @@ function confirmEdit() {
     if (!_sfRule.re.test(val)) { cancelEdit(); return; }
   }
   S[_editField] = val;
+
+  // D51: an edited OUT / OFF / IN goes on the UTC date nearest the time it
+  // replaces (2300Z → 0100Z is the next day); the recalcs below date every
+  // downline time from it.
+  if (_editField === 'outZ' || _editField === 'offZ' || _editField === 'etaDest') _tlPlaceEdit(_editField, val);
 
   // Block fuel change → apply delta to TOGW
   if (_editField === 'blockFuel') _togwDeltaFromBlock(_prevBlockFuel);
@@ -10714,7 +10973,7 @@ function buildAirportCards() {
     }
 
     // ── Curfew evaluation for this airport ──
-    const cf = evalCurfew(apt.icao, apt.eta);
+    const cf = evalCurfew(apt.icao, apt.eta, apt.role);
     const hasCurfew = cf.color !== 'none';
     const curfewColor = { green:'var(--sys-green)', yellow:'var(--sys-yellow)', red:'var(--sys-red)' }[cf.color] || '';
     const curfewLabel = cf.color === 'red'   ? 'CURFEW' :
@@ -10783,7 +11042,8 @@ function buildAirportCards() {
 }
 
 function showCurfewDetail(icao) {
-  const cf = evalCurfew(icao, (getAllAirports().find(a=>a.icao===icao)||{}).eta);
+  const _cfApt = getAllAirports().find(a=>a.icao===icao) || {};
+  const cf = evalCurfew(icao, _cfApt.eta, _cfApt.role);
   if (!cf.detail) return;
   const col = { green:'var(--sys-green)', yellow:'var(--sys-yellow)', red:'var(--sys-red)' }[cf.color] || 'var(--label)';
   const deltaStr = cf.delta === 0 ? 'ETA inside curfew window'
@@ -10979,16 +11239,24 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
 
   if (!hN && !hW_eff) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
 
-  const etaMin = pZM(etaZ);   // ETA/DEP as minutes-of-day, null if unknown
+  // D51 (F5): the ETA/DEP as ONE dated value from the timeline: its UTC
+  // date-and-time (etaMs) and its minutes of day (etaMin), from the same valid
+  // entry. No timeline entry → etaMs null, etaMin the HHMM as before.
+  const _et    = _tlEvalTime(icao, role, etaZ);
+  const etaMin = _et.min;    // ETA/DEP as minutes-of-day, null if unknown
+  const etaMs  = _et.ms;     // the same as a UTC date-and-time, null if unknown
 
   // ── NOTAM evaluation — evalNotams() from notam-rules.js ──────────────────
   if (hN) {
     const notamArr  = _splitNotams(notamText);
     const aptRole   = (role || 'DEST').toString().toUpperCase();
     const evalRole  = aptRole === 'ORIG' ? 'ORIG' : 'DEST';
-    const flightISO = (typeof window !== 'undefined' && window._flightDateISO) || '';
+    // D51: the UTC date of the CURRENT OUT and the OUT time (_tlNotamDate); the
+    // module's rule places the ETA on its actual date. No dated OUT → flight date.
+    const nd        = _tlNotamDate(etaMs, etaMin);
+    const flightISO = nd.flightISO;
     // Departure time: gives the UTC date of the ETA for the schedule checks.
-    const depMin    = (typeof S !== 'undefined' && S) ? pZM(S.outZ) : null;
+    const depMin    = nd.depMin;
     const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO, depMin);
 
     rwyGroups = result.rwyGroups;
@@ -11037,7 +11305,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   //   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
   //   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
   if (hW_eff) {
-    const relevantWx = extractEtaWindow(effectiveWx, etaMin, effectiveWin);
+    const relevantWx = extractEtaWindow(effectiveWx, etaMin, effectiveWin, etaMs === null ? null : _tlISO(etaMs));
     const wx = relevantWx.toUpperCase();
 
     const ceil      = pCeil(wx);
@@ -11158,20 +11426,43 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
 //
 // All day-hours converted to absolute minutes (day*1440 + HH*60 + MM).
 // ETA window = etaDay*1440 + etaMin ± 60.
-function extractEtaWindow(weatherText, etaMin, wxWindowOverride) {
+// etaISO (D51): the UTC date of this airport's ETA ('YYYY-MM-DD', from the
+// timeline). The window is anchored on that date, not on the flight date, so a
+// next-day arrival reads the TAF for the arrival day. Without it: flight date.
+// Each TAF day of month is read as the date with that day nearest the ETA date
+// (previous, same or next month), so 31 → 01 crosses the month end correctly.
+function extractEtaWindow(weatherText, etaMin, wxWindowOverride, etaISO) {
   if (etaMin === null && !wxWindowOverride) return weatherText;
 
-  // Determine flight date day-of-month from _flightDateISO for day anchoring
-  const iso = window._flightDateISO; // "YYYY-MM-DD"
-  const flightDay = iso ? parseInt(iso.slice(8,10)) : null;
+  // Anchor date: the ETA's own UTC date (D51), else the flight date
+  const iso = etaISO || window._flightDateISO; // "YYYY-MM-DD"
+  const anchorMs = iso ? Date.parse(iso + 'T00:00:00Z') : NaN;
+  const anchored = !isNaN(anchorMs);
+  const anchorDom = anchored ? new Date(anchorMs).getUTCDate() : null;
 
-  // Convert DDHH or DDHHMM to absolute minutes (DD * 1440 + HH*60 + MM)
-  function toAbsMin(dd, hh, mm) {
-    return parseInt(dd)*1440 + parseInt(hh)*60 + (mm ? parseInt(mm) : 0);
+  // TAF day of month → day number on the same scale as etaDay. Anchored: the
+  // date with that day of month nearest the anchor date (counted from the
+  // anchor day). Not anchored: the day of month itself, as before.
+  function tafDay(dd) {
+    const d = parseInt(dd);
+    if (!anchored) return d;
+    const a = new Date(anchorMs);
+    let best = null;
+    for (let k = -1; k <= 1; k++) {
+      const t = Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + k, d);
+      if (new Date(t).getUTCDate() !== d) continue;   // no such day in that month
+      if (best === null || Math.abs(t - anchorMs) < Math.abs(best - anchorMs)) best = t;
+    }
+    return best === null ? d : anchorDom + Math.round((best - anchorMs) / 86400000);
   }
 
-  // ETA absolute minutes — anchor on flight day
-  const etaDay = flightDay || 1;
+  // Convert DDHH or DDHHMM to absolute minutes (day * 1440 + HH*60 + MM)
+  function toAbsMin(dd, hh, mm) {
+    return tafDay(dd)*1440 + parseInt(hh)*60 + (mm ? parseInt(mm) : 0);
+  }
+
+  // ETA absolute minutes — anchor on the ETA date (D51), else the flight day
+  const etaDay = anchorDom || 1;
   let winStart, winEnd;
 
   if (wxWindowOverride) {
@@ -11180,8 +11471,11 @@ function extractEtaWindow(weatherText, etaMin, wxWindowOverride) {
     if (wm) {
       const wsMin = parseInt(wm[1].slice(0,2))*60 + parseInt(wm[1].slice(2,4));
       const weMin = parseInt(wm[2].slice(0,2))*60 + parseInt(wm[2].slice(2,4));
-      winStart = etaDay * 1440 + wsMin;
-      winEnd   = etaDay * 1440 + weMin;
+      // D51: on the ETA's date. A window that crosses 0000Z with the ETA in its
+      // after-midnight part (e.g. 2230Z-0135Z, ETA 0003Z) began the day before.
+      const day = (etaISO && etaMin !== null && weMin < wsMin && etaMin <= weMin) ? etaDay - 1 : etaDay;
+      winStart = day * 1440 + wsMin;
+      winEnd   = day * 1440 + weMin;
       if (winEnd < winStart) winEnd += 1440; // crosses midnight
     } else {
       winStart = etaDay * 1440 + (etaMin||0) - 60;

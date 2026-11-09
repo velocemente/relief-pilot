@@ -1414,6 +1414,8 @@ function parseOFP() {
   S.blockFuelEntered = null; S.zfwEntered = null; S.togwEntered = null;
   // Preserve crewVerified across re-imports; reset buffer only on first import
   if (!S.crewVerified) S.crewRestBuffer = 60;
+  // D51: dated OUT and downline times (OUT on the DOF date + OFP offsets).
+  _tlBuild();
 
   renderNote();
   saveFlight();
