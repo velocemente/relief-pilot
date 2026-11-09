@@ -33,7 +33,7 @@ function buildAirportCards() {
     }
 
     // ── Curfew evaluation for this airport ──
-    const cf = evalCurfew(apt.icao, apt.eta);
+    const cf = evalCurfew(apt.icao, apt.eta, apt.role);
     const hasCurfew = cf.color !== 'none';
     const curfewColor = { green:'var(--sys-green)', yellow:'var(--sys-yellow)', red:'var(--sys-red)' }[cf.color] || '';
     const curfewLabel = cf.color === 'red'   ? 'CURFEW' :
@@ -102,7 +102,8 @@ function buildAirportCards() {
 }
 
 function showCurfewDetail(icao) {
-  const cf = evalCurfew(icao, (getAllAirports().find(a=>a.icao===icao)||{}).eta);
+  const _cfApt = getAllAirports().find(a=>a.icao===icao) || {};
+  const cf = evalCurfew(icao, _cfApt.eta, _cfApt.role);
   if (!cf.detail) return;
   const col = { green:'var(--sys-green)', yellow:'var(--sys-yellow)', red:'var(--sys-red)' }[cf.color] || 'var(--label)';
   const deltaStr = cf.delta === 0 ? 'ETA inside curfew window'
@@ -298,9 +299,12 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
 
   if (!hN && !hW_eff) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
 
-  const etaMin = pZM(etaZ);   // ETA/DEP as minutes-of-day, null if unknown
-  // D51: the same ETA/DEP as a UTC date-and-time from the timeline, null if unknown.
-  const etaMs  = etaMin === null ? null : _tlEtaMs(icao, role, etaZ);
+  // D51 (F5): the ETA/DEP as ONE dated value from the timeline: its UTC
+  // date-and-time (etaMs) and its minutes of day (etaMin), from the same valid
+  // entry. No timeline entry → etaMs null, etaMin the HHMM as before.
+  const _et    = _tlEvalTime(icao, role, etaZ);
+  const etaMin = _et.min;    // ETA/DEP as minutes-of-day, null if unknown
+  const etaMs  = _et.ms;     // the same as a UTC date-and-time, null if unknown
 
   // ── NOTAM evaluation — evalNotams() from notam-rules.js ──────────────────
   if (hN) {

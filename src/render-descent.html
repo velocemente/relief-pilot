@@ -155,7 +155,7 @@ function renderDescentAirportSummary() {
     if (!c || c === 'CURFEW') return;
     if (_RANK[i.level] > _RANK[cat[c]]) cat[c] = i.level;
   });
-  const cf          = evalCurfew(selApt.icao, selApt.eta);
+  const cf          = evalCurfew(selApt.icao, selApt.eta, selApt.role);
   const curfewLevel = (cf.color === 'red' || cf.color === 'yellow') ? cf.color : null;
   const worst       = Math.max(_RANK[cat.WX], _RANK[cat.NOTAM], curfewLevel ? _RANK[curfewLevel] : 0);
   const dotCls      = worst === 2 ? 'red' : worst === 1 ? 'yellow' : 'green';
@@ -463,7 +463,7 @@ function buildAptStatusLines() {
     });
 
     // Curfew: independent engine
-    const cf = evalCurfew(apt.icao, apt.eta);
+    const cf = evalCurfew(apt.icao, apt.eta, apt.role);
     const curfewLevel = (cf.color === 'red' || cf.color === 'yellow') ? cf.color : null;
 
     // ── Overall dot colour ────────────────────────────────────────────────
@@ -545,7 +545,11 @@ function curfewDeltaMins(windows, etaMin) {
   return closest;
 }
 
-function evalCurfew(icao, etaZ) {
+// role: the airport's role (ORIG / DEST / alternate); the curfew is checked at
+// the airport's dated ETA (DEP for ORIG) from the timeline, as the NOTAMs and
+// weather are (D51 F5): a field holding an entry that is not a valid time is
+// not read. No timeline entry → etaZ, as before.
+function evalCurfew(icao, etaZ, role) {
   const apt = airportData[icao] || {};
   const curfewText = apt.curfew || '';
   if (!curfewText.trim()) return { color: 'none', windows: [], detail: '' };
@@ -553,7 +557,7 @@ function evalCurfew(icao, etaZ) {
   const windows = parseCurfewWindows(curfewText);
   if (!windows.length) return { color: 'none', windows: [], detail: curfewText };
 
-  const etaMin = pZM(etaZ);
+  const etaMin = _tlEvalTime(icao, role, etaZ).min;
   const delta  = curfewDeltaMins(windows, etaMin);
 
   let color;
@@ -589,7 +593,7 @@ function buildCurfewEntries() {
     const etaZ = apt ? apt.eta : null;
 
     // 1. Structured curfew field from STATION COMPANY NOTAMS parser
-    const cf = evalCurfew(icao, etaZ);
+    const cf = evalCurfew(icao, etaZ, apt ? apt.role : null);
     if (cf.color !== 'none') {
       // Only show on briefing card if within 120-min window (yellow or red)
       if (cf.color === 'yellow' || cf.color === 'red') {

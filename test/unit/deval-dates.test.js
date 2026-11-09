@@ -36,7 +36,8 @@
 const test   = require('node:test');
 const assert = require('node:assert/strict');
 const vm     = require('vm');
-const { loadApp } = require('../harness');
+const fs     = require('fs');
+const { loadApp, INDEX_HTML } = require('../harness');
 const { importFixture, readManifest, requireFixtures, peek } = require('../lib/app-path');
 
 const DAY = 86400000;
@@ -69,8 +70,8 @@ function edit(app, field, value) {
 // A synthetic flight, set up as parseOFP() leaves it: S from the OFP, the flight date, then
 // the timeline (parseOFP() calls _tlBuild() before it renders).
 //   alts: [{ icao, role, off }] — off = minutes from OUT (OFP offset)
-function flight({ dof, out, destOff, trip = null, taxi = 20, alts = [] }) {
-  const app = loadApp();
+function flight({ dof, out, destOff, trip = null, taxi = 20, alts = [], html }) {
+  const app = loadApp({ html });
   run(app, 'resetStateForNewFlight()');
   Object.assign(app.S, {
     fltNum: 'XXX1', date: ofpDate(dof), outZ: out, origIcao: 'XXXO', destIcao: 'XXXX',
@@ -716,4 +717,317 @@ test('TC-141-008 D53: an IN edit leaves the alternate ETAs unchanged', () => {
   edit(a, 'outZ', '1300');
   assert.notEqual(a.S.altData[0].currentEta, alt0, 'OUT edit moves the ALT');
   assert.equal(tl(a).alt.XXXA, altMs + 3600000, 'OUT +1 h → dated ALT +1 h');
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// TC-142 — QA finding F5 on the D51 timeline (app PR #43).
+//   Principle (Exec): a time and its date always come from the SAME valid entry. Every
+//   evaluation (NOTAMs, weather, curfew) reads one dated value — UTC date + time — from the
+//   timeline, never the raw field text. While an entry that is not a valid time ("2400",
+//   "2360", "2575", letters, incomplete, empty) stands in OUT, OFF or IN, every evaluation
+//   uses the last valid dated value, its date AND its time. The fields show what they did.
+//
+//   TC-142-001  OUT moved past 0000Z, then "2400" / "2360" (and the other invalid entries)
+//               left standing: every evaluation = the last valid value; the next valid entry
+//               is placed nearest it; the raw text never reaches an evaluation
+//   TC-142-002  the same for OFF
+//   TC-142-003  the same for IN
+//   TC-142-004  the departure card with OUT "2400" standing: the NOTAM at the last valid
+//               OUT is shown, the one at the raw "2400" (24 h later) is hidden
+//   TC-142-005  curfew with an invalid entry standing: checked at the last valid ETA
+//   TC-142-006  QA YSSY-RKSI 2300 → 0030 → "2400" on the real package
+//   TC-142-007  QA KORD-EDDF 2126 → 0030 → "2400" and the delay packages: no NOTAM in effect
+//               on the actual date is hidden; every card is the card before the invalid entry
+//   TC-142-008  save → reload, and an older save, with an invalid entry standing
+// ══════════════════════════════════════════════════════════════════════════
+// A copy of index.html, in memory only, whose evalNotams() records what it is given (the
+// app binds the module's evalNotams as a const, so it cannot be wrapped from outside).
+// The file is not changed; the module and every other line run as built.
+const NOTAM_BIND = 'const { evalNotams, _splitNotams } = NotamRules;';
+const REC_HTML = (() => {
+  const src = fs.readFileSync(INDEX_HTML, 'utf8');
+  assert.equal(src.split(NOTAM_BIND).length, 2, 'index.html binds evalNotams once');
+  return src.replace(NOTAM_BIND, 'const { _splitNotams } = NotamRules;\n' +
+    'const evalNotams = function (notams, role, etaMin, acft, flightISO, depMin) {\n' +
+    '  (globalThis.__rec = globalThis.__rec || { notam: [], wx: [], curfew: [] }).notam.push({ role, etaMin, flightISO, depMin });\n' +
+    '  return NotamRules.evalNotams.apply(this, arguments); };');
+})();
+// Records the weather and curfew inputs too (both are global functions the app calls).
+function record(app) {
+  run(app, `globalThis.__rec = { notam: [], wx: [], curfew: [] };
+    (function () {
+      const x = extractEtaWindow, c = curfewDeltaMins;
+      extractEtaWindow = function (t, etaMin, w, etaISO) { __rec.wx.push({ etaMin, etaISO }); return x.apply(this, arguments); };
+      curfewDeltaMins = function (ws, etaMin) { __rec.curfew.push({ etaMin }); return c.apply(this, arguments); };
+    })();`);
+  return app;
+}
+const recFlight = o => record(flight({ ...o, html: REC_HTML }));
+// Evaluates one airport card (NOTAMs, weather, curfew) and returns the dated value each
+// evaluation was given, as UTC ms. NOTAMs: the module places the ETA on flightISO, or on
+// the next day when the ETA time is earlier than the departure time.
+function evaluated(app, icao) {
+  run(app, '__rec.notam = []; __rec.wx = []; __rec.curfew = [];');
+  const c = card(app, icao);
+  run(app, `evalCurfew(${JSON.stringify(icao)}, ${JSON.stringify(c.apt.eta)}, ${JSON.stringify(c.apt.role)})`);
+  const r = JSON.parse(JSON.stringify(run(app, '__rec')));
+  assert.equal(r.notam.length, 1, `${icao}: one NOTAM evaluation`);
+  assert.equal(r.wx.length, 1, `${icao}: one weather evaluation`);
+  assert.equal(r.curfew.length, 1, `${icao}: one curfew evaluation`);
+  const n = r.notam[0], w = r.wx[0];
+  return {
+    notam: Date.parse(n.flightISO + 'T00:00:00Z') + n.etaMin * 60000 + (n.depMin !== null && n.etaMin < n.depMin ? DAY : 0),
+    depMin: n.depMin, wx: Date.parse(w.etaISO + 'T00:00:00Z') + w.etaMin * 60000,
+    mins: [n.etaMin, w.etaMin, r.curfew[0].etaMin], card: c,
+  };
+}
+// Gives an airport something to evaluate: a NOTAM, a TAF and a curfew.
+function feed(app, icao, notams = [nt(icao, 'A0001/26', '01JAN0000-31DEC2359')]) {
+  setNotams(app, icao, notams);
+  setWx(app, icao, `TAF ${icao} 081700Z 0818/1124 27010KT P6SM SKC\n`);
+  aptData(app)[icao].curfew = '0300-0400Z';
+}
+// The entries that are not a valid time, left standing. "2400" and "2360" are 4 digits:
+// they run the HHMM recalc the screens show (as before), which moves the downline HHMM.
+const STANDING = ['2400', '2360', '2575', 'AB12', '003', ''];
+// Checks every airport of a synthetic flight: each evaluation (NOTAM, weather, curfew)
+// uses the expected dated value; the raw text of the fields is not used (negative).
+function assertEvaluated(a, want, label) {
+  const raw = { XXXO: a.S.outZ, XXXX: a.S.etaDest, XXXA: a.S.altData[0].currentEta };
+  for (const icao of Object.keys(want)) {
+    const e = evaluated(a, icao);
+    assert.equal(at(e.notam), at(want[icao]), `${label}: ${icao} NOTAMs at the last valid date and time`);
+    assert.equal(at(e.wx), at(want[icao]), `${label}: ${icao} weather at the last valid date and time`);
+    const m = hm(at(want[icao]).slice(11, 16).replace(':', ''));
+    assert.deepEqual(e.mins, [m, m, m], `${label}: ${icao} NOTAM, weather and curfew times = the last valid time`);
+    assert.equal(e.depMin, hm(at(want.XXXO).slice(11, 16).replace(':', '')), `${label}: ${icao} departure time = the last valid OUT`);
+    // negative: the field's raw text, when it differs from the last valid time, is used nowhere
+    const r = a.pZM(raw[icao]);
+    if (r !== m) assert.ok(!e.mins.includes(r), `${label}: ${icao} raw "${raw[icao]}" (${r} min) not used`);
+    if (icao === 'XXXO' && r !== m) assert.notEqual(e.depMin, r, `${label}: raw OUT not the departure time`);
+  }
+}
+const mk142 = o => {
+  const a = recFlight({ dof: '2026-03-09', out: '2300', destOff: 600, taxi: 20, alts: [{ icao: 'XXXA', role: 'DEST ALT', off: 630 }], ...o });
+  ['XXXO', 'XXXX', 'XXXA'].forEach(i => feed(a, i));
+  return a;
+};
+
+test('TC-142-001 OUT moved past 0000Z, invalid entry standing: every evaluation uses the last valid OUT, date and time', () => {
+  for (const bad of STANDING) {
+    const a = mk142();
+    edit(a, 'outZ', '0030');                           // 09 MAR 2300 → 10 MAR 0030
+    const want = { XXXO: ms('2026-03-10', '0030'), XXXX: ms('2026-03-10', '1030'), XXXA: ms('2026-03-10', '1100') };
+    assertEvaluated(a, want, 'after 0030');
+    const cards = Object.keys(want).map(i => card(a, i).st);
+    edit(a, 'outZ', bad);
+    assert.equal(a.S.outZ, typed(bad), `"${bad}": OUT shows the entry, as before`);
+    if (bad === '2400' || bad === '2360') {
+      // display as before: the HHMM recalc from "2400" (0000 + 600 / + 630)
+      assert.equal(a.S.etaDest, '1000', `"${bad}": IN shown as the recalc gives it`);
+      assert.equal(a.S.altData[0].currentEta, '1030', `"${bad}": ALT shown as the recalc gives it`);
+    }
+    // positive: the last valid dated values, date AND time; negative: no raw text
+    assertEvaluated(a, want, `"${bad}" standing`);
+    assert.deepEqual(Object.keys(want).map(i => card(a, i).st), cards, `"${bad}": every card as before the entry`);
+    // positive: the next valid entry is placed nearest the last valid OUT (10 MAR 0030)
+    edit(a, 'outZ', '0045');
+    assertEvaluated(a, { XXXO: ms('2026-03-10', '0045'), XXXX: ms('2026-03-10', '1045'), XXXA: ms('2026-03-10', '1115') }, `"${bad}" then 0045`);
+  }
+});
+
+test('TC-142-002 OFF moved past 0000Z, invalid entry standing: every evaluation uses the last valid OFF, date and time', () => {
+  for (const bad of STANDING) {
+    const a = mk142();
+    edit(a, 'offZ', '0030');                           // planned 09 MAR 2320 → 10 MAR 0030
+    // IN = OFF + trip 580; ALT = OFF + (630 − taxi 20); OUT unchanged
+    const want = { XXXO: ms('2026-03-09', '2300'), XXXX: ms('2026-03-10', '1010'), XXXA: ms('2026-03-10', '1040') };
+    assertEvaluated(a, want, 'after OFF 0030');
+    const cards = Object.keys(want).map(i => card(a, i).st);
+    edit(a, 'offZ', bad);
+    assert.equal(a.S.offZ, typed(bad), `"${bad}": OFF shows the entry, as before`);
+    if (bad === '2400' || bad === '2360') assert.equal(a.S.etaDest, '0940', `"${bad}": IN shown as the recalc from "${typed(bad)}" gives it`);
+    assertEvaluated(a, want, `OFF "${bad}" standing`);
+    assert.deepEqual(Object.keys(want).map(i => card(a, i).st), cards, `OFF "${bad}": every card as before the entry`);
+    edit(a, 'offZ', '0100');                           // nearest 10 MAR 0030
+    assertEvaluated(a, { XXXO: want.XXXO, XXXX: ms('2026-03-10', '1040'), XXXA: ms('2026-03-10', '1110') }, `OFF "${bad}" then 0100`);
+  }
+});
+
+test('TC-142-003 IN moved past 0000Z, invalid entry standing: the destination uses the last valid IN, date and time', () => {
+  for (const bad of STANDING) {
+    const a = mk142({ out: '1200' });                  // IN 09 MAR 2200, ALT 2230
+    edit(a, 'etaDest', '0045');                        // → 10 MAR 0045
+    const want = { XXXO: ms('2026-03-09', '1200'), XXXX: ms('2026-03-10', '0045'), XXXA: ms('2026-03-09', '2230') };
+    assertEvaluated(a, want, 'after IN 0045');
+    const cards = Object.keys(want).map(i => card(a, i).st);
+    edit(a, 'etaDest', bad);
+    assert.equal(a.S.etaDest, typed(bad), `"${bad}": IN shows the entry, as before`);
+    assertEvaluated(a, want, `IN "${bad}" standing`);
+    assert.deepEqual(Object.keys(want).map(i => card(a, i).st), cards, `IN "${bad}": every card as before the entry`);
+    edit(a, 'etaDest', '0100');                        // nearest 10 MAR 0045
+    assertEvaluated(a, { ...want, XXXX: ms('2026-03-10', '0100') }, `IN "${bad}" then 0100`);
+  }
+});
+
+// The raw "2400" on the dated OUT's date would be checked at 10 MAR 2400 ± 60 (10 MAR 2300 –
+// 11 MAR 0100). Module v1.11.1 also checks an ETA before 1200Z on the next day (fail-safe;
+// v1.11.2 removes it), so 11 MAR 0030 ± 60 is shown on every build; the probe that only the
+// raw text reaches is 10 MAR 2300–2320. The module inputs are the last valid OUT's date and
+// time, so a module that checks that day only (v1.11.2) checks 10 MAR 0030 ± 60.
+test('TC-142-004 departure card, OUT "2400" standing: the NOTAM at the last valid OUT is shown, the raw "2400" is not checked', () => {
+  for (const bad of ['2400', '2360']) {
+    const a = record(flight({ dof: '2026-03-09', out: '2300', destOff: 600, html: REC_HTML }));
+    const now = nt('XXXO', 'A0010/26', '10MAR0000-10MAR0100');   // at 10 MAR 0030 ± 60
+    const raw = nt('XXXO', 'A0011/26', '10MAR2300-10MAR2320');   // only at the raw "2400"
+    setNotams(a, 'XXXO', [now, raw]);
+    edit(a, 'outZ', '0030');
+    assert.equal(shows(a, 'XXXO', now), true, 'after 0030: in effect, shown');
+    assert.equal(shows(a, 'XXXO', raw), false, 'after 0030: 10 MAR 2300–2320 not in effect, hidden');
+    edit(a, 'outZ', bad);
+    assert.equal(shows(a, 'XXXO', now), true, `"${bad}" standing: the NOTAM at the last valid OUT is shown`);
+    assert.equal(shows(a, 'XXXO', raw), false, `"${bad}" standing: the NOTAM only the raw "${bad}" reaches is hidden`);
+    run(a, '__rec.notam = []');
+    card(a, 'XXXO');
+    const n = JSON.parse(JSON.stringify(run(a, '__rec.notam[0]')));
+    assert.deepEqual(n, { role: 'ORIG', etaMin: 30, flightISO: '2026-03-10', depMin: 30 }, `"${bad}": module given 10 MAR 0030 (not ${a.pZM(a.S.outZ)} min)`);
+  }
+});
+
+test('TC-142-005 curfew with an invalid entry standing: checked at the last valid ETA', () => {
+  const cf = (a, icao, role) => { const r = run(a, `evalCurfew('${icao}', ${JSON.stringify(card(a, icao).apt.eta)}, '${role}')`); return { color: r.color, delta: r.delta }; };
+  for (const bad of ['2400', '2360']) {
+    // OUT 2300 → 0030: IN 10 MAR 1030. "2400" moves the IN shown to 1000.
+    const a = flight({ dof: '2026-03-09', out: '2300', destOff: 600 });
+    aptData(a).XXXX = { notams: '', weather: '', curfew: '1200-1300Z' };
+    aptData(a).XXXO = { notams: '', weather: '', curfew: '2230-2300Z' };
+    edit(a, 'outZ', '0030');
+    assert.deepEqual(cf(a, 'XXXX', 'DEST'), { color: 'red', delta: 90 }, 'after 0030: IN 1030, 90 min to 1200');
+    assert.deepEqual(cf(a, 'XXXO', 'ORIG'), { color: 'red', delta: 90 }, 'after 0030: OUT 0030, 90 min after 2300');
+    edit(a, 'outZ', bad);
+    assert.equal(a.S.etaDest, '1000', `"${bad}": IN shown as before`);
+    // positive: the last valid ETA; negative: not the raw / recalculated HHMM (1000 → 120 min, yellow; 2400 → 60 min)
+    assert.deepEqual(cf(a, 'XXXX', 'DEST'), { color: 'red', delta: 90 }, `"${bad}": destination curfew at the last valid IN 1030`);
+    assert.deepEqual(cf(a, 'XXXO', 'ORIG'), { color: 'red', delta: 90 }, `"${bad}": departure curfew at the last valid OUT 0030`);
+    // without a role (curfew detail): the airport's first role on getAllAirports()
+    assert.equal(run(a, `evalCurfew('XXXX', '1000').delta`), 90, `"${bad}": no role → destination, last valid IN`);
+  }
+  // IN "2400" standing: the destination curfew stays at the last valid IN.
+  const b = flight({ dof: '2026-03-09', out: '2300', destOff: 600 });
+  aptData(b).XXXX = { notams: '', weather: '', curfew: '1200-1300Z' };
+  edit(b, 'etaDest', '1030');
+  edit(b, 'etaDest', '2400');
+  assert.deepEqual(cf(b, 'XXXX', 'DEST'), { color: 'red', delta: 90 }, 'IN "2400": curfew at the last valid IN 1030');
+  // negative: with no dated value (no flight date) the HHMM is read, as before
+  const c = flight({ dof: '', out: '2300', destOff: 600 });
+  aptData(c).XXXX = { notams: '', weather: '', curfew: '1200-1300Z' };
+  assert.equal(run(c, `evalCurfew('XXXX', '1000', 'DEST').delta`), 120, 'no timeline → the HHMM as before');
+});
+
+test('TC-142-006 QA YSSY-RKSI: OUT 2300 → 0030 → "2400" on the real package', async () => {
+  const dir = requireFixtures();
+  const fx = readManifest(dir).fixtures.find(f => f.id === 'NB_YSSY-RKSI_11MAR26_rda_rev6');
+  assert.ok(fx, 'package in the fixtures');
+  for (const bad of ['2400', '2360']) {
+    const { app } = await importFixture(fx, dir, { html: REC_HTML });
+    record(app);
+    const now  = nt('YSSY', 'A9990/26', '12MAR0000-12MAR0100');   // around 12 MAR 0030
+    const late = nt('YSSY', 'A9991/26', '12MAR2300-12MAR2320');   // only at the raw "2400" (12 MAR 2400 ± 60)
+    const d = aptData(app);
+    d.YSSY.notams = now + late + d.YSSY.notams;
+    edit(app, 'outZ', '0030');
+    const good = tl(app);
+    const before = {};
+    for (const apt of app.getAllAirports()) before[apt.icao + apt.role] = card(app, apt.icao).st;
+    edit(app, 'outZ', bad);
+    assert.deepEqual(tl(app), good, `"${bad}": timeline = the last valid one`);
+    assert.equal(shows(app, 'YSSY', now), true, `"${bad}": departure NOTAM around 12 MAR 0030 shown`);
+    assert.equal(shows(app, 'YSSY', late), false, `"${bad}": departure NOTAM only the raw "${bad}" reaches hidden`);
+    for (const apt of app.getAllAirports()) {
+      const data = d[apt.icao] || {};
+      if (!(data.notams && data.notams.trim())) continue;
+      run(app, '__rec.notam = []; __rec.wx = [];');
+      const st = card(app, apt.icao).st;
+      const r = JSON.parse(JSON.stringify(run(app, '__rec')));
+      const n = r.notam[0];
+      const e = Date.parse(n.flightISO + 'T00:00:00Z') + n.etaMin * 60000 + (n.etaMin < n.depMin ? DAY : 0);
+      const want = apt.role === 'ORIG' ? good.outMs : apt.role === 'DEST' && apt.icao === app.S.destIcao ? good.etaDestMs : good.alt[apt.icao];
+      // The module is given the arrival day (12 MAR) and the last valid time: with a module
+      // that checks only that day (v1.11.2), the arrival-day NOTAMs are the ones checked.
+      assert.equal(at(e), at(want), `"${bad}": ${apt.icao} ${apt.role} evaluated at the last valid date and time`);
+      assert.equal(n.depMin, 30, `"${bad}": ${apt.icao} departure time 0030, not the raw "${bad}"`);
+      assert.deepEqual(st, before[apt.icao + apt.role], `"${bad}": ${apt.icao} card as before the entry`);
+    }
+    assert.ok(good.alt && iso(good.etaDestMs) === '2026-03-12', 'RKSI on 12 MAR');
+  }
+});
+
+test('TC-142-007 QA KORD-EDDF and the delay packages, invalid OUT left standing: no NOTAM in effect is hidden', async () => {
+  const dir = requireFixtures();
+  const man = readManifest(dir);
+  let inEffect = 0;
+  for (const bad of ['2400', '2360', '003', '']) {
+    for (const [id, newOut] of QA_EDITS) {
+      const fx = man.fixtures.find(f => f.id === id);
+      assert.ok(fx, `${id} in the fixtures`);
+      const imp = await importFixture(fx, dir);
+      const app = imp.app, dof = app.sandbox.window._flightDateISO;
+      edit(app, 'outZ', newOut);
+      const good = tl(app);
+      assert.equal(iso(good.outMs), iso(Date.parse(dof + 'T00:00:00Z') + DAY), `${id}: OUT moved to D + 1`);
+      const before = {};
+      for (const apt of app.getAllAirports()) before[apt.icao + apt.role] = card(app, apt.icao).st;
+      edit(app, 'outZ', bad);                           // left standing
+      for (const apt of app.getAllAirports()) {
+        const data = imp.airportData[apt.icao] || {};
+        const e = apt.role === 'ORIG' ? good.outMs : apt.role === 'DEST' && apt.icao === imp.S.destIcao ? good.etaDestMs : good.alt[apt.icao];
+        if (!(data.notams && data.notams.trim()) || e == null) continue;
+        // In effect: the module on the actual date and time (the last valid value).
+        const m = Math.round((e % DAY) / 60000);
+        const ref = app.evalNotams(app._splitNotams(data.notams), apt.role === 'ORIG' ? 'ORIG' : 'DEST', m, imp.S.acftType, iso(e), m);
+        const want = [];
+        for (const [, g] of ref.rwyGroups) for (const it of g.items) want.push(it.notamRaw);
+        (ref.sidIssues || []).concat(ref.starIssues || []).forEach(i => want.push(i.notamRaw));
+        const c = card(app, apt.icao);
+        const shownN = new Set(c.notams);
+        inEffect += want.length;
+        assert.deepEqual(want.filter(n => !shownN.has(n)).map(n => n.split('\n')[0].slice(0, 22)), [], `${id} "${bad}" ${apt.icao} ${apt.role}: NOTAMs in effect at ${at(e)} hidden`);
+        assert.deepEqual(c.st, before[apt.icao + apt.role], `${id} "${bad}" ${apt.icao} ${apt.role}: card as before the entry`);
+      }
+    }
+  }
+  assert.ok(inEffect > 400, `${inEffect} NOTAMs in effect checked`);
+});
+
+test('TC-142-008 save → reload, and an older save, with an invalid entry standing', () => {
+  const recReload = (a, drop) => {
+    const f = a.getFlights(); if (drop) delete f[0].timeline;
+    const b = loadApp({ html: REC_HTML, storageData: { rp_flights: f } });
+    b.loadFlight(b.getFlights()[0]);
+    record(b);
+    ['XXXO', 'XXXX', 'XXXA'].forEach(i => feed(b, i));
+    return b;
+  };
+  for (const bad of ['2400', '2360']) {
+    // Saved with the timeline: the last valid values come back and are evaluated.
+    let a = mk142();
+    edit(a, 'outZ', '0030'); edit(a, 'outZ', bad);
+    assertEvaluated(recReload(a, false), { XXXO: ms('2026-03-10', '0030'), XXXX: ms('2026-03-10', '1030'), XXXA: ms('2026-03-10', '1100') }, `"${bad}", reload`);
+    // Older save (no timeline) with OUT "2400" standing: the last valid OUT is not in the
+    // save, so OUT is the OFP OUT; IN and ALT are planned from it, not the HHMM recalculated
+    // from "2400" (1000 / 1030).
+    a = mk142();
+    edit(a, 'outZ', bad);
+    const b = recReload(a, true);
+    assert.equal(b.S.etaDest, '1000', 'IN shown as saved');
+    assertEvaluated(b, { XXXO: ms('2026-03-09', '2300'), XXXX: ms('2026-03-10', '0900'), XXXA: ms('2026-03-10', '0930') }, `older save, OUT "${bad}"`);
+    // Older save with IN "2400" standing: IN is its planned time (OUT + 600).
+    a = mk142();
+    edit(a, 'etaDest', bad);
+    assertEvaluated(recReload(a, true), { XXXO: ms('2026-03-09', '2300'), XXXX: ms('2026-03-10', '0900'), XXXA: ms('2026-03-10', '0930') }, `older save, IN "${bad}"`);
+  }
+  // negative: an older save with every entry valid still places the saved HHMM (F2).
+  const a = mk142();
+  edit(a, 'outZ', '0030');
+  assertEvaluated(recReload(a, true), { XXXO: ms('2026-03-10', '0030'), XXXX: ms('2026-03-10', '1030'), XXXA: ms('2026-03-10', '1100') }, 'older save, all valid');
 });
