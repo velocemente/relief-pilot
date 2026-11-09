@@ -3,24 +3,35 @@
  * TC-130 — NavBlue OFP parser module (rules/ofp-navblue, v2.0.0) is the app's OFP parser, LOCKED
  *
  * The module was extracted from the app (src/ofp-parse.html and the ENR V2 helpers in
- * src/render-preflight.html) and must give IDENTICAL core fields to the parser the app runs
- * (ADR-005 §2.4 NavBlue lock, D47). This PR does not build it into index.html; the app keeps
- * its own copy until the integration PR.
+ * src/render-preflight.html) and must give IDENTICAL core fields to the parser the app ran
+ * (ADR-005 §2.4 NavBlue lock, D47). Since the integration PR the app runs the module itself,
+ * built into index.html; the app's own copy is removed. The lock now runs against the built
+ * index.html (node build/build.js output, in the app's strict main script): its parse, as
+ * parseOFP() calls it, equals this standalone file AND the golden snapshots (snapshots/, the
+ * frozen record of the parser the app ran before the integration).
  *
  *   TC-130-001  metadata present; validateSchema() valid; a broken parser object is rejected
  *   TC-130-002  rules/manifest.json: the ofp-navblue entry, its version, file and SHA-256
  *   TC-130-003  dual context: Node (module.exports), rules-loader (new Function), browser
  *               (plain script → one global OfpNavBlue); no window / DOM / storage / app state
  *               (loaded and run with a window, document and app globals that throw on access)
- *   TC-130-004  the copies: § 2–§ 10 are byte-identical to the app source except the three
- *               marked v2.0.0 edits; parseOFP, fuelK, deriveCallsign are not in the module
- *   TC-130-005  the app is unchanged: index.html is still the build of src/ + rules/, and does
- *               not carry this module (integration is a separate PR)
- *   TC-130-010  LOCK: every NavBlue/eOFP fixture, module loaded in the app's own context, the
- *               NAT parser passed in: _ofpRulesetParse and the parseNavBlue core fields equal
- *               the app's, all 57 fields, values and key order
- *   TC-130-011  LOCK: the same with the module loaded in Node, the NAT parser passed in
- *               as options.parseNatTrack
+ *   TC-130-004  ONE copy (integration, ADR-005 §2.3.3): index.html carries the module byte for
+ *               byte, once, in the main script before the app's adapter; no src/ fragment
+ *               declares a parser name (the ENR V2 helpers excepted: they stay in
+ *               src/render-preflight.html for the en-route timeline, and must stay identical
+ *               to the module's § 9b); the app's _ofpRulesetParse is the adapter that calls
+ *               OfpNavBlue with the app's NAT parser; parseOFP, fuelK, deriveCallsign stay in
+ *               the app and are not in the module. (The § 2–§ 10 copy check against the app
+ *               source ran in the extraction PR, whose app copy is now removed.)
+ *               Negative: a second copy, an edited module, a missing adapter or an adapter
+ *               without the NAT parser is caught.
+ *   TC-130-005  index.html is the build of src/ + rules/ (the build the lock runs against)
+ *   TC-130-010  LOCK on the built index.html: every NavBlue/eOFP fixture, the app's parse (as
+ *               parseOFP() calls it) equals the golden snapshot (values) and the module in
+ *               the app's own context with the NAT parser passed in: _ofpRulesetParse and the
+ *               parseNavBlue core fields, all 57 fields, values and key order
+ *   TC-130-011  LOCK: the module loaded in Node, the NAT parser passed in as
+ *               options.parseNatTrack, equals the copy built into index.html
  *   TC-130-012  contract: every Appendix B extension present and empty on every fixture
  *               (top level, airportData[icao], ddgItems[i]); findings exactly the one INFO
  *               (NAT parser passed in) or that INFO plus "NAT parser not supplied" (not passed)
@@ -33,7 +44,8 @@
  *               publishes parseNatTrack, are both left alone); not passed → null + the INFO
  *   TC-130-016  the masters' embedded self-test assertions (SPEC v1.0 #1–9, v1.1 #10–14) hold;
  *               slot time chain, positive and negative
- *   TC-130-020  the gate bites: a module with one rule broken fails the lock
+ *   TC-130-020  the gate bites: a module with one rule broken fails the lock, both standalone
+ *               and built into index.html (against the golden snapshots)
  *   TC-130-030  fixtures missing → the fixture tests FAIL (never skip)
  *
  * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
@@ -48,9 +60,10 @@ const path   = require('path');
 const vm     = require('vm');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
-const { loadApp } = require('../harness');
+const { loadApp, inlineScripts } = require('../harness');
 const { findFixtures, readManifest } = require('../lib/app-path');
 const { assemble } = require('../../build/build');
+const { normalize } = require('../golden/serialize');
 
 const ROOT      = path.resolve(__dirname, '..', '..');
 const RULES     = path.join(ROOT, 'rules');
@@ -120,7 +133,21 @@ function trappedContext() {
   return { ctx, touched };
 }
 
-// One app load and one parse per fixture, shared by TC-130-010..013.
+// The golden snapshot of a fixture: the parser output recorded before the integration
+// (normalized: keys sorted). Missing → FAIL.
+function snapshotOf(dir, fx) {
+  const file = path.join(dir, 'snapshots', `${fx.id}.json`);
+  assert.ok(fs.existsSync(file), `${fx.id}: golden snapshot present (snapshots/${fx.id}.json)`);
+  const snap = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(snap.parser, '_ofpRulesetParse', `${fx.id}: snapshot of _ofpRulesetParse`);
+  assert.ok(snap.result && typeof snap.result === 'object', `${fx.id}: snapshot holds a result`);
+  return snap.result;
+}
+
+// The built index.html: node build/build.js output (src/ + rules/), what CI ships.
+const builtHtml = () => assemble(ROOT).toString('utf8');
+
+// One app load (the built index.html) and one parse per fixture, shared by TC-130-010..013.
 let _corpus = null;
 function corpus() {
   if (_corpus) return _corpus;
@@ -129,11 +156,11 @@ function corpus() {
   const list = all.filter(f => f.format !== 'flightkeys');
   for (const fx of list) assert.ok(NAVBLUE_FORMATS.has(fx.format), `${fx.id}: format ${fx.format} is a known NavBlue format`);
   assert.ok(list.length >= 30, `at least the 30 NavBlue/eOFP packages of ADR-005 §2.4 (found ${list.length})`);
-  const app = loadApp();
+  const app = loadApp({ html: builtHtml() });
   const inApp = loadInContext(MOD_SRC, app.sandbox, 'ofp-navblue (app context)');
   const items = list.map(fx => {
     const raw = fs.readFileSync(path.join(dir, fx.files.text), 'utf8');
-    return { fx, raw, app: app._ofpRulesetParse(raw) };
+    return { fx, raw, app: app._ofpRulesetParse(raw), snap: snapshotOf(dir, fx) };
   });
   _corpus = { dir, app, inApp, items };
   return _corpus;
@@ -295,21 +322,8 @@ test('TC-130-003 dual context: Node, rules-loader and browser script give the sa
     (code.match(/\boptions\.parseNatTrack\b/g) || []).length, 'parseNatTrack is only ever read from options');
 });
 
-// ══ TC-130-004 the copies ════════════════════════════════════════════════════
+// ══ TC-130-004 one copy: the app runs the module ═════════════════════════════
 
-// The three v2.0.0 edits, exactly as documented in the module header and SPEC §5.
-const EDITS = [
-  [' * @param {string} rawText — full OFP text from PDF extraction\n',
-   ' * @param {string} rawText — full OFP text from PDF extraction\n' +
-   ' * @param {object} [options] — v2.0.0: { parseNatTrack } (§ 11); optional\n'],
-  ['function _ofpRulesetParse(rawText) {\n', 'function _ofpRulesetParse(rawText, options) {\n'],
-  ["  const natTrack = (typeof window.parseNatTrack === 'function')\n" +
-   '    ? window.parseNatTrack(t, origIcao, destIcao)\n' +
-   '    : null;\n',
-   '  // v2.0.0: the NAT track parser is its own module — used only when passed\n' +
-   '  // in as options.parseNatTrack, else null (§ 11).\n' +
-   '  const natTrack = _natTrackFrom(options, t, origIcao, destIcao);\n'],
-];
 // A block of app source: from the start of the line holding `startMark` (or of the banner line
 // just above it) to the "}\n" that closes the function declared by `endFn`.
 function block(src, startMark, endFn, banner) {
@@ -324,54 +338,150 @@ function block(src, startMark, endFn, banner) {
 }
 const once = (hay, needle) => hay.split(needle).length - 1;
 
-test('TC-130-004 the copies: § 2–§ 10 are the app source byte for byte, except the three marked edits', () => {
-  const ofp = fs.readFileSync(path.join(ROOT, 'src', 'ofp-parse.html'), 'utf8');
-  const pre = fs.readFileSync(path.join(ROOT, 'src', 'render-preflight.html'), 'utf8');
-  const A = block(ofp, '// § 2 · CORE FIELD PATTERNS', 'function normalizeWaypointCoord(', true);
-  const B = block(pre, '// ── ENR TIMELINE V2 — INJECTED FUNCTIONS', 'function applyNavlogEtpTimes(', false);
-  const C0 = block(ofp, '// § 10 · FULL OFP PARSE FUNCTION', 'function _ofpRulesetParse(', true);
-  // C0 ends at the first "\n}\n" after the signature: the closing brace of _ofpRulesetParse
-  // (inner functions are indented, so their braces never sit at column 0).
-  assert.ok(C0.trimEnd().endsWith('rawOFP: t,    // full raw text retained for navlog TOT-T extraction (ENR V2)\n  };\n}'));
-  let C = C0;
-  for (const [from, to] of EDITS) {
-    assert.equal(once(C, from), 1, `edit site present once in the app source: ${from.trim().slice(0, 50)}`);
-    C = C.replace(from, to);
+// The module's top-level declarations (column 0 of its factory): the parser's names.
+const MOD_NAMES = [...MOD_SRC.matchAll(/^(?:function\s+(\w+)\s*\(|const\s+(\w+)\s*=)/mg)].map(m => m[1] || m[2]);
+// The ENR V2 helpers (§ 9b) also stay in src/render-preflight.html: the en-route timeline uses
+// them (SPEC §8 step 3a). The two copies must stay identical until that module owns them.
+const ENR_V2 = ['NAVLOG_EEXT_RE', 'NAVLOG_ETP_RE', 'HEADER_ETOPS_EXIT_RE',
+  'extractEtopsExitV2', 'extractEtpElapsedFromNavlog', 'applyNavlogEtpTimes'];
+// The app's adapter (src/ofp-parse.html): its one call into the module, with its NAT parser.
+const ADAPTER = 'function _ofpRulesetParse(rawText) {\n' +
+  '  return OfpNavBlue._ofpRulesetParse(rawText, { parseNatTrack: window.parseNatTrack });\n' +
+  '}\n';
+// A top-level (column-0) declaration of a name; `g` counts them.
+const declRe = (n, g = '') => new RegExp(`^(?:function\\s+${n}\\s*\\(|(?:const|let|var)\\s+${n}\\b)`, 'm' + g);
+// The other rule modules built into index.html: their own factory scopes, not app code.
+const OTHER_MODULES = Object.keys(MANIFEST).filter(k => k !== 'ofp-navblue')
+  .map(k => fs.readFileSync(path.join(RULES, MANIFEST[k].file), 'utf8'));
+
+// Problems with "one copy of the NavBlue parser, and it is the module" in an index.html text.
+function oneCopyProblems(html) {
+  const problems = [];
+  const first = html.indexOf(MOD_SRC);
+  if (first < 0) return ['index.html does not contain the module file byte for byte'];
+  if (html.indexOf(MOD_SRC, first + 1) >= 0) problems.push('index.html contains the module more than once');
+  const main = inlineScripts(html).find(x => x.includes(MOD_SRC));
+  if (!main) problems.push('the module is not inside an inline script');
+  else {
+    const at = main.indexOf(MOD_SRC), ad = main.indexOf(ADAPTER);
+    if (ad < 0) problems.push('the app adapter (_ofpRulesetParse passing the NAT parser to OfpNavBlue) is missing');
+    else if (ad < at + MOD_SRC.length) problems.push('the app adapter comes before the module');
+    if (ad >= 0 && main.indexOf(ADAPTER, ad + 1) >= 0) problems.push('the app adapter is there more than once');
   }
-  for (const [name, b] of [['§ 2–§ 9 (src/ofp-parse.html)', A], ['§ 9b ENR V2 helpers (src/render-preflight.html)', B], ['§ 10 _ofpRulesetParse with the v2.0.0 edits', C]]) {
-    assert.equal(once(MOD_SRC, b), 1, `${name}: present in the module exactly once, byte for byte (${b.length} chars)`);
+  // Outside the module, the other rule modules and the adapter: no top-level declaration of a
+  // parser name (a second copy, or a leftover). The ENR V2 helpers are declared once (§ 9b).
+  let rest = html.slice(0, first) + html.slice(first + MOD_SRC.length);
+  for (const other of OTHER_MODULES) rest = rest.split(other).join('');
+  rest = rest.split(ADAPTER).join('');
+  for (const n of MOD_NAMES) {
+    const count = (rest.match(declRe(n, 'g')) || []).length;
+    const allowed = ENR_V2.includes(n) ? 1 : 0;
+    if (count !== allowed) problems.push(`${n} is declared ${count} time(s) outside the module (allowed ${allowed})`);
   }
-  // negative: the unedited app parser is not in the module; app-only code is not either
-  assert.equal(once(MOD_SRC, C0), 0, 'the app parser without the NAT edit is not in the module');
-  for (const n of ['function parseOFP(', 'function fuelK(', 'function deriveCallsign(', 'function _tlBuild(', 'function validateEtpOrder(', 'function buildTimelineEventsV2(']) {
+  return problems;
+}
+
+test('TC-130-004 ONE copy: index.html runs the module, built in byte for byte; no parser code left in the app', () => {
+  const html = builtHtml();
+  assert.ok(MOD_NAMES.length >= 40, `top-level declarations in the module: ${MOD_NAMES.length}`);
+  assert.deepEqual(oneCopyProblems(html), []);
+  // src/: no fragment declares a parser name, except the adapter (ofp-parse.html) and the ENR V2
+  // helpers (render-preflight.html).
+  const srcDir = path.join(ROOT, 'src');
+  for (const f of fs.readdirSync(srcDir).filter(x => x.endsWith('.html'))) {
+    const code = fs.readFileSync(path.join(srcDir, f), 'utf8');
+    for (const n of MOD_NAMES) {
+      if (!declRe(n).test(code)) continue;
+      const ok = (ENR_V2.includes(n) && f === 'render-preflight.html') || (n === '_ofpRulesetParse' && f === 'ofp-parse.html');
+      assert.ok(ok, `src/${f} declares ${n}`);
+    }
+  }
+  // src/ofp-parse.html: the adapter once, and the app logic that stays in the app (not in the module).
+  const ofp = fs.readFileSync(path.join(srcDir, 'ofp-parse.html'), 'utf8');
+  assert.equal(once(ofp, ADAPTER), 1, 'the adapter is in src/ofp-parse.html once');
+  for (const n of ['function parseOFP(', 'function fuelK(', 'function deriveCallsign(']) {
+    assert.equal(once(ofp, n), 1, `${n} stays in src/ofp-parse.html`);
     assert.equal(once(MOD_SRC, n), 0, `${n} is not in the module`);
   }
-  // every "v2.0.0" marker in § 10 belongs to one of the edits
-  const marks = C.match(/v2\.0\.0/g) || [];
-  assert.equal(marks.length, 2, 'two v2.0.0 markers in § 10 (JSDoc and NAT)');
+  assert.ok(/^function parseOFP\(\) \{\n  const result = _ofpRulesetParse\(pdfRawText\);\n/m.test(ofp), 'parseOFP() parses through the adapter');
+  // The ENR V2 helpers left in the app are the module's § 9b, byte for byte.
+  const pre = fs.readFileSync(path.join(srcDir, 'render-preflight.html'), 'utf8');
+  const B = block(pre, '// ── ENR TIMELINE V2 — INJECTED FUNCTIONS', 'function applyNavlogEtpTimes(', false);
+  assert.equal(once(MOD_SRC, B), 1, `§ 9b ENR V2 helpers (src/render-preflight.html): in the module once, byte for byte (${B.length} chars)`);
+  // The app's parse is the module built into index.html, called with the app's NAT parser.
+  const app = loadApp({ html });
+  const NB = app.sandbox.OfpNavBlue;
+  assert.ok(NB && typeof NB === 'object', 'the app publishes OfpNavBlue');
+  assert.equal(NB.RULESET_VERSION, MANIFEST['ofp-navblue'].version, 'the built-in module is the manifest version');
+  assert.equal(JSON.stringify(NB.validateSchema()), JSON.stringify({ valid: true, errors: [] }));   // another realm
+  assert.deepEqual([...Object.keys(NB)], Object.keys(mod), 'same API as the standalone file');
+  assert.equal(typeof app.sandbox.parseNatTrack, 'function', 'the app publishes window.parseNatTrack');
+  const calls = [];
+  const real = NB._ofpRulesetParse;
+  NB._ofpRulesetParse = (t, o) => { calls.push([t, o]); return real(t, o); };
+  try {
+    const r = app._ofpRulesetParse(SYNTH);
+    assert.equal(calls.length, 1, 'one call into the module per parse');
+    assert.equal(calls[0][0], SYNTH, 'with the text as given');
+    assert.deepEqual(Object.keys(calls[0][1]), ['parseNatTrack'], 'and only the NAT parser as options');
+    assert.equal(calls[0][1].parseNatTrack, app.sandbox.parseNatTrack, 'the app\'s own NAT parser (window.parseNatTrack)');
+    assert.equal(r.fltNum, 'GTI1234/05');
+  } finally { NB._ofpRulesetParse = real; }
+  console.log(`TC-130-004: module built into index.html once, before the app adapter; ${MOD_NAMES.length} module ` +
+    `declarations, none left in src/ but the adapter and the ${ENR_V2.length} ENR V2 helpers (identical to § 9b)`);
 });
 
-// ══ TC-130-005 the app is unchanged ══════════════════════════════════════════
+// The app's copy of an ENR V2 helper is the last one in index.html (render-preflight is built after the module).
+const replaceLast = (hay, from, to) => { const i = hay.lastIndexOf(from); return hay.slice(0, i) + to + hay.slice(i + from.length); };
 
-test('TC-130-005 the app is unchanged: index.html is the build of src/ + rules/ and does not carry the module', () => {
-  assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html = build of src/ + rules/');
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  assert.ok(!html.includes('OfpNavBlue'), 'index.html does not publish OfpNavBlue');
-  assert.ok(!html.includes('ofp-navblue.js — NavBlue OFP Parser'), 'index.html does not contain the module');
-  assert.equal(once(html, 'function _ofpRulesetParse(rawText) {'), 1, 'the app keeps its own parser');
+test('TC-130-004 negative: a second copy, an edited module, a leftover or a wrong adapter is caught', () => {
+  const html = builtHtml();
+  const VERSION_LINE = "const RULESET_VERSION  = '2.0.0';";
+  assert.equal(once(MOD_SRC, VERSION_LINE), 1);
+  const cases = [
+    ['second copy of the module', html.replace(ADAPTER, () => MOD_SRC + ADAPTER), /more than once/],
+    ['module edited in index.html', html.replace(MOD_SRC, () => MOD_SRC.replace(VERSION_LINE, () => VERSION_LINE.replace('2.0.0', '2.0.1'))), /does not contain the module/],
+    ['adapter missing', html.replace(ADAPTER, () => ''), /adapter .* is missing/],
+    ['adapter without the NAT parser', html.replace(ADAPTER, () => ADAPTER.replace(', { parseNatTrack: window.parseNatTrack }', '')), /adapter .* is missing/],
+    ['adapter before the module', html.replace(ADAPTER, () => '').replace(MOD_SRC, () => ADAPTER + MOD_SRC), /adapter comes before the module/],
+    ['old parser name left in the app', html.replace(ADAPTER, () => ADAPTER + 'const PATTERNS = {};\n'), /PATTERNS is declared 1 time\(s\) outside the module/],
+    ['old parser function left in the app', html.replace(ADAPTER, () => ADAPTER + 'function wxWindowMidpoint(a, b) {\n}\n'), /wxWindowMidpoint is declared 1 time\(s\)/],
+    ['ENR V2 helper removed from the app', replaceLast(html, '\nfunction applyNavlogEtpTimes(', '\nfunction applyNavlogEtpTimesX('), /applyNavlogEtpTimes is declared 0 time\(s\) outside the module \(allowed 1\)/],
+  ];
+  for (const [label, bad, re] of cases) {
+    assert.notEqual(bad, html, `${label}: the mutation applies`);
+    const p = oneCopyProblems(bad);
+    assert.ok(p.some(x => re.test(x)), `${label}: caught (${p.join('; ') || 'no problem reported'})`);
+  }
+});
+
+// ══ TC-130-005 the build ═════════════════════════════════════════════════════
+
+test('TC-130-005 index.html is the build of src/ + rules/: the lock runs against what ships', () => {
+  assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html = node build/build.js output');
+  const { MODULES } = require('../../build/build');
+  const at = MODULES.findIndex(m => m && m.rule === 'ofp-navblue');
+  assert.ok(at > -1, 'build/build.js builds the ofp-navblue module');
+  assert.equal(MODULES.filter(m => m && m.rule === 'ofp-navblue').length, 1, 'once');
+  assert.ok(at > MODULES.indexOf('nat.html'), 'after src/nat.html (window.parseNatTrack)');
+  assert.equal(MODULES[at + 1], 'ofp-parse.html', 'just above src/ofp-parse.html (the adapter)');
 });
 
 // ══ TC-130-010..013 LOCK on the fixtures ═════════════════════════════════════
 
-test('TC-130-010 LOCK: every NavBlue/eOFP fixture, module in the app context, NAT parser passed in: core fields identical to the app (57 fields)', () => {
+test('TC-130-010 LOCK on the built index.html: every NavBlue/eOFP fixture equals its golden snapshot and the module (57 fields)', () => {
   const { app: appCtx, inApp, items } = corpus();
   const opts = { parseNatTrack: appCtx.sandbox.parseNatTrack };
   assert.equal(typeof opts.parseNatTrack, 'function', 'the app publishes window.parseNatTrack');
-  let fields = 0, values = 0;
+  let fields = 0, values = 0, nat = 0;
   const failures = [];
-  for (const { fx, raw, app } of items) {
+  for (const { fx, raw, app, snap } of items) {
     assert.ok(app && typeof app === 'object', `${fx.id}: the app parses the fixture`);
     assert.deepEqual(Object.keys(app), [...mod.CORE_FIELDS], `${fx.id}: the app returns the 57 core fields in contract order`);
+    // The frozen record: what the app's own parser gave before the integration (golden snapshot).
+    const d0 = diffPaths(snap, normalize(app));
+    if (d0.length) failures.push(`${fx.id} golden snapshot -> built index.html: ${d0.join(' | ')}`);
+    if (app.natTrack) nat++;
     const r = inApp._ofpRulesetParse(raw, opts);
     const nb = inApp.parseNavBlue(raw, opts);
     const d1 = diffPaths(canon(app), canon(r));
@@ -382,13 +492,15 @@ test('TC-130-010 LOCK: every NavBlue/eOFP fixture, module in the app context, NA
     fields += Object.keys(app).length;
     values += leaves(canon(app));
   }
-  console.log(`TC-130-010: ${items.length} fixtures; ${fields} core fields and ${values} values compared ` +
-    `(x2: _ofpRulesetParse and parseNavBlue); differences: ${failures.length}`);
+  console.log(`TC-130-010: ${items.length} fixtures (${nat} with a NAT track); ${fields} core fields and ${values} values ` +
+    `of the built index.html compared with the golden snapshots and the module (_ofpRulesetParse and parseNavBlue); ` +
+    `differences: ${failures.length}`);
   assert.deepEqual(failures, [], 'STOP: the NavBlue lock is broken');
   assert.equal(fields, items.length * 57);
+  assert.ok(nat > 0, 'the app passes its NAT parser in: NAT tracks are found');
 });
 
-test('TC-130-011 LOCK: module loaded in Node, NAT parser passed as options.parseNatTrack: identical to the app', () => {
+test('TC-130-011 LOCK: module loaded in Node, NAT parser passed as options.parseNatTrack: identical to the copy built into index.html', () => {
   const { app: appCtx, items } = corpus();
   const opts = { parseNatTrack: appCtx.sandbox.parseNatTrack };
   assert.equal(typeof opts.parseNatTrack, 'function', 'the app publishes window.parseNatTrack');
@@ -452,6 +564,8 @@ test('TC-130-013 NAT hook on the fixtures: no NAT parser → natTrack null and n
     assert.deepEqual(d, [], `${fx.id}: only natTrack depends on the NAT parser`);
     // In the app's own context (window.parseNatTrack published) the module still does not use it.
     assert.equal(inApp._ofpRulesetParse(raw).natTrack, null, `${fx.id}: window.parseNatTrack is not used when not passed`);
+    // The copy built into index.html too: the app's NAT tracks come only from its adapter passing the parser in.
+    assert.equal(appCtx.sandbox.OfpNavBlue._ofpRulesetParse(raw).natTrack, null, `${fx.id}: built-in copy, no option → null`);
     const nbWithout = mod.parseNavBlue(raw);
     assert.equal(nbWithout.natTrack, null);
     assert.deepEqual(nbWithout.findings.filter(f => f.field === 'natTrack'), [NAT_FINDING], `${fx.id}: the not-supplied INFO`);
@@ -566,7 +680,7 @@ test('TC-130-016 the masters\' self-test assertions (SPEC v1.0 #1–9, v1.1 #10�
 
 // ══ TC-130-020 the gate bites ════════════════════════════════════════════════
 
-test('TC-130-020 the gate bites: a module with one rule broken fails the lock', () => {
+test('TC-130-020 the gate bites: a module with one rule broken fails the lock, standalone and built into index.html', () => {
   const { items, app: appCtx } = corpus();
   // Break the landing weight limit (safety: weights): read the actual value instead of the limit.
   const from = '  if (ldgwM) { ldgwActual = parseInt(ldgwM[1], 10); ldgwLimit = parseInt(ldgwM[2], 10); }\n';
@@ -581,6 +695,14 @@ test('TC-130-020 the gate bites: a module with one rule broken fails the lock', 
   }
   console.log(`TC-130-020: broken module → ${diffs} of ${items.length} fixture(s) differ from the app`);
   assert.ok(diffs > 0, 'the lock detects the broken rule');
+  // The same broken module built into index.html: the app's parse no longer matches the golden snapshots.
+  const html = builtHtml();
+  assert.equal(once(html, MOD_SRC), 1);
+  const bApp = loadApp({ html: html.replace(MOD_SRC, () => broken) });
+  let builtDiffs = 0;
+  for (const { raw, snap } of items) if (diffPaths(snap, normalize(bApp._ofpRulesetParse(raw))).length) builtDiffs++;
+  console.log(`TC-130-020: broken module built into index.html → ${builtDiffs} of ${items.length} fixture(s) differ from the golden snapshots`);
+  assert.equal(builtDiffs, diffs, 'the lock on the built index.html detects it on the same fixtures');
 });
 
 // ══ TC-130-030 fixtures missing → FAIL ═══════════════════════════════════════
