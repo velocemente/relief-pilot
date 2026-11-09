@@ -3,26 +3,29 @@
  * TC-150 — Aircraft and registration profile module (rules/aircraft-profile, v1.0.0)
  *
  * An EXTRACTION (ADR-005 §2.1, step 4): AIRCRAFT_DATA, getWingspan() and buildAcftProfile() from
- * the NOTAM module (rules/notam-rules, which the app builds into index.html), and the callsign
- * index (CS-1) with deriveCallsign() from src/ofp-parse.html. Output must be IDENTICAL to today's
- * code. The app is unchanged: it still runs its own copies; integration is a separate PR.
+ * the NOTAM module, and the callsign index (CS-1) with deriveCallsign() from src/ofp-parse.html.
+ * Output must be IDENTICAL to the code they came from. Since the integration (NOTAM ruleset v1.12.0,
+ * TC-151) the app runs this module and no other copy exists: the comparisons that read the old copies
+ * now check the module against what those copies were - the SHA-256 of the verbatim block (anchor),
+ * the original deriveCallsign text (run here), and the v1.11.2 results (TC-151-010).
  *
  *   TC-150-001  metadata present; validateSchema() valid; broken objects rejected
  *   TC-150-002  rules/manifest.json: the aircraft-profile entry, its version, file and SHA-256
  *   TC-150-003  dual context: Node (module.exports), rules-loader (new Function), browser (plain
  *               script → one global AircraftProfile); loaded and every export called in a context
  *               whose window, document, storage and app globals throw on access — none touched
- *   TC-150-004  the copies: the NOTAM module's table + getWingspan + buildAcftProfile byte for
- *               byte; deriveCallsign = the app's text with the two marked v1.0.0 edits undone;
- *               CALLSIGN_INDEX = the app's inline map (keys, values, order); _acftApplies and the
- *               NOTAM rules not in the module; index.html does not carry the module
- *   TC-150-010  buildAcftProfile / getWingspan deep-equal the NOTAM module's (standalone file AND
- *               the copy built into index.html), values and key order: every AIRCRAFT_DATA key,
- *               every acftType in the fixtures, lowercase / space / suffix variants, unknown types,
- *               empty / null / undefined; a non-string type throws the same error in both
- *   TC-150-011  deriveCallsign deep-equals the app's (built index.html AND src/ofp-parse.html):
- *               every fixture flight number, each designator (upper/lower/mixed case), designator
- *               with no number, unknown designators, empty / null / undefined, odd spacing
+ *   TC-150-004  the copies: the table + getWingspan + buildAcftProfile block is byte for byte the
+ *               NOTAM v1.11.2 block (SHA-256); deriveCallsign = the app's original text with the two
+ *               marked v1.0.0 edits undone (SHA-256); CALLSIGN_INDEX = the app's original inline map
+ *               (keys, values, order); _acftApplies and the NOTAM rules not in the module
+ *   TC-150-010  buildAcftProfile / getWingspan of the standalone file deep-equal the copy built into
+ *               index.html, values and key order: every AIRCRAFT_DATA key, every acftType in the
+ *               fixtures, lowercase / space / suffix variants, unknown types, empty / null / undefined;
+ *               a non-string type throws TypeError
+ *   TC-150-011  deriveCallsign deep-equals the app's ORIGINAL function (its text, run here) and the
+ *               copy built into index.html: every fixture flight number, each designator (upper/lower/
+ *               mixed case), designator with no number, unknown designators, empty / null / undefined,
+ *               odd spacing
  *   TC-150-012  the shared tables are frozen; every call returns a fresh object
  *   TC-150-020  the gate bites: one table value or one callsign changed → the comparison fails
  *   TC-150-030  fixtures missing → the fixture tests FAIL (never skip)
@@ -47,10 +50,13 @@ const MANIFEST  = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 
 const MOD_FILE  = path.join(RULES, MANIFEST['aircraft-profile'].file);
 const MOD_SRC   = fs.readFileSync(MOD_FILE, 'utf8');
 const mod       = require(MOD_FILE);
-const NOTAM_FILE = path.join(RULES, MANIFEST['notam-rules'].file);
-const NOTAM_SRC  = fs.readFileSync(NOTAM_FILE, 'utf8');
-const notam      = require(NOTAM_FILE);
 const APP_OFP_PARSE = fs.readFileSync(path.join(ROOT, 'src', 'ofp-parse.html'), 'utf8');
+
+// What the module was extracted from (src/ofp-parse.html and the NOTAM ruleset v1.11.2, before the
+// integration removed those copies). The anchors keep the extraction provable.
+const ORIGINAL_NOTAM_BLOCK_SHA = 'db6e6d6defd6646c8f0f649bbf101929d311900e33fd7254a281cf2f8f983489';   // v1.11.2: "// ── Aircraft data database" … end of buildAcftProfile()
+const ORIGINAL_APP_DERIVE_SHA  = '37c0fa71e2439df4aad9e55d816966350a3bfeea54580c9eb8670ea4f0992aee';   // src/ofp-parse.html deriveCallsign() before the integration
+const ORIGINAL_APP_DERIVE = "function deriveCallsign(fltNum) {\n  if (!fltNum) return { radioCallsign: '', verbalCallsign: '', isHeavy: false };\n  const m = fltNum.match(/^(GTI|PAC|CMB|QFA)(\\d+)/i);\n  if (!m) return { radioCallsign: fltNum, verbalCallsign: '', isHeavy: false };\n  const prefix = m[1].toUpperCase();\n  const verbal = { GTI: 'GIANT', PAC: 'POLAR', CMB: 'CAMBER', QFA: 'QANTAS' }[prefix] || '';\n  return {\n    radioCallsign: prefix + m[2],\n    verbalCallsign: verbal,\n    isHeavy: true,   // All Atlas/Polar fleet are heavies\n  };\n}";
 
 const NAVBLUE_FORMATS = new Set(['navtech-company', 'navtech-eofp-ios-print']);
 const DESIGNATORS = ['GTI', 'PAC', 'CMB', 'QFA'];
@@ -123,20 +129,14 @@ function cut(src, start, fnDecl) {
   assert.ok(e > f, `end of ${fnDecl}`);
   return src.slice(i, e + 2);
 }
-const NOTAM_BLOCK = () => cut(NOTAM_SRC, '// ── Aircraft data database', 'function buildAcftProfile(');
-const APP_DERIVE  = () => cut(APP_OFP_PARSE, 'function deriveCallsign(', 'function deriveCallsign(');
-const MOD_DERIVE  = () => cut(MOD_SRC, 'function deriveCallsign(', 'function deriveCallsign(');
+const sha256 = s => crypto.createHash('sha256').update(s).digest('hex');
+const blockOf = src => cut(src, '// ── Aircraft data database', 'function buildAcftProfile(');
+const MOD_DERIVE = () => cut(MOD_SRC, 'function deriveCallsign(', 'function deriveCallsign(');
 
-// The NOTAM module's own getWingspan (not exported): its table + getWingspan text, run in a vm.
-function notamGetWingspan() {
+// The app's ORIGINAL deriveCallsign (src/ofp-parse.html before the integration), run in a vm (strict, like the app).
+function originalDeriveCallsign() {
   const ctx = vm.createContext({});
-  const src = cut(NOTAM_SRC, '// ── Aircraft data database', 'function getWingspan(');
-  return vm.runInContext(`${src}\ngetWingspan;`, ctx, { filename: 'notam-rules getWingspan' });
-}
-// The app's own deriveCallsign, from src/ofp-parse.html, run in a vm (strict, like the app).
-function srcDeriveCallsign() {
-  const ctx = vm.createContext({});
-  return vm.runInContext(`'use strict';\n${APP_DERIVE()}\nderiveCallsign;`, ctx, { filename: 'src/ofp-parse.html deriveCallsign' });
+  return vm.runInContext(`'use strict';\n${ORIGINAL_APP_DERIVE}\nderiveCallsign;`, ctx, { filename: 'original app deriveCallsign' });
 }
 
 let _app = null;
@@ -290,13 +290,15 @@ test('TC-150-003 dual context: Node, rules-loader, browser global; no window / D
 
 // ══ TC-150-004 the copies ════════════════════════════════════════════════════
 
-test('TC-150-004 copies: table/getWingspan/buildAcftProfile byte for byte; deriveCallsign = app with the two marked edits', () => {
-  // (a) the NOTAM module block, byte for byte, once
-  const block = NOTAM_BLOCK();
+test('TC-150-004 copies: table/getWingspan/buildAcftProfile = the NOTAM v1.11.2 block; deriveCallsign = the app original with the two marked edits', () => {
+  // (a) the block, byte for byte, once: its SHA-256 is the one of the NOTAM v1.11.2 block
+  const block = blockOf(MOD_SRC);
   assert.ok(block.includes('const AIRCRAFT_DATA = {') && block.includes('function getWingspan(') && block.includes('function buildAcftProfile('));
-  assert.equal(MOD_SRC.split(block).length - 1, 1, 'the NOTAM module block appears exactly once, byte for byte');
-  // (b) deriveCallsign: the module text with its two marked v1.0.0 edits undone = the app text
-  const appFn = APP_DERIVE();
+  assert.equal(MOD_SRC.split(block).length - 1, 1, 'the block appears exactly once');
+  assert.equal(sha256(block), ORIGINAL_NOTAM_BLOCK_SHA, 'the block is the NOTAM v1.11.2 block, byte for byte');
+  // (b) deriveCallsign: the module text with its two marked v1.0.0 edits undone = the app's original text
+  const appFn = ORIGINAL_APP_DERIVE;
+  assert.equal(sha256(appFn), ORIGINAL_APP_DERIVE_SHA, 'the embedded original is the app text');
   const mapLit = appFn.match(/const verbal = (\{[^}]*\})\[prefix\] \|\| '';/);
   const reLit  = appFn.match(/fltNum\.match\((\/\^\([A-Z|]+\)\(\\d\+\)\/i)\);/);
   assert.ok(mapLit && reLit, 'the app has the inline map and regex literal');
@@ -314,39 +316,34 @@ test('TC-150-004 copies: table/getWingspan/buildAcftProfile byte for byte; deriv
   assert.equal(built.source, appRe.source);
   assert.equal(built.flags, appRe.flags);
   assert.ok(MOD_SRC.includes("new RegExp('^(' + Object.keys(CALLSIGN_INDEX).join('|') + ')(\\\\d+)', 'i')"), 'the module builds that pattern');
-  // (e) the NOTAM rules stay in the NOTAM module; this module is not in index.html yet
+  // (e) the NOTAM rules stay in the NOTAM module; the module is built into index.html once (TC-151-021)
   for (const n of ['function _acftApplies(', 'function _twyApplies(', 'function evalNotams(', 'TYPE_RE'])
     assert.ok(!MOD_SRC.includes(n), `${n} is not in the module`);
-  assert.equal(typeof notam._acftApplies, 'function', 'the NOTAM module keeps _acftApplies');
-  assert.equal(typeof notam.buildAcftProfile, 'function', 'the NOTAM module keeps buildAcftProfile (unchanged)');
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  assert.ok(!html.includes('AircraftProfile') && !html.includes('CALLSIGN_INDEX'), 'index.html does not carry the module (integration is a separate PR)');
   assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html is the build of src/ + rules/');
 });
 
 // ══ TC-150-010 buildAcftProfile / getWingspan = the NOTAM module's ═══════════
 
-function profileComparison(api) {
+function profileComparison(api, src = MOD_SRC) {
   const fx = fixtureInputs();
   const fxTypes = fx.map(f => f.acftType);
   const secret = new Set();   // fixture types are fleet designators, not crew data: shown as is
   const inputs = [...typeInputs(), ...fxTypes, ...fxTypes.map(t => t.toLowerCase()), ...fxTypes.map(t => ` ${t} `)];
-  const appNotam = app().sandbox.NotamRules;
-  assert.equal(typeof appNotam.buildAcftProfile, 'function', 'index.html publishes NotamRules.buildAcftProfile');
-  const nGw = notamGetWingspan();
+  const builtIn = app().sandbox.AircraftProfile;
+  assert.equal(typeof builtIn.buildAcftProfile, 'function', 'index.html publishes AircraftProfile.buildAcftProfile');
   return {
     inputs, fx,
-    vsFile: differences(api.buildAcftProfile, notam.buildAcftProfile, inputs, secret),
-    vsApp:  differences(api.buildAcftProfile, appNotam.buildAcftProfile, inputs, secret),
-    ws:     differences(api.getWingspan, nGw, inputs, secret),
+    blockSha: sha256(blockOf(src)),
+    vsApp: differences(api.buildAcftProfile, builtIn.buildAcftProfile, inputs, secret),
+    ws:    differences(api.getWingspan, builtIn.getWingspan, inputs, secret),
   };
 }
 
-test('TC-150-010 buildAcftProfile and getWingspan equal the NOTAM module (file and index.html) on every input', () => {
+test('TC-150-010 buildAcftProfile and getWingspan: the file equals the copy built into index.html on every input; the block is the original', () => {
   const r = profileComparison(mod);
-  assert.deepEqual(r.vsFile, [], 'module vs rules/notam-rules buildAcftProfile');
-  assert.deepEqual(r.vsApp, [], 'module vs NotamRules.buildAcftProfile built into index.html');
-  assert.deepEqual(r.ws, [], 'module vs the NOTAM module getWingspan');
+  assert.equal(r.blockSha, ORIGINAL_NOTAM_BLOCK_SHA, 'the table and both readers are the NOTAM v1.11.2 block, byte for byte');
+  assert.deepEqual(r.vsApp, [], 'module file vs AircraftProfile.buildAcftProfile built into index.html');
+  assert.deepEqual(r.ws, [], 'module file vs AircraftProfile.getWingspan built into index.html');
   // coverage: every table key, every fixture type known, unknowns conservative
   for (const k of Object.keys(mod.AIRCRAFT_DATA)) {
     assert.ok(r.inputs.includes(k));
@@ -363,7 +360,6 @@ test('TC-150-010 buildAcftProfile and getWingspan equal the NOTAM module (file a
   assert.equal(mod.getWingspan(''), null);
   assert.equal(mod.getWingspan('ZZZZ'), null);
   assert.throws(() => mod.buildAcftProfile(123), TypeError);
-  assert.throws(() => notam.buildAcftProfile(123), TypeError);
 });
 
 // ══ TC-150-011 deriveCallsign = the app's ════════════════════════════════════
@@ -374,18 +370,18 @@ function callsignComparison(api) {
   const secret = new Set(fxNums);
   const inputs = [...callsignInputs(), ...fxNums];
   const a = app();
-  assert.equal(typeof a.deriveCallsign, 'function', 'index.html has the app deriveCallsign');
+  assert.equal(typeof a.deriveCallsign, 'function', 'index.html has deriveCallsign');
   return {
     inputs, fx,
     vsApp: differences(api.deriveCallsign, a.deriveCallsign, inputs, secret),
-    vsSrc: differences(api.deriveCallsign, srcDeriveCallsign(), inputs, secret),
+    vsOriginal: differences(api.deriveCallsign, originalDeriveCallsign(), inputs, secret),
   };
 }
 
-test('TC-150-011 deriveCallsign equals the app (index.html and src/ofp-parse.html) on every input', () => {
+test('TC-150-011 deriveCallsign equals the app\'s original function and the copy built into index.html on every input', () => {
   const r = callsignComparison(mod);
-  assert.deepEqual(r.vsApp, [], 'module vs the app deriveCallsign in index.html');
-  assert.deepEqual(r.vsSrc, [], 'module vs src/ofp-parse.html deriveCallsign');
+  assert.deepEqual(r.vsApp, [], 'module file vs the deriveCallsign built into index.html');
+  assert.deepEqual(r.vsOriginal, [], 'module vs the original src/ofp-parse.html deriveCallsign');
   // each designator, positive and negative
   assert.deepEqual(plain(mod.deriveCallsign('GTI1')), { radioCallsign: 'GTI1', verbalCallsign: 'GIANT', isHeavy: true });
   assert.deepEqual(plain(mod.deriveCallsign('pac22')), { radioCallsign: 'PAC22', verbalCallsign: 'POLAR', isHeavy: true });
@@ -421,18 +417,20 @@ test('TC-150-012 the shared tables are frozen; every call returns a fresh object
 test('TC-150-020 the gate bites: one table value or one callsign changed → the comparison fails', () => {
   const variant = (from, to) => {
     assert.equal(MOD_SRC.split(from).length - 1, 1, `edit target unique: ${from}`);
-    return loadInContext(MOD_SRC.replace(from, to), vm.createContext({}), 'broken variant');
+    const src = MOD_SRC.replace(from, to);
+    return { api: loadInContext(src, vm.createContext({}), 'broken variant'), src };
   };
   const ws = variant('B744: { ws:64.4,', 'B744: { ws:64.5,');
-  const r1 = profileComparison(ws);
-  assert.ok(r1.vsFile.length > 0 && r1.vsApp.length > 0 && r1.ws.length > 0, 'a wingspan change is caught');
+  const r1 = profileComparison(ws.api, ws.src);
+  assert.ok(r1.blockSha !== ORIGINAL_NOTAM_BLOCK_SHA && r1.vsApp.length > 0 && r1.ws.length > 0, 'a wingspan change is caught');
   const wake = variant("B752: { ws:38.1, mtow:115900, code:'D', wake:'H'", "B752: { ws:38.1, mtow:115900, code:'D', wake:'M'");
-  assert.ok(profileComparison(wake).vsFile.includes('"B752"'), 'a wake change is caught');
+  const r3 = profileComparison(wake.api, wake.src);
+  assert.ok(r3.blockSha !== ORIGINAL_NOTAM_BLOCK_SHA && r3.vsApp.includes('"B752"'), 'a wake change is caught');
   const cs = variant("CMB: 'CAMBER'", "CMB: 'CAMBR'");
-  const r2 = callsignComparison(cs);
-  assert.ok(r2.vsApp.length > 0 && r2.vsSrc.length > 0, 'a callsign change is caught');
+  const r2 = callsignComparison(cs.api);
+  assert.ok(r2.vsApp.length > 0 && r2.vsOriginal.length > 0, 'a callsign change is caught');
   const drop = variant("QFA: 'QANTAS' }", "QFA: '' }");
-  assert.ok(callsignComparison(drop).vsApp.includes('"QFA1"'), 'an emptied callsign is caught');
+  assert.ok(callsignComparison(drop.api).vsOriginal.includes('"QFA1"'), 'an emptied callsign is caught');
 });
 
 // ══ TC-150-030 fixtures missing → FAIL ═══════════════════════════════════════

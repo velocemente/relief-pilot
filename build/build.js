@@ -27,6 +27,7 @@ const MODULES = [
   'styles.html',
   'screens.html',
   'weather.html',
+  { rule: 'aircraft-profile' }, // rules/aircraft-profile: publishes AircraftProfile, used in ofp-parse.html and airports.html
   { rule: 'notam-rules' },   // rules/notam-rules: publishes NotamRules, bound in notam.html
   'notam.html',
   'nat.html',

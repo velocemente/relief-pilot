@@ -18,6 +18,9 @@ const fs = require('fs');
 const path = require('path');
 const { findFixtures, readManifest, importFixture } = require('../lib/app-path');
 const { evalArgsFor, notamIdOf } = require('../lib/v0-snapshots');
+const { nodeAircraftProfile, callAsApp } = require('../lib/acft');
+
+const AP = nodeAircraftProfile();   // the profile and getWingspan the app passes to either module
 
 const ROOT = path.resolve(__dirname, '..', '..');
 
@@ -95,7 +98,7 @@ async function main() {
       evaluated++;
       notams += a.notamArr.length;
       const run = mod => {
-        const r = mod.evalNotams(mod._splitNotams(imp.airportData[apt.icao].notams), a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin);
+        const r = callAsApp(mod.evalNotams, AP, mod._splitNotams(imp.airportData[apt.icao].notams), a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin);
         return new Set(r.issues.filter(i => i.notamRaw).map(i => notamIdOf(i.notamRaw)));
       };
       const b = run(before), f = run(after);

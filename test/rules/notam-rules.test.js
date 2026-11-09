@@ -1,6 +1,6 @@
 'use strict';
 /**
- * TC-120 — NOTAM ruleset module (rules/notam-rules, v1.11.2) is the app's NOTAM engine
+ * TC-120 — NOTAM ruleset module (rules/notam-rules, v1.12.0) is the app's NOTAM engine
  *
  * The module was extracted from the app (src/notam.html, src/airports.html) and behaves
  * IDENTICALLY to the engine the app ran (ADR-005 §2.1–2.3). Since the integration PR the
@@ -44,6 +44,7 @@ const { spawnSync } = require('child_process');
 const { loadApp } = require('../harness');
 const { findFixtures, readManifest, importFixture, notamKey } = require('../lib/app-path');
 const { evalArgsFor, callEvalNotams } = require('../lib/v0-snapshots');
+const { nodeAircraftProfile, callAsApp } = require('../lib/acft');
 
 const ROOT      = path.resolve(__dirname, '..', '..');
 const RULES     = path.join(ROOT, 'rules');
@@ -51,6 +52,7 @@ const MANIFEST  = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 
 const MOD_FILE  = path.join(RULES, MANIFEST['notam-rules'].file);
 const MOD_SRC   = fs.readFileSync(MOD_FILE, 'utf8');
 const mod       = require(MOD_FILE);
+const AP        = nodeAircraftProfile();   // the aircraft-profile module the app passes to evalNotams (v1.12.0)
 
 // ── fixtures: missing = FAIL ────────────────────────────────────────────────
 function fixturesDir() {
@@ -116,7 +118,7 @@ const idOf = raw => { const k = notamKey(raw); return k ? `${k.loc} ${k.id}` : '
 
 test('TC-120-001 metadata present; validateSchema() is valid; a broken ruleset is rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'notam');
-  assert.equal(mod.RULESET_VERSION, '1.11.2');
+  assert.equal(mod.RULESET_VERSION, '1.12.0');
   assert.equal(mod.SCHEMA_VERSION, 2, 'SCHEMA_VERSION stays at the current contract value (rules-loader: notam >= 2)');
   assert.equal(typeof mod.RULESET_SOURCE, 'string');
   assert.ok(mod.RULESET_SOURCE.trim().length > 0);
@@ -180,8 +182,8 @@ test('TC-120-003 dual context: Node, rules-loader and browser script give the sa
   assert.equal(ctx.NotamRules.validateSchema().valid, true);
   // The browser copy evaluates a NOTAM exactly like the Node copy.
   const n = '- XXXX A0301/26 01MAR0000-31MAR2359\n10-10 0000-0300\nRWY 09/27 CLSD\n';
-  const node = canon(mod.evalNotams([n], 'DEST', 30, 'B744', '2026-03-09', 960));
-  const brow = canon(ctx.NotamRules.evalNotams([n], 'DEST', 30, 'B744', '2026-03-09', 960));
+  const node = canon(callAsApp(mod.evalNotams, AP, [n], 'DEST', 30, 'B744', '2026-03-09', 960));
+  const brow = canon(callAsApp(ctx.NotamRules.evalNotams, AP, [n], 'DEST', 30, 'B744', '2026-03-09', 960));
   assert.deepEqual(diffPaths(node, brow), []);
   // No DOM, no storage, no window state in the code (comments aside).
   const code = MOD_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
@@ -302,7 +304,7 @@ function compareEval(app, a, notamText, label) {
   const modArr = mod._splitNotams(notamText);
   if (JSON.stringify(modArr) !== JSON.stringify(Array.from(a.notamArr))) lines.push(`${label} _splitNotams differs`);
   const appRes = callEvalNotams(app, a);
-  const modRes = mod.evalNotams(modArr, a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin);
+  const modRes = callAsApp(mod.evalNotams, AP, modArr, a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin);
   for (const l of diffPaths(canon(appRes), canon(modRes), 'result')) lines.push(`${label} ${l}`);
   return { lines, appRes };
 }
@@ -502,7 +504,7 @@ test('TC-120-021 the gate bites: a module with one rule broken fails the NOTAM t
         const a = evalArgsFor(imp, apt);
         if (!a) continue;
         const x = canon(callEvalNotams(imp.app, a));
-        const y = canon(bm.exports.evalNotams(bm.exports._splitNotams(imp.airportData[apt.icao].notams), a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin));
+        const y = canon(callAsApp(bm.exports.evalNotams, AP, bm.exports._splitNotams(imp.airportData[apt.icao].notams), a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin));
         if (diffPaths(x, y).length) diffs++;
       }
     }

@@ -52,7 +52,7 @@ const ETA  = 720;   // 1200Z
 // Departure 0000Z: the ETA is on the flight date only (v1.11.2: a known departure time
 // gives one UTC date; with none, D and D + 1 are both tried).
 const DEP  = 0;
-const ev   = (notams, iso) => app.evalNotams(notams, 'DEST', ETA, 'B744', iso, DEP);
+const ev   = (notams, iso) => app.evalNotamsAs(notams, 'DEST', ETA, 'B744', iso, DEP);
 // Copied into this realm: arrays built inside the vm fail deepStrictEqual.
 const raws = r => [...r.issues.filter(i => i.notamRaw).map(i => i.notamRaw)];
 const iso16 = ms => new Date(ms).toISOString().slice(0, 16);

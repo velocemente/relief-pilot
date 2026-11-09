@@ -39,7 +39,7 @@ const app = loadApp();
 
 // Is this NOTAM reported by evalNotams() (i.e. in effect and past the filters)?
 function shows(notam, { role = 'DEST', eta, iso, dep } = {}) {
-  const r = app.evalNotams([notam], role, eta, 'B744', iso, dep);
+  const r = app.evalNotamsAs([notam], role, eta, 'B744', iso, dep);
   return r.issues.some(i => i.notamRaw === notam);
 }
 const hm = s => parseInt(s.slice(0, 2), 10) * 60 + parseInt(s.slice(2), 10);
@@ -280,7 +280,7 @@ function mainIds(imp, apt) {
   if (!a) return new Set();
   const ids = new Set();
   for (const chunk of a.notamArr) {
-    const passesFilters = imp.app.evalNotams([chunk], a.evalRole, null, a.acftType, a.flightISO)
+    const passesFilters = imp.app.evalNotamsAs([chunk], a.evalRole, null, a.acftType, a.flightISO)
       .issues.some(i => i.notamRaw === chunk);
     if (passesFilters && mainActive(chunk, a.etaMin, a.flightISO)) ids.add(notamIdOf(chunk));
   }
