@@ -8,5 +8,10 @@
     "version": "2.0.0",
     "file": "ofp-navblue/ofp-navblue-v2.0.0.js",
     "sha256": "02ab2b43e3f86b13e6fe12a1eef188c47f36a415e5cedc2f3c0d18b5409863c4"
+  },
+  "aircraft-profile": {
+    "version": "1.0.0",
+    "file": "aircraft-profile/aircraft-profile-v1.0.0.js",
+    "sha256": "7ca993193303228d595454ac5bf24ee82eddb9ae1fecc56ad7176dad238a4be5"
   }
 }
