@@ -1,3 +1,11 @@
+# PilotBrief 1.9.9-hf5 Release Notes
+
+## What's Changed
+
+- The OFP parser now runs from a separate, versioned module (NavBlue parser 2.0.0). What you see is unchanged.
+
+---
+
 # PilotBrief 1.9.9-hf4 Release Notes
 
 ## What's Fixed
