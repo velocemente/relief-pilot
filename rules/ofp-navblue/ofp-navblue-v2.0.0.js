@@ -18,10 +18,12 @@
  *   NEW — parseNavBlue(rawText, options): the 57 core fields exactly as
  *     _ofpRulesetParse() returns them, every Appendix B extension as an
  *     explicit empty value, and findings[].
- *   CHANGED — the NAT track parser (its own module) is passed in as
- *     options.parseNatTrack; without it, window.parseNatTrack is used exactly
- *     as the app uses it (§ 11). _ofpRulesetParse(rawText) is otherwise
- *     unchanged.
+ *   CHANGED — the NAT track parser (its own module) is used only when it is
+ *     passed in as options.parseNatTrack (§ 11). Without it, natTrack is null
+ *     (the app's value when no NAT track is found) and parseNavBlue() adds
+ *     the INFO finding "NAT parser not supplied". The module never reads
+ *     window, document or any app global. _ofpRulesetParse(rawText) is
+ *     otherwise unchanged.
  *   NOT IN THIS MODULE — the parseOFP() adapter, fuelK(), deriveCallsign()
  *     (aircraft/callsign module, step 4), the D-EVAL timeline, any UI.
  *
@@ -35,7 +37,8 @@
  *   Browser (a plain script): no `module` → the API object is published once
  *   as the global OfpNavBlue. Every declaration stays in the factory scope,
  *   so nothing collides with the app's own names (PATTERNS, RULESET_TYPE,
- *   extractEtopsExitV2 …). No DOM, no storage, no app state.
+ *   extractEtopsExitV2 …). No window, no DOM, no storage, no app state: the
+ *   NAT track parser comes in through options only.
  *   Strict, like the app's main inline script the code was copied from.
  *
  * All times are UTC. OFP times are Z; no time-zone suffix is ever converted.
@@ -1355,8 +1358,8 @@ function _ofpRulesetParse(rawText, options) {
   })();
 
   // ── NAT Track Message — delegated to nat-rules.js v1.1.0 (Atlantic only)
-  // v2.0.0: the NAT track parser is its own module — options.parseNatTrack,
-  // else window.parseNatTrack exactly as the app calls it (§ 11).
+  // v2.0.0: the NAT track parser is its own module — used only when passed
+  // in as options.parseNatTrack, else null (§ 11).
   const natTrack = _natTrackFrom(options, t, origIcao, destIcao);
 
 
@@ -1425,18 +1428,20 @@ function _ofpRulesetParse(rawText, options) {
 // ═══════════════════════════════════════════════════════════════
 // § 11 · NAT TRACK PARSER HOOK (v2.0.0)
 //        The NAT track parser is its own module (natTrackRuleset; in the
-//        app src/nat.html, published as window.parseNatTrack). The parser
-//        calls it exactly as the app does: options.parseNatTrack when the
-//        caller passes one, else window.parseNatTrack when it is published,
-//        else no NAT track (null).
+//        app src/nat.html, published as window.parseNatTrack). The module
+//        never looks for it: it is used only when the caller passes it in as
+//        options.parseNatTrack, with the app's arguments (text, origIcao,
+//        destIcao). Not passed → natTrack null, the app's value when no NAT
+//        track is found, and parseNavBlue() reports it in findings[].
 // ═══════════════════════════════════════════════════════════════
 
+function _natParserSupplied(options) {
+  return !!options && typeof options.parseNatTrack === 'function';
+}
+
 function _natTrackFrom(options, t, origIcao, destIcao) {
-  if (options && typeof options.parseNatTrack === 'function') {
+  if (_natParserSupplied(options)) {
     return options.parseNatTrack(t, origIcao, destIcao);
-  }
-  if (typeof window !== 'undefined' && window && typeof window.parseNatTrack === 'function') {
-    return window.parseNatTrack(t, origIcao, destIcao);
   }
   return null;
 }
@@ -1478,6 +1483,9 @@ const EXTENSION_FIELDS = Object.freeze([
 const AIRPORT_EXTENSION_FIELDS = Object.freeze(['remarks', 'remarksWeather']);  // airportData[icao]
 const DDG_EXTENSION_FIELDS     = Object.freeze(['type', 'notes']);              // ddgItems[i]
 
+// The INFO finding added when the caller did not pass a NAT track parser (§ 11).
+const NAT_NOT_SUPPLIED = Object.freeze({ level: 'INFO', field: 'natTrack', message: 'NAT parser not supplied' });
+
 // The explicit empty values. Objects not read → null; lists → []; text → ''.
 // Built fresh on every call: no two results share an array.
 function _navBlueExtensions() {
@@ -1505,6 +1513,8 @@ function _navBlueExtensions() {
  * The core fields are the values _ofpRulesetParse() returns, unchanged
  * (LOCK). The nested extensions are added to copies of the airportData
  * entries and ddgItems; every other core value is passed through as is.
+ * Without options.parseNatTrack, natTrack is null and findings[] carries one
+ * more INFO, "NAT parser not supplied".
  *
  * @param {string} rawText — full OFP text from PDF extraction
  * @param {object} [options] — { parseNatTrack } (§ 11); optional
@@ -1522,7 +1532,9 @@ function parseNavBlue(rawText, options) {
   }
   out.airportData = apts;
   out.ddgItems = core.ddgItems.map(d => Object.assign({}, d, { type: '', notes: [] }));
-  return Object.assign(out, _navBlueExtensions());
+  const ext = _navBlueExtensions();
+  if (!_natParserSupplied(options)) ext.findings.push(Object.assign({}, NAT_NOT_SUPPLIED));
+  return Object.assign(out, ext);
 }
 
 // ═══════════════════════════════════════════════════════════════
