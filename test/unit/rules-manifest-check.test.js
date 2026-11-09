@@ -36,7 +36,9 @@ test('rules/ matches rules/manifest.json; the CLI exits 0; the copy builds the s
   const r = checkRules(ROOT);
   assert.deepEqual(r.errors, []);
   assert.equal(r.ok, true);
-  assert.deepEqual(r.modules.map(m => m.file), [MOD_REL]);
+  assert.deepEqual(r.modules.map(m => m.file), Object.values(MANIFEST).map(e => e.file));
+  assert.ok(r.modules.some(m => m.file === MOD_REL), 'the NOTAM module is listed');
+  assert.ok(r.modules.some(m => m.file === MANIFEST['ofp-navblue'].file), 'the NavBlue parser module is listed');
   assert.ok(r.documents.every(d => d.endsWith('.md')), 'only Markdown documents are unlisted');
   const cli = spawnSync(process.execPath, [path.join(ROOT, 'build', 'check-rules.js')], { encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stdout + cli.stderr);
