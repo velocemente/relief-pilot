@@ -33,6 +33,7 @@ const MODULES = [
   'state.html',
   'storage.html',
   'pdf.html',
+  { rule: 'ofp-navblue' },   // rules/ofp-navblue: publishes OfpNavBlue, called in ofp-parse.html
   'ofp-parse.html',
   'render-preflight.html',
   'render-enroute.html',

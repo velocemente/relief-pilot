@@ -7047,27 +7047,77 @@ function showToast(typeOrMsg, msg) {
 // Service worker approach not used.
 
 
-// ═══════════════════════════════════════════════════════
-//  OFP RULESET  v1.9.0-r3
-//  Patterns, parsers, and utilities — loaded from ofp-rules.js
-// ═══════════════════════════════════════════════════════
-
-
-// ═══════════════════════════════════════════════════════════════
-// § 1 · RULESET SCHEMA IDENTITY (required by RulesLoader)
-//       Source: ADR-001 §Ruleset Schema Contract
-// ═══════════════════════════════════════════════════════════════
-
-const RULESET_TYPE    = 'ofp';
-const RULESET_VERSION = '1.9.0';
-const SCHEMA_VERSION  = 1;  // increment on any breaking change to export shape
-const RULESET_SOURCE  = 'Atlas Air / Polar Air Cargo dispatch system (internal); ICAO Doc 4444 App 6';
-
 /**
- * Human-readable OFP format identifier.
- * Used in UI ("OFP Format: Atlas Air v2") and for diagnostic logging.
+ * ofp-navblue.js — NavBlue OFP Parser  (v2.0.0, contract v2.0)
+ * ─────────────────────────────────────────────────────────────────
+ * Standalone module (ADR-005 §2.1–2.4): the NavBlue (Navtech) OFP parser,
+ * formerly the OFP ruleset CODE-OFP-AtlasPolar5yRuleset, renamed and
+ * LOCKED (Exec, 7 Nov 2026; D47). It reads the raw text of an Atlas Air /
+ * Polar Air Cargo OFP package (company PDF or eOFP print) and returns the
+ * briefing contract.
+ *
+ * Changelog v2.0.0 (vs master v1.0 / v1.1; ledger RPT-OFP-NavBlue-RevisionLedger v1.0):
+ *   ENGINE — follows the app (src/ofp-parse.html and the ENR V2 helpers in
+ *     src/render-preflight.html on main) byte for byte: every change made in
+ *     the app since May is carried in (PB-ALT-01, PB-ENR-01, production
+ *     1.9.9 slot time and crew apostrophes, HF-2 Remarks pairing). The
+ *     masters' differences are listed in the ledger; none is carried.
+ *   NEW — Blueprint metadata RULESET_TYPE / OFP_FORMAT / RULESET_VERSION /
+ *     SCHEMA_VERSION / CONTRACT_VERSION / RULESET_SOURCE and validateSchema().
+ *   NEW — parseNavBlue(rawText, options): the 57 core fields exactly as
+ *     _ofpRulesetParse() returns them, every Appendix B extension as an
+ *     explicit empty value, and findings[].
+ *   CHANGED — the NAT track parser (its own module) is used only when it is
+ *     passed in as options.parseNatTrack (§ 11). Without it, natTrack is null
+ *     (the app's value when no NAT track is found) and parseNavBlue() adds
+ *     the INFO finding "NAT parser not supplied". The module never reads
+ *     window, document or any app global. _ofpRulesetParse(rawText) is
+ *     otherwise unchanged.
+ *   NOT IN THIS MODULE — the parseOFP() adapter, fuelK(), deriveCallsign()
+ *     (aircraft/callsign module, step 4), the D-EVAL timeline, any UI.
+ *
+ * LOCK (ADR-005 §2.4): the core fields must stay identical to the app's
+ * _ofpRulesetParse() on every NavBlue/eOFP package (test/rules/
+ * ofp-navblue.test.js, TC-130). No extension work is planned for NavBlue;
+ * any change needs an Exec decision and its own gate.
+ *
+ * DUAL CONTEXT
+ *   Node / rules-loader: module.exports = the API object below.
+ *   Browser (a plain script): no `module` → the API object is published once
+ *   as the global OfpNavBlue. Every declaration stays in the factory scope,
+ *   so nothing collides with the app's own names (PATTERNS, RULESET_TYPE,
+ *   extractEtopsExitV2 …). No window, no DOM, no storage, no app state: the
+ *   NAT track parser comes in through options only.
+ *   Strict, like the app's main inline script the code was copied from.
+ *
+ * All times are UTC. OFP times are Z; no time-zone suffix is ever converted.
+ *
+ * § 2 – § 10 are verbatim copies of the app source; the three edits are
+ * marked "v2.0.0". test/rules/ofp-navblue.test.js checks the copies.
+ * ─────────────────────────────────────────────────────────────────
  */
-const OFP_FORMAT = 'atlas-v2';
+(function (root, factory) {
+  var api = factory();
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = api;
+  } else if (root) {
+    root.OfpNavBlue = api;
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+// § 1 · RULESET SCHEMA IDENTITY (Blueprint / rules-loader contract)
+// ═══════════════════════════════════════════════════════════════
+
+const RULESET_TYPE     = 'ofp';
+const OFP_FORMAT       = 'navblue';
+const RULESET_VERSION  = '2.0.0';
+// Contract v2.0 (ADR-005 §2.4, Appendix A + B). The export shape is new
+// (parseNavBlue, the contract lists), so the schema version is 2.
+const SCHEMA_VERSION   = 2;
+const CONTRACT_VERSION = '2.0';
+const RULESET_SOURCE   = 'NavBlue (Navtech) OFP issued by Atlas Air / Polar Air Cargo dispatch (company PDF and eOFP print); ICAO Doc 4444 App 6';
 
 // ═══════════════════════════════════════════════════════════════
 // § 2 · CORE FIELD PATTERNS
@@ -7440,6 +7490,101 @@ function normalizeWaypointCoord(token) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// § 9b · ENR V2 HELPERS — copied from src/render-preflight.html
+//        _ofpRulesetParse() calls extractEtopsExitV2() and
+//        applyNavlogEtpTimes(); the app defines them with the en-route
+//        timeline. Copied unchanged so the parser stands alone.
+// ═══════════════════════════════════════════════════════════════
+
+// ── ENR TIMELINE V2 — INJECTED FUNCTIONS ──────────────────────────────────
+// Ruleset : CODE-ENR-TimelineEvents-REV-20260512-v1.2.js
+// Commit  : PB-ENR-01
+// Bugs    : BUG 1 (ETP wrong elapsed), BUG 2 (ETP order), BUG 4 (ETP grey),
+//           BUG 5a (E.EXT not parsed), BUG 5b (E.EXIT → E.EXT label)
+
+// Navlog (E.EXT) extractor — Atlas Air primary path (HH.MM period-delimited).
+const NAVLOG_EEXT_RE = /\(E\.EXT\)[\s\S]{0,200}?(\d{2}\.\d{2})\s+[FD]\d{3}/m;
+
+// Navlog ETP TOT-T extractor — replaces CFS DATA_ROW TIME for ETP elapsed times.
+// WARNING: HH.MM is NOT decimal. "03.38" = 3 h 38 min = 218 min.
+const NAVLOG_ETP_RE = /\(GO([A-Z]{4})\)\s+(ETP\d+)[\s\S]{0,300}?(\d{2}\.\d{2})\s+[FD]\d{3}/gm;
+
+// Header-based ETOPS Exit (fallback, non-Atlas OFP generators; same regex as PATTERNS.ETOPS_EXIT).
+const HEADER_ETOPS_EXIT_RE = /ETOPS\s+Exit\s+(\d{1,2}:\d{2})/i;
+
+/**
+ * Extract ETOPS airspace exit elapsed time from OFP text.
+ * Fallback chain: 1) OFP header "ETOPS Exit HH:MM"  2) Navlog (E.EXT) + TOT-T.
+ * Atlas Air carries exit exclusively in navlog as (E.EXT) — confirmed GTI8947.
+ * REPLACES the header-only inline IIFE that called PATTERNS.ETOPS_EXIT.
+ */
+function extractEtopsExitV2(ofpText) {
+  if (!ofpText || typeof ofpText !== 'string') {
+    return { etopsExit: '', etopsExitMins: null };
+  }
+  const headerMatch = ofpText.match(HEADER_ETOPS_EXIT_RE);
+  if (headerMatch) {
+    const raw      = headerMatch[1];
+    const [hh, mm] = raw.split(':').map(Number);
+    return { etopsExit: raw, etopsExitMins: hh * 60 + mm };
+  }
+  const navlogMatch = ofpText.match(NAVLOG_EEXT_RE);
+  if (navlogMatch) {
+    const raw   = navlogMatch[1];
+    const parts = raw.split('.');
+    const hh    = parseInt(parts[0], 10);
+    const mm    = parseInt(parts[1], 10);
+    if (!isNaN(hh) && !isNaN(mm) && mm <= 59) {
+      const mins    = hh * 60 + mm;
+      const display = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+      return { etopsExit: display, etopsExitMins: mins };
+    }
+  }
+  return { etopsExit: '', etopsExitMins: null };
+}
+
+/**
+ * Extract ETP elapsed times from navlog TOT-T fields.
+ * Replaces CFS DATA_ROW TIME extraction for ETP elapsed times.
+ * GTI8947 validated: { ETP1: 218, ETP2: 271, ETP3: 471 }
+ */
+function extractEtpElapsedFromNavlog(ofpText) {
+  if (!ofpText || typeof ofpText !== 'string') return {};
+  const result = {};
+  const re = new RegExp(NAVLOG_ETP_RE.source, NAVLOG_ETP_RE.flags);
+  let m;
+  while ((m = re.exec(ofpText)) !== null) {
+    const etpName = m[2];
+    const raw     = m[3];
+    const parts   = raw.split('.');
+    if (parts.length !== 2) continue;
+    const hh = parseInt(parts[0], 10);
+    const mm = parseInt(parts[1], 10);
+    if (isNaN(hh) || isNaN(mm) || mm > 59 || hh > 23) continue;
+    const elapsedMins = hh * 60 + mm;
+    if (elapsedMins > 0 && !result[etpName]) {
+      result[etpName] = elapsedMins;  // first match only — navlog top-to-bottom
+    }
+  }
+  return result;
+}
+
+/**
+ * Apply navlog elapsed times to an ETP point array.
+ * GUARD: only writes to a point when its elapsedMins is currently null/undefined.
+ */
+function applyNavlogEtpTimes(etpPoints, ofpText) {
+  if (!etpPoints || !etpPoints.length) return etpPoints || [];
+  const navlogTimes = extractEtpElapsedFromNavlog(ofpText);
+  return etpPoints.map(pt => {
+    if (pt.elapsedMins == null && navlogTimes[pt.name] != null) {
+      return { ...pt, elapsedMins: navlogTimes[pt.name] };
+    }
+    return pt;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
 // § 10 · FULL OFP PARSE FUNCTION
 //        Accepts raw OFP text, returns a structured data object.
 //        This replaces parseOFP() as an independently testable,
@@ -7456,9 +7601,10 @@ function normalizeWaypointCoord(token) {
  * app state after calling this function.
  *
  * @param {string} rawText — full OFP text from PDF extraction
+ * @param {object} [options] — v2.0.0: { parseNatTrack } (§ 11); optional
  * @returns {object|null}  — structured OFP data, or null if text is empty
  */
-function _ofpRulesetParse(rawText) {
+function _ofpRulesetParse(rawText, options) {
   const t = rawText;
   if (!t || typeof t !== 'string' || !t.trim()) return null;
 
@@ -8261,9 +8407,9 @@ function _ofpRulesetParse(rawText) {
   })();
 
   // ── NAT Track Message — delegated to nat-rules.js v1.1.0 (Atlantic only)
-  const natTrack = (typeof window.parseNatTrack === 'function')
-    ? window.parseNatTrack(t, origIcao, destIcao)
-    : null;
+  // v2.0.0: the NAT track parser is its own module — used only when passed
+  // in as options.parseNatTrack, else null (§ 11).
+  const natTrack = _natTrackFrom(options, t, origIcao, destIcao);
 
 
   // ── Return structured result ───────────────────────────────────────
@@ -8329,10 +8475,218 @@ function _ofpRulesetParse(rawText) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// § 11 · NAT TRACK PARSER HOOK (v2.0.0)
+//        The NAT track parser is its own module (natTrackRuleset; in the
+//        app src/nat.html, published as window.parseNatTrack). The module
+//        never looks for it: it is used only when the caller passes it in as
+//        options.parseNatTrack, with the app's arguments (text, origIcao,
+//        destIcao). Not passed → natTrack null, the app's value when no NAT
+//        track is found, and parseNavBlue() reports it in findings[].
+// ═══════════════════════════════════════════════════════════════
+
+function _natParserSupplied(options) {
+  return !!options && typeof options.parseNatTrack === 'function';
+}
+
+function _natTrackFrom(options, t, origIcao, destIcao) {
+  if (_natParserSupplied(options)) {
+    return options.parseNatTrack(t, origIcao, destIcao);
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 12 · BRIEFING CONTRACT v2.0 (ADR-005 §2.4, Appendix A and B)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Appendix A — the core fields: exactly the return object of
+ * _ofpRulesetParse(), in its order. Names, types and meanings are fixed.
+ */
+const CORE_FIELDS = Object.freeze([
+  'fltNum', 'acftType', 'weightUnit', 'isHeavy', 'dateStr', 'flightDateISO',
+  'origIcao', 'destIcao', 'offFromOFP', 'etaDest', 'destEtaOffsetMins',
+  'tripMinutes', 'taxiMins', 'etopsEntry', 'etopsSpec', 'etopsEntryMins',
+  'etopsExit', 'etopsExitMins', 'porWpt', 'porOffsetMins', 'porMinf',
+  'alt1Fuel', 'destRemf', 'blockFuelRaw', 'minfFuelRaw', 'fresFuelRaw',
+  'ballastFuel', 'crewMembers', 'tocOffsetMins', 'togwActual', 'togwLimit',
+  'zfwActual', 'zfwLimit', 'ldgwActual', 'ldgwLimit', 'hasPerishables',
+  'dotExemption', 'hasTemperatureControl', 'hasVzfwCkLimit', 'slotTime',
+  'catIiIiiApproaches', 'addlFfAdj', 'ddgItems', 'melItems', 'overflightPerms',
+  'altRoutes', 'altData', 'oeiData', 'etpPoints', 'navLog', 'enrouteNotams',
+  'natTrack', 'airportData', 'parsedVerbalCallsign', 'zfwIncrFactor',
+  'taxiFuelRaw', 'rawOFP',
+]);
+
+/**
+ * Appendix B — the top-level extensions, in order. Every parser returns
+ * every one; a format that does not carry an item returns an explicit empty
+ * value. NavBlue is locked: it returns all of them empty (§ 12 table below).
+ */
+const EXTENSION_FIELDS = Object.freeze([
+  'revision', 'companyNotams', 'ofpRemarks', 'fplEquipment',
+  'catIiIiiRestrictions', 'securityMessages', 'extraFuel', 'pcf', 'permits',
+  'designator', 'sections', 'findings',
+]);
+// Appendix B extensions that live on core records.
+const AIRPORT_EXTENSION_FIELDS = Object.freeze(['remarks', 'remarksWeather']);  // airportData[icao]
+const DDG_EXTENSION_FIELDS     = Object.freeze(['type', 'notes']);              // ddgItems[i]
+
+// The INFO finding added when the caller did not pass a NAT track parser (§ 11).
+const NAT_NOT_SUPPLIED = Object.freeze({ level: 'INFO', field: 'natTrack', message: 'NAT parser not supplied' });
+
+// The explicit empty values. Objects not read → null; lists → []; text → ''.
+// Built fresh on every call: no two results share an array.
+function _navBlueExtensions() {
+  return {
+    revision:             null,
+    companyNotams:        [],
+    ofpRemarks:           [],
+    fplEquipment:         null,
+    catIiIiiRestrictions: [],
+    securityMessages:     [],
+    extraFuel:            null,
+    pcf:                  null,
+    permits:              [],
+    designator:           '',
+    sections:             [],
+    findings: [
+      { level: 'INFO', field: 'sections', message: 'sections: content-built bookmarks arrive in step 5' },
+    ],
+  };
+}
+
+/**
+ * Parse a NavBlue OFP into the briefing contract v2.0.
+ *
+ * The core fields are the values _ofpRulesetParse() returns, unchanged
+ * (LOCK). The nested extensions are added to copies of the airportData
+ * entries and ddgItems; every other core value is passed through as is.
+ * Without options.parseNatTrack, natTrack is null and findings[] carries one
+ * more INFO, "NAT parser not supplied".
+ *
+ * @param {string} rawText — full OFP text from PDF extraction
+ * @param {object} [options] — { parseNatTrack } (§ 11); optional
+ * @returns {object|null} — the contract object, or null if text is empty
+ *                          (as _ofpRulesetParse)
+ */
+function parseNavBlue(rawText, options) {
+  const core = _ofpRulesetParse(rawText, options);
+  if (!core) return null;
+  const out = {};
+  for (const k of CORE_FIELDS) out[k] = core[k];
+  const apts = {};
+  for (const icao of Object.keys(core.airportData)) {
+    apts[icao] = Object.assign({}, core.airportData[icao], { remarks: [], remarksWeather: [] });
+  }
+  out.airportData = apts;
+  out.ddgItems = core.ddgItems.map(d => Object.assign({}, d, { type: '', notes: [] }));
+  const ext = _navBlueExtensions();
+  if (!_natParserSupplied(options)) ext.findings.push(Object.assign({}, NAT_NOT_SUPPLIED));
+  return Object.assign(out, ext);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 13 · SCHEMA VALIDATION (Blueprint)
+// ═══════════════════════════════════════════════════════════════
+
+// Exports the rules-loader requires of an 'ofp' parser, then the ones of
+// SPEC v1.0 §4 and of the contract.
+const REQUIRED_EXPORTS = {
+  RULESET_TYPE: 'string', OFP_FORMAT: 'string', RULESET_VERSION: 'string',
+  SCHEMA_VERSION: 'number', CONTRACT_VERSION: 'string', RULESET_SOURCE: 'string',
+  validateSchema: 'function',
+  PATTERNS: 'object', ALT_PATTERNS: 'object', CFS_PATTERNS: 'object',
+  WX_SECTION_LABELS: 'object', WX_METAR_ANCHOR: 'object', WX_NOTAM_START: 'object',
+  WX_PAGE_HEADER: 'object', CAT_II_III_PATTERNS: 'object', COMPANY_NOTAM: 'object',
+  TLR_PATTERNS: 'object', ALT_ROUTE_PATTERNS: 'object', MONTHS: 'object',
+  MON_NAMES: 'object', elapsedToMins: 'function', wxWindowMidpoint: 'function',
+  normalizeWaypointCoord: 'function', _ofpRulesetParse: 'function',
+  parseNavBlue: 'function', CORE_FIELDS: 'object', EXTENSION_FIELDS: 'object',
+  AIRPORT_EXTENSION_FIELDS: 'object', DDG_EXTENSION_FIELDS: 'object',
+};
+// App logic that must never be part of a parser module.
+const FORBIDDEN_EXPORTS = ['deriveCallsign', 'parseOFP', 'fuelK'];
+const isRe = v => Object.prototype.toString.call(v) === '[object RegExp]';
+
+/**
+ * Check an OFP parser object against the schema contract.
+ * @param {object} [ruleset] — defaults to this module's own exports
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+function validateSchema(ruleset) {
+  const r = ruleset === undefined ? API : ruleset;
+  const errors = [];
+  if (!r || typeof r !== 'object') return { valid: false, errors: ['ruleset is not an object'] };
+  for (const k of Object.keys(REQUIRED_EXPORTS)) {
+    if (!(k in r)) errors.push(`missing export: ${k}`);
+    else if (typeof r[k] !== REQUIRED_EXPORTS[k] || r[k] === null) errors.push(`${k} must be a ${REQUIRED_EXPORTS[k]}`);
+  }
+  for (const k of FORBIDDEN_EXPORTS) if (k in r) errors.push(`${k} must not be exported (app logic)`);
+  if (r.RULESET_TYPE !== 'ofp') errors.push(`RULESET_TYPE must be 'ofp', got '${r.RULESET_TYPE}'`);
+  if (typeof r.OFP_FORMAT === 'string' && !r.OFP_FORMAT.trim()) errors.push('OFP_FORMAT is empty');
+  if (typeof r.RULESET_VERSION === 'string' && !/^\d+\.\d+\.\d+$/.test(r.RULESET_VERSION)) errors.push(`RULESET_VERSION '${r.RULESET_VERSION}' is not semver`);
+  if (typeof r.SCHEMA_VERSION === 'number' && !(Number.isInteger(r.SCHEMA_VERSION) && r.SCHEMA_VERSION >= 2)) errors.push(`SCHEMA_VERSION ${r.SCHEMA_VERSION} must be an integer >= 2`);
+  if (typeof r.CONTRACT_VERSION === 'string' && !/^2\.\d+$/.test(r.CONTRACT_VERSION)) errors.push(`CONTRACT_VERSION '${r.CONTRACT_VERSION}' is not a v2 contract`);
+  if (typeof r.RULESET_SOURCE === 'string' && !r.RULESET_SOURCE.trim()) errors.push('RULESET_SOURCE is empty');
+  if (r.PATTERNS && typeof r.PATTERNS === 'object') {
+    for (const k of Object.keys(r.PATTERNS)) {
+      const ok = k === 'APT_LINE_TEMPLATE' ? typeof r.PATTERNS[k] === 'function' : isRe(r.PATTERNS[k]);
+      if (!ok) errors.push(`PATTERNS.${k} is not a ${k === 'APT_LINE_TEMPLATE' ? 'function' : 'RegExp'}`);
+    }
+  }
+  for (const k of ['WX_METAR_ANCHOR', 'WX_NOTAM_START', 'WX_PAGE_HEADER']) {
+    if (k in r && !isRe(r[k])) errors.push(`${k} is not a RegExp`);
+  }
+  const list = (k, n) => {
+    const v = r[k];
+    if (!Array.isArray(v)) return;
+    if (n !== undefined && v.length !== n) errors.push(`${k} must list ${n} fields, has ${v.length}`);
+    if (new Set(v).size !== v.length || v.some(x => typeof x !== 'string' || !x)) errors.push(`${k} must be unique non-empty names`);
+  };
+  list('CORE_FIELDS', 57);
+  list('EXTENSION_FIELDS', 12);
+  list('AIRPORT_EXTENSION_FIELDS', 2);
+  list('DDG_EXTENSION_FIELDS', 2);
+  if (Array.isArray(r.CORE_FIELDS) && Array.isArray(r.EXTENSION_FIELDS)) {
+    for (const k of r.EXTENSION_FIELDS) if (r.CORE_FIELDS.includes(k)) errors.push(`${k} is both a core field and an extension`);
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════
 
-
+const API = {
+  RULESET_TYPE, OFP_FORMAT, RULESET_VERSION, SCHEMA_VERSION, CONTRACT_VERSION, RULESET_SOURCE,
+  validateSchema,
+  // SPEC v1.0 §4
+  PATTERNS, ALT_PATTERNS, CFS_PATTERNS,
+  WX_SECTION_LABELS, WX_METAR_ANCHOR,
+  WX_NOTAM_START, WX_PAGE_HEADER,
+  CAT_II_III_PATTERNS, COMPANY_NOTAM,
+  TLR_PATTERNS, ALT_ROUTE_PATTERNS,
+  MONTHS, MON_NAMES,
+  elapsedToMins, wxWindowMidpoint,
+  normalizeWaypointCoord, _ofpRulesetParse,
+  // contract v2.0
+  parseNavBlue,
+  CORE_FIELDS, EXTENSION_FIELDS, AIRPORT_EXTENSION_FIELDS, DDG_EXTENSION_FIELDS,
+};
+return API;
+});
+// ═══════════════════════════════════════════════════════
+//  OFP PARSER — rules/ofp-navblue (ADR-005)
+//  The NavBlue OFP parser is the standalone module listed in
+//  rules/manifest.json. build/build.js builds it into index.html
+//  unchanged, just above this fragment; it publishes one global,
+//  OfpNavBlue. The module never reads window: the app passes its
+//  NAT track parser in (src/nat.html publishes window.parseNatTrack).
+// ═══════════════════════════════════════════════════════
+function _ofpRulesetParse(rawText) {
+  return OfpNavBlue._ofpRulesetParse(rawText, { parseNatTrack: window.parseNatTrack });
+}
 
 // ═══════════════════════════════════════════════════════
 //  OFP PARSER — adapter (bridges ruleset to app state)
