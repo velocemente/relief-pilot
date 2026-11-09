@@ -3,3 +3,4 @@
 // so CI runs them on every pull request. Each battery registers its own tests.
 require('../rules/notam-rules.test.js');
 require('../rules/ofp-navblue.test.js');
+require('../rules/aircraft-profile.test.js');
