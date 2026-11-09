@@ -53,7 +53,7 @@ const D = '2026-03-09';
 
 // Is the NOTAM reported by evalNotams()? dep: 'HHMM', or null for "departure time unknown".
 function shows(notam, { role = 'DEST', eta, dep, iso = D } = {}) {
-  const r = app.evalNotams([notam], role, eta === null ? null : hm(eta), 'B744', iso,
+  const r = app.evalNotamsAs([notam], role, eta === null ? null : hm(eta), 'B744', iso,
     dep === null || dep === undefined ? null : hm(dep));
   return r.issues.some(i => i.notamRaw === notam);
 }

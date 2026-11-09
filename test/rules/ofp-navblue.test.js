@@ -20,8 +20,9 @@
  *               declares a parser name (the ENR V2 helpers excepted: they stay in
  *               src/render-preflight.html for the en-route timeline, and must stay identical
  *               to the module's § 9b); the app's _ofpRulesetParse is the adapter that calls
- *               OfpNavBlue with the app's NAT parser; parseOFP, fuelK, deriveCallsign stay in
- *               the app and are not in the module. (The § 2–§ 10 copy check against the app
+ *               OfpNavBlue with the app's NAT parser; parseOFP and fuelK stay in the app and are
+ *               not in the module; deriveCallsign is taken from the aircraft-profile module
+ *               (const { deriveCallsign } = AircraftProfile), declared nowhere else. (The § 2–§ 10 copy check against the app
  *               source ran in the extraction PR, whose app copy is now removed.)
  *               Negative: a second copy, an edited module, a missing adapter or an adapter
  *               without the NAT parser is caught.
@@ -399,10 +400,14 @@ test('TC-130-004 ONE copy: index.html runs the module, built in byte for byte; n
   // src/ofp-parse.html: the adapter once, and the app logic that stays in the app (not in the module).
   const ofp = fs.readFileSync(path.join(srcDir, 'ofp-parse.html'), 'utf8');
   assert.equal(once(ofp, ADAPTER), 1, 'the adapter is in src/ofp-parse.html once');
-  for (const n of ['function parseOFP(', 'function fuelK(', 'function deriveCallsign(']) {
+  for (const n of ['function parseOFP(', 'function fuelK(']) {
     assert.equal(once(ofp, n), 1, `${n} stays in src/ofp-parse.html`);
     assert.equal(once(MOD_SRC, n), 0, `${n} is not in the module`);
   }
+  // deriveCallsign is the aircraft-profile module's (since NOTAM ruleset v1.12.0): no copy in the app or here.
+  assert.equal(once(ofp, 'const { deriveCallsign } = AircraftProfile;'), 1, 'src/ofp-parse.html takes deriveCallsign from the aircraft-profile module');
+  assert.equal(once(ofp, 'function deriveCallsign('), 0, 'src/ofp-parse.html keeps no deriveCallsign copy');
+  assert.equal(once(MOD_SRC, 'function deriveCallsign('), 0, 'deriveCallsign is not in the NavBlue module');
   assert.ok(/^function parseOFP\(\) \{\n  const result = _ofpRulesetParse\(pdfRawText\);\n/m.test(ofp), 'parseOFP() parses through the adapter');
   // The ENR V2 helpers left in the app are the module's § 9b, byte for byte.
   const pre = fs.readFileSync(path.join(srcDir, 'render-preflight.html'), 'utf8');

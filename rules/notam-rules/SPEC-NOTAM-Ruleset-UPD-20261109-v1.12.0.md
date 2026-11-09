@@ -1,12 +1,12 @@
 # SPEC-NOTAM-Ruleset
 
-**Version:** v1.11.2 | **Status:** UPD | **Date:** 2026-11-08
+**Version:** v1.12.0 | **Status:** UPD | **Date:** 2026-11-09
 **Owner:** Engineering | **Approver:** Exec
 **Tier:** 2 — Platform Architecture
-**Module file:** `rules/notam-rules/notam-rules-v1.11.2.js` (SHA-256 in `rules/manifest.json`)
+**Module file:** `rules/notam-rules/notam-rules-v1.12.0.js` (SHA-256 in `rules/manifest.json`)
 **Architecture:** ADR-005 §2.1–2.3, §2.5 (module catalogue, module standard, master copies and CI)
-**Ledger:** `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.3.md` (beside this file)
-**Supersedes:** v1.11.1 (previous master, Drive "00_General Rulesets / 00_Notam Rules"), which superseded v1.11.0 and master `notam-rules-v110-1.js` (v1.10.1)
+**Ledger:** `RPT-NOTAM-RevisionLedger-UPD-20261109-v1.4.md` (beside this file)
+**Supersedes:** v1.11.2, which superseded v1.11.1 (previous master, Drive "00_General Rulesets / 00_Notam Rules"), v1.11.0 and master `notam-rules-v110-1.js` (v1.10.1)
 
 ---
 
@@ -22,6 +22,8 @@ v1.11.0 itself did not change the app; it was built into `index.html` by a separ
 
 **v1.11.2** is a revision (ledger P-23): NOTAMs are checked against the **actual** UTC date and time of the evaluation window only (§6). One function, `_evalWindows`, builds the window; the date-range and schedule checks both use it. The second-day tries of v1.11.0/v1.11.1 are removed when the departure time is known. Built into `index.html` in the same PR (plan v4.3 §2 module revision).
 
+**v1.12.0** is a revision (ledger P-24, plan v4.5 §2): the module no longer holds aircraft data. `AIRCRAFT_DATA`, `getWingspan()` and `buildAcftProfile()` are removed; there is one copy, in the aircraft-profile module (`rules/aircraft-profile`, v1.0.0), which the app builds into `index.html` just above this module. `evalNotams()` takes the aircraft **profile object** that module builds. **No NOTAM rule changes and the app's behaviour is identical** (§10, TC-151). The aircraft filter and the taxiway check read two things from that module, and both now come in as arguments: the profile (the aircraft's own values) and `getWingspan` (the wingspan of any other type a NOTAM names).
+
 **Not in this module:** the GNSS NOTAM ruleset (`evalGNSS`, a separate module), weather, the airport card (`evalAirport`, `renderAptIssues`), and the legacy window code `xNW` / `nwOverlap` / `oETA` / `_notamWindow` in `src/airports.html` (not used by the NOTAM path since HF-5).
 
 ---
@@ -32,7 +34,7 @@ v1.11.0 itself did not change the app; it was built into `index.html` by a separ
 | :--- | :--- |
 | One standalone file | Yes. No `require`, no imports. |
 | Dual context | Node: `module.exports = API`. rules-loader (`new Function('module','exports','require', code)`): same. Browser, built into `index.html` unchanged: no `module` exists, so the API object is published once as the global **`NotamRules`**. All declarations live inside one factory function, so none of them collides with the app's names (for example the OFP ruleset's own `RULESET_TYPE`). |
-| Metadata | `RULESET_TYPE = 'notam'`, `RULESET_VERSION = '1.11.2'`, `SCHEMA_VERSION = 2`, `RULESET_SOURCE` (ICAO Annex 15, Doc 8126, Doc 4444 App 6; FAA JO 7930.2, AIP GEN 3.1; Atlas Air / Polar Air Cargo OFP NOTAM briefing (NavBlue)). |
+| Metadata | `RULESET_TYPE = 'notam'`, `RULESET_VERSION = '1.12.0'`, `SCHEMA_VERSION = 2`, `RULESET_SOURCE` (ICAO Annex 15, Doc 8126, Doc 4444 App 6; FAA JO 7930.2, AIP GEN 3.1; Atlas Air / Polar Air Cargo OFP NOTAM briefing (NavBlue)). |
 | `SCHEMA_VERSION` | **2 — the current contract's value, kept.** It is the minimum `rules-loader.js` v1.0.0 requires for `'notam'` (`SCHEMA_VERSION_REQUIRED.notam = 2`) and the `schemaVersion` of the customer configuration. The export shape and the `evalNotams()` return shape did not change, so no increment. |
 | `validateSchema()` | Yes (closes ledger ARCH-02). See §3. |
 | No app state, no DOM, no UI | No `window`, `document`, storage, network or app state. (`evalNotams` still returns its display text with the `nt-red` / `nt-yel` span markup, exactly as today — this is part of the return contract the card renders, see §8.) |
@@ -49,22 +51,22 @@ v1.11.0 itself did not change the app; it was built into `index.html` by a separ
   RULESET_TYPE, RULESET_VERSION, SCHEMA_VERSION, RULESET_SOURCE,   // metadata
   validateSchema,            // (ruleset?) -> { valid, errors[] }
   _splitNotams,              // (text) -> string[]
-  evalNotams,                // (notams, role, etaMin, acftType, flightDateISO, depMin?) -> result (§8)
+  evalNotams,                // (notams, role, etaMin, acftProfile, flightDateISO, depMin?, getWingspan?) -> result (§8)   (v1.12.0: profile object; getWingspan passed in)
   xNW_standalone,            // (notamText, flightDateISO) -> { startMs, endMs } | null
   nwOverlap_standalone,      // (window, etaMin, flightDateISO, depMin?) -> boolean   (depMin: v1.11.1)
   _evalWindows,              // (etaMin, depMin, flightDateISO) -> [{ startMs, endMs }]   (v1.11.2, §6)
   _windowEndEstimated,       // (notamText) -> boolean   (D31 "EST" end)
   _resolveInlineDateRange,   // (startToken, endToken, baseYear, issYear, flightMo, flightISO) -> window | null
-  _classifyNotamSlot,        // (nu, notamRaw, role, acftType, active) -> { slot, level, label, keyRe, rwy, category }
+  _classifyNotamSlot,        // (nu, notamRaw, role, acftType, active, getWingspan?) -> { slot, level, label, keyRe, rwy, category }   (v1.12.0: getWingspan passed to the taxiway check)
   _apchTypeLabel,            // (nu) -> string | null
-  _acftApplies,              // (notamText, profileOrType) -> boolean
-  buildAcftProfile,          // (icaoType) -> { type, ws, mtow, code, wake, turbine, known }
+  _acftApplies,              // (notamText, acftProfile, getWingspan?) -> boolean   (v1.12.0: a non-object profile = unknown = true)
   NM,                        // pattern registry: every value is a RegExp
 }
 ```
 
 - The names, arguments and return values are the ones the app uses today. `rules-loader.js` v1.0.0 requires `RULESET_TYPE`, `RULESET_VERSION`, `SCHEMA_VERSION`, `RULESET_SOURCE`, `evalNotams`, `NM`, `_classifyNotamSlot`; all are present.
 - **`validateSchema(ruleset)`** — `ruleset` defaults to this module's own exports. Returns `{ valid, errors }`. It checks: the loader's required exports and their types, plus `_splitNotams`, `xNW_standalone`, `validateSchema`; `RULESET_TYPE === 'notam'`; `RULESET_VERSION` is semver; `SCHEMA_VERSION` is an integer ≥ 2; `RULESET_SOURCE` is not empty; every `NM` entry is a RegExp.
+- **Not exported any more (v1.12.0):** `buildAcftProfile`. The aircraft table, `getWingspan` and `buildAcftProfile` live in the aircraft-profile module (`AircraftProfile.AIRCRAFT_DATA`, `.getWingspan`, `.buildAcftProfile`). The required exports of the rules-loader are unchanged, so `SCHEMA_VERSION` stays 2.
 - **Not exported any more (vs master v1.10.1):** `classifyNotam`, `extractNotamKeywords`, `deriveOperationalImpact`, `isNotamActive`. The app never calls them (EV-0 §1); they are not carried into the module (§9).
 
 ---
@@ -77,7 +79,8 @@ v1.11.0 itself did not change the app; it was built into `index.html` by a separ
 | `notams` | The array from `_splitNotams`. |
 | `role` | `'ORIG'` for the departure airport; anything else is treated as arrival/alternate. The app passes `'ORIG'` or `'DEST'` (every alternate, ETP/CFS alternate and the destination → `'DEST'`). |
 | `etaMin` | ETA (or departure time for ORIG) as minutes of the UTC day, 0–1439; `null` when unknown (no date or schedule check then: in effect). The app passes, per role: ORIG the departure time `S.outZ`; DEST `S.etaDest`; every alternate (`DEST ALT`, `EN ROUTE ALT`, `TKOF ALT`) its OFP ETA, recomputed from OUT/OFF; `CFS ALT` (ETOPS/ERA airports from the CFS block) the **midpoint of its CFS weather window**, not an ETA from the navlog. |
-| `acftType` | ICAO type (`'B744'`) or a profile from `buildAcftProfile`. Unknown type → worst-case profile (nothing hidden by mistake). |
+| `acftProfile` | The aircraft profile **object**, as the aircraft-profile module builds it (`AircraftProfile.buildAcftProfile('B744')` → `{ type, ws, mtow, code, wake, turbine, known }`). The app passes `AircraftProfile.buildAcftProfile(S.acftType \|\| '')`. An unknown **type** gives that module's worst-case profile (`known: false`), which filters as before. A type **string**, or nothing (`null`, `undefined`, `''`, any non-object), is the **unknown profile**: no aircraft filter, so every aircraft-restricted NOTAM is shown (fail-safe) and nothing else changes (TC-151-011). |
+| `getWingspan` | Optional, the aircraft-profile module's `getWingspan(icaoType)` → metres or `null`. Used where the rules need the wingspan of a type **other than the aircraft's own**: the types a NOTAM names ("B744 AND ABOVE PROHIBITED", "B737 AND SMALLER ONLY") and the taxiway wingspan limit. Not passed (or not a function) → those types are unknown, so the NOTAM is shown (fail-safe; TC-151-012). The app always passes it. |
 | `flightDateISO` | `'YYYY-MM-DD'` departure date D: the app passes the OFP's `DOF/yymmdd` (ICAO FPL item 18, the departure UTC date), or the OFP's plain `DD MON YY` date when no DOF is found. **The caller must pass it** (v1.11.0 has no `window._flightDateISO` fallback). Falsy → no flight date: dates are read against the device clock year (§2) and the window/day-of-month checks are not applied (in effect). |
 | `depMin` | Departure (OUT) as minutes of the UTC day, or `null`/absent (the app passes `S.outZ`). Gives the UTC date of the ETA: D + 1 when `etaMin < depMin`, otherwise D (§6, `_evalWindows`). Unknown → both D and D + 1 are tried, by the window check and the schedule checks alike. |
 
@@ -151,7 +154,7 @@ Weekday wording (`MON-FRI 0800-1700`) is not read (EV-0 G-6); such a NOTAM is no
 For each NOTAM, in this order:
 
 1. **Obstacle filter** — skips a NOTAM that says `OBST`, `CRANE` or `OBSTACLE` and has no approach/departure keyword (EV-0 R-OBS).
-2. **Aircraft filter** — `_acftApplies` hides a NOTAM only when it explicitly excludes the aircraft (EV-0 R-ACF, A1–A7).
+2. **Aircraft filter** — `_acftApplies` hides a NOTAM only when it explicitly excludes the aircraft (EV-0 R-ACF, A1–A7). Rules unchanged; the aircraft's values come from the profile object, the wingspan of other named types from `getWingspan` (v1.12.0). An unknown profile (a string, nothing) shows every NOTAM.
 3. **In effect** — window (§6), then schedules (§7). Not in effect → skipped.
 4. **Classify** — `_classifyNotamSlot` (first matching rule wins; ORIG and DEST/ALT rule sets; EV-0 §2.5 lists every rule).
 5. **Display text** — the first body line (header, schedule lines skipped), at most 120 characters, HTML-escaped; the label (or highlighted keyword) is wrapped in `<span class="nt-red|nt-yel">`.
@@ -206,6 +209,8 @@ The only edits to the copied code: the `window._flightDateISO` fallback is remov
 | TC-121-001 … 007 | **v1.11.1** (`test/unit/notam-next-day.test.js`): arrival-day-only schedule, ETA on D + 1 at 0030Z, 1159Z, 1200Z, 1800Z, 2330Z → in effect (also through `evalAirport`); departure-day-only schedule with the window wholly on D + 1 and other negatives → not in effect; window crossing 0000Z both ways; day-of-month, weekday and `DLY` forms; unreadable schedule → shown; `nwOverlap_standalone` with and without `depMin` | 7/7 pass on v1.11.1; 6/7 fail on v1.11.0 (the negatives pass on both). v1.11.2: TC-121-007's departure-time-unknown asserts now expect D and D + 1 (in effect) |
 | TC-122-001 … 009 | **v1.11.2** (`test/unit/notam-actual-window.test.js`): departure-day-only NOTAM on a D + 1 arrival (ETA 0030Z, 1300Z) → hidden; ORIG at 0300Z, NOTAM starting D + 1 → hidden; before ETA − 60 / after ETA + 60 on the actual date → hidden, exactly on an edge → shown (inline, B)/C), 10-digit, schedule); window across 0000Z on both dates; departure time unknown → D or D + 1 (date range and schedule, incl. at or after 1200Z); no ETA / no flight date / unreadable dates / UFN / EST / PERM → shown; day-of-month on the wrong / right day; `_evalWindows` is the only window builder; `evalAirport()` with `S.outZ` | 9/9 (94 assertions) pass on v1.11.2; on v1.11.1 7 of 9 tests fail (23 assertions); TC-122-006/007 (unchanged fail-safe and schedule rules) pass on both |
 | Updated for v1.11.2 | The rule change makes "departure time unknown" try D + 1 whatever the ETA time. Tests that called `evalNotams` with no departure time at ETA 1200Z so that only D was checked now pass a departure time of 0000Z (ETA on D, as before): `notam-year` (T6/D38 section) and `notam-merge` (synthetic cases). TC-113-006: its frozen pre-HF-8 baseline tries two days, so the 23 shown → hidden of the corpus (below) are now an exact reviewed list; hidden → shown is unchanged | all pass |
+| TC-151-001 … 030 | **v1.12.0** (`test/rules/notam-aircraft.test.js`): no table / `getWingspan` / `buildAcftProfile` in the module (code and exports), version, manifest, v1.11.2 removed from `rules/`; **equivalence with v1.11.2** — 42 synthetic NOTAMs (every branch of the aircraft filter and of the taxiway wingspan check, named types in and out of the table) × 70 types (62 table types, unknown and odd inputs): `_acftApplies()` and `evalNotams()` (ORIG, DEST) with the profile object and `getWingspan` give what v1.11.2 gave for the type string, on the standalone file and on the copy in `index.html` (`test/rules/data/acft-expected-v1.11.2.json`, recorded from the v1.11.2 file, SHA-256 `faa8377d…8997`); a string / empty / null / undefined / number aircraft → every aircraft-restricted NOTAM shown (positive) while a real profile hides them (negative); `getWingspan` passed vs not passed (positive and negative); `evalAirport()` hands `evalNotams()` the module's profile and `getWingspan` at every release airport of every fixture; one copy in `index.html`; the gate bites (4 broken variants) | 7/7 pass |
+| Updated for v1.12.0 | The tests that call `evalNotams()` directly with an ICAO type string now call it as the app does (`test/lib/acft.js`: the profile built by the aircraft-profile module, `getWingspan` passed; harness `app.evalNotamsAs`), because a string is now the unknown profile. TC-120-001 (version), TC-130-004 (`deriveCallsign` is the module's), TC-150-004/010/011/020 (the old NOTAM and app copies are gone: the module is held to the SHA-256 of the v1.11.2 block, to the app's original `deriveCallsign` text, and to the copy built into `index.html`) | all pass |
 | Corpus | `test/corpus/notam-window-changes.js` vs v1.11.1: 30 fixtures, 142 airports, 3,870 NOTAMs; **23 shown → hidden, 0 hidden → shown**; every shown → hidden has readable dates wholly outside the actual window (`test/reports/NOTAM-v1.11.2-corpus-changes.md`). HF-5 oracle: hidden 0 | — |
 
 To run the existing NOTAM tests against the module by hand: `PB_NOTAM_ENGINE=module npm test` (the harness then routes the tests' direct NOTAM calls to the module; the app's own `evalAirport` keeps the app engine).
@@ -231,7 +236,7 @@ Items 1–5 were for the v1.11.0 integration PR (velocemente/relief-pilot#39) an
 3. `evalAirport` already passes the flight date (`window._flightDateISO || ''`) and `depMin`; keep that. No other caller may rely on a global flight date.
 4. Keep the GNSS ruleset where it is; it is a separate module.
 5. Golden, V0 NOTAM-at-ETA and app-path snapshots must stay unchanged; TC-120-004 then compares against the module only (the app copy is gone) and must be adjusted in that PR.
-6. Master copy (plan v4.3): before the PR is merged, a **separate session** publishes this exact file from the PR branch to Drive "00_General Rulesets / 00_Notam Rules", with its SHA-256 recorded (`rules/manifest.json`); the previous version (for v1.11.2: v1.11.1) moves to "90_Old Rulesets".
+6. Master copy (plan v4.3): before the PR is merged, a **separate session** publishes this exact file from the PR branch to Drive "00_General Rulesets / 00_Notam Rules", with its SHA-256 recorded (`rules/manifest.json`); the previous version (for v1.12.0: v1.11.2) moves to "90_Old Rulesets".
 
 ---
 
@@ -242,4 +247,5 @@ Items 1–5 were for the v1.11.0 integration PR (velocemente/relief-pilot#39) an
 | 1.10.1 | 2026-06-05 | Master | Ledger P-01 … P-13 (SPEC not in this repository). |
 | 1.11.0 | 2026-11-07 | Old master (90_Old Rulesets) | Extracted from the app. Carries HF-1, HF-5, HF-6, HF-8 (ledger P-14 … P-20). `_splitNotams` moved in. Blueprint metadata and `validateSchema()` (ARCH-01, ARCH-02 closed). No app state. Unused code not carried. Behaviour identical to the app (§10). |
 | 1.11.1 | 2026-11-08 | Master (previous) | P-22: the window check also tries D + 1 when the departure time places the ETA on D + 1 (`nwOverlap_standalone` gets `depMin`), so a NOTAM for the arrival day is no longer hidden on a flight that lands on D + 1 at or after 1200Z. Additive (hidden → shown only). Corpus: no NOTAM result changes on the 30 Navtech/eOFP fixtures. |
-| **1.11.2** | 2026-11-08 | UPD | P-23: NOTAMs are checked against the actual UTC date and time of the evaluation window (ETA ± 60) only. `_evalWindows` builds the one window (D, or D + 1 when the ETA time is earlier than OUT; departure time unknown → D and D + 1); the date-range and schedule checks use it. The ETA-before-1200Z rule and the second-day tries are removed; edges included. Corpus: 23 shown → hidden (dates wholly outside the actual window), 0 hidden → shown. |
+| 1.11.2 | 2026-11-08 | Master (previous) | P-23: NOTAMs are checked against the actual UTC date and time of the evaluation window (ETA ± 60) only. `_evalWindows` builds the one window (D, or D + 1 when the ETA time is earlier than OUT; departure time unknown → D and D + 1); the date-range and schedule checks use it. The ETA-before-1200Z rule and the second-day tries are removed; edges included. Corpus: 23 shown → hidden (dates wholly outside the actual window), 0 hidden → shown. |
+| **1.12.0** | 2026-11-09 | UPD | P-24: integration of the aircraft-profile module. `AIRCRAFT_DATA`, `getWingspan()` and `buildAcftProfile()` removed (one copy, in `rules/aircraft-profile`); `buildAcftProfile` no longer exported. `evalNotams()` takes the aircraft profile object; a type string or nothing is the unknown profile (no aircraft filter, every NOTAM shown). New optional trailing argument `getWingspan`, passed in by the caller, used by `_acftApplies` (named types) and `_twyApplies` (taxiway wingspan limit); absent → unknown → shown. No NOTAM rule changes; results identical to v1.11.2 for the profile object the app passes (42 NOTAMs × 70 types; golden, V0 NOTAM-at-ETA and app-path snapshots unchanged). |

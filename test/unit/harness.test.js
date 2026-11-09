@@ -47,15 +47,15 @@ test('xNW_standalone: PERM end is far in the future; no dates gives null', () =>
 });
 
 test('evalNotams: no NOTAMs is "unknown"; an active runway closure is red', () => {
-  assert.equal(app.evalNotams([], 'dest', null, 'B744', '2026-03-15').worst, 'unknown');
+  assert.equal(app.evalNotamsAs([], 'dest', null, 'B744', '2026-03-15').worst, 'unknown');
   const n = ['- KLAX 07R/25L CLSD\nB) 2603010000 C) 2603312359 E) RWY 07R/25L CLSD'];
-  const r = app.evalNotams(n, 'dest', 600, 'B744', '2026-03-15');
+  const r = app.evalNotamsAs(n, 'dest', 600, 'B744', '2026-03-15');
   assert.equal(r.worst, 'red');
   assert.equal(r.issues[0].rwy, '07R/25L');
 });
 
 test('golden serializer: cross-realm Map/Set/NaN are tagged, keys sorted', () => {
-  const r = app.evalNotams(['- KLAX 07R/25L CLSD\nB) 2603010000 C) 2603312359 E) RWY 07R/25L CLSD'], 'dest', 600, 'B744', '2026-03-15');
+  const r = app.evalNotamsAs(['- KLAX 07R/25L CLSD\nB) 2603010000 C) 2603312359 E) RWY 07R/25L CLSD'], 'dest', 600, 'B744', '2026-03-15');
   assert.ok(normalize(r.rwyGroups).$map, 'Map from the vm realm must serialize as $map');
   assert.deepEqual(Object.keys(normalize({ b: 1, a: NaN })), ['a', 'b']);
   assert.equal(normalize({ a: NaN }).a, '$NaN');

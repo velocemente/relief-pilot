@@ -277,7 +277,7 @@ test('TC-110-007 year boundary: /25 January NOTAM and DEC→JAN NOTAM', () => {
 // ══ Fail-safe (T6) ═══════════════════════════════════════════════════════
 
 function evalShows(notam, iso, etaMin = 600, depMin) {
-  const r = app.evalNotams([notam], 'DEST', etaMin, 'B744', iso, depMin);
+  const r = app.evalNotamsAs([notam], 'DEST', etaMin, 'B744', iso, depMin);
   return r.issues.some(i => i.notamRaw === notam);
 }
 

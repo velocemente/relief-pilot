@@ -1,8 +1,8 @@
 {
   "notam-rules": {
-    "version": "1.11.2",
-    "file": "notam-rules/notam-rules-v1.11.2.js",
-    "sha256": "faa8377dadf6b24dfe1f7a44325647f24de704b4e9e026b6dd266a7ea7438997"
+    "version": "1.12.0",
+    "file": "notam-rules/notam-rules-v1.12.0.js",
+    "sha256": "0d615a13f8cfcb7afc625f825a086d47beedbfc47afa9a7c51f7c47ba9162557"
   },
   "ofp-navblue": {
     "version": "2.0.0",
