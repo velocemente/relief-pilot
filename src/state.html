@@ -653,6 +653,10 @@ function _tlOfpOutMin() {
 // alternates: OUT, or OFF once entered, + its OFP offset, as the recalcs do);
 // an ETA with no OFP offset (CFS) is the first time at or after OFF / OUT, as
 // at import. A saved OUT that is not a valid time keeps the OFP OUT (F1).
+// F5: a saved IN that is not a valid time is its planned time. While OUT or OFF
+// holds a 4-digit entry that is not a valid time ("2400"), the saved downline
+// HHMM were recalculated from that entry, so IN and the alternates are their
+// planned times, not those HHMM.
 // No OFP times in the save → as at import (_tlBuild()).
 function _tlRecover() {
   const day = _tlDayMs(window._flightDateISO);
@@ -668,10 +672,13 @@ function _tlRecover() {
   const plan = off => typeof off !== 'number' ? null
     : _tl.offMs !== null ? _tl.offMs + Math.max(0, off - taxiMins) * 60000 : _tl.outMs + off * 60000;
   const destPlan = _tl.offMs !== null && trip !== null ? _tl.offMs + trip * 60000 : plan(S.destEtaOffsetMins);
-  _tl.etaDestMs = destPlan === null ? _tlPlaceAfter(S.etaDest, base) : _tlPlaceNear(S.etaDest, destPlan);
+  const bad4 = v => String(v || '').length === 4 && _tlHM(v) === null;
+  const shifted = bad4(S.outZ) || bad4(S.offZ);
+  _tl.etaDestMs = destPlan === null ? _tlPlaceAfter(S.etaDest, base)
+    : (shifted || _tlHM(S.etaDest) === null) ? destPlan : _tlPlaceNear(S.etaDest, destPlan);
   (S.altData || []).forEach(a => {
     const p = plan(a.ofpOffsetMins);
-    const ms = p === null ? _tlPlaceAfter(a.currentEta, base) : _tlPlaceNear(a.currentEta, p);
+    const ms = p === null ? _tlPlaceAfter(a.currentEta, base) : shifted ? p : _tlPlaceNear(a.currentEta, p);
     if (ms !== null) _tl.alt[a.icao] = ms;
   });
 }
@@ -699,34 +706,51 @@ function _tlPlaceEdit(field, hhmm) {
   }
 }
 
-// The dated ETA (DEP for ORIG) of an airport, for evalAirport(): the timeline
-// entry for its role, with etaZ placed nearest it (etaZ is the entry's own time
-// when it comes from getAllAirports()). null when the timeline has none.
-function _tlEtaMs(icao, role, etaZ) {
-  const r = (role || '').toString().toUpperCase();
+// The dated ETA (DEP for ORIG) of an airport: the timeline entry for its role,
+// its date AND its time (F5). null when the timeline has none. With no role
+// (a curfew detail), the role is the airport's first on getAllAirports():
+// departure, then destination, then alternate.
+function _tlEtaMs(icao, role) {
   const k = (icao || '').toString().toUpperCase();
-  let ref = null;
-  if (r === 'ORIG') ref = _tl.outMs;
-  else if (r === 'DEST' && k === (S.destIcao || '').toUpperCase()) ref = _tl.etaDestMs;
-  else if (typeof _tl.alt[k] === 'number') ref = _tl.alt[k];
-  return ref === null ? null : _tlPlaceNear(etaZ, ref);
+  let r = (role || '').toString().toUpperCase();
+  if (!r) r = k === (S.origIcao || '').toUpperCase() ? 'ORIG' : 'DEST';
+  if (r === 'ORIG') return _tl.outMs;
+  if (r === 'DEST' && k === (S.destIcao || '').toUpperCase()) return _tl.etaDestMs;
+  return typeof _tl.alt[k] === 'number' ? _tl.alt[k] : null;
+}
+// UTC ms → minutes of day (0–1439).
+function _tlMin(ms) { return Math.floor((((ms % _TL_DAY) + _TL_DAY) % _TL_DAY) / 60000); }
+
+// The one dated value every evaluation of an airport reads (NOTAMs, weather,
+// curfew): { ms, min } = the timeline entry's UTC date-and-time and its minutes
+// of day, both from the SAME valid entry (F5). The field's text (etaZ, the HHMM
+// on the screen) is not read while the timeline has an entry, so an entry that
+// is not a valid time standing in OUT, OFF or IN ("2400", "2360", "003", empty)
+// never reaches an evaluation: the timeline kept the last valid value (F1).
+// No timeline entry (no flight date, or an airport not on it): { ms: null,
+// min: the HHMM as before }.
+function _tlEvalTime(icao, role, etaZ) {
+  const ms = _tlEtaMs(icao, role);
+  if (ms !== null) return { ms, min: _tlMin(ms) };
+  return { ms: null, min: pZM(etaZ) };
 }
 
 // The flight date and departure time evalNotams() is given for one airport:
-// the UTC date of the CURRENT OUT and the OUT time. The module's rule then puts
-// the ETA on its actual date (D + 1 when the ETA time is earlier than OUT).
-// That rule covers an ETA from OUT to OUT + 24 h; an ETA outside it (e.g. an
-// OFF delayed by more than a day) is passed on its own date, as the departure.
-// No dated OUT → the flight date and OUT time, as before.
+// the UTC date of the CURRENT OUT and its time, both from the dated OUT (F5:
+// not the OUT field, which may hold an entry that is not a valid time). The
+// module's rule then puts the ETA on its actual date (D + 1 when the ETA time
+// is earlier than OUT). That rule covers an ETA from OUT to OUT + 24 h; an ETA
+// outside it (e.g. an OFF delayed by more than a day) is passed on its own
+// date, as the departure. No dated OUT → the flight date and OUT time, as before.
 function _tlNotamDate(etaMs, etaMin) {
-  const depMin = (typeof S !== 'undefined' && S) ? pZM(S.outZ) : null;
   if (_tl.outMs === null) {
+    const depMin = (typeof S !== 'undefined' && S) ? pZM(S.outZ) : null;
     return { flightISO: (typeof window !== 'undefined' && window._flightDateISO) || '', depMin };
   }
   if (etaMs !== null && etaMin !== null && (etaMs < _tl.outMs || etaMs - _tl.outMs >= _TL_DAY)) {
     return { flightISO: _tlISO(etaMs), depMin: etaMin };
   }
-  return { flightISO: _tlISO(_tl.outMs), depMin };
+  return { flightISO: _tlISO(_tl.outMs), depMin: _tlMin(_tl.outMs) };
 }
 
 // ═══════════════════════════════════════════════════════
