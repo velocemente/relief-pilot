@@ -10,23 +10,27 @@
  *   TC-130-001  metadata present; validateSchema() valid; a broken parser object is rejected
  *   TC-130-002  rules/manifest.json: the ofp-navblue entry, its version, file and SHA-256
  *   TC-130-003  dual context: Node (module.exports), rules-loader (new Function), browser
- *               (plain script → one global OfpNavBlue); no DOM / storage / app state
+ *               (plain script → one global OfpNavBlue); no window / DOM / storage / app state
+ *               (loaded and run with a window, document and app globals that throw on access)
  *   TC-130-004  the copies: § 2–§ 10 are byte-identical to the app source except the three
  *               marked v2.0.0 edits; parseOFP, fuelK, deriveCallsign are not in the module
  *   TC-130-005  the app is unchanged: index.html is still the build of src/ + rules/, and does
  *               not carry this module (integration is a separate PR)
- *   TC-130-010  LOCK: every NavBlue/eOFP fixture, module loaded in the app's own context:
- *               _ofpRulesetParse and the parseNavBlue core fields equal the app's, all 57
- *               fields, values and key order
+ *   TC-130-010  LOCK: every NavBlue/eOFP fixture, module loaded in the app's own context, the
+ *               NAT parser passed in: _ofpRulesetParse and the parseNavBlue core fields equal
+ *               the app's, all 57 fields, values and key order
  *   TC-130-011  LOCK: the same with the module loaded in Node, the NAT parser passed in
  *               as options.parseNatTrack
  *   TC-130-012  contract: every Appendix B extension present and empty on every fixture
  *               (top level, airportData[icao], ddgItems[i]); findings exactly the one INFO
+ *               (NAT parser passed in) or that INFO plus "NAT parser not supplied" (not passed)
  *   TC-130-013  NAT hook on the fixtures: without a NAT parser natTrack is null (and only
- *               natTrack differs); with it, the app's track is returned
+ *               natTrack and findings differ); with it, the app's track is returned
  *   TC-130-014  synthetic: empty / non-string input → null; no state carried between calls;
  *               no two results share an extension array
- *   TC-130-015  NAT hook precedence: options.parseNatTrack, else window.parseNatTrack, else null
+ *   TC-130-015  NAT hook: the parser is used only when passed in as options.parseNatTrack;
+ *               never looked up on window (a window that throws on access, and a window that
+ *               publishes parseNatTrack, are both left alone); not passed → null + the INFO
  *   TC-130-016  the masters' embedded self-test assertions (SPEC v1.0 #1–9, v1.1 #10–14) hold;
  *               slot time chain, positive and negative
  *   TC-130-020  the gate bites: a module with one rule broken fails the lock
@@ -59,6 +63,7 @@ const mod       = require(MOD_FILE);
 // is not FlightKeys must be one of these, so a new NavBlue variant is never silently left out.
 const NAVBLUE_FORMATS = new Set(['navtech-company', 'navtech-eofp-ios-print']);
 const FINDING = { level: 'INFO', field: 'sections', message: 'sections: content-built bookmarks arrive in step 5' };
+const NAT_FINDING = { level: 'INFO', field: 'natTrack', message: 'NAT parser not supplied' };
 const EMPTIES = {
   revision: null, companyNotams: [], ofpRemarks: [], fplEquipment: null, catIiIiiRestrictions: [],
   securityMessages: [], extraFuel: null, pcf: null, permits: [], designator: '', sections: [],
@@ -85,6 +90,34 @@ function loadInContext(src, ctx, filename) {
   const m = { exports: {} };
   vm.runInContext(`(function (module, exports) {\n${src}\n})`, ctx, { filename })(m, m.exports);
   return m.exports;
+}
+
+// A vm context in which window, document, self, storage and the app's globals exist but
+// throw on any access (typeof included), and every access is recorded. A module that reads
+// any of them fails; nothing can swallow the error unseen, because `touched` is checked too.
+const TRAPPED_GLOBALS = ['window', 'document', 'self', 'top', 'parent', 'navigator', 'location',
+  'localStorage', 'sessionStorage', 'indexedDB', 'fetch', 'XMLHttpRequest',
+  'parseNatTrack', 'renderNatTrack', 'S', 'pdfRawText', 'airportData', '_flightDateISO'];
+// The accessors are defined from inside the context: Node's vm does not run a getter set on the
+// sandbox object from outside for a bare global lookup (`typeof window` would quietly give
+// 'undefined'), so that form would not bite.
+function trappedContext() {
+  const touched = [];
+  const ctx = vm.createContext({});
+  vm.runInContext(`(function (names, hit) {
+    for (const name of names) {
+      Object.defineProperty(globalThis, name, {
+        configurable: true, enumerable: true,
+        get() { hit(name); throw new Error('module read the global ' + name); },
+        set() { hit(name + ' (write)'); throw new Error('module wrote the global ' + name); },
+      });
+    }
+  })`, ctx, { filename: 'trapped globals' })(TRAPPED_GLOBALS, n => { if (!touched.includes(n)) touched.push(n); });
+  // the trap bites (checked here, then the record is cleared)
+  assert.throws(() => vm.runInContext('typeof window', ctx), /module read the global window/);
+  assert.deepEqual(touched, ['window']);
+  touched.length = 0;
+  return { ctx, touched };
 }
 
 // One app load and one parse per fixture, shared by TC-130-010..013.
@@ -139,6 +172,8 @@ function diffPaths(a, b, p = '', out = []) {
   out.push(`${p}: ${short(a)} -> ${short(b)}`);
   return out;
 }
+// A plain copy of a JSON-shaped value made in another realm (vm), for deepStrictEqual.
+const plain = v => JSON.parse(JSON.stringify(v));
 const leaves = v => (v && typeof v === 'object') ? Object.values(v).reduce((n, x) => n + leaves(x), 0) : 1;
 
 // The core fields of a parseNavBlue() result: the extensions that live on core records
@@ -227,15 +262,16 @@ test('TC-130-002 rules/manifest.json lists ofp-navblue with its version, file an
 
 // ══ TC-130-003 dual context ══════════════════════════════════════════════════
 
-test('TC-130-003 dual context: Node, rules-loader and browser script give the same API; no DOM, no app state', () => {
+test('TC-130-003 dual context: Node, rules-loader and browser script give the same API; no window, no DOM, no app state', () => {
   const names = Object.keys(mod);
   // rules-loader evalRuleset(): new Function('module', 'exports', 'require', code)
   const m = { exports: {} };
   new Function('module', 'exports', 'require', MOD_SRC)(m, m.exports, () => { throw new Error('parser called require()'); });
   assert.deepEqual(Object.keys(m.exports), names);
-  // Browser: a plain script in a context with nothing but JS built-ins (no window, no
-  // document, no module). It must publish exactly one global, OfpNavBlue.
-  const ctx = vm.createContext({});
+  // Browser: a plain script (no module) in a context where window, document and the app's
+  // globals throw on access. It must publish exactly one global, OfpNavBlue, and never read
+  // any of them — while loading, parsing, or building the contract.
+  const { ctx, touched } = trappedContext();
   const before = new Set(Object.getOwnPropertyNames(ctx));
   vm.runInContext(MOD_SRC, ctx, { filename: 'ofp-navblue (browser)' });
   const added = Object.getOwnPropertyNames(ctx).filter(k => !before.has(k));
@@ -245,15 +281,18 @@ test('TC-130-003 dual context: Node, rules-loader and browser script give the sa
   // The browser copy parses exactly like the Node copy.
   assert.deepEqual(diffPaths(canon(mod._ofpRulesetParse(SYNTH)), canon(ctx.OfpNavBlue._ofpRulesetParse(SYNTH))), []);
   assert.deepEqual(diffPaths(canon(mod.parseNavBlue(SYNTH)), canon(ctx.OfpNavBlue.parseNavBlue(SYNTH))), []);
-  // No DOM, no storage, no app state in the code (comments aside); window only in the NAT hook.
+  const nat = () => ({ from: 'option' });
+  assert.deepEqual(plain(ctx.OfpNavBlue._ofpRulesetParse(SYNTH, { parseNatTrack: nat }).natTrack), { from: 'option' });
+  assert.equal(ctx.OfpNavBlue.parseNavBlue(SYNTH).natTrack, null);
+  assert.deepEqual(touched, [], 'no window, document or app global was read');
+  // No window, DOM, storage or app state in the code (comments aside).
   const code = MOD_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-  for (const re of [/\bdocument\b/, /\blocalStorage\b/, /\bsessionStorage\b/, /\bindexedDB\b/, /\bfetch\s*\(/, /\bS\.\w/, /\bpdfRawText\b/, /\b_flightDateISO\b/]) {
+  for (const re of [/\bwindow\b/, /\bdocument\b/, /\bself\b/, /\blocalStorage\b/, /\bsessionStorage\b/, /\bindexedDB\b/, /\bfetch\s*\(/, /\bS\.\w/, /\bpdfRawText\b/, /\b_flightDateISO\b/]) {
     assert.ok(!re.test(code), `module code does not use ${re}`);
   }
-  const hook = code.slice(code.indexOf('function _natTrackFrom('), code.indexOf('return null;', code.indexOf('function _natTrackFrom(')));
-  const windowUses = (code.match(/\bwindow\b/g) || []).length;
-  assert.equal(windowUses, (hook.match(/\bwindow\b/g) || []).length, 'window is read only in _natTrackFrom()');
-  assert.ok(windowUses > 0);
+  assert.equal((code.match(/\bwindow\b/g) || []).length, 0, 'window: 0 uses outside comments');
+  assert.equal((code.match(/\bparseNatTrack\b/g) || []).length,
+    (code.match(/\boptions\.parseNatTrack\b/g) || []).length, 'parseNatTrack is only ever read from options');
 });
 
 // ══ TC-130-004 the copies ════════════════════════════════════════════════════
@@ -267,8 +306,8 @@ const EDITS = [
   ["  const natTrack = (typeof window.parseNatTrack === 'function')\n" +
    '    ? window.parseNatTrack(t, origIcao, destIcao)\n' +
    '    : null;\n',
-   '  // v2.0.0: the NAT track parser is its own module — options.parseNatTrack,\n' +
-   '  // else window.parseNatTrack exactly as the app calls it (§ 11).\n' +
+   '  // v2.0.0: the NAT track parser is its own module — used only when passed\n' +
+   '  // in as options.parseNatTrack, else null (§ 11).\n' +
    '  const natTrack = _natTrackFrom(options, t, origIcao, destIcao);\n'],
 ];
 // A block of app source: from the start of the line holding `startMark` (or of the banner line
@@ -324,15 +363,17 @@ test('TC-130-005 the app is unchanged: index.html is the build of src/ + rules/ 
 
 // ══ TC-130-010..013 LOCK on the fixtures ═════════════════════════════════════
 
-test('TC-130-010 LOCK: every NavBlue/eOFP fixture, module in the app context: core fields identical to the app (57 fields)', () => {
-  const { inApp, items } = corpus();
+test('TC-130-010 LOCK: every NavBlue/eOFP fixture, module in the app context, NAT parser passed in: core fields identical to the app (57 fields)', () => {
+  const { app: appCtx, inApp, items } = corpus();
+  const opts = { parseNatTrack: appCtx.sandbox.parseNatTrack };
+  assert.equal(typeof opts.parseNatTrack, 'function', 'the app publishes window.parseNatTrack');
   let fields = 0, values = 0;
   const failures = [];
   for (const { fx, raw, app } of items) {
     assert.ok(app && typeof app === 'object', `${fx.id}: the app parses the fixture`);
     assert.deepEqual(Object.keys(app), [...mod.CORE_FIELDS], `${fx.id}: the app returns the 57 core fields in contract order`);
-    const r = inApp._ofpRulesetParse(raw);
-    const nb = inApp.parseNavBlue(raw);
+    const r = inApp._ofpRulesetParse(raw, opts);
+    const nb = inApp.parseNavBlue(raw, opts);
     const d1 = diffPaths(canon(app), canon(r));
     const d2 = diffPaths(canon(app), canon(coreOf(nb)));
     try { assert.deepStrictEqual(r, app); } catch (e) { d1.push('deepStrictEqual: ' + e.message.split('\n')[0]); }
@@ -366,17 +407,20 @@ test('TC-130-011 LOCK: module loaded in Node, NAT parser passed as options.parse
 });
 
 test('TC-130-012 contract: every Appendix B extension present and empty; findings exactly the one INFO', () => {
-  const { items } = corpus();
+  const { app: appCtx, items } = corpus();
+  const opts = { parseNatTrack: appCtx.sandbox.parseNatTrack };
   const topKeys = [...mod.CORE_FIELDS, ...mod.EXTENSION_FIELDS];
   let apts = 0, ddgs = 0;
   for (const { fx, raw, app } of items) {
-    const nb = mod.parseNavBlue(raw);
+    const nb = mod.parseNavBlue(raw, opts);
     assert.deepEqual(Object.keys(nb), topKeys, `${fx.id}: 57 core fields then the 12 extensions, in order`);
     for (const k of mod.EXTENSION_FIELDS) {
       assert.ok(k in nb, `${fx.id}: ${k} present`);
       assert.deepEqual(nb[k], EMPTIES[k], `${fx.id}: ${k} is the explicit empty value`);
     }
-    assert.deepEqual(nb.findings, [FINDING], `${fx.id}: findings = the one INFO`);
+    assert.deepEqual(nb.findings, [FINDING], `${fx.id}: findings = the one INFO (NAT parser passed in)`);
+    // negative: the same package with no NAT parser carries the not-supplied INFO as well
+    assert.deepEqual(mod.parseNavBlue(raw).findings, [FINDING, NAT_FINDING], `${fx.id}: findings without a NAT parser`);
     assert.deepEqual(Object.keys(nb.airportData), Object.keys(app.airportData), `${fx.id}: same airports`);
     for (const icao of Object.keys(nb.airportData)) {
       const e = nb.airportData[icao];
@@ -399,13 +443,18 @@ test('TC-130-012 contract: every Appendix B extension present and empty; finding
 });
 
 test('TC-130-013 NAT hook on the fixtures: no NAT parser → natTrack null and nothing else differs', () => {
-  const { app: appCtx, items } = corpus();
+  const { app: appCtx, inApp, items } = corpus();
   let natFixtures = 0;
   for (const { fx, raw, app } of items) {
-    const without = mod._ofpRulesetParse(raw);        // Node: no window, no options
+    const without = mod._ofpRulesetParse(raw);        // Node: no options
     assert.equal(without.natTrack, null, `${fx.id}: natTrack null without a NAT parser`);
     const d = diffPaths(canon({ ...app, natTrack: null }), canon(without));
     assert.deepEqual(d, [], `${fx.id}: only natTrack depends on the NAT parser`);
+    // In the app's own context (window.parseNatTrack published) the module still does not use it.
+    assert.equal(inApp._ofpRulesetParse(raw).natTrack, null, `${fx.id}: window.parseNatTrack is not used when not passed`);
+    const nbWithout = mod.parseNavBlue(raw);
+    assert.equal(nbWithout.natTrack, null);
+    assert.deepEqual(nbWithout.findings.filter(f => f.field === 'natTrack'), [NAT_FINDING], `${fx.id}: the not-supplied INFO`);
     if (app.natTrack) {
       natFixtures++;
       // negative: the lock comparison sees a missing NAT parser
@@ -413,6 +462,9 @@ test('TC-130-013 NAT hook on the fixtures: no NAT parser → natTrack null and n
       const withIt = mod._ofpRulesetParse(raw, { parseNatTrack: appCtx.sandbox.parseNatTrack });
       assert.deepEqual(diffPaths(canon(app.natTrack), canon(withIt.natTrack)), [], `${fx.id}: the app's NAT track`);
     }
+    // with the parser passed in, there is no not-supplied INFO (whether or not a track is found)
+    const nbWith = mod.parseNavBlue(raw, { parseNatTrack: appCtx.sandbox.parseNatTrack });
+    assert.deepEqual(nbWith.findings, [FINDING], `${fx.id}: no not-supplied INFO when the parser is passed`);
   }
   console.log(`TC-130-013: ${natFixtures} fixture(s) with a NAT track; null without the NAT parser on all ${items.length}`);
   assert.ok(natFixtures > 0);
@@ -441,18 +493,45 @@ test('TC-130-014 synthetic: empty input → null; no state carried between calls
   for (const icao of Object.keys(plain.airportData)) assert.ok(!('remarks' in plain.airportData[icao]));
 });
 
-test('TC-130-015 NAT hook precedence: options.parseNatTrack, else window.parseNatTrack, else null', () => {
+test('TC-130-015 NAT hook: used only when passed in; never looked up on window; not passed → null + INFO', () => {
+  // (1) A window (and document, app globals) that throws on any access, typeof included.
+  const { ctx, touched } = trappedContext();
+  const m = loadInContext(MOD_SRC, ctx, 'ofp-navblue (trapped window)');
+  // not passed: natTrack null — the app's value when no NAT track is found — and one more INFO
+  assert.equal(m._ofpRulesetParse(SYNTH).natTrack, null, 'no option → natTrack null');
+  const nbNone = m.parseNavBlue(SYNTH);
+  assert.equal(nbNone.natTrack, null);
+  assert.deepEqual(plain(nbNone.findings), [FINDING, NAT_FINDING], 'no option → findings carry "NAT parser not supplied"');
+  // passed: the injected parser is used, with the app's arguments (text, origIcao, destIcao)
   const calls = [];
-  const ctx = vm.createContext({});
-  ctx.window = { parseNatTrack: (t, o, d) => { calls.push(['window', o, d]); return { from: 'window' }; } };
-  const m = loadInContext(MOD_SRC, ctx, 'ofp-navblue (window)');
-  assert.deepEqual(m._ofpRulesetParse(SYNTH).natTrack, { from: 'window' }, 'window.parseNatTrack when no option is given');
-  const opt = (t, o, d) => { calls.push(['option', o, d, typeof t]); return { from: 'option' }; };
-  assert.deepEqual(m._ofpRulesetParse(SYNTH, { parseNatTrack: opt }).natTrack, { from: 'option' }, 'options.parseNatTrack first');
-  assert.deepEqual(calls, [['window', 'XXAA', 'YYBB'], ['option', 'XXAA', 'YYBB', 'string']], 'called with (text, origIcao, destIcao)');
-  ctx.window = { parseNatTrack: 'not a function' };
-  assert.equal(m._ofpRulesetParse(SYNTH).natTrack, null, 'no NAT parser → null');
-  assert.equal(m._ofpRulesetParse(SYNTH, { parseNatTrack: null }).natTrack, null);
+  const opt = (t, o, d) => { calls.push([typeof t, t === SYNTH, o, d]); return { from: 'option' }; };
+  assert.deepEqual(plain(m._ofpRulesetParse(SYNTH, { parseNatTrack: opt }).natTrack), { from: 'option' }, 'the injected parser is used');
+  const nbOpt = m.parseNavBlue(SYNTH, { parseNatTrack: opt });
+  assert.deepEqual(plain(nbOpt.natTrack), { from: 'option' });
+  assert.deepEqual(plain(nbOpt.findings), [FINDING], 'passed → no not-supplied INFO');
+  assert.deepEqual(calls, [['string', true, 'XXAA', 'YYBB'], ['string', true, 'XXAA', 'YYBB']], 'called once per parse with (text, orig, dest)');
+  // an injected parser that finds no track: null, and no not-supplied INFO (it was supplied)
+  const nbNull = m.parseNavBlue(SYNTH, { parseNatTrack: () => null });
+  assert.equal(nbNull.natTrack, null);
+  assert.deepEqual(plain(nbNull.findings), [FINDING]);
+  // not a function → not supplied
+  for (const o of [{}, { parseNatTrack: null }, { parseNatTrack: 'parseNatTrack' }, { parseNatTrack: {} }, null]) {
+    assert.equal(m._ofpRulesetParse(SYNTH, o).natTrack, null, `${JSON.stringify(o)} → null`);
+    assert.deepEqual(plain(m.parseNavBlue(SYNTH, o).findings), [FINDING, NAT_FINDING], `${JSON.stringify(o)} → not supplied`);
+  }
+  assert.deepEqual(touched, [], 'the module never touched window, document or an app global');
+
+  // (2) A window that publishes parseNatTrack (as the app does), plus a bare global of the
+  // same name: neither is ever called when no option is passed.
+  const spied = [];
+  const ctx2 = vm.createContext({});
+  ctx2.window = { parseNatTrack: () => { spied.push('window'); return { from: 'window' }; } };
+  ctx2.parseNatTrack = () => { spied.push('global'); return { from: 'global' }; };
+  const m2 = loadInContext(MOD_SRC, ctx2, 'ofp-navblue (window with parseNatTrack)');
+  assert.equal(m2._ofpRulesetParse(SYNTH).natTrack, null, 'window.parseNatTrack present, no option → null');
+  assert.deepEqual(plain(m2.parseNavBlue(SYNTH).findings), [FINDING, NAT_FINDING]);
+  assert.deepEqual(plain(m2._ofpRulesetParse(SYNTH, { parseNatTrack: opt }).natTrack), { from: 'option' }, 'the option, not window');
+  assert.deepEqual(spied, [], 'the window / global parser is never called');
 });
 
 test('TC-130-016 the masters\' self-test assertions (SPEC v1.0 #1–9, v1.1 #10–14) hold; slot time negatives', () => {

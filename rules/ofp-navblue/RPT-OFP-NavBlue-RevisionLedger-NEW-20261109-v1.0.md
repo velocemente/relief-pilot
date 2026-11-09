@@ -3,9 +3,9 @@
 **File Standard:** `RPT-OFP-NavBlue-RevisionLedger-NEW-20261109-v1.0.md` (first ledger of this module; the 5Y OFP ruleset had none — its history was kept in the SPECs' version tables)
 **Module:** `ofp-navblue` — file `rules/ofp-navblue/ofp-navblue-v2.0.0.js`
 **Current Version:** 2.0.0 (contract v2.0) — **LOCKED** (ADR-005 §2.4; Exec, 7 Nov 2026; D47)
-**Lines:** 1,617
+**Lines:** 1,629
 **Patterns:** 47 `PATTERNS` entries (46 RegExp + `APT_LINE_TEMPLATE`)
-**QA Status:** TC-130-001 … 030 PASS (14/14); lock 30/30 fixtures, 1,710 core fields, 0 differences
+**QA Status:** TC-130-001 … 030 PASS (14/14); lock 30/30 fixtures, 1,710 core fields, 0 differences (NAT parser passed in, both entry points). Independent QA 3a: CHANGES-REQUESTED (F1–F3) — addressed in N-11, b-8 and O-1; re-QA pending
 **Last Updated:** 2026-11-09
 
 ---
@@ -75,12 +75,13 @@ No code change; the parser is `src/ofp-parse.html`.
 
 **Type:** EXTRACTION (no behaviour change) · **Brief:** SPRINT-OFP-ModularPlatform step 3 (ADR-005 §5.3)
 - Engine = the app on `main` at `d073e54`, byte for byte (SPEC §7): `src/ofp-parse.html` § 2 – § 10 and the ENR V2 helpers from `src/render-preflight.html`. Three marked edits in `_ofpRulesetParse`: JSDoc line, `options` parameter, NAT call via `_natTrackFrom()`.
-- NAT track parser passed in: `options.parseNatTrack`, else `window.parseNatTrack` (the app's call), else null.
+- NAT track parser passed in only: `options.parseNatTrack` (a function) is called with the app's arguments `(t, origIcao, destIcao)`. Not passed → `natTrack` null (the app's value when no NAT track is found) and `parseNavBlue()` adds one `findings[]` INFO "NAT parser not supplied". The module never reads `window`, `document` or any app global (QA 3a F1: the first draft fell back to `window.parseNatTrack`; removed). The app passes `{ parseNatTrack: window.parseNatTrack }` at integration (SPEC §8 step 3c).
 - New: metadata (`'ofp'`, `'navblue'`, `'2.0.0'`, `SCHEMA_VERSION 2`, `CONTRACT_VERSION '2.0'`, `RULESET_SOURCE`), `validateSchema()`, `parseNavBlue()`, `CORE_FIELDS` (57), `EXTENSION_FIELDS` (12), the nested extension lists.
-- Every ADR-005 Appendix B extension returned as an explicit empty value; `findings` = one INFO "sections: content-built bookmarks arrive in step 5".
+- Every ADR-005 Appendix B extension returned as an explicit empty value; `findings` = one INFO "sections: content-built bookmarks arrive in step 5" (plus the NAT INFO above when no NAT parser is passed).
 - Not in the module: `parseOFP()`, `fuelK()`, `deriveCallsign()`, the D-EVAL timeline, UI.
 - Tests: `test/rules/ofp-navblue.test.js` TC-130-001 … 030 (14 tests), run by `npm test`.
-- Lock evidence: 30 NavBlue/eOFP fixtures, 57 fields each (1,710), 6,464 values; module in the app context and in Node; 0 differences. Golden, NOTAM and app-path snapshots unchanged (33/33 each). `src/`, `build/` and `index.html` unchanged.
+- Tests TC-130-003 and TC-130-015 load and run the module with `window`, `document`, storage and app globals that throw on any access (`typeof` included): none is touched. TC-130-015 also shows that a published `window.parseNatTrack` is never called.
+- Lock evidence: 30 NavBlue/eOFP fixtures, 57 fields each (1,710), 6,464 values; module in the app context and in Node, the NAT parser passed in on both entry points (`_ofpRulesetParse`, `parseNavBlue` core); 0 differences. Golden, NOTAM and app-path snapshots unchanged (33/33 each). `src/`, `build/` and `index.html` unchanged.
 
 ---
 
@@ -111,6 +112,7 @@ Method: the v1.0 master (exact bytes from Drive) and `5Y-ofp-rules.js` were comp
 | b-5 | **Pattern counts in the SPECs are wrong.** SPEC v1.0 says 40 `PATTERNS`, v1.1 says 42; the v1.0 file has 45, the app/module 47 (+ `TAXI_FUEL`, `ZFW_INCR_FACTOR`). | Documentation only; this ledger records 47. |
 | b-6 | **The v1.1 code master is a header only** (728 bytes); the v1.1 change exists only as SPEC text and in the app. | The app is the only code copy of v1.1; carried from it. |
 | b-7 | **Return shape.** Master v1.0 returns 54 fields; the app returns 57 (`zfwIncrFactor`, `taxiFuelRaw` from v1.1; `rawOFP` from a-2). | 57, as ADR-005 Appendix A. |
+| b-8 | **The v1.0 master crashes in Node, contrary to its SPEC.** Its parser reads `window.parseNatTrack` with no guard, so every call throws `ReferenceError: window is not defined` outside a browser. SPEC v1.0 says "dual-context (Node + browser inline)" and "Dependencies: None (pure function)". The master was never runnable in Node: any self-test that parses text (v1.1 #12) cannot pass against it. (QA 3a F2, confirmed by the QA session on the exact Drive bytes.) | The module never reads `window`: the NAT parser is passed in (N-11); it runs in Node, the rules loader and the browser (TC-130-003). |
 
 ### (c) Content only in a master (not carried)
 
@@ -136,6 +138,7 @@ Method: the v1.0 master (exact bytes from Drive) and `5Y-ofp-rules.js` were comp
 | NB-02 | ENR V2 helpers exist twice (module § 9b and `src/render-preflight.html`) until the en-route timeline module owns them | Open — with the ENR module |
 | NB-03 | Master copy of v2.0.0, this SPEC and ledger written to Drive at the gate; v1.0/v1.1/v1.2 masters to "90_Old Versions" | Exec, at the gate |
 | NB-04 | v1.0 master in Drive carries real crew sample lines (b-4) | Exec decision |
+| O-1 | **`navLog` is empty for NavBlue packages in the app today; locked as-is (D47).** `navLog` is `[]` on all 30 fixtures in the app, in the module and in the committed golden snapshots (the navlog row pattern expects a time form the packages do not print). The lock therefore compares `navLog` only as an empty list; a change to that sub-parser is caught by the byte compare of the copies (TC-130-004), not by the lock. (QA 3a F3.) | Open — reported only; any change needs an Exec decision and its own gate |
 
 ---
 
@@ -144,3 +147,4 @@ Method: the v1.0 master (exact bytes from Drive) and `5Y-ofp-rules.js` were comp
 | Ledger | Date | Change |
 | :- | :- | :- |
 | v1.0 | 2026-11-09 | First ledger. History N-01 … N-10 from the 5Y SPECs v1.0/v1.1/v1.2, the archived files and the app's git history; extraction N-11; reconciliation (a)/(b)/(c). |
+| v1.0 (QA 3a) | 2026-11-09 | After independent QA 3a: N-11 NAT hook is passed-in only, with the "NAT parser not supplied" INFO (F1); b-8 v1.0 master's Node crash added (F2); O-1 `navLog` empty for NavBlue added (F3). Module SHA-256 in `rules/manifest.json` updated. |

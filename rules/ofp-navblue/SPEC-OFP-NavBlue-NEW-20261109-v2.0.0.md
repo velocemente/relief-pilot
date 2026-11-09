@@ -31,7 +31,7 @@ This PR does **not** build the module into `index.html`; `src/` and `index.html`
 | Metadata | `RULESET_TYPE = 'ofp'`, `OFP_FORMAT = 'navblue'`, `RULESET_VERSION = '2.0.0'`, `SCHEMA_VERSION = 2`, `CONTRACT_VERSION = '2.0'`, `RULESET_SOURCE` (NavBlue (Navtech) OFP issued by Atlas Air / Polar Air Cargo dispatch, company PDF and eOFP print; ICAO Doc 4444 App 6). |
 | `SCHEMA_VERSION` | **2.** The export shape is new (`parseNavBlue`, the contract field lists) and the contract is v2.0, so the app's value 1 is not kept. |
 | `validateSchema()` | Yes, §3.2. |
-| No app state, no DOM, no UI | No `document`, storage, network or app state (`S`, `pdfRawText`, `window._flightDateISO`). The only global read is `window.parseNatTrack`, and only when the caller does not pass a NAT parser (§6) — exactly the app's call. |
+| No app state, no DOM, no UI | The module never reads `window`, `document`, storage, the network or any app global (`S`, `pdfRawText`, `window._flightDateISO`, `window.parseNatTrack`). The NAT track parser is used only when the caller passes it in (§6). TC-130-003 and TC-130-015 load and run the module with a `window`, `document` and app globals that throw on any access. |
 | Strict mode | **On**, like the app's main inline script the code was copied from (it begins with `'use strict'`), so the copied code has the same semantics in Node and in the browser. |
 | Clock | None. The parser does not read the clock. |
 | Times | All UTC. OFP times are Z; no time-zone suffix is converted. |
@@ -93,7 +93,7 @@ Returns `null` when `rawText` is not a string, or is empty or whitespace only. O
 
 Field types and meanings are those of master SPEC v1.0 §9 and v1.1 §9.6, with the app's later changes (ledger, reconciliation (a)): `etopsExit`/`etopsExitMins` from the OFP header, else the navlog `(E.EXT)` time (PB-ENR-01); `etpPoints[i].elapsedMins` from the navlog TOT-T of the ETP (PB-ENR-01); `rawOFP` the full text; `airportData[icao].opsNotes` from each Remarks section's delimiter pairs (HF-2).
 
-`options` (optional): `{ parseNatTrack }` — §6. Without `options`, a call is the app's call.
+`options` (optional): `{ parseNatTrack }` — §6. With the app's `window.parseNatTrack` passed in, a call gives exactly the app's result. Without it, `natTrack` is `null` and every other field is the app's.
 
 ### 5.2 `parseNavBlue(rawText, options?)`
 
@@ -101,7 +101,8 @@ Returns `null` exactly when `_ofpRulesetParse()` does. Otherwise a new object:
 
 1. the 57 core fields, in `CORE_FIELDS` order, with the values `_ofpRulesetParse()` returned;
 2. `airportData` and `ddgItems` replaced by copies whose records carry the nested extensions after their own keys (§5.3) — the core record and every other value are passed through unchanged;
-3. the 12 top-level extensions, in `EXTENSION_FIELDS` order.
+3. the 12 top-level extensions, in `EXTENSION_FIELDS` order;
+4. when no NAT track parser was passed in (§6), one more `findings[]` item: `{ level: 'INFO', field: 'natTrack', message: 'NAT parser not supplied' }`.
 
 The **core projection** of a `parseNavBlue()` result — the 57 core fields with `airportData[icao].remarks`, `.remarksWeather`, `ddgItems[i].type` and `.notes` taken off — equals `_ofpRulesetParse()` (TC-130-010/011).
 
@@ -126,7 +127,7 @@ Explicit empty values: an object the parser does not read → `null`; a list →
 | `permits` | `[]` |
 | `designator` | `''` |
 | `sections` | `[]` |
-| `findings` | `[{ level: 'INFO', field: 'sections', message: 'sections: content-built bookmarks arrive in step 5' }]` — exactly this one item |
+| `findings` | `[{ level: 'INFO', field: 'sections', message: 'sections: content-built bookmarks arrive in step 5' }]` — exactly this one item when the NAT parser is passed in; without it, this item followed by `{ level: 'INFO', field: 'natTrack', message: 'NAT parser not supplied' }` (§6) |
 
 The NavBlue content behind these items is still read where the app reads it today (e.g. Remarks blocks → `opsNotes`, E-WINS → `ewins*`, permits → `overflightPerms`). Nothing is moved into the extensions: that would change the locked core.
 
@@ -134,13 +135,12 @@ The NavBlue content behind these items is still read where the app reads it toda
 
 ## 6. The NAT track parser (input)
 
-The NAT track parser is its own module (`natTrackRuleset`; in the app `src/nat.html`, which publishes `window.parseNatTrack(t, origIcao, destIcao)`). The parser's call is replaced by `_natTrackFrom(options, t, origIcao, destIcao)`:
+The NAT track parser is its own module (`natTrackRuleset`; in the app `src/nat.html`, which publishes `window.parseNatTrack(t, origIcao, destIcao)`). The module never looks for it. The parser's call is replaced by `_natTrackFrom(options, t, origIcao, destIcao)`:
 
-1. `options.parseNatTrack`, when it is a function;
-2. else `window.parseNatTrack`, when `window` exists and it is a function — the app's call, unchanged;
-3. else `null`.
+1. **Passed in** — `options.parseNatTrack` is a function: it is called with the app's arguments `(t, origIcao, destIcao)` and its result is `natTrack`, exactly as the app's call.
+2. **Not passed** — no `options`, or `options.parseNatTrack` is not a function: `natTrack` is `null`, the value the app gives when no NAT track is found, and `parseNavBlue()` adds one `findings[]` INFO, "NAT parser not supplied" (§5.2). `window.parseNatTrack` is not used even when it exists.
 
-In the app (2) gives exactly today's result. In Node, with no option and no `window`, `natTrack` is `null` (the app's expression would throw there; it never runs outside a browser). TC-130-013 shows that only `natTrack` depends on the NAT parser; TC-130-015 the precedence.
+The caller decides: the app passes `{ parseNatTrack: window.parseNatTrack }` (§8 step 3c). TC-130-010/011 run the lock with the parser passed in; TC-130-013 shows that without it only `natTrack` (and the INFO) differ; TC-130-015 shows the parser is used only when passed in, and that a `window` that throws on access, or one that publishes `parseNatTrack`, is left alone.
 
 ---
 
@@ -151,7 +151,7 @@ In the app (2) gives exactly today's result. In Node, with no option and no `win
 | § 1 metadata | — | new |
 | § 2 – § 9 `PATTERNS` … `normalizeWaypointCoord` | `src/ofp-parse.html` (from the § 2 banner to the end of `normalizeWaypointCoord`) | verbatim |
 | § 9b ENR V2 helpers: `NAVLOG_EEXT_RE`, `NAVLOG_ETP_RE`, `HEADER_ETOPS_EXIT_RE`, `extractEtopsExitV2`, `extractEtpElapsedFromNavlog`, `applyNavlogEtpTimes` | `src/render-preflight.html` (PB-ENR-01 block, up to the end of `applyNavlogEtpTimes`) | verbatim |
-| § 10 `_ofpRulesetParse` | `src/ofp-parse.html` (§ 10 banner to the function's closing brace) | verbatim except **three edits**, each marked `v2.0.0`: (1) a JSDoc line for `options`; (2) the signature `(rawText)` → `(rawText, options)`; (3) the NAT call → `_natTrackFrom(options, …)` |
+| § 10 `_ofpRulesetParse` | `src/ofp-parse.html` (§ 10 banner to the function's closing brace) | verbatim except **three edits**, each marked `v2.0.0`: (1) a JSDoc line for `options`; (2) the signature `(rawText)` → `(rawText, options)`; (3) the NAT call `window.parseNatTrack(…)` → `_natTrackFrom(options, …)` (passed-in parser only) |
 | § 11 NAT hook, § 12 contract, § 13 `validateSchema`, exports | — | new |
 
 The app's § 1 metadata (`RULESET_VERSION '1.9.0'`, `SCHEMA_VERSION 1`, `OFP_FORMAT 'atlas-v2'`) is replaced by § 1 above. TC-130-004 checks every verbatim block against the app source byte for byte, and that the unedited parser is *not* in the module.
@@ -162,10 +162,12 @@ The app's § 1 metadata (`RULESET_VERSION '1.9.0'`, `SCHEMA_VERSION 1`, `OFP_FOR
 
 1. Build the module into `index.html` with a `{ rule: 'ofp-navblue' }` entry in `build/build.js` before `ofp-parse.html` (after `nat.html`, so `window.parseNatTrack` exists when the parser is first called — it is only called at import time, so order of definition is enough).
 2. In `src/ofp-parse.html` remove the copied block (§ 2 – § 10) and bind the app names to the module: `const _ofpRulesetParse = OfpNavBlue._ofpRulesetParse;` and, where the app reads `PATTERNS`, `MONTHS` etc. elsewhere, bind those too (today only the parser reads them). Keep `parseOFP()`, `fuelK()`, `deriveCallsign()` in the app.
-3. The ENR V2 helpers stay in `src/render-preflight.html` (the en-route timeline uses them). The module's copy is private to its factory; the two copies must stay identical until the en-route timeline module (`CODE-ENR-TimelineEvents`) owns them — then the parser should take them from there (option or import) instead of a copy.
-4. The parser call stays `_ofpRulesetParse(pdfRawText)` (no options) so the NAT parser is still taken from `window.parseNatTrack`; or pass `{ parseNatTrack: window.parseNatTrack }` explicitly.
-5. The integration PR must show golden, NOTAM and app-path snapshots unchanged, and TC-130-010 rewritten to compare the copy built into `index.html` with this file (as TC-120-004/010 did for the NOTAM module).
-6. At the gate the same file is written to the master folder in Drive and its hash recorded (ADR-005 §2.3.3).
+3. The parser call passes the NAT track parser in:
+   - a. The ENR V2 helpers stay in `src/render-preflight.html` (the en-route timeline uses them). The module's copy is private to its factory; the two copies must stay identical until the en-route timeline module (`CODE-ENR-TimelineEvents`) owns them — then the parser should take them from there (option or import) instead of a copy.
+   - b. The module does not look for the NAT parser on `window` (§6). A call without options gives `natTrack: null` on every package and so changes the app (8 of the 30 fixtures carry a NAT track).
+   - c. **The app passes `window.parseNatTrack`:** `_ofpRulesetParse(pdfRawText, { parseNatTrack: window.parseNatTrack })` (and the same `options` to `parseNavBlue()` when the app moves to the contract). `src/nat.html` is built before the parser, so `window.parseNatTrack` exists at import time. This gives exactly today's result (TC-130-010).
+4. The integration PR must show golden, NOTAM and app-path snapshots unchanged, and TC-130-010 rewritten to compare the copy built into `index.html` with this file (as TC-120-004/010 did for the NOTAM module).
+5. At the gate the same file is written to the master folder in Drive and its hash recorded (ADR-005 §2.3.3).
 
 ---
 
@@ -175,15 +177,15 @@ The app's § 1 metadata (`RULESET_VERSION '1.9.0'`, `SCHEMA_VERSION 1`, `OFP_FOR
 | :--- | :--- | :--- |
 | TC-130-001 | metadata; `validateSchema()` valid; 11 kinds of broken object rejected | PASS |
 | TC-130-002 | manifest entry: version, file, SHA-256 | PASS |
-| TC-130-003 | dual context: Node, rules-loader, browser (one global `OfpNavBlue`); same parse; no DOM/storage/app state; `window` read only in the NAT hook | PASS |
+| TC-130-003 | dual context: Node, rules-loader, browser (one global `OfpNavBlue`); same parse; loaded and run with `window`, `document`, storage and app globals that throw on access — none touched; `window` 0 uses outside comments; `parseNatTrack` read only from `options` | PASS |
 | TC-130-004 | the three verbatim blocks byte for byte; unedited parser absent; `parseOFP`, `fuelK`, `deriveCallsign`, `_tlBuild` absent | PASS |
 | TC-130-005 | `index.html` = build of `src/` + `rules/`; it does not carry this module | PASS |
-| TC-130-010 | **LOCK**, module in the app's own context: 30 fixtures, 1,710 core fields, 6,464 values, `_ofpRulesetParse` and `parseNavBlue` core — 0 differences | PASS |
+| TC-130-010 | **LOCK**, module in the app's own context, NAT parser passed in: 30 fixtures, 1,710 core fields, 6,464 values, `_ofpRulesetParse` and `parseNavBlue` core — 0 differences | PASS |
 | TC-130-011 | **LOCK**, module in Node with `options.parseNatTrack`: 30 fixtures (8 with a NAT track) — 0 differences | PASS |
-| TC-130-012 | every extension present and empty on 30 fixtures; 148 airport entries, 71 DDG items carry their nested empties; findings = the one INFO | PASS |
-| TC-130-013 | no NAT parser → `natTrack` null, nothing else differs; the lock detects it on the 8 NAT fixtures | PASS |
+| TC-130-012 | every extension present and empty on 30 fixtures; 148 airport entries, 71 DDG items carry their nested empties; findings = the one INFO with the NAT parser passed in, that INFO + "NAT parser not supplied" without it | PASS |
+| TC-130-013 | no NAT parser → `natTrack` null and the not-supplied INFO, nothing else differs, also in the app's context where `window.parseNatTrack` exists; the lock detects it on the 8 NAT fixtures; passed in → the app's track, no INFO | PASS |
 | TC-130-014 | empty/non-string → null; no state between calls; fresh empties | PASS |
-| TC-130-015 | NAT precedence: option, else `window`, else null; arguments `(text, orig, dest)` | PASS |
+| TC-130-015 | NAT parser used only when passed in, with arguments `(text, orig, dest)`; not passed (or not a function) → `null` + the INFO; a `window` that throws on access is never touched; a published `window.parseNatTrack` and a bare global `parseNatTrack` are never called | PASS |
 | TC-130-016 | the masters' embedded self-test assertions (v1.0 #1–9, v1.1 #10–14) on the module; slot-time chain positive and negative | PASS |
 | TC-130-020 | the gate bites: landing-weight limit broken → 30 of 30 fixtures differ | PASS |
 | TC-130-030 | fixtures missing → TC-130-010..013 fail, none skipped | PASS |
@@ -199,6 +201,7 @@ The fixtures are the 30 NavBlue/eOFP packages of the private fixtures repository
 | `slotTime` "AT" form | The app keeps the captured time as written (`'AT ' + match`), without the `Z` upper-casing the other slot forms get. Master v1.0 normalised it. Kept as the app (ledger (a)-3). |
 | ENR V2 helpers duplicated | Two identical copies until the en-route timeline module exists (§8.3). |
 | `PATTERNS.ETOPS_EXIT` | Still exported; the parser reads the exit through `extractEtopsExitV2()` (header regex identical to it, then navlog). |
+| `navLog` empty for NavBlue | `navLog` is `[]` on all 30 NavBlue packages in the app today (the navlog row pattern expects a time form the packages do not print). Locked as-is (D47). The lock therefore compares `navLog` only as an empty list; a change to that sub-parser is caught by the copy compare (TC-130-004). Open item O-1 (ledger). |
 | Header label in § 2 | The copied banner still says "parseOFP() depends on these" (app wording). Comments are not edited in a verbatim copy. |
 
 ---
@@ -210,4 +213,4 @@ The fixtures are the 30 NavBlue/eOFP packages of the private fixtures repository
 | 1.9.9-r1 (master file v1.0) | 2026-05-13 | NEW | Extraction from `index.html` as CODE-OFP-AtlasPolar5yRuleset; `SLOT_TIME_AT` added. |
 | 1.9.9-r2 (master file v1.1) | 2026-05-30 | UPD | `ZFW_INCR_FACTOR`, `TAXI_FUEL`; `zfwIncrFactor`, `taxiFuelRaw`. (The v1.1 code file in Drive is a header only.) |
 | 1.9.9-r3 (master file v1.2) | 2026-09-13 | UPD — ARCHIVED (D9) | Delta: ops-notes size guard, `OFP_FORMAT 'atlas-5y'`, `ofpSource`, `ofpSections`. Never deployed; not carried. |
-| **2.0.0** | 2026-11-09 | NEW | Renamed NavBlue, locked. Engine = the app on `main` at `d073e54` (every app change since May carried in). Blueprint metadata, `validateSchema()`, contract v2.0 (`parseNavBlue`, Appendix B as explicit empties, findings). NAT parser passed in. |
+| **2.0.0** | 2026-11-09 | NEW | Renamed NavBlue, locked. Engine = the app on `main` at `d073e54` (every app change since May carried in). Blueprint metadata, `validateSchema()`, contract v2.0 (`parseNavBlue`, Appendix B as explicit empties, findings). NAT parser passed in only (never read from `window`). |
