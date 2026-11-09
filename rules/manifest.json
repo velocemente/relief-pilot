@@ -3,5 +3,10 @@
     "version": "1.11.2",
     "file": "notam-rules/notam-rules-v1.11.2.js",
     "sha256": "faa8377dadf6b24dfe1f7a44325647f24de704b4e9e026b6dd266a7ea7438997"
+  },
+  "ofp-navblue": {
+    "version": "2.0.0",
+    "file": "ofp-navblue/ofp-navblue-v2.0.0.js",
+    "sha256": "1e95208c372d533af49f7c1dced32418544db0a206b9ba9e5d60bedb5fd7f62c"
   }
 }
