@@ -1,3 +1,11 @@
+# PilotBrief 1.9.9-hf6 Release Notes
+
+## What's Changed
+
+- Aircraft data and callsigns now come from one shared, versioned module used by the app and the NOTAM rules (aircraft-profile 1.0.0, NOTAM rules 1.12.0). What you see is unchanged.
+
+---
+
 # PilotBrief 1.9.9-hf5 Release Notes
 
 ## What's Changed
