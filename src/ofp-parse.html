@@ -19,22 +19,11 @@ function fuelK(raw) {
 }
 
 // ── Radio callsign derivation ─────────────────────────────────────
-// Derived from flight number prefix — not parsed from OFP text.
-// All Atlas/Polar aircraft are Category HEAVY (B747, B777, B767).
-// Verbal callsigns per Atlas Air SOPs:
-//   GTI → GIANT  |  PAC → POLAR  |  CMB → CAMBER
-function deriveCallsign(fltNum) {
-  if (!fltNum) return { radioCallsign: '', verbalCallsign: '', isHeavy: false };
-  const m = fltNum.match(/^(GTI|PAC|CMB|QFA)(\d+)/i);
-  if (!m) return { radioCallsign: fltNum, verbalCallsign: '', isHeavy: false };
-  const prefix = m[1].toUpperCase();
-  const verbal = { GTI: 'GIANT', PAC: 'POLAR', CMB: 'CAMBER', QFA: 'QANTAS' }[prefix] || '';
-  return {
-    radioCallsign: prefix + m[2],
-    verbalCallsign: verbal,
-    isHeavy: true,   // All Atlas/Polar fleet are heavies
-  };
-}
+// rules/aircraft-profile (ADR-005): the callsign index (CS-1) and the radio
+// callsign derived from the flight number. build/build.js builds the module
+// into index.html unchanged, above this fragment; it publishes one global,
+// AircraftProfile. The app has no other copy.
+const { deriveCallsign } = AircraftProfile;
 
 function parseOFP() {
   const result = _ofpRulesetParse(pdfRawText);

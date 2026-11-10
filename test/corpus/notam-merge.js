@@ -53,7 +53,7 @@ function releaseRuns(app, raw, fx) {
 // NOTAM strings in evalNotams() output (the "no critical items" row excluded).
 function shown(app, run, iso, acftType) {
   if (!run.notams.length) return [];
-  const res = app.evalNotams(run.notams, run.evalRole, minOfDay(run.eta), acftType, iso);
+  const res = app.evalNotamsAs(run.notams, run.evalRole, minOfDay(run.eta), acftType, iso);
   return res.issues.filter(i => i.notamRaw).map(i => i.notamRaw);
 }
 

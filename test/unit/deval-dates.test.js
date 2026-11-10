@@ -447,7 +447,7 @@ test('TC-140-013 OUT delayed past 0000Z on real packages: no NOTAM in effect on 
       if (!(data.notams && data.notams.trim()) || !apt.eta) continue;
       const e = run(app, `_tlEtaMs(${JSON.stringify(apt.icao)}, ${JSON.stringify(apt.role)}, ${JSON.stringify(apt.eta)})`);
       const role = apt.role === 'ORIG' ? 'ORIG' : 'DEST';
-      const ref = app.evalNotams(app._splitNotams(data.notams), role, hm(apt.eta), imp.S.acftType, iso(e), hm(apt.eta));
+      const ref = app.evalNotamsAs(app._splitNotams(data.notams), role, hm(apt.eta), imp.S.acftType, iso(e), hm(apt.eta));
       // Same projection as card(): the rows the airport card groups (runway / taxiway /
       // general groups, SIDs, STARs).
       const want = [];
@@ -617,7 +617,7 @@ test('TC-141-005 OUT delayed past 0000Z after an invalid entry, real packages: n
       if (!(data.notams && data.notams.trim()) || !apt.eta) continue;
       const e = run(app, `_tlEtaMs(${JSON.stringify(apt.icao)}, ${JSON.stringify(apt.role)}, ${JSON.stringify(apt.eta)})`);
       const role = apt.role === 'ORIG' ? 'ORIG' : 'DEST';
-      const ref = app.evalNotams(app._splitNotams(data.notams), role, hm(apt.eta), imp.S.acftType, iso(e), hm(apt.eta));
+      const ref = app.evalNotamsAs(app._splitNotams(data.notams), role, hm(apt.eta), imp.S.acftType, iso(e), hm(apt.eta));
       const want = [];
       for (const [, g] of ref.rwyGroups) for (const it of g.items) want.push(it.notamRaw);
       (ref.sidIssues || []).concat(ref.starIssues || []).forEach(i => want.push(i.notamRaw));
@@ -984,7 +984,7 @@ test('TC-142-007 QA KORD-EDDF and the delay packages, invalid OUT left standing:
         if (!(data.notams && data.notams.trim()) || e == null) continue;
         // In effect: the module on the actual date and time (the last valid value).
         const m = Math.round((e % DAY) / 60000);
-        const ref = app.evalNotams(app._splitNotams(data.notams), apt.role === 'ORIG' ? 'ORIG' : 'DEST', m, imp.S.acftType, iso(e), m);
+        const ref = app.evalNotamsAs(app._splitNotams(data.notams), apt.role === 'ORIG' ? 'ORIG' : 'DEST', m, imp.S.acftType, iso(e), m);
         const want = [];
         for (const [, g] of ref.rwyGroups) for (const it of g.items) want.push(it.notamRaw);
         (ref.sidIssues || []).concat(ref.starIssues || []).forEach(i => want.push(i.notamRaw));

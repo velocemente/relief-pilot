@@ -41,7 +41,7 @@ const hm  = s => parseInt(s.slice(0, 2), 10) * 60 + parseInt(s.slice(2), 10);
 const D = '2026-03-09';
 
 function shows(notam, { role = 'DEST', eta, dep, iso = D } = {}) {
-  const r = app.evalNotams([notam], role, hm(eta), 'B744', iso, dep === null ? null : hm(dep));
+  const r = app.evalNotamsAs([notam], role, hm(eta), 'B744', iso, dep === null ? null : hm(dep));
   return r.issues.some(i => i.notamRaw === notam);
 }
 // A NOTAM with a header date range and an optional schedule line.

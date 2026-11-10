@@ -54,7 +54,7 @@ function evalArgsFor(imp, apt) {
 }
 
 function callEvalNotams(app, a, notamArr) {
-  return app.evalNotams(notamArr || a.notamArr, a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin);
+  return app.evalNotamsAs(notamArr || a.notamArr, a.evalRole, a.etaMin, a.acftType, a.flightISO, a.depMin);
 }
 
 // NOTAM-evaluation golden: per release airport, the NOTAMs evalNotams() reports in effect
