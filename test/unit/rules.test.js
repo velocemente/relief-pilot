@@ -5,3 +5,4 @@ require('../rules/notam-rules.test.js');
 require('../rules/ofp-navblue.test.js');
 require('../rules/aircraft-profile.test.js');
 require('../rules/notam-aircraft.test.js');
+require('../rules/icao-fpl.test.js');
