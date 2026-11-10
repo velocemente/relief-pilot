@@ -20,6 +20,10 @@
  *     and 18 it is read as one space.
  *   – A field that does not meet its Doc 4444 syntax is returned empty,
  *     with a WARN finding. Nothing is guessed or completed.
+ *   – The block ends at the ")" that closes "(FPL-". A "(" or a blank line
+ *     (the extractor's page break) before that ")", or no ")" at all, makes
+ *     the block INCOMPLETE: only the fields wholly before the break are
+ *     read, ERROR finding. Text after the break is never returned.
  *
  * DUAL CONTEXT
  *   Node / rules-loader: module.exports = the API object below.
@@ -55,9 +59,10 @@ const RULESET_SOURCE  = 'ICAO Doc 4444 (PANS-ATM) Appendix 2 and Appendix 3 (FPL
 // ═══════════════════════════════════════════════════════════════
 
 // The result, in this order. Strings are '' when empty; alternates [];
-// other {} (field 18 indicator → text); findings [] ({ level, field, message }).
+// other {} (field 18 indicator → text); findings [] ({ level, field, message },
+// level 'INFO', 'WARN' or 'ERROR').
 const RESULT_FIELDS = Object.freeze([
-  'found', 'raw',
+  'found', 'complete', 'raw',
   'flightId',                              // field 7
   'flightRules', 'flightType',             // field 8
   'aircraftType', 'wake',                  // field 9
@@ -81,6 +86,8 @@ const FIELD18_INDICATORS = Object.freeze([
 ]);
 const F18_ITEM_RE = new RegExp('(?:^| )(' + FIELD18_INDICATORS.join('|') + ')\\/', 'g');
 const F18_OTHER_SLASH_RE = /(?:^| )([A-Z]{2,5})\//g;
+// A known indicator joined to the text before it, with no space ("…261109REG/…").
+const F18_JOINED_RE = new RegExp('[^ ](' + FIELD18_INDICATORS.join('|') + ')\\/', 'g');
 
 // Field syntax (Doc 4444 Appendix 3).
 const FIELD_RE = {
@@ -95,6 +102,11 @@ const FIELD_RE = {
   dof:   /^(\d{2})(\d{2})(\d{2})$/,
 };
 const WAKE_CATEGORIES = 'LMHJ';
+// After "(FPL-": the closing ")", or what ends the readable part first — a "(" (not allowed
+// inside an ATS message) or a blank line (the extractor writes one per page break).
+const BLOCK_END_RE = /[()]|\r?\n[ \t]*\r?\n/g;
+// Fields 7, 8, 9, 10, 13, 15, 16 — the fields before field 18, in order.
+const FIELD_NUMBERS = ['7', '8', '9', '10', '13', '15', '16'];
 // Field 19 starts with one of these single-letter indicators after a hyphen.
 const FIELD19_START_RE = /-(?=\s*[EPRSJDANC]\/)/;
 
@@ -104,7 +116,7 @@ const FIELD19_START_RE = /-(?=\s*[EPRSJDANC]\/)/;
 
 function emptyResult() {
   return {
-    found: false, raw: '',
+    found: false, complete: false, raw: '',
     flightId: '',
     flightRules: '', flightType: '',
     aircraftType: '', wake: '',
@@ -120,23 +132,28 @@ function emptyResult() {
 const squash = s => s.replace(/\s+/g, ' ').trim();   // line breaks → one space
 const solid  = s => s.replace(/\s+/g, '');           // line breaks removed (no spaces in the syntax)
 
-// Every complete block "(FPL-" … ")" in the text, in order.
-// A block with no ")" before the next "(FPL-" (or the end) is not complete.
+// Every "(FPL-" in the text, in order. A block is complete when its closing ")"
+// comes before any "(" or blank line; otherwise it is incomplete and only the
+// text before the break (the readable part) is kept.
 function findBlocks(text) {
-  const blocks = [];
-  let unclosed = 0;
+  const blocks = [], incomplete = [];
   let i = text.indexOf('(FPL-');
   while (i >= 0) {
-    const next = text.indexOf('(FPL-', i + 5);
-    const end  = text.indexOf(')', i + 5);
-    if (end >= 0 && (next < 0 || end < next)) {
-      blocks.push(text.slice(i, end + 1));
+    BLOCK_END_RE.lastIndex = i + 5;
+    const b = BLOCK_END_RE.exec(text);
+    if (b && b[0] === ')') {
+      blocks.push(text.slice(i, b.index + 1));
     } else {
-      unclosed++;
+      incomplete.push({
+        readable: text.slice(i, b ? b.index : text.length),
+        reason: !b ? 'no closing ")"'
+              : b[0] === '(' ? 'a "(" before the closing ")"'
+              : 'a blank line (page break) before the closing ")"',
+      });
     }
-    i = next;
+    i = text.indexOf('(FPL-', i + 5);
   }
-  return { blocks, unclosed };
+  return { blocks, incomplete };
 }
 
 // A real calendar date from DOF/YYMMDD → 'YYYY-MM-DD' (20YY, as the NavBlue parser reads it), or ''.
@@ -153,6 +170,7 @@ function dofToISO(v) {
 /**
  * Read the filed ICAO flight plan block from the text of an OFP package.
  * The first complete "(FPL- … )" block is read; later copies are only compared with it.
+ * With no complete block, the first incomplete one is read as far as its fields are whole.
  * @param {string} text — raw text of the OFP package (or of the block alone)
  * @returns {object} the fields of RESULT_FIELDS (see the SPEC); never throws
  */
@@ -162,45 +180,68 @@ function parseIcaoFpl(text) {
   const info = (field, message) => r.findings.push({ level: 'INFO', field, message });
 
   if (typeof text !== 'string') { info('found', 'input is not text'); return r; }
-  const { blocks, unclosed } = findBlocks(text);
-  if (!blocks.length) {
-    if (unclosed) warn('found', `"(FPL-" found ${unclosed} time(s) but no closing ")": no complete FPL block`);
-    else info('found', 'no ICAO FPL block "(FPL-" in the text');
+  const { blocks, incomplete } = findBlocks(text);
+  if (!blocks.length && !incomplete.length) {
+    info('found', 'no ICAO FPL block "(FPL-" in the text');
     return r;
   }
   r.found = true;
-  r.raw = blocks[0];
-  if (unclosed) warn('raw', `${unclosed} "(FPL-" without a closing ")" ignored`);
-  const differ = blocks.slice(1).filter(b => squash(b) !== squash(blocks[0])).length;
-  if (differ) warn('raw', `${blocks.length} FPL blocks, ${differ} differ from the first; the first is read`);
 
   // Fields: "(FPL" - 7 - 8 - 9 - 10 - 13 - 15 - 16 - 18 [- 19] ")"
-  const parts = r.raw.slice(1, -1).split('-');
-  if (parts.length < 9) {
-    warn('raw', `FPL block has ${parts.length - 1} field(s); expected 8 (fields 7, 8, 9, 10, 13, 15, 16, 18): not read`);
-    return r;
+  let parts, f18;
+  if (blocks.length) {
+    r.complete = true;
+    r.raw = blocks[0];
+    if (incomplete.length) warn('raw', `${incomplete.length} incomplete "(FPL-" block(s) ignored (no closing ")" before a "(" or a blank line); a complete block is read`);
+    // Copies are the same plan when only white space differs (line wraps, spacing).
+    const differ = blocks.slice(1).filter(b => solid(b) !== solid(blocks[0])).length;
+    if (differ) warn('raw', `${blocks.length} FPL blocks, ${differ} differ from the first; the first is read`);
+    parts = r.raw.slice(1, -1).split('-');
+    if (parts.length < 9) {
+      warn('raw', `FPL block has ${parts.length - 1} field(s); expected 8 (fields 7, 8, 9, 10, 13, 15, 16, 18): not read`);
+      return r;
+    }
+    f18 = parts.slice(8).join('-');
+  } else {
+    // Incomplete: the end of the block is not known. A field is read only when the hyphen
+    // that ends it is inside the readable part; field 18 (and 19) never — its end is the
+    // missing ")". raw holds only the fields read, so no text from after the block is returned.
+    const inc = incomplete[0];
+    const split = inc.readable.slice(1).split('-');
+    const whole = Math.min(split.length - 2, FIELD_NUMBERS.length);
+    parts = split.slice(0, 1 + Math.max(whole, 0));
+    r.raw = '(' + parts.join('-');
+    const unread = FIELD_NUMBERS.slice(Math.max(whole, 0)).concat('18');
+    r.findings.push({ level: 'ERROR', field: 'complete',
+      message: `FPL block incomplete (${inc.reason}): field(s) ${unread.join(', ')} not read` });
+    if (incomplete.length > 1) warn('raw', `${incomplete.length} incomplete "(FPL-" blocks; the first is read as far as its fields are whole`);
   }
   const [, f7, f8, f9, f10, f13, f15, f16] = parts;
-  let f18 = parts.slice(8).join('-');
-  const f19at = f18.search(FIELD19_START_RE);
-  if (f19at >= 0) {
-    info('other', 'field 19 (supplementary information) present; not read');
-    f18 = f18.slice(0, f19at);
+  if (f18 !== undefined) {
+    const f19at = f18.search(FIELD19_START_RE);
+    if (f19at >= 0) {
+      info('other', 'field 19 (supplementary information) present; not read');
+      f18 = f18.slice(0, f19at);
+    }
+    if (f18.includes('-')) warn('other', 'a hyphen (the field separator) inside field 18; kept as text');
   }
-  if (f18.includes('-')) warn('other', 'a hyphen (the field separator) inside field 18; kept as text');
 
   // ── Field 7 — aircraft identification ───────────────────────────────
+  // (In an incomplete block the fields after the last whole one are undefined: not read.)
+  if (f7 === undefined) return r;
   let m = FIELD_RE.f7.exec(solid(f7));
   if (m) r.flightId = m[1];
   else warn('flightId', 'field 7 (aircraft identification) not readable');
 
   // ── Field 8 — flight rules, type of flight ──────────────────────────
+  if (f8 === undefined) return r;
   m = FIELD_RE.f8.exec(solid(f8));
   if (m) { r.flightRules = m[1]; r.flightType = m[2]; }
   else warn('flightRules', 'field 8 (flight rules / type of flight) not readable');
   if (m && !m[2]) info('flightType', 'field 8: no type of flight filed');
 
   // ── Field 9 — [number of aircraft] type / wake turbulence category ──
+  if (f9 === undefined) return r;
   m = FIELD_RE.f9.exec(solid(f9));
   if (m) {
     r.aircraftType = m[2];
@@ -213,11 +254,13 @@ function parseIcaoFpl(text) {
   }
 
   // ── Field 10 — equipment and capabilities / surveillance ────────────
+  if (f10 === undefined) return r;
   m = FIELD_RE.f10.exec(solid(f10));
   if (m) { r.equipment = m[1]; r.surveillance = m[2]; }
   else warn('equipment', 'field 10 (equipment / surveillance) not readable');
 
   // ── Field 13 — departure aerodrome and EOBT ─────────────────────────
+  if (f13 === undefined) return r;
   m = FIELD_RE.f13.exec(solid(f13));
   if (m) {
     r.departure = m[1];
@@ -229,11 +272,13 @@ function parseIcaoFpl(text) {
   }
 
   // ── Field 15 — route (cruising speed, level, route) ─────────────────
+  if (f15 === undefined) return r;
   const route = squash(f15);
   if (FIELD_RE.f15.test(route)) r.route = route;
   else warn('route', 'field 15 does not start with a cruising speed and level: not read');
 
   // ── Field 16 — destination, total EET, alternates ───────────────────
+  if (f16 === undefined) return r;
   const t16 = squash(f16).split(' ').filter(Boolean);
   m = FIELD_RE.f16.exec(t16[0] || '');
   if (m) {
@@ -252,6 +297,7 @@ function parseIcaoFpl(text) {
   }
 
   // ── Field 18 — other information ────────────────────────────────────
+  if (f18 === undefined) return r;
   const t18 = squash(f18);
   if (t18 === '0') {
     info('other', 'field 18: 0 (no other information)');
@@ -262,8 +308,17 @@ function parseIcaoFpl(text) {
     while ((im = F18_ITEM_RE.exec(t18)) !== null) {
       items.push({ key: im[1], start: im.index + im[0].length, at: im.index });
     }
+    // An indicator joined to the text before it is not split off (that would be a guess):
+    // the text stays where it was read, WARN.
+    const joined = (where, s) => {
+      F18_JOINED_RE.lastIndex = 0;
+      let jm;
+      while ((jm = F18_JOINED_RE.exec(s)) !== null) {
+        warn(where, `field 18 item not separated: "${jm[1]}/" is joined to the text before it with no space; left as read`);
+      }
+    };
     const lead = (items.length ? t18.slice(0, items[0].at) : t18).trim();
-    if (lead) warn('other', 'field 18: text before the first indicator not read');
+    if (lead) { warn('other', 'field 18: text before the first indicator not read'); joined('other', lead); }
     for (let k = 0; k < items.length; k++) {
       const it = items[k];
       const value = t18.slice(it.start, k + 1 < items.length ? items[k + 1].at : t18.length).trim();
@@ -274,6 +329,7 @@ function parseIcaoFpl(text) {
       } else {
         r.other[it.key] = value;
       }
+      joined(`other.${it.key}`, value);
       F18_OTHER_SLASH_RE.lastIndex = 0;
       let om;
       while ((om = F18_OTHER_SLASH_RE.exec(value)) !== null) {
@@ -345,6 +401,7 @@ function validateSchema(ruleset) {
     if (e !== undefined) {
       if (!e || typeof e !== 'object' || Object.keys(e).join() !== RESULT_FIELDS.join()) errors.push(`parseIcaoFpl('') must return the fields ${RESULT_FIELDS.join(', ')}`);
       else if (e.found !== false) errors.push(`parseIcaoFpl('') must return found: false`);
+      else if (e.complete !== false) errors.push(`parseIcaoFpl('') must return complete: false`);
     }
   }
   return { valid: errors.length === 0, errors };
@@ -359,7 +416,7 @@ const API = {
   validateSchema,
   RESULT_FIELDS,        // the result's field names, in order — frozen
   FIELD18_INDICATORS,   // field 18 indicators that start an item — frozen
-  parseIcaoFpl,         // (text) → { found, raw, flightId, … other, findings }
+  parseIcaoFpl,         // (text) → { found, complete, raw, flightId, … other, findings }
 };
 return API;
 });

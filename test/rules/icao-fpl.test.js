@@ -18,7 +18,7 @@
  *               "0"; flight rules I, V, Y, Z with and without a type of flight; number of aircraft;
  *               SSR code in field 7; ZZZZ / AFIL; field 19; regional indicators; "/" in RMK text;
  *               a block inside other text; identical copies
- *   TC-152-011  synthetic, negative: not found (no block, empty, non-string, unclosed) → found
+ *   TC-152-011  synthetic, negative: not found (no block, empty, non-string) → found
  *               false and every field empty; each field malformed → that field empty + WARN, the
  *               others still read; impossible DOF / EOBT / EET; too few fields; copies that differ;
  *               3 alternates; repeated indicator; hyphen inside field 18
@@ -31,8 +31,27 @@
  *   TC-152-021  the gate bites: a reader with one rule broken fails the consistency check
  *   TC-152-030  fixtures missing → the fixture tests FAIL (never skip)
  *
+ *   QA F1–F4 (PR 52 review):
+ *   TC-152-101  incomplete block, synthetic: no closing ")" (with and without package text after it,
+ *               which holds ")" and words that must not be read) → found true, complete false,
+ *               ERROR "FPL block incomplete", field 18 empty, nothing from after the block anywhere
+ *   TC-152-102  "(" inside the block before its ")" → incomplete; only the fields wholly before it read
+ *   TC-152-103  blank line / page header inside the block → incomplete; header text never returned
+ *   TC-152-104  copies: a difference only in line wraps or spacing → no WARN; a real difference → WARN
+ *   TC-152-105  field 18 item joined to the one before it ("DOF/261109REG/N123") → WARN
+ *               "field 18 item not separated", nothing split off
+ *   TC-152-110  fixtures: the closing ")" removed from every copy (simulated) → 33/33 incomplete,
+ *               RMK and every field 18 value empty, fields 7–16 as in the real read, no text from
+ *               after the block in the output; ")" removed from the first copy only → a complete
+ *               copy is read (NavBlue), incomplete (FlightKeys, one copy); a page break inside field
+ *               15 of every copy (simulated) → incomplete, header text never returned
+ *   TC-152-111  fixtures: every real block (all copies, 93) complete and unchanged — 0 touched
+ *   TC-152-120  the F1–F4 checks bite: a reader that ends the block at the first ")" (v1.0.0 as first
+ *               pushed), compares copies with wraps kept, or does not look for joined items fails them
+ *
  * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
  * Messages name fixture ids and field names only; no fixture text, flight numbers or registrations.
+ * Fixture checks assert by length, position and equality only; they never print fixture text.
  */
 const test   = require('node:test');
 const assert = require('node:assert/strict');
@@ -53,10 +72,14 @@ const mod       = require(MOD_FILE);
 const navblue   = require(path.join(RULES, MANIFEST['ofp-navblue'].file));
 
 const NAVBLUE_FORMATS = new Set(['navtech-company', 'navtech-eofp-ios-print']);
-const FIELDS = ['found', 'raw', 'flightId', 'flightRules', 'flightType', 'aircraftType', 'wake',
+const FIELDS = ['found', 'complete', 'raw', 'flightId', 'flightRules', 'flightType', 'aircraftType', 'wake',
   'equipment', 'surveillance', 'departure', 'eobt', 'route', 'destination', 'eet', 'alternates',
   'dof', 'reg', 'sel', 'rmk', 'other', 'findings'];
-const STRING_FIELDS = FIELDS.filter(f => !['found', 'alternates', 'other', 'findings'].includes(f));
+const STRING_FIELDS = FIELDS.filter(f => !['found', 'complete', 'alternates', 'other', 'findings'].includes(f));
+// Fields 7–16 (read when wholly inside the readable part) and field 18 (never read from an incomplete block).
+const FIELDS_7_16 = ['flightId', 'flightRules', 'flightType', 'aircraftType', 'wake', 'equipment', 'surveillance',
+  'departure', 'eobt', 'route', 'destination', 'eet', 'alternates'];
+const FIELD18_OUT = ['dof', 'reg', 'sel', 'rmk', 'other'];
 
 // ── fixtures: missing = FAIL ────────────────────────────────────────────────
 function fixturesDir() {
@@ -80,6 +103,7 @@ const hasFinding = (r, level, field, re) =>
 function assertEmpty(r, label) {
   assert.deepEqual(Object.keys(r), FIELDS, `${label}: result fields and order`);
   assert.equal(r.found, false, `${label}: found`);
+  assert.equal(r.complete, false, `${label}: complete`);
   for (const f of STRING_FIELDS) assert.equal(r[f], '', `${label}: ${f} empty`);
   assert.deepEqual(r.alternates, [], `${label}: alternates empty`);
   assert.deepEqual(r.other, {}, `${label}: other empty`);
@@ -139,7 +163,7 @@ test('TC-152-001 metadata present; validateSchema() is valid; a broken object is
     [o => { delete o.parseIcaoFpl; }, /missing export: parseIcaoFpl/],
     [o => { o.validateSchema = 1; }, /validateSchema must be a function/],
     [o => { o.RESULT_FIELDS = null; }, /RESULT_FIELDS must be a object/],
-    [o => { o.RESULT_FIELDS = ['found']; }, /RESULT_FIELDS must be found, raw/],
+    [o => { o.RESULT_FIELDS = ['found']; }, /RESULT_FIELDS must be found, complete, raw/],
     [o => { o.FIELD18_INDICATORS = ['DOF', 'dof']; }, /'dof' is not a 3–4 letter indicator/],
     [o => { o.FIELD18_INDICATORS = ['DOF', 'DOF']; }, /'DOF' listed twice/],
     [o => { o.FIELD18_INDICATORS = { DOF: 1 }; }, /FIELD18_INDICATORS must be an array/],
@@ -152,6 +176,7 @@ test('TC-152-001 metadata present; validateSchema() is valid; a broken object is
     [o => { o.parseIcaoFpl = () => ({ found: false }); }, /must return the fields/],
     [o => { o.parseIcaoFpl = () => { throw new Error('x'); }; }, /throws: x/],
     [o => { o.parseIcaoFpl = t => Object.assign(mod.parseIcaoFpl(t), { found: true }); }, /must return found: false/],
+    [o => { o.parseIcaoFpl = t => Object.assign(mod.parseIcaoFpl(t), { complete: true }); }, /must return complete: false/],
   ];
   for (const [breakIt, re] of broken) {
     const o = { ...mod };
@@ -256,6 +281,7 @@ test('TC-152-010 synthetic FPLs (Doc 4444): every field read; line breaks, alter
   const r = BASE;
   assert.deepEqual(Object.keys(r), FIELDS);
   assert.equal(r.found, true);
+  assert.equal(r.complete, true);
   assert.equal(r.raw, fpl());
   assert.deepEqual(
     { flightId: r.flightId, flightRules: r.flightRules, flightType: r.flightType, aircraftType: r.aircraftType, wake: r.wake,
@@ -357,19 +383,19 @@ test('TC-152-010 synthetic FPLs (Doc 4444): every field read; line breaks, alter
 test('TC-152-011 negative: not found → found false, every field empty; a malformed field → empty + WARN, never a guessed value', () => {
   // (a) not found
   for (const [input, label, level] of [['', 'empty', 'INFO'], ['   \n ', 'blank', 'INFO'], ['NO PLAN (FPL) HERE FPL-TST1-IS', 'no "(FPL-"', 'INFO'],
-                                       [null, 'null', 'INFO'], [undefined, 'undefined', 'INFO'], [42, 'number', 'INFO'], [{}, 'object', 'INFO'],
-                                       ['(FPL-TST123-IS\n-B744/H-S/C\n-KAAA1755', 'unclosed', 'WARN'],
-                                       ['(FPL-TST1-IS\n(FPL-TST2-IS', 'two unclosed', 'WARN']]) {
+                                       [null, 'null', 'INFO'], [undefined, 'undefined', 'INFO'], [42, 'number', 'INFO'], [{}, 'object', 'INFO']]) {
     const r = mod.parseIcaoFpl(input);
     assertEmpty(r, label);
     assert.equal(r.findings.length, 1, `${label}: one finding`);
     assert.equal(r.findings[0].level, level, `${label}: ${level}`);
     assert.equal(r.findings[0].field, 'found');
   }
+  // (an unclosed block alone is found but incomplete: TC-152-101)
   // an unclosed block before a complete one: the complete one is read, with a WARN
   const unclosedFirst = mod.parseIcaoFpl('(FPL-TST9-IS\n-B744/H\n' + fpl());
   assertSameExcept(unclosedFirst, BASE, [], 'unclosed first');
-  assert.ok(hasFinding(unclosedFirst, 'WARN', 'raw', /without a closing/));
+  assert.equal(unclosedFirst.complete, true);
+  assert.ok(hasFinding(unclosedFirst, 'WARN', 'raw', /1 incomplete "\(FPL-" block\(s\) ignored/));
 
   // (b) each field malformed → that field (only) empty, WARN on it, the rest still read
   const cases = [
@@ -490,7 +516,9 @@ test('TC-152-012 no state between calls; fresh result objects; never throws', ()
   for (const t of odd) {
     const r = mod.parseIcaoFpl(t);
     assert.deepEqual(Object.keys(r), FIELDS, `shape for ${JSON.stringify(t).slice(0, 30)}`);
-    for (const f of r.findings) assert.ok(['INFO', 'WARN'].includes(f.level) && typeof f.field === 'string' && typeof f.message === 'string');
+    for (const f of r.findings) assert.ok(['INFO', 'WARN', 'ERROR'].includes(f.level) && typeof f.field === 'string' && typeof f.message === 'string');
+    assert.equal(typeof r.complete, 'boolean');
+    assert.ok(r.found || !r.complete, 'complete only when found');
   }
 });
 
@@ -508,8 +536,9 @@ function consistency(api) {
     const r = api.parseIcaoFpl(text);
     const isNb = NAVBLUE_FORMATS.has(fx.format);
     if (isNb) out.navblue++; else out.flightkeys++;
-    if (r.found) out.found++; else out.notFound.push(fx.id);
-    if (warns(r).length) out.warns.push(`${fx.id}: ${warns(r).map(w => w.field).join(', ')}`);
+    if (r.found && r.complete) out.found++; else out.notFound.push(fx.id);
+    const bad = r.findings.filter(f => f.level !== 'INFO');
+    if (bad.length) out.warns.push(`${fx.id}: ${bad.map(w => `${w.level} ${w.field}`).join(', ')}`);
     out.report.push({ id: fx.id, format: fx.format, equipmentCodes: (r.equipment.match(/[A-Z]\d?/g) || []).length,
       surveillanceCodes: (r.surveillance.match(/[A-Z]\d?/g) || []).length, routeElements: r.route ? r.route.split(' ').length : 0,
       alternates: r.alternates.length, field18Items: Object.keys(r.other).length, reg: r.reg ? 1 : 0 });
@@ -538,9 +567,9 @@ function consistency(api) {
 test('TC-152-020 every NavBlue fixture: found; flightId, aircraftType, wake, dof = the NavBlue parser; FlightKeys found; no WARN', (t) => {
   const c = consistency(mod);
   assert.ok(c.navblue >= 30, `at least the 30 NavBlue/eOFP packages (found ${c.navblue})`);
-  assert.deepEqual(c.notFound, [], 'every fixture has an FPL block');
+  assert.deepEqual(c.notFound, [], 'every fixture has a complete FPL block');
   assert.deepEqual(c.diffs, [], 'differences from the NavBlue parser (fixture: field)');
-  assert.deepEqual(c.warns, [], 'WARN findings (fixture: field)');
+  assert.deepEqual(c.warns, [], 'WARN or ERROR findings (fixture: level field)');
   // reported, not asserted: counts per fixture (no values)
   t.diagnostic(`consistency: ${c.navblue} NavBlue/eOFP fixtures, 4 fields each, ${c.diffs.length} differences; ${c.flightkeys} FlightKeys; found ${c.found}/${c.navblue + c.flightkeys}`);
   for (const x of c.report)
@@ -577,4 +606,271 @@ test('TC-152-030 fixtures missing → the fixture comparison fails (never skip)'
     if (saved === undefined) delete process.env.PB_FIXTURES; else process.env.PB_FIXTURES = saved;
     fs.rmSync(empty, { recursive: true, force: true });
   }
+});
+
+// ══ QA F1–F4: incomplete blocks, copy comparison, joined field 18 items ══════════════════════════
+// Each check returns a list of failures (labels and field names only), so TC-152-120 can run the
+// same checks on a broken reader and show that they bite. Synthetic text marks everything that lies
+// outside the flight plan block with "QQ"; the synthetic block itself contains no "QQ".
+
+const OPEN = fpl().slice(0, -1);                                // the block without its closing ")"
+const BASE_7_16_RAW = fpl().slice(0, fpl().indexOf('\n-PBN/') + 1);  // the block up to field 18
+const REASON = { close: /^FPL block incomplete \(no closing "\)"\)/, paren: /^FPL block incomplete \(a "\(" before the closing "\)"\)/,
+                 blank: /^FPL block incomplete \(a blank line \(page break\) before the closing "\)"\)/ };
+const sameJSON = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+// One incomplete block: found, not complete, one ERROR first, the fields in `read` as in `ref`, every
+// other field empty, raw a prefix of `block` that holds only the fields read, nothing marked QQ.
+function incompleteFailures(label, r, { reason, read, ref = BASE, block = fpl(), unread }) {
+  const f = [];
+  if (r.found !== true) f.push(`${label}: found`);
+  if (r.complete !== false) f.push(`${label}: complete`);
+  const e = r.findings[0];
+  if (!e || e.level !== 'ERROR' || e.field !== 'complete' || !reason.test(e.message)) f.push(`${label}: ERROR "FPL block incomplete" (reason)`);
+  else if (unread && !e.message.endsWith(`field(s) ${unread} not read`)) f.push(`${label}: ERROR names the fields not read`);
+  if (r.findings.filter(x => x.level === 'ERROR').length !== 1) f.push(`${label}: one ERROR`);
+  for (const k of FIELDS_7_16) {
+    const want = read.includes(k) ? ref[k] : (k === 'alternates' ? [] : '');
+    if (!sameJSON(r[k], want)) f.push(`${label}: ${k} ${read.includes(k) ? 'as in the complete read' : 'empty'}`);
+  }
+  for (const k of FIELD18_OUT) if (!sameJSON(r[k], k === 'other' ? {} : '')) f.push(`${label}: ${k} empty`);
+  if (!(typeof r.raw === 'string' && block.startsWith(r.raw) && r.raw.length < block.length)) f.push(`${label}: raw is a part of the block`);
+  for (const k of FIELDS_7_16) for (const v of [].concat(r[k])) if (v && !solid(r.raw).includes(solid(v))) f.push(`${label}: ${k} not inside raw`);
+  if (JSON.stringify(r).includes('QQ')) f.push(`${label}: text from outside the block in the output`);
+  return f;
+}
+const solid = s => s.replace(/\s+/g, '');
+const ALL_7_16 = FIELDS_7_16;
+const UP_TO_13 = ['flightId', 'flightRules', 'flightType', 'aircraftType', 'wake', 'equipment', 'surveillance', 'departure', 'eobt'];
+
+// F1: no closing ")" — at the end of the text, or with package text after it.
+function checkNoClose(api) {
+  const f = [];
+  const cases = [
+    ['no ")", end of text', OPEN, 'close'],
+    ['no ")", a line then a page break, then ")" in later text', OPEN + '\nQQOUT CREW LINE A\n\nPAGE 2\nNOTAM E) RWY CLSD QQOUT2\nRMK/QQOUT3)', 'blank'],
+    ['no ")", then "(" and ")" in later text', OPEN + '\nQQOUT LINE (QQOUT2) E) QQOUT3', 'paren'],
+    ['no ")", then text with no bracket', OPEN + '\nQQOUT NO BRACKET HERE', 'close'],
+    ['no ")", then the next copy', OPEN + '\n' + OPEN + '\nQQOUT', 'paren'],
+  ];
+  for (const [label, text, why] of cases) {
+    const r = api.parseIcaoFpl(text);
+    f.push(...incompleteFailures(label, r, { reason: REASON[why], read: ALL_7_16, unread: '18' }));
+    if (r.raw !== BASE_7_16_RAW) f.push(`${label}: raw ends where field 18 starts`);
+  }
+  // an unclosed block alone, cut inside field 8: only field 7 is whole
+  const cut = api.parseIcaoFpl('(FPL-TST1-IS');
+  f.push(...incompleteFailures('cut in field 8', cut, { reason: REASON.close, read: ['flightId'], ref: { flightId: 'TST1' }, block: '(FPL-TST1-IS)', unread: '8, 9, 10, 13, 15, 16, 18' }));
+  if (cut.raw !== '(FPL-TST1') f.push('cut in field 8: raw');
+  // two unclosed blocks, no complete one: the first is read as far as it is whole, WARN
+  const two = api.parseIcaoFpl('(FPL-TST1-IS\n(FPL-TST2-IS');
+  if (!(two.found && two.complete === false && two.flightId === 'TST1' && hasFinding(two, 'WARN', 'raw', /2 incomplete/))) f.push('two unclosed: first read, WARN');
+  const bare = api.parseIcaoFpl('(FPL-');
+  if (!(bare.found && bare.complete === false && bare.raw === '(FPL' && bare.flightId === '')) f.push('"(FPL-" alone: nothing read');
+  return f;
+}
+
+// F1: a "(" inside the block before its ")".
+function checkParenInside(api) {
+  const f = [];
+  const inRoute = api.parseIcaoFpl(fpl({ f15: 'N0481F320 AAA1R AAA (QQNOTE) N852 BBBBB' }));
+  f.push(...incompleteFailures('"(" in field 15', inRoute, { reason: REASON.paren, read: UP_TO_13, unread: '15, 16, 18',
+    block: fpl({ f15: 'N0481F320 AAA1R AAA (QQNOTE) N852 BBBBB' }) }));
+  const inRmk = api.parseIcaoFpl(fpl({ f18: 'DOF/260308 REG/N000ZZ RMK/SEE (QQNOTE) TCAS' }));
+  f.push(...incompleteFailures('"(" in field 18', inRmk, { reason: REASON.paren, read: ALL_7_16, unread: '18',
+    block: fpl({ f18: 'DOF/260308 REG/N000ZZ RMK/SEE (QQNOTE) TCAS' }) }));
+  return f;
+}
+
+// F1 + F3: a blank line (the extractor's page break) or a page header inside the block.
+function checkPageBreak(api) {
+  const f = [];
+  const hdr = '\n\nQQHDR PAGE 2 OF 9\n';
+  const cases = [
+    ['page header in field 15', { f15: 'N0481F320 AAA1R AAA N852' + hdr + 'BBBBB DCT 49N020W' }, UP_TO_13, '15, 16, 18'],
+    ['page header in field 18', { f18: 'PBN/A1B1 DOF/260308 REG/N000ZZ' + hdr + 'RMK/TCAS' }, ALL_7_16, '18'],
+    ['page header in field 10', { f10: 'SDE1E2E3' + hdr + 'FGHIJ3J5/LB1D1' }, ['flightId', 'flightRules', 'flightType', 'aircraftType', 'wake'], '10, 13, 15, 16, 18'],
+    ['blank line (CRLF) in field 16', { f16: 'KBBB0933\r\n\r\nKCCC' }, UP_TO_13.concat('route'), '16, 18'],
+    ['white-space line in field 15', { f15: 'N0481F320 AAA1R\n   \nQQHDR AAA' }, UP_TO_13, '15, 16, 18'],
+  ];
+  for (const [label, patch, read, unread] of cases) {
+    const text = fpl(patch);
+    f.push(...incompleteFailures(label, api.parseIcaoFpl(text), { reason: REASON.blank, read, unread, block: text }));
+  }
+  return f;
+}
+
+// F2: copies that differ only in line wraps or spacing are the same plan; a real difference is reported.
+function checkCopies(api) {
+  const f = [];
+  const same = [
+    ['10a wrapped inside a code run', { f10: 'SDE1E2E3FGHIJ3J5M1\nP2RWXYZ/LB1D1' }],
+    ['field 7 and 9 wrapped', { f7: 'TST\n123', f9: 'B74\n4/H' }],
+    ['route wrapped and double spaces', { f15: 'N0481F320 AAA1R  AAA N852 BBBBB DCT\n49N020W/M084F340 47N030W DCT CCCCC/N0485F340\nDCT DDD' }],
+    ['field 16 and 18 wrapped', { f16: 'KBBB0933\nKCCC', f18: 'PBN/A1B1C1D1L1O1S2 NAV/RNVD1E2A1 DAT/CPDLCX SUR/260B\nRSP180 DOF/260308 REG/N000ZZ EET/KZNY0100 SEL/ABCD CODE/A00000 OPR/TST RMK/TCAS II\r\nEQUIPPED' }],
+  ];
+  for (const [label, patch] of same) {
+    const r = api.parseIcaoFpl(fpl() + '\nTEXT\n' + fpl(patch) + '\nTEXT\n' + fpl());
+    if (r.findings.length) f.push(`wrap only (${label}): no finding`);
+    if (!sameJSON({ ...r, findings: [] }, { ...BASE, findings: [] })) f.push(`wrap only (${label}): first copy read`);
+  }
+  const differ = [
+    ['an equipment code removed', { f10: 'SDE1E2E3FGHIJ3J5P2RWXYZ/LB1D1' }],
+    ['another alternate', { f16: 'KBBB0933 KDDD' }],
+    ['a route point', { f15: 'N0481F320 AAA1R AAA N852 BBBBB DCT 49N020W/M084F340 47N030W DCT CCCCC/N0485F340 DCT DDE' }],
+    ['a remark word', { f18: 'PBN/A1B1C1D1L1O1S2 NAV/RNVD1E2A1 DAT/CPDLCX SUR/260B RSP180 DOF/260308 REG/N000ZZ EET/KZNY0100 SEL/ABCD CODE/A00000 OPR/TST RMK/TCAS I EQUIPPED' }],
+  ];
+  for (const [label, patch] of differ) {
+    const r = api.parseIcaoFpl(fpl() + '\n' + fpl(patch));
+    if (!hasFinding(r, 'WARN', 'raw', /2 FPL blocks, 1 differ/)) f.push(`real difference (${label}): WARN`);
+    if (!sameJSON({ ...r, findings: [] }, { ...BASE, findings: [] })) f.push(`real difference (${label}): first copy read`);
+  }
+  return f;
+}
+
+// F4: a field 18 item joined to the one before it is not split; WARN on the item it fell in.
+function checkJoined(api) {
+  const f = [];
+  const NS = /^field 18 item not separated/;
+  const a = api.parseIcaoFpl(fpl({ f18: 'PBN/A1B1 DOF/261109REG/N123 RMK/TCAS' }));
+  if (a.other.DOF !== '261109REG/N123') f.push('DOF/…REG/: DOF left as read');
+  if (a.reg !== '' || 'REG' in a.other) f.push('DOF/…REG/: REG not split off');
+  if (a.dof !== '') f.push('DOF/…REG/: dof empty');
+  if (!hasFinding(a, 'WARN', 'other.DOF', NS)) f.push('DOF/…REG/: WARN "field 18 item not separated"');
+  if (a.rmk !== 'TCAS') f.push('DOF/…REG/: RMK still read');
+  for (const k of FIELDS_7_16) if (!sameJSON(a[k], BASE[k])) f.push(`DOF/…REG/: ${k} unchanged`);
+  const b = api.parseIcaoFpl(fpl({ f18: 'PBN/A1B1C1DOF/261110 REG/N000ZZ' }));
+  if (b.other.PBN !== 'A1B1C1DOF/261110' || b.dof !== '' || 'DOF' in b.other) f.push('PBN/…DOF/: left as read, no DOF');
+  if (!hasFinding(b, 'WARN', 'other.PBN', NS)) f.push('PBN/…DOF/: WARN');
+  const c = api.parseIcaoFpl(fpl({ f18: 'XYZDOF/261110 REG/N000ZZ' }));
+  if (c.dof !== '' || 'DOF' in c.other || c.reg !== 'N000ZZ') f.push('text…DOF/ before the first item: not read');
+  if (!hasFinding(c, 'WARN', 'other', NS)) f.push('text…DOF/ before the first item: WARN');
+  // no false alarm: a stroke that is not an indicator, codes with digits, the full synthetic block
+  for (const f18 of ['RMK/ATC/ACK TCAS', 'SUR/260B RSP180 RMK/TCASREGISTERED', 'RALT/RJCC KSFO TALT/KFFF CODE/A00000', 'RMK/VIA DCT/BBB'])
+    if (api.parseIcaoFpl(fpl({ f18 })).findings.some(x => NS.test(x.message))) f.push(`no false WARN: ${f18.split('/')[0]}/…`);
+  if (BASE.findings.length) f.push('full block: no finding');
+  return f;
+}
+
+test('TC-152-101 F1: no closing ")" → found, incomplete, ERROR; field 18 empty; nothing from after the block', () => {
+  assert.deepEqual(checkNoClose(mod), []);
+});
+test('TC-152-102 F1: a "(" inside the block → incomplete; only the fields wholly before it are read', () => {
+  assert.deepEqual(checkParenInside(mod), []);
+});
+test('TC-152-103 F1/F3: a blank line or page header inside the block → incomplete; header text never returned', () => {
+  assert.deepEqual(checkPageBreak(mod), []);
+});
+test('TC-152-104 F2: copies differing only in line wraps / spacing → no WARN; a real difference → WARN', () => {
+  assert.deepEqual(checkCopies(mod), []);
+});
+test('TC-152-105 F4: a field 18 item joined to the previous one → WARN "field 18 item not separated", not split', () => {
+  assert.deepEqual(checkJoined(mod), []);
+});
+
+// Fixture simulations (F1/F3). Asserted by length, position and equality only; nothing is printed.
+function blockSpans(text) {           // every "(FPL-" … first ")" (the v1.0.0 span) in the text
+  const s = [];
+  for (let i = text.indexOf('(FPL-'); i >= 0; i = text.indexOf('(FPL-', i + 5)) s.push([i, text.indexOf(')', i + 5)]);
+  return s;
+}
+function fixtureIncomplete(api) {
+  const dir = requireFixturesDir();
+  const out = { n: 0, fails: [], reasons: { close: 0, paren: 0, blank: 0 } };
+  for (const fx of readManifest(dir).fixtures) {
+    out.n++;
+    const text = fs.readFileSync(path.join(dir, fx.files.text), 'utf8');
+    const real = mod.parseIcaoFpl(text);
+    const spans = blockSpans(text);
+    const block = text.slice(spans[0][0], spans[0][1] + 1);
+    // lines after the first block that are not also inside it (white space ignored: a package can
+    // repeat the route with other wraps): none may appear in the output
+    const afterLines = text.slice(spans[0][1] + 1).split('\n').map(l => l.trim())
+      .filter(l => l.length >= 4 && !solid(block).includes(solid(l))).slice(0, 8);
+    const leaks = (label, r) => {
+      const json = JSON.stringify(r);
+      if (afterLines.some(l => json.includes(l))) out.fails.push(`${fx.id} ${label}: text after the block in the output`);
+    };
+    const fieldFindings = real.findings.filter(x => FIELDS_7_16.includes(x.field));
+
+    // (a) the closing ")" removed from every copy
+    let s = text;
+    for (const [, e] of spans.slice().reverse()) s = s.slice(0, e) + s.slice(e + 1);
+    const a = api.parseIcaoFpl(s);
+    const why = Object.keys(REASON).find(k => a.findings[0] && REASON[k].test(a.findings[0].message));
+    if (why) out.reasons[why]++;
+    out.fails.push(...incompleteFailures(`${fx.id} every ")" removed`, a, { reason: /^FPL block incomplete \(/, read: ALL_7_16, ref: real, block, unread: '18' }));
+    leaks('every ")" removed', a);
+    const rest = a.findings.slice(1).filter(x => !(x.level === 'WARN' && x.field === 'raw' && /incomplete "\(FPL-" blocks; the first is read/.test(x.message)));
+    if (!sameJSON(rest, fieldFindings)) out.fails.push(`${fx.id} every ")" removed: findings are the ERROR and those of fields 7–16`);
+
+    // (b) the closing ")" removed from the first copy only
+    const e0 = spans[0][1];
+    const b = api.parseIcaoFpl(text.slice(0, e0) + text.slice(e0 + 1));
+    if (spans.length > 1) {
+      if (!(b.complete === true && sameJSON({ ...b, findings: [] }, { ...real, findings: [] }) && hasFinding(b, 'WARN', 'raw', /1 incomplete "\(FPL-" block\(s\) ignored/)))
+        out.fails.push(`${fx.id} first ")" removed: the next complete copy read, WARN`);
+    } else {
+      out.fails.push(...incompleteFailures(`${fx.id} first ")" removed (one copy)`, b, { reason: /^FPL block incomplete \(/, read: ALL_7_16, ref: real, block, unread: '18' }));
+      leaks('first ")" removed', b);
+    }
+
+    // (c) a page break with a header inside field 15 of every copy
+    let p = text;
+    for (const [i] of spans.slice().reverse()) {
+      let h = i;
+      for (let k = 0; k < 6; k++) h = p.indexOf('-', h + 1);       // the hyphen that starts field 15
+      const at = p.slice(h).search(/\s/) + h;                         // after the speed/level token
+      p = p.slice(0, at) + '\n\nQQHDR PAGE 2 OF 9\n' + p.slice(at);
+    }
+    const c = api.parseIcaoFpl(p);
+    out.fails.push(...incompleteFailures(`${fx.id} page break in field 15`, c, { reason: REASON.blank, read: UP_TO_13, ref: real, block, unread: '15, 16, 18' }));
+  }
+  return out;
+}
+
+test('TC-152-110 fixtures: closing ")" lost (every copy / first copy) and a page break inside field 15 — incomplete, nothing outside read', (t) => {
+  const r = fixtureIncomplete(mod);
+  assert.ok(r.n >= 33, `at least 33 fixtures (found ${r.n})`);
+  assert.deepEqual(r.fails, []);
+  t.diagnostic(`lost ")" on ${r.n} fixtures: incomplete ${r.n}/${r.n}; break found at: blank line ${r.reasons.blank}, "(" ${r.reasons.paren}, end of text ${r.reasons.close}`);
+});
+
+test('TC-152-111 fixtures: every real block (every copy) is complete and read exactly as before — 0 touched', (t) => {
+  const dir = requireFixturesDir();
+  let copies = 0, touched = [];
+  for (const fx of readManifest(dir).fixtures) {
+    const text = fs.readFileSync(path.join(dir, fx.files.text), 'utf8');
+    for (const [i, e] of blockSpans(text)) {
+      copies++;
+      const r = mod.parseIcaoFpl(text.slice(i));
+      if (!(e > i && r.complete === true && r.raw === text.slice(i, e + 1) && !r.findings.some(x => x.level !== 'INFO'))) touched.push(`${fx.id}@${copies}`);
+    }
+  }
+  assert.ok(copies >= 93, `at least 93 blocks (found ${copies})`);
+  assert.deepEqual(touched, [], 'blocks read differently from v1.0.0 as first pushed');
+  t.diagnostic(`real FPL blocks: ${copies}, touched ${touched.length}`);
+});
+
+test('TC-152-120 the F1–F4 checks bite: a reader with one of the v1.0.0 (first push) rules fails them', () => {
+  const load = (from, to) => {
+    assert.equal(MOD_SRC.split(from).length, 2, `anchor found once: ${from}`);
+    const m = { exports: {} };
+    new Function('module', 'exports', 'require', MOD_SRC.replace(from, to))(m, m.exports, () => { throw new Error('require used'); });
+    return m.exports;
+  };
+  // F1/F3: the block ends at the first ")" anywhere (v1.0.0 as first pushed)
+  const firstParen = load('const BLOCK_END_RE = /[()]|\\r?\\n[ \\t]*\\r?\\n/g;', 'const BLOCK_END_RE = /\\)/g;');
+  assert.ok(checkNoClose(firstParen).length > 0, 'no ")" check bites');
+  assert.ok(checkParenInside(firstParen).length > 0, '"(" inside check bites');
+  assert.ok(checkPageBreak(firstParen).length > 0, 'page break check bites');
+  const fx = fixtureIncomplete(firstParen);
+  const hit = new Set(fx.fails.filter(x => / every "\)" removed: /.test(x)).map(x => x.split(' ')[0]));
+  assert.equal(hit.size, fx.n, `lost ")" caught on every fixture (${hit.size}/${fx.n})`);
+  // F1: an incomplete block returning its whole readable part as raw
+  assert.ok(checkNoClose(load("r.raw = '(' + parts.join('-');", 'r.raw = inc.readable;')).length > 0, 'raw check bites');
+  // F2: copies compared with line breaks read as spaces (v1.0.0)
+  assert.ok(checkCopies(load('solid(b) !== solid(blocks[0])', 'b.replace(/\\s+/g, " ").trim() !== blocks[0].replace(/\\s+/g, " ").trim()')).length > 0, 'copy check bites');
+  // F4: joined items not looked for (v1.0.0)
+  assert.ok(checkJoined(load('joined(`other.${it.key}`, value);', '')).length > 0, 'joined-item check bites');
 });
