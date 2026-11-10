@@ -13,5 +13,10 @@
     "version": "1.0.0",
     "file": "aircraft-profile/aircraft-profile-v1.0.0.js",
     "sha256": "7ca993193303228d595454ac5bf24ee82eddb9ae1fecc56ad7176dad238a4be5"
+  },
+  "icao-fpl": {
+    "version": "1.0.0",
+    "file": "icao-fpl/icao-fpl-v1.0.0.js",
+    "sha256": "d7b432506f32a3675ce3ffa68a07b7e194ed523c9e8dcbd3177f78da36d49ad2"
   }
 }
