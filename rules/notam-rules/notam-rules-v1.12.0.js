@@ -1,10 +1,30 @@
 /**
- * notam-rules.js — NOTAM Interpretation Ruleset  (v1.11.2)
+ * notam-rules.js — NOTAM Interpretation Ruleset  (v1.12.0)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.3): NOTAM splitting, header and date
  * reading, schedules, evaluation (evalNotams) and grouping, exactly as the
  * PilotBrief app runs them on main at the time of extraction. The GNSS NOTAM
  * ruleset (evalGNSS) is a separate module and is not part of this file.
+ *
+ * Changelog v1.12.0 (vs v1.11.2; ledger P-24):
+ *   REMOVED — this module no longer holds aircraft data: AIRCRAFT_DATA,
+ *     getWingspan() and buildAcftProfile() are gone, and buildAcftProfile is no
+ *     longer exported. There is ONE copy, in the aircraft-profile module
+ *     (rules/aircraft-profile, v1.0.0), which the app builds into index.html.
+ *   CHANGED — evalNotams(notams, role, etaMin, acftProfile, flightDateISO,
+ *     depMin, getWingspan): the 4th argument is the aircraft profile OBJECT, as
+ *     built by the aircraft-profile module. A type string or nothing is an
+ *     unknown profile: no aircraft filter, so every aircraft-restricted NOTAM
+ *     is shown (fail-safe). Nothing else is added for it. The new optional 7th
+ *     argument is the aircraft-profile getWingspan(icaoType), passed in by the
+ *     caller (as the app passes the NAT parser to ofp-navblue), so this module
+ *     stays standalone. _acftApplies() and _twyApplies() call it where they
+ *     read the table before — the wingspan of the types a NOTAM names, and the
+ *     taxiway wingspan limit. Absent = those types are unknown = NOTAM shown.
+ *   UNCHANGED — _acftApplies() and every NOTAM rule: same text, same results
+ *     for the profile object the app passes (golden, V0 NOTAM-at-ETA and V0
+ *     app-path snapshots unchanged). The only edits to them are marked
+ *     "v1.12.0".
  *
  * Changelog v1.11.2 (vs v1.11.1; ledger P-23):
  *   FIX — NOTAMs not in effect during the evaluation window were shown
@@ -80,7 +100,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 const RULESET_TYPE    = 'notam';
-const RULESET_VERSION = '1.11.2';
+const RULESET_VERSION = '1.12.0';
 // Unchanged from the current contract: rules-loader.js v1.0.0 requires
 // SCHEMA_VERSION >= 2 for 'notam'. The export shape and the evalNotams()
 // return shape are unchanged, so the value stays 2.
@@ -506,124 +526,6 @@ function _inDailyPeriod(m, startT, endT) {
 //    <span class="nt-yel">KEYWORD</span>   for YELLOW items
 // ═══════════════════════════════════════════════════════════════
 
-// ── Aircraft data database
-// ── Source: Jane's / manufacturer type certificate data sheets / FAA AC 150/5300-13A
-// Fields per entry:
-//   ws   — wingspan metres (maximum, wingtip to wingtip)
-//   mtow — max takeoff weight kg (approximate max certified)
-//   code — ICAO aerodrome reference code letter (A–F) derived from wingspan
-//          A: <15m  B: 15–24m  C: 24–36m  D: 36–52m  E: 52–65m  F: >65m
-//   wake — ICAO wake turbulence category: L/M/H/J (Light/Medium/Heavy/Super)
-//   turbine — true = jet/turboprop (false = piston — rare in commercial ops)
-const AIRCRAFT_DATA = {
-  // ── Narrowbody ──
-  B735: { ws:28.9, mtow:52390,  code:'C', wake:'M', turbine:true },
-  B736: { ws:28.9, mtow:56245,  code:'C', wake:'M', turbine:true },
-  B737: { ws:28.9, mtow:56245,  code:'C', wake:'M', turbine:true },
-  B738: { ws:35.8, mtow:79016,  code:'C', wake:'M', turbine:true },
-  B739: { ws:35.8, mtow:85139,  code:'C', wake:'M', turbine:true },
-  B37M: { ws:35.9, mtow:82191,  code:'C', wake:'M', turbine:true },
-  B38M: { ws:35.9, mtow:82191,  code:'C', wake:'M', turbine:true },
-  B39M: { ws:35.9, mtow:88314,  code:'C', wake:'M', turbine:true },
-  A19N: { ws:35.8, mtow:75500,  code:'C', wake:'M', turbine:true },
-  A20N: { ws:35.8, mtow:79000,  code:'C', wake:'M', turbine:true },
-  A21N: { ws:35.8, mtow:97000,  code:'C', wake:'M', turbine:true },
-  A318: { ws:34.1, mtow:68000,  code:'C', wake:'M', turbine:true },
-  A319: { ws:33.9, mtow:75500,  code:'C', wake:'M', turbine:true },
-  A320: { ws:33.9, mtow:77000,  code:'C', wake:'M', turbine:true },
-  A321: { ws:35.8, mtow:93500,  code:'C', wake:'M', turbine:true },
-  E190: { ws:28.7, mtow:51800,  code:'C', wake:'M', turbine:true },
-  E195: { ws:28.7, mtow:52290,  code:'C', wake:'M', turbine:true },
-  E75L: { ws:26.0, mtow:38790,  code:'C', wake:'M', turbine:true },
-  E75S: { ws:26.0, mtow:37500,  code:'C', wake:'M', turbine:true },
-  CRJ2: { ws:21.2, mtow:21319,  code:'B', wake:'L', turbine:true },
-  CRJ7: { ws:23.2, mtow:33113,  code:'C', wake:'M', turbine:true },
-  CRJ9: { ws:24.9, mtow:36514,  code:'C', wake:'M', turbine:true },
-  CRJX: { ws:26.2, mtow:42184,  code:'C', wake:'M', turbine:true },
-  DH8D: { ws:28.4, mtow:29257,  code:'C', wake:'M', turbine:true },
-  AT76: { ws:27.1, mtow:23000,  code:'C', wake:'M', turbine:true },
-  AT75: { ws:27.1, mtow:22800,  code:'C', wake:'M', turbine:true },
-  // ── Widebody — long haul ──
-  B744: { ws:64.4, mtow:412800, code:'E', wake:'H', turbine:true },
-  B748: { ws:68.4, mtow:447700, code:'F', wake:'H', turbine:true },
-  BLCF: { ws:68.4, mtow:447700, code:'F', wake:'H', turbine:true }, // 747-400LCF Dreamlifter
-  B762: { ws:47.6, mtow:175540, code:'D', wake:'H', turbine:true },
-  B763: { ws:47.6, mtow:186900, code:'D', wake:'H', turbine:true },
-  B764: { ws:51.9, mtow:204120, code:'D', wake:'H', turbine:true },
-  B772: { ws:60.9, mtow:297550, code:'E', wake:'H', turbine:true },
-  B77L: { ws:64.8, mtow:347800, code:'E', wake:'H', turbine:true },
-  B77W: { ws:64.8, mtow:352440, code:'E', wake:'H', turbine:true },
-  B778: { ws:71.8, mtow:352400, code:'F', wake:'H', turbine:true },
-  B779: { ws:71.8, mtow:352400, code:'F', wake:'H', turbine:true },
-  B788: { ws:60.1, mtow:227930, code:'E', wake:'H', turbine:true },
-  B789: { ws:60.1, mtow:254011, code:'E', wake:'H', turbine:true },
-  B78X: { ws:60.1, mtow:254011, code:'E', wake:'H', turbine:true },
-  A306: { ws:44.8, mtow:171700, code:'D', wake:'H', turbine:true },
-  A310: { ws:43.9, mtow:157000, code:'D', wake:'H', turbine:true },
-  A332: { ws:60.3, mtow:242000, code:'E', wake:'H', turbine:true },
-  A333: { ws:60.3, mtow:242000, code:'E', wake:'H', turbine:true },
-  A338: { ws:64.0, mtow:251000, code:'E', wake:'H', turbine:true },
-  A339: { ws:64.0, mtow:251000, code:'E', wake:'H', turbine:true },
-  A342: { ws:60.3, mtow:233000, code:'E', wake:'H', turbine:true },
-  A343: { ws:60.3, mtow:276500, code:'E', wake:'H', turbine:true },
-  A345: { ws:63.5, mtow:372000, code:'E', wake:'H', turbine:true },
-  A346: { ws:63.5, mtow:380000, code:'E', wake:'H', turbine:true },
-  A359: { ws:64.8, mtow:280000, code:'E', wake:'H', turbine:true },
-  A35K: { ws:64.8, mtow:308000, code:'E', wake:'H', turbine:true },
-  A380: { ws:79.8, mtow:575000, code:'F', wake:'J', turbine:true },
-  A388: { ws:79.8, mtow:575000, code:'F', wake:'J', turbine:true },
-  // ── Freighters / misc ──
-  B752: { ws:38.1, mtow:115900, code:'D', wake:'H', turbine:true },
-  B753: { ws:38.1, mtow:122470, code:'D', wake:'H', turbine:true },
-  B722: { ws:39.9, mtow:95028,  code:'D', wake:'H', turbine:true },
-  MD11: { ws:51.7, mtow:283000, code:'D', wake:'H', turbine:true },
-  DC10: { ws:47.3, mtow:255825, code:'D', wake:'H', turbine:true },
-  C17:  { ws:51.7, mtow:265350, code:'D', wake:'H', turbine:true },
-  C130: { ws:40.4, mtow:70305,  code:'D', wake:'M', turbine:true },
-  C5:   { ws:67.9, mtow:381024, code:'F', wake:'H', turbine:true },
-};
-
-
-/**
- * Get aircraft wingspan in metres from ICAO type designator.
- * Returns null if type is not in the database.
- * @param {string} acftType - e.g. 'B738', 'B77W', 'A321'
- * @returns {number|null}
- */
-function getWingspan(acftType) {
-  if (!acftType) return null;
-  const d = AIRCRAFT_DATA[acftType.toUpperCase().slice(0,4)];
-  return d ? d.ws : null;
-}
-
-/**
- * Build a complete aircraft profile from an ICAO type designator.
- * Used by _acftApplies() to evaluate all applicability constraints.
- *
- * The profile is derived from AIRCRAFT_DATA. For unknown types a
- * conservative (worst-case) profile is returned so NOTAMs are not
- * silently suppressed.
- *
- * @param {string} icaoType — e.g. 'B748', 'B77W', 'BLCF'
- * @returns {{
- *   type: string,
- *   ws: number,        — wingspan metres
- *   mtow: number,      — MTOW kg
- *   code: string,      — ICAO aerodrome ref code A–F
- *   wake: string,      — ICAO wake cat: L/M/H/J
- *   turbine: boolean,  — jet/turboprop = true
- *   known: boolean     — false if type not in database
- * }}
- */
-function buildAcftProfile(icaoType) {
-  const key = (icaoType || '').toUpperCase().slice(0, 4);
-  const d = AIRCRAFT_DATA[key];
-  if (d) return { type: key, ...d, known: true };
-  // Unknown type — conservative: assume heavy, wide-body, turbine
-  // so we never silently drop a NOTAM that might apply
-  return { type: key || 'UNKN', ws: 999, mtow: 999999, code: 'F', wake: 'H', turbine: true, known: false };
-}
-
 /**
  * Determine whether a NOTAM applies to the given aircraft.
  *
@@ -639,12 +541,18 @@ function buildAcftProfile(icaoType) {
  *   ICAO Annex 14 Table 1-1 — Aerodrome reference codes
  *
  * @param {string} notamText   — raw NOTAM text (any case)
- * @param {object|string} acft — acftProfile from buildAcftProfile(), or ICAO type string
+ * @param {object} acft        — aircraft profile object, as built by the aircraft-profile
+ *                               module (buildAcftProfile). v1.12.0: not an object (a type
+ *                               string, nothing) = unknown profile = NOTAM applies.
+ * @param {function} [getWingspan] — v1.12.0: aircraft-profile getWingspan(icaoType) → metres | null,
+ *                               passed in by the caller. Absent = every named type is unknown.
  * @returns {boolean}  true = NOTAM applies (show it); false = does not apply (suppress)
  */
-function _acftApplies(notamText, acft) {
-  // Accept either a profile object or a type string for backward compatibility
-  const profile = (typeof acft === 'string') ? buildAcftProfile(acft) : (acft || buildAcftProfile(''));
+function _acftApplies(notamText, acft, getWingspan) {
+  // v1.12.0: the profile is the caller's object. No profile (a type string, nothing) = unknown
+  // = fail-safe: the NOTAM is shown.
+  if (!acft || typeof acft !== 'object') return true;
+  const profile = acft;
   const nu = notamText.toUpperCase();
 
   // ── 1. Wingspan / width limits ─────────────────────────────────────────
@@ -715,13 +623,13 @@ function _acftApplies(notamText, acft) {
     // "X AND ABOVE PROHIBITED" — check if we are heavier/larger
     if (/\bAND\s+ABOVE\s+(?:PROHIBITED|NOT\s+AUTH|NA)\b/i.test(nu)) {
       // Use wingspan as proxy for "and above" — if we are larger than listed types, applies
-      const listedWs = typeMentions.map(t => (AIRCRAFT_DATA[t.slice(0,4)] || {}).ws || 0);
+      const listedWs = typeMentions.map(t => (typeof getWingspan === 'function' ? getWingspan(t.slice(0,4)) : null) || 0);   // v1.12.0: was (AIRCRAFT_DATA[…] || {}).ws || 0
       const maxListedWs = Math.max(...listedWs, 0);
       return profile.ws >= maxListedWs;
     }
     // "X AND SMALLER ONLY" — does not apply to us if we are larger
     if (/\bAND\s+SMALLER\s+ONLY\b/i.test(nu)) {
-      const listedWs = typeMentions.map(t => (AIRCRAFT_DATA[t.slice(0,4)] || {}).ws || 999);
+      const listedWs = typeMentions.map(t => (typeof getWingspan === 'function' ? getWingspan(t.slice(0,4)) : null) || 999);   // v1.12.0: was (AIRCRAFT_DATA[…] || {}).ws || 999
       const maxListedWs = Math.max(...listedWs, 0);
       return profile.ws <= maxListedWs;
     }
@@ -1057,16 +965,17 @@ function _esc(s) {
  *
  * @param {string} notamText - NOTAM body
  * @param {string} acftType  - ICAO type designator e.g. 'B738'
+ * @param {function} [getWingspan] - v1.12.0: aircraft-profile getWingspan, passed in. Absent = type unknown.
  * @returns {boolean}
  */
-function _twyApplies(notamText, acftType) {
+function _twyApplies(notamText, acftType, getWingspan) {
   const nu = notamText.toUpperCase();
   // Match wingspan/width limit with optional words between keyword and value
   // Handles: "WS 36M", "WIDTH LTD 36M", "MAX WS 36M", "WINGSPAN 36M", "WIDTH LIMITED TO 36M"
   const wsM = nu.match(/(?:MAX\s+)?WS\s+(\d+(?:\.\d+)?)\s*M\b|WIDTH(?:\s+\w+){0,3}\s+(\d+(?:\.\d+)?)\s*M\b|WINGSP(?:AN)?\s+(?:\w+\s+){0,2}(\d+(?:\.\d+)?)\s*M\b/);
   if (wsM) {
     const limitM = parseFloat(wsM[1] || wsM[2] || wsM[3]);
-    const acWs   = getWingspan(acftType);
+    const acWs   = typeof getWingspan === 'function' ? getWingspan(acftType) : null;   // v1.12.0: was getWingspan(acftType) of this module's table
     if (acWs !== null) {
       return acWs > limitM; // applies if our wingspan exceeds limit
     }
@@ -1099,6 +1008,7 @@ function _twyApplies(notamText, acftType) {
  * @param {string} role     - 'ORIG' | 'DEST' | string (alt)
  * @param {string} acftType - ICAO type
  * @param {boolean} active  - Is this NOTAM active during the ETA/dep window?
+ * @param {function} [getWingspan] - v1.12.0: aircraft-profile getWingspan, passed to _twyApplies
  * @returns {{ slot:number, level:string, label:string, keyRe:RegExp|null }}
  */
 
@@ -1147,7 +1057,7 @@ function _apchTypeLabel(nu) {
   return second ? `${top}/${second}` : top;
 }
 
-function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
+function _classifyNotamSlot(nu, notamRaw, role, acftType, active, getWingspan) {
   const isOrig = role === 'ORIG';
   // Zero-pad single-digit runway designators: '6L' → '06L', '9' → '09'
   const _pad2 = s => s ? s.replace(/^(\d)([LCRB]?)$/, '0$1$2').toUpperCase() : s;
@@ -1188,7 +1098,7 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
     }
 
     // Slot 3 — Closed / wingspan-restricted taxiways
-    if (NM.TWY_CLSD.test(nu) || (NM.TWY_RESTR.test(nu) && _twyApplies(notamRaw, acftType))) {
+    if (NM.TWY_CLSD.test(nu) || (NM.TWY_RESTR.test(nu) && _twyApplies(notamRaw, acftType, getWingspan))) {
       const tm = nu.match(NM.TWY_ID);
       const twy = tm ? tm[1] : 'TWY';
       const isClosed = NM.CLSD_WORDS.test(nu);
@@ -1470,7 +1380,7 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
   }
 
   // Slot 6 — Closed / wingspan-restricted taxiways
-  if (NM.TWY_CLSD.test(nu) || (NM.TWY_RESTR.test(nu) && _twyApplies(notamRaw, acftType))) {
+  if (NM.TWY_CLSD.test(nu) || (NM.TWY_RESTR.test(nu) && _twyApplies(notamRaw, acftType, getWingspan))) {
     const tm = nu.match(NM.TWY_ID);
     const twy = tm ? tm[1] : 'TWY';
     const isClosed = NM.CLSD_WORDS.test(nu);
@@ -1662,17 +1572,22 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
  * @param {string[]} notams        - Individual NOTAM strings (from _splitNotams)
  * @param {string}   role          - 'ORIG' | 'DEST' | 'ALT' | any alternate role
  * @param {number|null} etaMin     - ETA/DEP as minutes-of-day (0–1439), or null
- * @param {string|object} acftType - ICAO type designator e.g. 'B748', OR a full
- *                                   acftProfile object from buildAcftProfile().
- *                                   When a string is passed, buildAcftProfile() is
- *                                   called automatically. Pass the profile object
- *                                   when it has already been built from the OFP.
+ * @param {object}   acftProfile  - v1.12.0: the aircraft profile OBJECT, as built by the
+ *                                   aircraft-profile module (buildAcftProfile). A type
+ *                                   string or nothing = unknown profile: no aircraft
+ *                                   filter, every aircraft-restricted NOTAM is shown
+ *                                   (fail-safe). This module holds no aircraft data.
  * @param {string}   flightDateISO - 'YYYY-MM-DD' for NOTAM window anchoring
  * @param {number|null} [depMin]   - departure (OUT) as minutes-of-day, or null.
  *                                   Gives the UTC date of the ETA for the
  *                                   date-range and schedule checks (D + 1 when
  *                                   etaMin < depMin; _evalWindows).
  *                                   Not given → both D and D + 1 are tried.
+ * @param {function} [getWingspan] - v1.12.0: aircraft-profile getWingspan(icaoType) →
+ *                                   metres | null, passed in (as the app passes the NAT
+ *                                   parser to ofp-navblue). Used for the wingspan of the
+ *                                   types a NOTAM names and for taxiway wingspan limits.
+ *                                   Absent = those types are unknown → NOTAM shown.
  *
  * @returns {{
  *   issues:    Array<{slot,level,text,active,notamRaw,rwy,label}>,
@@ -1698,15 +1613,14 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active) {
  *   Single item  → label = "CLSD" | "RESTR"
  *   Multi items  → label = "N Taxiway NOTAMs"
  */
-function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
+function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, getWingspan) {
   if (!notams || !notams.length) {
     return { issues: [], rwyGroups: new Map(), worst: 'unknown' };
   }
 
-  // Build aircraft profile — accepts string or pre-built object
-  const acftProfile = (typeof acftType === 'object' && acftType !== null)
-    ? acftType
-    : buildAcftProfile(acftType || '');
+  // v1.12.0: the aircraft profile is the caller's object (aircraft-profile module). A type
+  // string or nothing is an unknown profile: _acftApplies shows every NOTAM.
+  const acft = (acftProfile && typeof acftProfile === 'object') ? acftProfile : null;
 
   // Resolve flight date
   // v1.11.0: no window._flightDateISO fallback (no app state); the caller passes the flight date.
@@ -1735,7 +1649,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
     // ── Aircraft applicability filter ─────────────────────────────────────
     // Only applied when the NOTAM contains an explicit restriction qualifier.
     // If no qualifier is found, _acftApplies returns true (conservative — show it).
-    if (!_acftApplies(notamRaw, acftProfile)) continue;
+    if (!_acftApplies(notamRaw, acft, getWingspan)) continue;
 
     // ── Active status ─────────────────────────────────────────────────────
     // T6 fail-safe: no resolvable window → in effect. The legacy xNW() is
@@ -1820,7 +1734,7 @@ function evalNotams(notams, role, etaMin, acftType, flightDateISO, depMin) {
     if (active === false) continue;
 
     const { slot, level, label, keyRe, rwy, category } =
-      _classifyNotamSlot(nu, notamRaw, role, acftProfile.type || '', active);
+      _classifyNotamSlot(nu, notamRaw, role, (acft && acft.type) || '', active, getWingspan);
 
     // ── Build display text ────────────────────────────────────────────────
     // Skip: (1) header lines starting with "- ICAO", (2) day-range+time schedule
@@ -2040,7 +1954,6 @@ const API = {
   _classifyNotamSlot,
   _apchTypeLabel,
   _acftApplies,
-  buildAcftProfile,
   NM,
 };
 return API;

@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { callAsApp } = require('../lib/acft');
 
 // PB_INDEX_HTML lets a test run point at a modified copy (used to prove the gate bites).
 const INDEX_HTML = process.env.PB_INDEX_HTML || path.resolve(__dirname, '..', '..', 'index.html');
@@ -198,7 +199,13 @@ function loadApp({ html, storageData, domModel } = {}) {
     }
     api.notamEngine = file;
   }
-  return { ...api, sandbox, document: doc, fireDomReady: dom ? dom.fireDomReady : () => {} };
+  const out = { ...api, sandbox, document: doc, fireDomReady: dom ? dom.fireDomReady : () => {} };
+  // evalNotams() called as src/airports.html evalAirport() calls it (test/lib/acft.js): the profile is
+  // built by the app's own AircraftProfile module from the ICAO type string, and getWingspan is passed.
+  // Goes to out.evalNotams, so PB_NOTAM_ENGINE (a second NOTAM module copy) is honoured.
+  out.evalNotamsAs = (notams, role, etaMin, acftType, flightISO, depMin) =>
+    callAsApp(out.evalNotams, sandbox.AircraftProfile, notams, role, etaMin, acftType, flightISO, depMin);
+  return out;
 }
 
 module.exports = { loadApp, inlineScripts, INDEX_HTML };

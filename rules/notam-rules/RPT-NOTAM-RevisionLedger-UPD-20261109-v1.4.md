@@ -1,12 +1,12 @@
 # NOTAM Ruleset — Revision Ledger
 
-**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.3.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.2.md`)
-**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.11.2.js`
-**Current Version:** 1.11.2
-**Lines:** 2,047
+**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261109-v1.4.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.3.md`)
+**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.12.0.js`
+**Current Version:** 1.12.0
+**Lines:** 1,960
 **Patterns:** 66 NM (v1.10.1 also has 66; the "39 NM" in ledger v1.0 did not match its own file)
-**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); TC-122-001 … 009 PASS (9/9); NOTAM unit tests 82/82 PASS against the module
-**Last Updated:** 2026-11-08
+**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); TC-122-001 … 009 PASS (9/9); NOTAM unit tests 82/82 PASS against the module; TC-151-001 … 030 PASS (7/7). Independent QA pending
+**Last Updated:** 2026-11-09
 
 ---
 
@@ -14,11 +14,11 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total Patches | 23 (P-01 through P-23) |
-| Current Version | 1.11.2 |
+| Total Patches | 24 (P-01 through P-24) |
+| Current Version | 1.12.0 |
 | First Integration | v1.9.7 |
-| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 pending (P-23) |
-| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 independent QA APPROVE-FOR-EXEC, merged (#41); P-23 pending Exec gate (ADR-005 §2.2.6) |
+| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 on `main` (P-23); module 1.12.0 pending (P-24, this PR) |
+| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 independent QA APPROVE-FOR-EXEC, merged (#41); P-23 merged; P-24 pending Exec gate and independent QA (ADR-005 §2.2.6) |
 | Open DEFs Against This Ruleset | 4 (ARCH-03 through ARCH-06, all DEFERRED S4). ARCH-01 and ARCH-02 closed by P-21. |
 
 **What changed in v1.1 of this ledger.** The entries P-01 … P-13 of v1.0 are kept unchanged below. P-14 … P-20 record the NOTAM fixes made in the app (`src/notam.html`) since June, which the master v1.10.1 never received (ADR-005 §1.2). P-21 is the extraction of the module. The planned patch numbers of the ARCH items (v1.0: P-14 … P-19) are therefore re-assigned (see "Pending Architecture Items"). A reconciliation of master v1.10.1 against the app follows the patch chain.
@@ -403,6 +403,21 @@
 | Integrated In | this PR (module revision, plan v4.3 §2) |
 | QA Verification | TC-122-001 … 009 (9/9; on v1.11.1 23 of their assertions fail — every new "hidden" case, the edges, the departure-time-unknown arrival-day case at or after 1200Z — and TC-121-007's departure-unknown case fails). TC-121-001 … 006 unchanged. Updated for the new rule (SPEC §10): TC-121-007 (departure time unknown → D and D + 1), TC-113-006 (the 23 shown → hidden are now an exact reviewed list), and the synthetic cases of `notam-year` (T6/D38 section) and `notam-merge` evaluated at ETA 1200Z now pass a departure time of 0000Z so the ETA stays on the flight date, as v1.11.1 gave them with no departure time. Corpus vs v1.11.1: 30 Navtech/eOFP fixtures, 142 airports, 3,870 NOTAMs: **23 shown → hidden, 0 hidden → shown**; every one of the 23 has readable dates wholly outside the actual window (`test/reports/NOTAM-v1.11.2-corpus-changes.md`). HF-5 oracle: hidden 0. V0 NOTAM-at-ETA and app-path snapshots of 9 fixtures updated (the 23 IDs only); golden unchanged. |
 
+### P-24 — The aircraft data leaves the module: one aircraft profile module (v1.12.0)
+
+| Field | Value |
+|:------|:------|
+| Date | 2026-11-09 |
+| Ruleset Version | 1.12.0 |
+| Type | REFACTOR (no behaviour change; ADR-005 integration step, plan v4.5 §2) |
+| DEF-ID | N/A |
+| PR | relief-pilot, branch `claude/eloquent-thompson-1xgj6g` |
+| Summary | `AIRCRAFT_DATA`, `getWingspan()` and `buildAcftProfile()` are removed from the module: the aircraft table now has ONE copy, in `rules/aircraft-profile` v1.0.0 (extracted from this module's v1.11.2, byte for byte), which the app builds into `index.html`. `evalNotams()` takes the aircraft profile object that module builds; a type string or nothing is the unknown profile — no aircraft filter, every aircraft-restricted NOTAM shown (fail-safe). The rules also read the table in two other places, for the wingspan of a type **other than the aircraft's own** (`_acftApplies`: the types a NOTAM names with "AND ABOVE" / "AND SMALLER ONLY"; `_twyApplies`: the taxiway wingspan limit). A profile for the aircraft's own type cannot answer those, so `getWingspan` (the aircraft-profile module's) is a new optional trailing argument of `evalNotams()`, passed down to `_classifyNotamSlot()`, `_twyApplies()` and `_acftApplies()`; not passed → those types are unknown → the NOTAM is shown (the old defaults 0 / 999 / `null`). Exec decision (9 Nov): pass it as a 7th argument. The call sites are the only edits to `_acftApplies`, `_twyApplies` and `_classifyNotamSlot`, each marked `v1.12.0`; every pattern and rule is unchanged. `SCHEMA_VERSION` stays 2 (the loader's required exports are unchanged; `buildAcftProfile` was never one of them). |
+| Patterns Affected | none (NM unchanged) |
+| Gate Result | Pending — Exec gate and independent QA session (ADR-005 §2.2.6) |
+| Integrated In | this PR (module revision with `build/build.js`, `src/airports.html`, `src/ofp-parse.html`) |
+| QA Verification | TC-151-001 … 030 (7/7): 42 synthetic NOTAMs × 70 types give exactly what v1.11.2 gave for the type string — `_acftApplies()` and `evalNotams()` (ORIG, DEST), standalone file and `index.html` (0 differences); string / empty / null / undefined / number aircraft → every aircraft-restricted NOTAM shown, real profile hides them; `getWingspan` passed / not passed, positive and negative; `evalAirport()` passes the module's profile and `getWingspan` at every release airport of the 30 Navtech/eOFP fixtures; one copy in `index.html`; the gate bites. Golden, V0 NOTAM-at-ETA and V0 app-path snapshots unchanged (33/33 each); HF-5 oracle: hidden 0, not found 0. |
+
 ---
 
 ## Reconciliation — master v1.10.1 vs the app (2026-11-07)
@@ -465,3 +480,4 @@ These are tracked in the Defect Register as ARCH-01 through ARCH-06. ARCH-01 and
 | 2026-11-07 | v1.1: P-14 … P-20 (app hotfixes since June: HF-1, HF-5, HF-6, HF-8) and P-21 (module extraction v1.11.0) added; reconciliation of master v1.10.1 against the app; ARCH-01/02 closed. v1.0 entries unchanged. |
 | 2026-11-08 | v1.2: P-22 (v1.11.1, next-day arrival at or after 1200Z) added; summary updated for the 1.9.9-hf3 integration of P-21. P-01 … P-21 entries unchanged. |
 | 2026-11-08 | v1.3: P-23 (v1.11.2, the evaluation window on its actual UTC date; `_evalWindows`) added; P-22 gate result and integration recorded (#41). P-01 … P-21 entries unchanged. |
+| 2026-11-09 | v1.4: P-24 (v1.12.0, the aircraft data leaves the module; one aircraft-profile module; `evalNotams()` takes the profile object and `getWingspan`) added. P-01 … P-23 entries unchanged. |

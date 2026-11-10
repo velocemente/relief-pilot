@@ -317,7 +317,10 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     const flightISO = nd.flightISO;
     // Departure time: gives the UTC date of the ETA for the schedule checks.
     const depMin    = nd.depMin;
-    const result    = evalNotams(notamArr, evalRole, etaMin, acftType || '', flightISO, depMin);
+    // rules/aircraft-profile builds the profile; evalNotams() takes the object, and the module's
+    // getWingspan for the wingspan of the types a NOTAM names (the NOTAM module holds no table).
+    const acftProfile = AircraftProfile.buildAcftProfile(acftType || '');
+    const result    = evalNotams(notamArr, evalRole, etaMin, acftProfile, flightISO, depMin, AircraftProfile.getWingspan);
 
     rwyGroups = result.rwyGroups;
     sidIssues = result.sidIssues || [];
