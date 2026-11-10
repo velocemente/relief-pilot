@@ -1,6 +1,6 @@
 # SPEC-IcaoFpl
 
-**Version:** v1.0.0 | **Status:** NEW | **Date:** 2026-11-10
+**Version:** v1.0.0 | **Status:** NEW | **Date:** 2026-11-10 (revised the same day for independent QA findings F1–F4, before the gate)
 **Owner:** Engineering | **Approver:** Exec
 **Tier:** 2 — Platform Architecture
 **Module file:** `rules/icao-fpl/icao-fpl-v1.0.0.js` (SHA-256 in `rules/manifest.json`)
@@ -47,7 +47,7 @@ module.exports = {
   validateSchema,       // (ruleset?) → { valid, errors[] }
   RESULT_FIELDS,        // the result's field names, in order — frozen
   FIELD18_INDICATORS,   // field 18 indicators that start an item — frozen
-  parseIcaoFpl,         // (text) → result (§3.2); never throws
+  parseIcaoFpl,         // (text) → result (§3.2: found, complete, raw, fields, findings); never throws
 };
 ```
 
@@ -55,8 +55,9 @@ module.exports = {
 
 | Field | Doc 4444 field | Content | Empty |
 | :--- | :--- | :--- | :--- |
-| `found` | — | `true` when a complete block `(FPL-` … `)` is in the text | `false` |
-| `raw` | — | The first complete block, exactly as in the text (line breaks kept) | `''` |
+| `found` | — | `true` when the text holds a `(FPL-` block, complete or not | `false` |
+| `complete` | — | `true` when the block read is complete: its closing `)` comes before any `(` or blank line (rule 1) | `false` |
+| `raw` | — | Complete block: the block exactly as in the text (line breaks kept). Incomplete block: only the part read — from `(FPL` to the end of the last field wholly inside the readable part (never field 18) | `''` |
 | `flightId` | 7 | Aircraft identification, 2–7 letters/digits. An SSR mode/code suffix `/A1234` is accepted and not returned. | `''` |
 | `flightRules` | 8 | `I`, `V`, `Y` or `Z` | `''` |
 | `flightType` | 8 | `S`, `N`, `G`, `M` or `X`; `''` when not filed (INFO) | `''` |
@@ -75,20 +76,22 @@ module.exports = {
 | `sel` | 18 `SEL/` | SELCAL as filed | `''` |
 | `rmk` | 18 `RMK/` | Remarks as filed | `''` |
 | `other` | 18 | Every field 18 item, indicator → text, in filed order (includes `DOF`, `REG`, `SEL`, `RMK` as filed) | `{}` |
-| `findings` | — | `{ level: 'INFO' \| 'WARN', field, message }` | `[]` |
+| `findings` | — | `{ level: 'INFO' \| 'WARN' \| 'ERROR', field, message }`. `ERROR` is used only for an incomplete block (rule 1) | `[]` |
 
 **Reading rules (Doc 4444 Appendix 3):**
 
-1. **The block.** The first `(FPL-` that has a `)` before the next `(FPL-` (or the end of the text). An OFP package repeats the block (3 identical copies in each NavBlue package); later copies are only compared with the first (line wrapping ignored). Copies that differ → WARN, the first is read (as the NavBlue patterns, which match the first). A `(FPL-` with no closing `)` → WARN; when no complete block exists, `found: false`.
+1. **The block.** A block ends at the `)` that closes `(FPL-`. It is **complete** when that `)` comes before any other `(` (not allowed inside an ATS message; this includes the `(FPL-` of the next copy) and before any blank line (the extractor writes one blank line per page break; a line of only spaces counts as blank). A block with a `(` or a blank line before its `)`, or with no `)` at all, is **incomplete**; its **readable part** is the text from `(FPL-` up to that break (or the end of the text). Text after the break is never read.
+   - The first complete block is read (`found: true`, `complete: true`). An OFP package repeats the block (3 identical copies in each NavBlue package); later copies are only compared with the first. Two copies are the same plan when they differ only in white space — line wraps and spacing, also inside a field — so only a real difference in content → WARN, the first is read (as the NavBlue patterns, which match the first). Incomplete copies beside a complete one → WARN on `raw`; the complete block is read.
+   - **No complete block, one or more incomplete:** `found: true`, `complete: false`, and one **ERROR** `FPL block incomplete (<reason>): field(s) … not read` on `complete`. Only fields 7–16 that lie **wholly** inside the readable part (the hyphen that ends the field is inside it) are read, with the usual syntax checks; every other field is empty. **Field 18 is never read from an incomplete block** (its end is the missing `)`, so `dof`, `reg`, `sel`, `rmk` are `''` and `other` is `{}`), and field 19 neither. `raw` holds only the part read, so no text from after the block can appear in any field or in `raw`. More than one incomplete block → also a WARN on `raw`; the first is read.
 2. **Fields.** The hyphen separates fields. Fields 7, 8, 9, 10, 13, 15, 16 are the first seven; field 18 is the rest. Field 19 (after `-E/`, `-P/`, `-R/` …) is cut off and not read (INFO). Fewer than 8 fields → WARN and **no positional field is read** (nothing is guessed by position). A hyphen left inside field 18 → WARN; it stays in the text.
 3. **Line breaks** inside a field are wraps. Fields 7, 8, 9, 10, 13 have no spaces in their syntax: line breaks are removed. Fields 15, 16, 18: any run of white space (line breaks, CRLF, double spaces) reads as one space.
 4. **Syntax check per field.** Each field must meet its Doc 4444 syntax (table above). One that does not is returned **empty** with a **WARN** on that field; the other fields are still read. Partial reads keep only the part that is sure: field 9 with a wake letter that is not L/M/H/J keeps the type, wake empty; field 13 with an impossible EOBT keeps the aerodrome; field 16 with an impossible EET keeps destination and alternates; an alternate that is not 4 letters is skipped (WARN). Field 15 must start with a cruising speed and level (`N0481F320`, `M084F340`, `K0900S1150`, `N0120VFR` …), otherwise the route is empty (WARN). More than 2 alternates (Doc 4444 allows 2): all are returned, WARN.
-5. **Field 18.** `0` → no items (INFO). Items start at a known indicator followed by `/` (at the start or after a space). Known indicators: Doc 4444 `STS PBN NAV COM DAT SUR DEP DEST DOF REG EET SEL TYP CODE DLE OPR ORGN PER ALTN RALT TALT RIF RMK`, regional `RVR EUR IFP AWR RFP`. Any other `XXX/` is text of the item before it (RMK free text may contain a stroke), reported as INFO. Text before the first indicator → WARN, not put in any item. An indicator filed twice → texts joined with a space, WARN. An indicator with no text → `''`, WARN. `DOF/` that is not a real date `YYMMDD` → `dof` empty, WARN; `other.DOF` keeps the filed text. DOF, REG, SEL or RMK not filed → INFO listing them.
-6. **Not found** (no block, empty text, non-string input) → `found: false`, every field empty, one INFO; an unclosed block only → one WARN.
+5. **Field 18.** `0` → no items (INFO). Items start at a known indicator followed by `/` (at the start or after a space). Known indicators: Doc 4444 `STS PBN NAV COM DAT SUR DEP DEST DOF REG EET SEL TYP CODE DLE OPR ORGN PER ALTN RALT TALT RIF RMK`, regional `RVR EUR IFP AWR RFP`. Any other `XXX/` is text of the item before it (RMK free text may contain a stroke), reported as INFO. A known indicator **joined to the text before it with no space** (e.g. `DOF/261109REG/N123`) is not split off — splitting would be a guess: the text stays in the item where it was read (`other.DOF = '261109REG/N123'`, so `dof` is empty with its own WARN and `reg` is empty), WARN `field 18 item not separated` on that item. Text before the first indicator → WARN, not put in any item. An indicator filed twice → texts joined with a space, WARN. An indicator with no text → `''`, WARN. `DOF/` that is not a real date `YYMMDD` → `dof` empty, WARN; `other.DOF` keeps the filed text. DOF, REG, SEL or RMK not filed → INFO listing them.
+6. **Not found** (no `(FPL-`, empty text, non-string input) → `found: false`, `complete: false`, every field empty, one INFO. An incomplete block is not "not found": rule 1.
 
 ### 3.3 `validateSchema(ruleset?)`
 
-Checks the module's own exports (no argument) or a given object. Errors: a missing export or one of the wrong type; `parseNavBlue`, `_ofpRulesetParse`, `parseOFP` or `parseFlightKeys` exported (format parsers are not part of a shared module); `RULESET_TYPE` not `'icao-fpl'`; `RULESET_VERSION` not semver; `SCHEMA_VERSION` not an integer ≥ 1; `RULESET_SOURCE` empty; `FIELD18_INDICATORS` not an array of unique 3–4 letter upper-case indicators; `RESULT_FIELDS` not the field list of §3.2 in order; `parseIcaoFpl('')` throwing, not returning exactly those fields, or not returning `found: false`.
+Checks the module's own exports (no argument) or a given object. Errors: a missing export or one of the wrong type; `parseNavBlue`, `_ofpRulesetParse`, `parseOFP` or `parseFlightKeys` exported (format parsers are not part of a shared module); `RULESET_TYPE` not `'icao-fpl'`; `RULESET_VERSION` not semver; `SCHEMA_VERSION` not an integer ≥ 1; `RULESET_SOURCE` empty; `FIELD18_INDICATORS` not an array of unique 3–4 letter upper-case indicators; `RESULT_FIELDS` not the field list of §3.2 in order; `parseIcaoFpl('')` throwing, not returning exactly those fields, or not returning `found: false` and `complete: false`.
 
 ---
 
@@ -154,6 +157,14 @@ Observed: field 15 and field 18 wrap over several lines; a field 18 item's text 
 | TC-152-020 | all 30 NavBlue/eOFP fixtures: found; flightId, aircraftType, wake, dof = the NavBlue FPL patterns and `_ofpRulesetParse` (`acftType`, `isHeavy`, `flightDateISO`) — **0 differences**; 3 FlightKeys: found; no WARN on any fixture; equipment/route counts reported | PASS |
 | TC-152-021 | gate bites: wake fixed to M, type cut short, flight ID cut short, DOF as 19YY — each caught on all 30 NavBlue fixtures | PASS |
 | TC-152-030 | fixtures missing → the fixture comparison fails, not skipped | PASS |
+| TC-152-101 | F1, synthetic: no closing `)` — at the end of the text; followed by a line and a page break, then text with `)`; followed by `(` … `)`; followed by text with no bracket; followed by the next copy; cut inside field 8; two unclosed; `(FPL-` alone → `found` true, `complete` false, one ERROR naming the fields not read, fields 7–16 as in the complete read, field 18 empty, `raw` = the block up to field 18, no outside text anywhere | PASS |
+| TC-152-102 | F1: `(` inside field 15 → fields 7–13 read, 15/16/18 empty; `(` inside RMK → fields 7–16 read, field 18 empty | PASS |
+| TC-152-103 | F1/F3: page header after a blank line inside field 10, 15 or 18; CRLF blank line inside field 16; a line of spaces inside field 15 → incomplete, only the whole fields before it read, header text never returned | PASS |
+| TC-152-104 | F2: copies that differ only by a wrap inside 10a, wraps in fields 7/9, wraps and double spaces in the route, wraps in fields 16/18 (CRLF) → no finding; a real difference (an equipment code, an alternate, a route point, a remark word) → WARN, first copy read | PASS |
+| TC-152-105 | F4: `DOF/261109REG/N123` → `other.DOF` as read, `reg` and `dof` empty, WARN `field 18 item not separated`; joined inside PBN and before the first item → WARN, not split; no false WARN on a non-indicator stroke, codes with digits, or the full block | PASS |
+| TC-152-110 | fixtures, simulated: the closing `)` removed from **every copy** → 33/33 incomplete (break at `(`: 25, at a blank line: 8), RMK and every field 18 value empty, fields 7–16 equal the real read, `raw` a part of the real block, no line from after the block in the output, findings = the ERROR + those of fields 7–16; removed from the **first copy only** → NavBlue (3 copies): the next complete copy is read, same values, WARN; FlightKeys (1 copy): incomplete as above; a page break with a header inside field 15 of every copy → 33/33 incomplete, fields 7–13 as read, header never returned | PASS |
+| TC-152-111 | fixtures: every real block (all copies, **93**) is complete and its `raw` is exactly the v1.0.0 span — **0 of 93 touched** | PASS |
+| TC-152-120 | the F1–F4 checks bite: the reader with one first-push rule put back — block ends at the first `)` (fails TC-152-101/102/103 and the lost-`)` check on 33/33 fixtures); incomplete `raw` = the whole readable part; copies compared with wraps read as spaces; joined items not looked for — each fails its check | PASS |
 
 Reported per fixture (counts, no values; `node --test test/rules/icao-fpl.test.js` prints them):
 
@@ -163,7 +174,7 @@ Reported per fixture (counts, no values; `node --test test/rules/icao-fpl.test.j
 | eOFP print | 4 | 18 (3), 20 (1) | 3 (4) | 13–70 | 1 (4) | 10 (1), 11 (3) | 4 |
 | FlightKeys | 3 | 18 (3) | 3 (3) | 37–55 | 1 (3) | 11, 12, 14 | 3 |
 
-Whole suite on the branch: `npm test` 381/381; `check-rules` 4 modules match; build = committed `index.html`; extractor 33/33; golden, NOTAM and app-path compares 33/33 each — unchanged.
+Whole suite on the branch: `npm test` 389/389 (TC-152: 18/18); `check-rules` 4 modules match; build = committed `index.html`; extractor 33/33; golden, NOTAM and app-path compares 33/33 each — unchanged. On the first push of v1.0.0 (`2690dbb`) the eight QA tests TC-152-101 … 120 all fail.
 
 ---
 
@@ -172,6 +183,10 @@ Whole suite on the branch: `npm test` 381/381; `check-rules` 4 modules match; bu
 | Item | Note |
 | :--- | :--- |
 | Known indicator inside RMK text | RMK text containing e.g. ` REG/` starts a new item (Doc 4444 reserves the indicators). Not seen in the fixtures. |
+| Lost `)` followed directly by a `)` | If a block loses its `)` and the text after it reaches another `)` before any `(` or blank line, that `)` is taken as the end and the block reads as complete, with the following text in field 18. The rule cannot tell the two apart. In the 33 fixtures a `(` or a page break always comes first (TC-152-110: 33/33 caught). |
+| Page header without a blank line | Only a blank line marks a page break. A header line inside a block with no blank line before it would be read as text of that field. The extractor always writes the blank line (`tools/extract`), and no fixture has a header inside a block. |
+| Incomplete block with a missing field | In an incomplete block the field count cannot be checked (rule 2), so a missing field before the break shifts the fields after it; each must still pass its syntax check (fields 13 and 16 share one syntax). Two faults at once; not seen. |
+| Joined field 18 item | Not split (rule 5): the item it falls in keeps the text, WARN. |
 | Field 19 | Cut off, not read (no user for it). |
 | DOF century | `20YY`, as the NavBlue parser. |
 | Field 18 `EET/` | Kept as text in `other.EET` (points and times not split). |
@@ -193,3 +208,4 @@ Whole suite on the branch: `npm test` 381/381; `check-rules` 4 modules match; bu
 | Version | Date | Status | Changes |
 | :--- | :--- | :--- | :--- |
 | **1.0.0** | 2026-11-10 | NEW | ICAO FPL reader: fields 7, 8, 9, 10, 13, 15, 16, 18 per Doc 4444; findings; Blueprint metadata; `validateSchema()`. |
+| 1.0.0 (revised) | 2026-11-10 | NEW | Before the gate, for independent QA F1–F4 (ledger F-02): block ends at the `)` closing `(FPL-`; `(` / blank line / no `)` → incomplete (`complete: false`, ERROR, field 18 never read, `raw` only the part read); copies compared without white space; joined field 18 item → WARN, not split. Real blocks unchanged (0 of 93). |
