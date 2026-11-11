@@ -108,7 +108,6 @@ small{color:#526171}
         result:parsed,
         comparison:{expectedValuesProvided:!!expected,mismatchCount:mismatches.length,mismatches},
       };
-      report=report;
       window.flightKeysTestReport=report;
       output.textContent=JSON.stringify(report,null,2);
       const sc=findings.filter(f=>f.safetyClass==='SC'||f.safetyCritical===true);
