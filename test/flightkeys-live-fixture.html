@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlightKeys live-plan parser test</title>
+<style>
+:root{font:16px/1.45 system-ui,sans-serif;color:#18212b;background:#f5f7fa}
+body{max-width:1100px;margin:2rem auto;padding:0 1rem}
+section{background:#fff;border:1px solid #d8dee8;border-radius:10px;padding:1rem;margin:1rem 0}
+button,input{font:inherit}button{padding:.55rem .9rem;cursor:pointer}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e8edf2;padding:1rem;border-radius:8px;max-height:34rem;overflow:auto}
+.status{font-weight:650}.warn{color:#9a5700}.bad{color:#b42318}.good{color:#067647}
+small{color:#526171}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="../rules/ofp-flightkeys/ofp-flightkeys-v1.0.0.js"></script>
+</head>
+<body>
+<h1>FlightKeys live-plan parser test</h1>
+<p>Local acceptance harness for <code>ofp-flightkeys</code>. Select a live FlightKeys PDF; extraction and parsing run in this browser tab. The PDF is not uploaded to a server.</p>
+<section>
+<h2>1. Select a FlightKeys PDF</h2>
+<input id="pdf" type="file" accept="application/pdf,.pdf">
+<p><small>PDF.js is pinned to 3.11.174. Internet access is needed to load the pinned PDF.js library unless it is served locally.</small></p>
+</section>
+<section>
+<h2>2. Optional expected-values file</h2>
+<p>Upload a JSON file containing independently verified values to compare with the parser output. Use dotted paths, e.g. <code>{"expected":{"fltNum":"GTI874/02","blockFuelRaw":"120000"}}</code>. Only supplied keys are compared.</p>
+<input id="expected" type="file" accept="application/json,.json">
+</section>
+<section>
+<h2>3. Run and review</h2>
+<button id="run" disabled>Parse selected PDF</button>
+<button id="download" disabled>Download test report JSON</button>
+<p id="status" class="status" role="status">Select a PDF to begin.</p>
+<div id="summary"></div>
+</section>
+<section>
+<h2>Parser output and findings</h2>
+<pre id="output">No PDF parsed yet.</pre>
+</section>
+<script>
+(function(){
+  'use strict';
+  const pdfInput=document.getElementById('pdf');
+  const expectedInput=document.getElementById('expected');
+  const runButton=document.getElementById('run');
+  const downloadButton=document.getElementById('download');
+  const status=document.getElementById('status');
+  const output=document.getElementById('output');
+  const summary=document.getElementById('summary');
+  let report=null;
+  if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  pdfInput.addEventListener('change',()=>{runButton.disabled=!pdfInput.files.length;status.textContent=pdfInput.files.length?'Ready to parse: '+pdfInput.files[0].name:'Select a PDF to begin.';});
+  function getPath(obj,path){return path.split('.').reduce((v,k)=>v==null?undefined:v[k],obj);}
+  async function readExpected(){if(!expectedInput.files.length)return null;return JSON.parse(await expectedInput.files[0].text());}
+  async function extract(file){
+    const bytes=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(bytes)}).promise;
+    const pages=[],textPages=[];
+    for(let n=1;n<=pdf.numPages;n++){
+      const page=await pdf.getPage(n),viewport=page.getViewport({scale:1});
+      const content=await page.getTextContent();
+      const items=content.items.filter(x=>x.str&&x.str.trim()).map(x=>({
+        str:x.str,x:x.transform[4],y:viewport.height-x.transform[5],
+        w:x.width,h:x.height,font:x.fontName
+      }));
+      pages.push({page:n,width:viewport.width,height:viewport.height,items});
+      const sorted=items.slice().sort((a,b)=>Math.abs(a.y-b.y)>2?a.y-b.y:a.x-b.x);
+      const lines=[];
+      for(const item of sorted){
+        let line=lines.findLast?lines.findLast(l=>Math.abs(l.y-item.y)<=2):null;
+        if(!line){line={y:item.y,items:[]};lines.push(line);}
+        line.items.push(item);
+      }
+      textPages.push(lines.map(l=>l.items.sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ')).join('\n'));
+    }
+    return {pages,text:textPages.join('\n\n')};
+  }
+  function compare(expected,actual){
+    const mismatches=[];
+    if(!expected||!expected.expected)return mismatches;
+    for(const [path,want] of Object.entries(expected.expected)){
+      const got=getPath(actual,path);
+      if(JSON.stringify(got)!==JSON.stringify(want))mismatches.push({path,expected:want,actual:got===undefined?null:got});
+    }
+    return mismatches;
+  }
+  runButton.addEventListener('click',async()=>{
+    runButton.disabled=true;downloadButton.disabled=true;status.textContent='Extracting PDF…';summary.textContent='';output.textContent='';
+    try{
+      if(!window.pdfjsLib)throw new Error('PDF.js 3.11.174 failed to load.');
+      if(!window.OfpFlightKeys||typeof OfpFlightKeys.parseFlightKeys!=='function')throw new Error('FlightKeys parser module is not loaded or does not expose parseFlightKeys().');
+      const file=pdfInput.files[0],extracted=await extract(file);
+      status.textContent='Parsing FlightKeys briefing…';
+      const parsed=await OfpFlightKeys.parseFlightKeys({text:extracted.text,pages:extracted.pages});
+      const expected=await readExpected();
+      const mismatches=compare(expected,parsed);
+      const findings=Array.isArray(parsed.findings)?parsed.findings:[];
+      const report={
+        harness:'FlightKeys live-plan test',
+        pdfjsVersion:pdfjsLib.version,
+        sourceFileName:file.name,
+        pageCount:extracted.pages.length,
+        parsedAt:new Date().toISOString(),
+        parserVersion:OfpFlightKeys.RULESET_VERSION||'unknown',
+        result:parsed,
+        comparison:{expectedValuesProvided:!!expected,mismatchCount:mismatches.length,mismatches},
+      };
+      report=report;
+      window.flightKeysTestReport=report;
+      output.textContent=JSON.stringify(report,null,2);
+      const sc=findings.filter(f=>f.safetyClass==='SC'||f.safetyCritical===true);
+      summary.innerHTML='<p><strong>Pages:</strong> '+report.pageCount+' · <strong>Findings:</strong> '+findings.length+' · <strong>Safety-critical findings:</strong> '+sc.length+' · <strong>Expected-value mismatches:</strong> '+mismatches.length+'</p>';
+      status.textContent=mismatches.length?'Parse completed; expected-value mismatches need review.':'Parse completed. Review findings and compare against the paper OFP.';
+      status.className='status '+(mismatches.length?'bad':'good');
+      downloadButton.disabled=false;
+    }catch(e){status.textContent='Test failed: '+e.message;status.className='status bad';output.textContent=e.stack||String(e);}
+    finally{runButton.disabled=false;}
+  });
+  downloadButton.addEventListener('click',()=>{
+    if(!window.flightKeysTestReport)return;
+    const blob=new Blob([JSON.stringify(window.flightKeysTestReport,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='flightkeys-live-plan-test-report.json';a.click();URL.revokeObjectURL(url);
+  });
+})();
+</script>
+</body>
+</html>
