@@ -1,130 +1,128 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FlightKeys live-plan parser test</title>
 <style>
 :root{font:16px/1.45 system-ui,sans-serif;color:#18212b;background:#f5f7fa}
-body{max-width:1100px;margin:2rem auto;padding:0 1rem}
-section{background:#fff;border:1px solid #d8dee8;border-radius:10px;padding:1rem;margin:1rem 0}
-button,input{font:inherit}button{padding:.55rem .9rem;cursor:pointer}
-pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e8edf2;padding:1rem;border-radius:8px;max-height:34rem;overflow:auto}
-.status{font-weight:650}.warn{color:#9a5700}.bad{color:#b42318}.good{color:#067647}
-small{color:#526171}
+body{max-width:1100px;margin:2rem auto;padding:0 1rem}section{background:#fff;border:1px solid #d8dee8;border-radius:10px;padding:1rem;margin:1rem 0}
+button,input,textarea{font:inherit}button{padding:.55rem .9rem;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
+pre,.mono{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e8edf2;padding:1rem;border-radius:8px;max-height:34rem;overflow:auto}
+.status{font-weight:650}.bad{color:#b42318}.good{color:#067647}small,.muted{color:#526171}
+.field{display:grid;grid-template-columns:minmax(12rem,1fr) 2fr;gap:.6rem;padding:.65rem 0;border-bottom:1px solid #e5e9ef}
+.field label{font-weight:600;overflow-wrap:anywhere}.field input,.field textarea{width:100%;box-sizing:border-box;padding:.4rem}
+.field textarea{min-height:3.5rem}.flag{display:flex;align-items:center;gap:.5rem}.notam{font-family:ui-monospace,monospace;white-space:pre;overflow:auto;background:#101820;color:#e8edf2;padding:1rem}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="../rules/ofp-flightkeys/ofp-flightkeys-v1.0.0.js"></script>
 </head>
 <body>
 <h1>FlightKeys live-plan parser test</h1>
-<p>Local acceptance harness for <code>ofp-flightkeys</code>. Select a live FlightKeys PDF; extraction and parsing run in this browser tab. The PDF is not uploaded to a server.</p>
-<section>
-<h2>1. Select a FlightKeys PDF</h2>
-<input id="pdf" type="file" accept="application/pdf,.pdf">
-<p><small>PDF.js is pinned to 3.11.174. Internet access is needed to load the pinned PDF.js library unless it is served locally.</small></p>
-</section>
-<section>
-<h2>2. Optional expected-values file</h2>
-<p>Upload a JSON file containing independently verified values to compare with the parser output. Use dotted paths, e.g. <code>{"expected":{"fltNum":"GTI874/02","blockFuelRaw":"120000"}}</code>. Only supplied keys are compared.</p>
-<input id="expected" type="file" accept="application/json,.json">
-</section>
-<section>
-<h2>3. Run and review</h2>
-<button id="run" disabled>Parse selected PDF</button>
-<button id="download" disabled>Download test report JSON</button>
-<p id="status" class="status" role="status">Select a PDF to begin.</p>
-<div id="summary"></div>
-</section>
-<section>
-<h2>Parser output and findings</h2>
-<pre id="output">No PDF parsed yet.</pre>
-</section>
+<p>Select a live FlightKeys PDF. PDF extraction and parsing run locally in this browser tab; the PDF is not uploaded to a server.</p>
+<section><h2>1. Select source PDF</h2><input id="pdf" type="file" accept="application/pdf,.pdf"><p><small>PDF.js pinned to 3.11.174.</small></p></section>
+<section><h2>2. Optional independently verified expected values</h2>
+<p>JSON example: <code>{"expected":{"fltNum":"GTI874/02","origIcao":"ZHEC","blockFuelRaw":"120000"}}</code>. Only supplied keys are compared.</p><input id="expected" type="file" accept="application/json,.json"></section>
+<section><h2>3. Parse and review</h2><button id="run" disabled>Parse selected PDF</button> <button id="download" disabled>Download test report JSON</button>
+<p id="status" class="status" role="status">Select a PDF to begin.</p><div id="summary"></div></section>
+<section><h2>4. Field-by-field discrepancy review</h2>
+<p>Mark any incorrect or uncertain value. Enter the value shown on the source OFP, the page, and a note. Corrections are recorded as review data; they do not automatically alter parser logic.</p>
+<div id="fieldReview" class="muted">Parse a PDF to populate field review.</div></section>
+<section><h2>5. NOTAM formatting review</h2>
+<p>Source text is displayed with line breaks and indentation retained. The parser input also retains each PDF text item’s coordinates, dimensions, font and source order. Do not treat reflowed plain text as the source of truth for layout-sensitive NOTAM parsing.</p>
+<div id="notamReview" class="muted">NOTAM source preview will appear after parsing.</div></section>
+<section><h2>6. Full parser output and findings</h2><pre id="output">No PDF parsed yet.</pre></section>
 <script>
 (function(){
-  'use strict';
-  const pdfInput=document.getElementById('pdf');
-  const expectedInput=document.getElementById('expected');
-  const runButton=document.getElementById('run');
-  const downloadButton=document.getElementById('download');
-  const status=document.getElementById('status');
-  const output=document.getElementById('output');
-  const summary=document.getElementById('summary');
-  let report=null;
-  if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  pdfInput.addEventListener('change',()=>{runButton.disabled=!pdfInput.files.length;status.textContent=pdfInput.files.length?'Ready to parse: '+pdfInput.files[0].name:'Select a PDF to begin.';});
-  function getPath(obj,path){return path.split('.').reduce((v,k)=>v==null?undefined:v[k],obj);}
-  async function readExpected(){if(!expectedInput.files.length)return null;return JSON.parse(await expectedInput.files[0].text());}
-  async function extract(file){
-    const bytes=await file.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(bytes)}).promise;
-    const pages=[],textPages=[];
-    for(let n=1;n<=pdf.numPages;n++){
-      const page=await pdf.getPage(n),viewport=page.getViewport({scale:1});
-      const content=await page.getTextContent();
-      const items=content.items.filter(x=>x.str&&x.str.trim()).map(x=>({
-        str:x.str,x:x.transform[4],y:viewport.height-x.transform[5],
-        w:x.width,h:x.height,font:x.fontName
-      }));
-      pages.push({page:n,width:viewport.width,height:viewport.height,items});
-      const sorted=items.slice().sort((a,b)=>Math.abs(a.y-b.y)>2?a.y-b.y:a.x-b.x);
-      const lines=[];
-      for(const item of sorted){
-        let line=lines.findLast?lines.findLast(l=>Math.abs(l.y-item.y)<=2):null;
-        if(!line){line={y:item.y,items:[]};lines.push(line);}
-        line.items.push(item);
-      }
-      textPages.push(lines.map(l=>l.items.sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ')).join('\n'));
-    }
-    return {pages,text:textPages.join('\n\n')};
-  }
-  function compare(expected,actual){
-    const mismatches=[];
-    if(!expected||!expected.expected)return mismatches;
-    for(const [path,want] of Object.entries(expected.expected)){
-      const got=getPath(actual,path);
-      if(JSON.stringify(got)!==JSON.stringify(want))mismatches.push({path,expected:want,actual:got===undefined?null:got});
-    }
-    return mismatches;
-  }
-  runButton.addEventListener('click',async()=>{
-    runButton.disabled=true;downloadButton.disabled=true;status.textContent='Extracting PDF…';summary.textContent='';output.textContent='';
-    try{
-      if(!window.pdfjsLib)throw new Error('PDF.js 3.11.174 failed to load.');
-      if(!window.OfpFlightKeys||typeof OfpFlightKeys.parseFlightKeys!=='function')throw new Error('FlightKeys parser module is not loaded or does not expose parseFlightKeys().');
-      const file=pdfInput.files[0],extracted=await extract(file);
-      status.textContent='Parsing FlightKeys briefing…';
-      const parsed=await OfpFlightKeys.parseFlightKeys({text:extracted.text,pages:extracted.pages});
-      const expected=await readExpected();
-      const mismatches=compare(expected,parsed);
-      const findings=Array.isArray(parsed.findings)?parsed.findings:[];
-      const report={
-        harness:'FlightKeys live-plan test',
-        pdfjsVersion:pdfjsLib.version,
-        sourceFileName:file.name,
-        pageCount:extracted.pages.length,
-        parsedAt:new Date().toISOString(),
-        parserVersion:OfpFlightKeys.RULESET_VERSION||'unknown',
-        result:parsed,
-        comparison:{expectedValuesProvided:!!expected,mismatchCount:mismatches.length,mismatches},
-      };
-      window.flightKeysTestReport=report;
-      output.textContent=JSON.stringify(report,null,2);
-      const sc=findings.filter(f=>f.safetyClass==='SC'||f.safetyCritical===true);
-      summary.innerHTML='<p><strong>Pages:</strong> '+report.pageCount+' · <strong>Findings:</strong> '+findings.length+' · <strong>Safety-critical findings:</strong> '+sc.length+' · <strong>Expected-value mismatches:</strong> '+mismatches.length+'</p>';
-      status.textContent=mismatches.length?'Parse completed; expected-value mismatches need review.':'Parse completed. Review findings and compare against the paper OFP.';
-      status.className='status '+(mismatches.length?'bad':'good');
-      downloadButton.disabled=false;
-    }catch(e){status.textContent='Test failed: '+e.message;status.className='status bad';output.textContent=e.stack||String(e);}
-    finally{runButton.disabled=false;}
+'use strict';
+const $=id=>document.getElementById(id),pdfInput=$('pdf'),expectedInput=$('expected'),runButton=$('run'),downloadButton=$('download');
+let report=null,fieldValues=[];
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfInput.addEventListener('change',()=>{runButton.disabled=!pdfInput.files.length;$('status').textContent=pdfInput.files.length?'Ready: '+pdfInput.files[0].name:'Select a PDF.';});
+function getPath(o,p){return p.split('.').reduce((v,k)=>v==null?undefined:v[k],o);}
+function flatten(o,prefix='',out=[]){
+ if(!o||typeof o!=='object')return out;
+ for(const [k,v] of Object.entries(o)){
+  const p=prefix?prefix+'.'+k:k;
+  if(v===null||['string','number','boolean'].includes(typeof v))out.push({path:p,value:v});
+  else if(Array.isArray(v)){if(v.length===0)out.push({path:p,value:[]});else v.forEach((x,i)=>{if(x===null||typeof x!=='object')out.push({path:p+'.'+i,value:x});else flatten(x,p+'.'+i,out);});}
+  else flatten(v,p,out);
+ }
+ return out;
+}
+async function extract(file){
+ const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,pages=[],pageText=[];
+ for(let n=1;n<=pdf.numPages;n++){
+  const page=await pdf.getPage(n),viewport=page.getViewport({scale:1}),content=await page.getTextContent({disableCombineTextItems:false});
+  const items=content.items.filter(x=>typeof x.str==='string'&&x.str.length).map((x,index)=>({
+   str:x.str,x:x.transform[4],y:viewport.height-x.transform[5],width:x.width,height:x.height,
+   fontName:x.fontName,dir:x.dir,hasEOL:!!x.hasEOL,sourceOrder:index
+  }));
+  pages.push({page:n,width:viewport.width,height:viewport.height,items});
+  // Geometry and original PDF.js item order are preserved separately above. This text view
+  // reconstructs line breaks and horizontal gaps; it never replaces the positioned source.
+  const sorted=items.slice().sort((a,b)=>Math.abs(a.y-b.y)>2.2?a.y-b.y:a.x-b.x),lines=[];
+  for(const item of sorted){let line=null;for(let j=lines.length-1;j>=0;j--){if(Math.abs(lines[j].y-item.y)<=2.2){line=lines[j];break;}if(lines[j].y<item.y-2.2)break;}
+   if(!line){line={y:item.y,items:[]};lines.push(line);}line.items.push(item);}
+  const rendered=lines.sort((a,b)=>a.y-b.y).map(line=>{
+   const row=line.items.sort((a,b)=>a.x-b.x);let s='',lastX=null,lastWidth=0;
+   for(const item of row){if(lastX!==null){const gap=item.x-(lastX+lastWidth);const unit=Math.max(2.5,Math.min(9,(item.height||10)*.48));if(gap>unit*.55)s+=' '.repeat(Math.min(48,Math.max(1,Math.round(gap/unit))));}
+    s+=item.str;lastX=item.x;lastWidth=item.width;}
+   return s;
   });
-  downloadButton.addEventListener('click',()=>{
-    if(!window.flightKeysTestReport)return;
-    const blob=new Blob([JSON.stringify(window.flightKeysTestReport,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download='flightkeys-live-plan-test-report.json';a.click();URL.revokeObjectURL(url);
-  });
+  pageText.push(rendered.join('\n'));
+ }
+ return {pages,text:pageText.join('\n\n'),pageText};
+}
+function compare(expected,actual){const mismatches=[];if(expected&&expected.expected)for(const [path,want] of Object.entries(expected.expected)){const got=getPath(actual,path);if(JSON.stringify(got)!==JSON.stringify(want))mismatches.push({path,expected:want,actual:got===undefined?null:got});}return mismatches;}
+function renderFieldReview(parsed){
+ fieldValues=flatten(parsed).filter(x=>!x.path.startsWith('sections.')&&!x.path.startsWith('findings.'));
+ const root=$('fieldReview');root.innerHTML='';
+ if(!fieldValues.length){root.textContent='No scalar parser fields found.';return;}
+ fieldValues.forEach((f,i)=>{
+  const row=document.createElement('div');row.className='field';
+  const label=document.createElement('label');label.textContent=f.path+' · parsed: '+JSON.stringify(f.value);
+  const controls=document.createElement('div'),flag=document.createElement('label');flag.className='flag';
+  const check=document.createElement('input');check.type='checkbox';check.dataset.index=i;check.className='discrepancy';
+  flag.append(check,document.createTextNode('Mark discrepancy / needs review'));controls.append(flag);
+  const actual=document.createElement('input');actual.placeholder='Correct value as shown on the OFP';actual.dataset.index=i;actual.className='corrected';
+  const page=document.createElement('input');page.placeholder='Source page / section';page.dataset.index=i;page.className='source-page';
+  const note=document.createElement('textarea');note.placeholder='What is wrong? Include formatting/context if relevant.';note.dataset.index=i;note.className='review-note';
+  controls.append(actual,page,note);row.append(label,controls);root.append(row);
+ });
+}
+function collectDiscrepancies(){return [...document.querySelectorAll('.discrepancy:checked')].map(c=>{
+ const i=c.dataset.index,f=fieldValues[i];return {field:f.path,parsedValue:f.value,correctValue:document.querySelector('.corrected[data-index="'+i+'"]').value,sourcePage:document.querySelector('.source-page[data-index="'+i+'"]').value,note:document.querySelector('.review-note[data-index="'+i+'"]').value,status:'unreviewed'};
+});}
+function renderNotams(parsed,extracted){
+ const root=$('notamReview');root.innerHTML='';
+ const candidates=[];
+ function walk(o,p='result'){if(!o||typeof o!=='object')return;for(const [k,v] of Object.entries(o)){const q=p+'.'+k;if(/notam/i.test(k)&&typeof v==='string')candidates.push({path:q,text:v});else if(/notam/i.test(k)&&Array.isArray(v))candidates.push({path:q,text:JSON.stringify(v,null,2)});else if(v&&typeof v==='object')walk(v,q);}}
+ walk(parsed);
+ const source=candidates.length?candidates.map(c=>'['+c.path+']\n'+c.text).join('\n\n'):'No dedicated NOTAM raw-text field returned yet. Showing page-preserving extraction below; parser implementation must expose NOTAM source blocks without whitespace normalization.';
+ const pre=document.createElement('pre');pre.className='notam';pre.textContent=source+'\n\n===== PAGE-BY-PAGE SOURCE TEXT =====\n'+extracted.pageText.map((t,i)=>'--- PAGE '+(i+1)+' ---\n'+t).join('\n\n');
+ root.append(pre);
+}
+$('run').addEventListener('click',async()=>{
+ runButton.disabled=true;downloadButton.disabled=true;$('status').textContent='Extracting PDF…';$('output').textContent='';
+ try{
+  if(!window.pdfjsLib)throw Error('PDF.js 3.11.174 failed to load.');
+  if(!window.OfpFlightKeys||typeof OfpFlightKeys.parseFlightKeys!=='function')throw Error('Parser module not yet available.');
+  const file=pdfInput.files[0],extracted=await extract(file);$('status').textContent='Parsing…';
+  const parsed=await OfpFlightKeys.parseFlightKeys({text:extracted.text,pages:extracted.pages});
+  const expected=expectedInput.files.length?JSON.parse(await expectedInput.files[0].text()):null,mismatches=compare(expected,parsed),findings=Array.isArray(parsed.findings)?parsed.findings:[];
+  report={harness:'FlightKeys live-plan test',pdfjsVersion:pdfjsLib.version,sourceFileName:file.name,pageCount:extracted.pages.length,parsedAt:new Date().toISOString(),parserVersion:OfpFlightKeys.RULESET_VERSION||'unknown',result:parsed,comparison:{expectedValuesProvided:!!expected,mismatchCount:mismatches.length,mismatches},discrepancies:[],sourceExtraction:{method:'pdf.js text layer',pageText:extracted.pageText,pages:extracted.pages}};
+  window.flightKeysTestReport=report;$('output').textContent=JSON.stringify(report,null,2);
+  renderFieldReview(parsed);renderNotams(parsed,extracted);
+  $('summary').textContent='Pages: '+report.pageCount+' | Findings: '+findings.length+' | Expected-value mismatches: '+mismatches.length;
+  $('status').textContent='Parsed. Review each field and the NOTAM formatting before recording results.';$('status').className='status '+(mismatches.length?'bad':'good');downloadButton.disabled=false;
+ }catch(e){$('status').textContent='Test failed: '+e.message;$('status').className='status bad';$('output').textContent=e.stack||String(e);}
+ finally{runButton.disabled=false;}
+});
+downloadButton.addEventListener('click',()=>{
+ if(!report)return;report.discrepancies=collectDiscrepancies();
+ const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='flightkeys-live-plan-test-report.json';a.click();URL.revokeObjectURL(url);
+});
 })();
 </script>
-</body>
-</html>
+</body></html>
