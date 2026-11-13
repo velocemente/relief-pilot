@@ -50,11 +50,20 @@ function fakeName(name) {
 
 // ── line rules ────────────────────────────────────────────────────────────
 // Returns { found: [{kind, orig}] } entries for registry building, and spans.
+// ctx = { prev, inRemarks }: the previous non-blank line, and whether the line
+// sits between a "Remarks" header and the next "FUFI:" page footer (FlightKeys).
 const ROSTER = /^(\s*(?:CA|FO|FA|PU|LM|MX|DH|RO|IRO|SO)\s+(?:\*\s*)?)(\d{5,7})(\s+)(.+?)(?=\s+\.\.|\s*$)/;
 const DH_NONUM = /^(\s*DH\s+)([A-Za-z][A-Za-z’'\-. ]*?)(\s+(?:FA|FO|CPT|PR|CA)\s*)$/;
 const DISPATCHER = /^(\s*Signed by Dispatcher:\s*)([A-Za-z][A-Za-z’'\-.() ]*?)\s*$/;
+// FlightKeys jump seat: "JS 0 LAST FIRST M" or "JS 0 Last, First" (employee number 0).
+const JS_ZERO = /^(\s*JS\s+0\s+)([A-Za-z][A-Za-z’'\-., ]*?)\s*$/;
+// FlightKeys first Remarks line: "First Last DESK: 50 [PHONE: ...]" or "DESK: POLAR".
+const DESK = /^(\s*)([A-Za-z][A-Za-z’'\-. ]*?)\s+DESK:\s*[A-Za-z0-9]+(?:\s+PHONE:.*)?\s*$/;
+// Free-text greeting/sign-off line in the Remarks block: "THANKS NAME", "FROM NAME :P".
+// The whole line must be the lead-in, one or two words and an optional emoticon.
+const SIGNOFF = /^(\s*(?:TEST\s+FOR|THANKS|THANK\s+YOU|FROM|HI|HELLO|DEAR|ATTN:?)\s+)([A-Za-z]{3,}(?:\s+[A-Za-z]{3,})?)(?=\s*(?:[:;]-?[A-Za-z()]{1,2})?\s*[.!]?\s*$)/i;
 
-function ruleMatches(line) {
+function ruleMatches(line, ctx = {}) {
   const out = []; // { kind, start, end, orig }
   let m;
   if ((m = ROSTER.exec(line))) {
@@ -66,18 +75,36 @@ function ruleMatches(line) {
     out.push({ kind: 'crew', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
   } else if ((m = DISPATCHER.exec(line)) && !/NOT RELEASED/i.test(m[2])) {
     out.push({ kind: 'dispatcher', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
+  } else if ((m = JS_ZERO.exec(line))) {
+    out.push({ kind: 'crew', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
+  } else if (/^\s*Remarks\s*$/.test(ctx.prev || '') && (m = DESK.exec(line))) {
+    out.push({ kind: 'dispatcher', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
+  } else if (ctx.inRemarks && (m = SIGNOFF.exec(line))) {
+    out.push({ kind: 'remarks', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
   }
   return out;
+}
+// Context for each line, from the lines in reading order.
+function lineContexts(lines) {
+  let prev = '', inRemarks = false;
+  return lines.map(line => {
+    const ctx = { prev, inRemarks };
+    if (/^\s*Remarks\s*$/.test(line)) inRemarks = true;
+    else if (/^\s*FUFI:/.test(line)) inRemarks = false;
+    if (line.trim()) prev = line;
+    return ctx;
+  });
 }
 function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 // Build the per-file registry from every line, then return a function that
-// maps a line to replacement spans [{start,end,text,kind}].
+// maps line i to replacement spans [{start,end,text,kind}].
 function makeRedactor(lines) {
+  const ctxs = lineContexts(lines);
   const numbers = new Set();
   const names = new Map(); // normalised multi-token name -> kind
-  for (const line of lines) {
-    for (const r of ruleMatches(line)) {
+  for (let i = 0; i < lines.length; i++) {
+    for (const r of ruleMatches(lines[i], ctxs[i])) {
       if (r.kind === 'empno') numbers.add(r.orig);
       // Only distinctive names are searched for elsewhere; "MAY A" or "HALL N"
       // would also rewrite ordinary text ("MAY A BIRD", "SHALL NOT").
@@ -92,8 +119,9 @@ function makeRedactor(lines) {
         .map(n => esc(n).replace(/ /g, '\\s+')).join('|')})(?![A-Za-z])`, 'g')
     : null;
 
-  return function spans(line) {
-    const found = ruleMatches(line).map(r => ({ start: r.start, end: r.end, kind: r.kind, orig: r.orig }));
+  return function spans(i) {
+    const line = lines[i];
+    const found = ruleMatches(line, ctxs[i]).map(r => ({ start: r.start, end: r.end, kind: r.kind, orig: r.orig }));
     const add = (re, kind) => {
       if (!re) return;
       re.lastIndex = 0;
@@ -130,15 +158,16 @@ class Report {
 function redactRaw(text, report) {
   const lines = text.split('\n');
   const spansFor = makeRedactor(lines);
-  return lines.map(l => {
-    const sp = spansFor(l);
+  return lines.map((l, i) => {
+    const sp = spansFor(i);
     sp.forEach(s => report.add(s));
     return applySpans(l, sp);
   }).join('\n');
 }
 
 // ── items ─────────────────────────────────────────────────────────────────
-// Assemble lines exactly like the app, remembering where each item sits.
+// Assemble lines exactly like the app (top to bottom), remembering where each
+// item sits.
 function assemble(pageItems) {
   const lines = [];
   pageItems.forEach(it => {
@@ -147,6 +176,7 @@ function assemble(pageItems) {
     if (!b) { b = { y: it.y, items: [] }; lines.push(b); }
     b.items.push(it);
   });
+  lines.sort((a, b) => a.y - b.y);
   return lines.map(l => {
     const sorted = l.items.slice().sort((a, b) => a.x - b.x);
     let str = '', prevRight = null;
@@ -166,9 +196,10 @@ function assemble(pageItems) {
 
 function redactItems(json, report) {
   const perPage = json.pages.map(p => assemble(p.items));
-  const spansFor = makeRedactor(perPage.flat().map(l => l.str));
-  perPage.forEach(pageLines => pageLines.forEach(line => {
-    const sp = spansFor(line.str);
+  const flat = perPage.flat();
+  const spansFor = makeRedactor(flat.map(l => l.str));
+  flat.forEach((line, i) => {
+    const sp = spansFor(i);
     if (!sp.length) return;
     sp.forEach(s => report.add(s));
     // Rewrite item strings: the first item a span touches carries the fake
@@ -189,7 +220,7 @@ function redactItems(json, report) {
       list.sort((x, y) => x.from - y.from).forEach(e => { out += it.str.slice(pos, e.from) + e.text; pos = e.to; });
       it.str = out + it.str.slice(pos);
     });
-  }));
+  });
   return json;
 }
 
@@ -217,11 +248,11 @@ function main() {
     else { console.error(`skip (unknown type): ${f}`); continue; }
     fs.writeFileSync(path.join(outDir, path.basename(f)), out);
     const c = rep.counts;
-    console.log(`${path.basename(f)}: ${c.empno || 0} employee numbers, ${c.crew || 0} crew names, ${c.dispatcher || 0} dispatcher names replaced`);
+    console.log(`${path.basename(f)}: ${c.empno || 0} employee numbers, ${c.crew || 0} crew names, ${c.dispatcher || 0} dispatcher names, ${c.remarks || 0} names in remarks replaced`);
     rep.map.forEach((v, k) => total.map.set(k, v));
   }
   const u = total.unique();
-  console.log(`\nDistinct values replaced: ${u.empno || 0} employee numbers, ${u.crew || 0} crew names, ${u.dispatcher || 0} dispatcher names`);
+  console.log(`\nDistinct values replaced: ${u.empno || 0} employee numbers, ${u.crew || 0} crew names, ${u.dispatcher || 0} dispatcher names, ${u.remarks || 0} names in remarks`);
   if (showMap) {
     console.log('\nPERSONAL DATA BELOW (original -> fake)');
     total.map.forEach((v, k) => console.log(`${k.replace('\t', ' ')} -> ${v}`));
