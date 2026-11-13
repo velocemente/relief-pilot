@@ -83,8 +83,39 @@ OFP p1 layout (every package): running header `CCC####/DDMON/ORIG-DEST/REG` · `
 
 ---
 
-## 2.2 Fuel — *pending (next push)*
-## 2.3 Weights — *pending*
+### 2.2 Fuel (OFP p1) — SC
+
+Fuel block (every package): heading `ORIG-DEST` and `ALT1/2 IIII/`, then `FUEL TIME GDIS` and one row per item `NAME nnnnnn HH.MM [GDIS]`. **Redispatch packages** (9: T3, L02, L08, L11, L12, L13, L14, L18, L19) print three columns: `ORIG-DEST (POR)-DEST ORIG-RAPT`, `ALT1/2 PALT/ PALT/ RALT`. Rows seen: `TRIP CONT ALT1 FRES [ADD.AL] [ADD.LD] PCF [BALST] MINF EXTRA TOF TAXI BLOCK REMF`, then `*ADDL FF ADJ ±n.nn *` when a fuel-flow adjustment applies.
+
+| # | Return field | SC | FlightKeys location / form (structure) | Pkgs | Status | Evidence / notes |
+|---|---|---|---|---|---|---|
+| 9 | `blockFuelRaw` | **SC** | OFP p1 `BLOCK nnnnnn HH.MM` | 22 | ✅ | Parser equal to the text in 22/22. |
+| 10 | `minfFuelRaw` | **SC** | OFP p1 `MINF nnnnnn HH.MM ....` (first column) | 22 | ✅ | 22/22. |
+| 11 | `fresFuelRaw` | | OFP p1 `FRES nnnnnn HH.MM` | 22 | ✅ | 22/22 (time 00.30; 00.45 on the domestic L05). |
+| 12 | `taxiFuelRaw`, `taxiMins` | | OFP p1 `TAXI nnnnnn HH.MM` | 22 | ✅ | 22/22 (fuel and minutes). |
+| 13 | `tripMinutes` | | OFP p1 `TRIP nnnnnn HH.MM GDIS` (first column) | 22 | ✅ | 22/22. |
+| 14 | `alt1Fuel` | | OFP p1 `ALT1 nnnnnn HH.MM GDIS` | 22 | ✅ | 22/22. |
+| 15 | `destRemf` | | OFP p1 `REMF nnnnnn HH.MM ....` (first column) | 22 | ✅ | 22/22. |
+| 16 | `ballastFuel` | | OFP p1 `BALST nnnnnn 00.00` (all columns in redispatch tables). Remarks companion: `Dispatcher applied ADHOC penalty:` / `- Ballast fuel added = nnnnkg` (L02), free text `ADDED BALLAST FOR W&B` (L02). | 4 (4 live) | 🔴 | L02, L04, L12, L18. NavBlue pattern expects `BALLAST nnnn`; FlightKeys writes `BALST` → parser `null` in 4/4. Closes v1.0 ❓. |
+| 17 | `porMinf` | | OFP p1 `MINF` row, **second column** (`(POR)-DEST`) | 9 (8 live) | ✅ | Parser equal to the second column in 9/9 (same layout as NavBlue two-column MINF). Closes v1.0 ❓. |
+| 18 | `zfwIncrFactor` | | OFP p1 ZFW row: `ZFW nnnnnn ...... Snnnnnn ZFW INC/1000 X nnn MINF ADJ` | 22 | 🔴 | `INC` not `INCR` → parser `null` in 22/22; MINF-ADJ cascade lost. Unchanged from v1.0. |
+| 19 | `addlFfAdj` | | OFP p1 `*ADDL FF ADJ +n.nn *` (space before the closing `*`), directly under `REMF` | 10 (8 live) | 🔴 | T1, T3, L03, L08, L10, L12, L13, L16, L17, L18 → parser `null` in 10/10. Companion lines in the MEL/CDL block: `- All fuel flow values increased by n.nn PCT` (T1, T3 under `Dispatcher applied ADHOC penalty:`; L16, L18 under a CDL item). In L16 the two values differ (FF ADJ +4.30, CDL line 3.30 PCT): **SME-6**. |
+
+**Not core, seen in the fuel block (for `extraFuel` / `pcf`, §3):** `CONT` 22, `PCF` 22 (zero in some), `EXTRA` 22, `TOF` 22, `ADD.AL` 11, `ADD.LD` 1 (L05). Meaning of `ADD.AL` / `ADD.LD`: **SME-7**.
+
+### 2.3 Weights (OFP p1)
+
+Weight block: `Weight Actual Limit` · `DOW` · [`SWA (nnnnnn)`] · `PYLD` · `ZFW` · `RAMP` · `TOGW` · `LDGW` · `WEIGHT LIMIT CODES:` legend `S-STRUCT P-PERF L-MTOW BASED ON LDW+TRIP FUEL I-BY DISPATCHER`.
+
+| # | Return field | SC | FlightKeys location / form (structure) | Pkgs | Status | Evidence / notes |
+|---|---|---|---|---|---|---|
+| 20 | `zfwActual/Limit` | | OFP p1 `ZFW nnnnnn ...... Lnnnnnn ZFW INC/1000 X nnn MINF ADJ` (L = limit code) | 22 | ✅ | 22/22 equal; code `S` in all. |
+| 21 | `togwActual/Limit` | | OFP p1 `TOGW nnnnnn ...... Lnnnnnn [MTOW LTD BY VZFW/CK LIMITS]` | 22 | ✅ | 22/22 equal; codes `S` and `L`. |
+| 22 | `ldgwActual/Limit` | | OFP p1 `LDGW nnnnnn Lnnnnnn [*LDGW IIII nnnnnn*]` | 22 | ✅ | 22/22 equal; codes `S` and `P`. Redispatch packages add the planned landing weight at the redispatch airport on the same row (`*LDGW IIII nnnnnn*`, 9 packages); not read by any core field. |
+| 23 | `hasVzfwCkLimit` | | OFP p1, **inline on the TOGW row**, no asterisks: `MTOW LTD BY VZFW/CK LIMITS` | 9 (6 live) | 🔴 | T1, T2, T3, L02, L09, L10, L11, L12, L19. NavBlue pattern needs `*MTOW LTD BY VZFW/CK LIMITS*` → parser `false` in 9/9; the red weight alert is suppressed. Negative check: `false` is correct in the other 13. |
+
+**Not core:** `SWA (nnnnnn)` between DOW and PYLD in the two passenger flights (L05, L15). Meaning: **SME-8**.
+
 ## 2.4 Remarks / release — *pending*
 ## 2.5 Route, ETOPS, nav log, sections — *pending*
 ## 2.6 Weather, NOTAM, Company NOTAM — *pending*
