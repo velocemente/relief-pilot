@@ -1,8 +1,8 @@
 # SPRINT-OFP-FlightKeysMigration — Field Map Reference
 
-**Version:** v1.1-REF | **Status:** REF | **Date:** 2026-11-13 (Exec answers to the SME questions recorded in §4 the same day, three rounds)
+**Version:** v1.1-REF | **Status:** REF | **Date:** 2026-11-13 (Exec answers to the SME questions recorded in §4 the same day, three rounds; extended to 26 packages and Exec decisions D55/D56 recorded under addendum v4.6c the same day)
 **Supersedes:** `SPRINT-OFP-FlightKeysMigration-REF-20261029-v1.0-FieldMap.md` (v1.0 stays in `docs/` for history).
-**What this file is:** the FlightKeys field map re-done on the **19 live packages** plus the 3 FlightKeys prototypes (fixtures branch `claude/fk-live-19`, fixtures PR #11). It covers every v1.0 row (1–50) and every ADR-005 Appendix B extension, and lists the questions only an SME can settle.
+**What this file is:** the FlightKeys field map re-done on the **23 live packages** plus the 3 FlightKeys prototypes, **26 packages** in all (fixtures branch `claude/fk-live-19`, fixtures PR #11). The first pass covered 19 live packages; the 4 placed in Drive on 10 Nov (L20–L23) were added under addendum v4.6c, and every count below is over all 26. It covers every v1.0 row (1–50) and every ADR-005 Appendix B extension, and lists the questions only an SME can settle.
 **What it is not:** a parser. Nothing in the app changes. Statuses describe what today's NavBlue parser (`ofp-navblue` v2.0.0, run as `_ofpRulesetParse`) returns on FlightKeys text, i.e. what `ofp-flightkeys` must fix or carry over.
 
 > **Public repository.** All examples below are **structure only**. Crew names, employee numbers, dispatcher names and phone numbers are never shown; where a line holds them it is written with placeholders (`<NAME>`, `<EMPNO>`). The extracted texts were passed through `tools/redact` before analysis. Fixture IDs (route, date, label) are used to say *where* a form was seen; they contain no personal data.
@@ -13,7 +13,7 @@
 
 ### 1.1 Packages
 
-22 FlightKeys packages: the 3 prototypes (T1–T3, already in v1.0 or added after it) and the 19 live packages (L01–L19). Labels are used in every table below.
+26 FlightKeys packages: the 3 prototypes (T1–T3, already in v1.0 or added after it) and the 23 live packages (L01–L23; L20–L23 are the 4 placed in Drive on 10 Nov, in fixtures-manifest order). Labels are used in every table below. "PDF pp" is the last page with text; trailing image-only pages at the end of a PDF are not counted (the fixtures manifest counts them).
 
 **Sections** are the parts of each PDF as found by content (not by the embedded outline): `HSCN` High Severity Company NOTAMs · `OFP` release (footer `FUFI: <uuid> PAGE n/N`) · `CN+NOTAM` Company NOTAMs then NOTAM Briefing (one document, footer `Page n of N <uuid>`) · `WX+HAZ` Weather Briefing then Hazard Briefing (one document) · `NAT` NAT track message · `VA` Volcanic Ash Advisories · `Jepp` Jeppesen chart alert and airport briefing · `TLR` Takeoff and Landing Report (footer `FUFI<uuid> PAGE n/N`) · `blank` pages with no text (images).
 
@@ -41,23 +41,36 @@
 | L17 | `FK_OMAA-VHHH_03NOV26_etihad-permits_live` | 38 | HSCN 1 · OFP 2–12 · CN+NOTAM 13–30 · WX+HAZ 31–34 · VA 35 · TLR 36–38 | B777F / KG | 01 |
 | L18 | `FK_KORD-RJAA_03NOV26_intl-redispatch_live` | 47 | HSCN 1 · OFP 2–10 · CN+NOTAM 11–25 · WX+HAZ 26–39 · VA 40 · blank 41–43 · TLR 44–47 | B747-400F / KG | 01 |
 | L19 | `FK_PANC-KMIA_03NOV26_dom-redispatch-mel_live` | 33 | HSCN 1 · OFP 2–8 · CN+NOTAM 9–20 · WX+HAZ 21–28 · VA 29 · TLR 30–33 | B747-400F / KG | 01 |
+| L20 | `FK_KORD-RKSI_10NOV26_nopac-etops-remarks_live` | 74 | HSCN 1 · OFP 2–11 · OFP 12–21 · OFP 22–31 · CN+NOTAM 32–48 · WX+HAZ 49–69 · VA 70 · TLR 71–74 | B777F / KG | REV 02 (×3 copies) |
+| L21 | `FK_NZWN-NFFN_10NOV26_pax-remarks_live` | 34 | HSCN 1 · OFP 2–8 · OFP 9–15 · OFP 16–22 · CN+NOTAM 23–27 · WX+HAZ 28–30 · VA 31 · TLR 32–34 | B767-300ERW / LB | REV 01 (×3 copies) |
+| L22 | `FK_EPPW-KPSM_10NOV26_nat-random-callsign_live` | 46 | HSCN 1 · OFP 2–9 · OFP 10–17 · OFP 18–25 · CN+NOTAM 26–35 · WX+HAZ 36–40 · NAT 41–42 · VA 43 · TLR 44–46 | B767-300 / LB | REV 01 (×3 copies) |
+| L23 | `FK_KDOV-ETAR_03NOV26_pax-nat-random_live` | 45 | HSCN 1 · OFP 2–9 · OFP 10–17 · OFP 18–25 · CN+NOTAM 26–33 · WX+HAZ 34–39 · NAT 40–41 · VA 42 · TLR 43–45 | B767-300 / LB | REV 03 (×3 copies) |
 
-Counts: TLR in **19/22** (every live package; none of the prototypes). NAT track message in 3 (L08, L11, L12). Jeppesen attachments in 2 (L09, L13). Release printed more than once in 1 (L02: three identical copies, byte-for-byte equal text). Image-only pages in 2 (L16, L18). Weight unit LB in 3 (L01, L04, L15).
+Counts: TLR in **23/26** (every live package; none of the prototypes). NAT track message in 5 (L08, L11, L12, L22, L23). Jeppesen attachments in 2 (L09, L13). Release printed more than once in 5 (L02, L20, L21, L22, L23: three copies each, byte-for-byte equal text in every case). Image-only pages inside the PDF in 2 (L16, L18). Weight unit LB in 6 (L01, L04, L15, L21, L22, L23).
+
+**Release header changed in the 10 Nov packages.** L01–L19 print `OPERATIONAL FLIGHT PLAN RLS nn DDMONYY HH:MM`; L20–L23 print `OPERATIONAL FLIGHT PLAN REV nn DDMONYY HH:MM` (prototypes: `-- NOT RELEASED --`). Nothing in today's app or `ofp-navblue` keys on either word (checked by search), so no core row changes; the `revision` extension (§3) must accept both.
 
 ### 1.2 Method
 
 | Step | Detail |
 |---|---|
 | Text | `text/<id>.raw.txt` from the fixtures branch (pdf.js 3.11.174, the app's line assembly, `tools/extract`), then `tools/redact` into a scratch folder. PDF page = position of the page break in the text. |
-| Parser run | `test/harness` → `_ofpRulesetParse(raw)` (NavBlue parser v2.0.0, unmodified) on all 22 packages. "Parser" in the tables means this run. |
-| Location | Located by hand in the text, then checked by pattern search across all 22 packages. "OFP p*n*" = FlightKeys OFP page *n* (the `PAGE n/N` footer); PDF pages per package are in §1.1. |
+| Parser run | `test/harness` → `_ofpRulesetParse(raw)` (NavBlue parser v2.0.0, unmodified) on all 26 packages. "Parser" in the tables means this run. |
+| Location | Located by hand in the text, then checked by pattern search across all 26 packages (one pattern per form, run over the first release copy where the release repeats). "OFP p*n*" = FlightKeys OFP page *n* (the `PAGE n/N` footer); PDF pages per package are in §1.1. |
 | Comparison | NavBlue forms taken from `ofp-navblue` v2.0.0 (`PATTERNS`, `ALT_PATTERNS`, `CFS_PATTERNS`) and the NavBlue golden snapshots. |
 
-**Pkgs** column: number of the 22 packages that carry the item (live count in brackets when it differs, e.g. `9 (8 live)`).
+**Pkgs** column: number of the 26 packages that carry the item (live count in brackets when it differs, e.g. `10 (9 live)`).
 
 ### 1.3 Legend
 
-**✅ SAME** parser returns the right value unchanged · **🟡 ADAPT** located; value partly right or a pattern change is needed · **🔴 SILENT** returns empty/wrong with no error · **⚪ ABSENT** the FlightKeys package does not carry it · **❓ UNSEEN** no package among the 22 exercises it · **SC** = Safety-Critical field (Operating Practice III-1; CLAUDE.md rule 6).
+**✅ SAME** parser returns the right value unchanged · **🟡 ADAPT** located; value partly right or a pattern change is needed · **🔴 SILENT** returns empty/wrong with no error · **⚪ ABSENT** the FlightKeys package does not carry it · **❓ UNSEEN** no package among the 26 exercises it · **SC** = Safety-Critical field (Operating Practice III-1; CLAUDE.md rule 6).
+
+### 1.4 Exec decisions recorded in this map (addendum v4.6c, 13 Nov 2026)
+
+| ID | Decision (Exec) | Rows | What it means here |
+|---|---|---|---|
+| **D55** | Rows 8a (SALT/TALT), 28 (temperature control) and 48 (E-WINS) are taken to be present in FlightKeys **exactly as the NavBlue rules** describe them. The FlightKeys parser applies the NavBlue rules for them **unchanged**. The rows stay ❓ until live evidence shows them. | 8a, 28, 48 | No FlightKeys-specific rule is written for these three rows. The live evidence found in the 4 new packages is recorded in each row against the NavBlue rule; nothing in it changes D55, but row 48 holds a FlightKeys form the NavBlue rule does not match (**SME-17**). |
+| **D56** | The E-WINS forecast may come from **WSI or TWC**; both sources are recognised. **D46 is unchanged** (when E-WINS is issued it sets the airport status; both weather reports are shown in the raw weather). | 48, `remarksWeather[]` | The NavBlue rule recognises only a `WSITAF` forecast line (`ofp-navblue` v2.0.0, E-WINS block); a TWC forecast must be recognised as well. No package shows the TWC (or a FlightKeys WSI) forecast wording, so its exact form is still open (**SME-15**). WSI/TWC hazard products in the Hazard Briefing are not E-WINS (row 48 negative requirement). |
 
 ---
 
@@ -65,19 +78,19 @@ Counts: TLR in **19/22** (every live package; none of the prototypes). NAT track
 
 ### 2.1 Flight identity & header (OFP p1)
 
-OFP p1 layout (every package): running header `CCC####/DDMON/ORIG-DEST/REG` · `OPERATIONAL FLIGHT PLAN RLS nn DDMONYY HH:MM` (prototypes: `-- NOT RELEASED --`) · identity line · `COST INDEX nnn Revision: n.n` · type line · `PROGS … Release Valid Until HHMMZ DDMONYY` · airport lines · route string · fuel and weight blocks.
+OFP p1 layout (every package): running header `CCC####/DDMON/ORIG-DEST/REG` · `OPERATIONAL FLIGHT PLAN RLS nn DDMONYY HH:MM` (L20–L23: `REV nn`; prototypes: `-- NOT RELEASED --`) · identity line · `COST INDEX nnn Revision: n.n` · type line · `PROGS … Release Valid Until HHMMZ DDMONYY` · airport lines · route string · fuel and weight blocks.
 
 | # | Return field | SC | FlightKeys location / form (structure) | Pkgs | Status | Evidence / notes |
 |---|---|---|---|---|---|---|
-| 1 | `fltNum` | | OFP p1 identity line `CCC####/DD ORIG - DEST DD MON YY REG`. Also FPL `(FPL-CCC####-IS`. | 22 | ✅ | Parser `CCC####/DD` in 22/22, equal to the identity line. Designators: GTI 20, BWA 1 (L01), ETD 1 (L17). `/DD` is the schedule day; in 5 packages (L04, L08, L09, L11, L16) the flight date is the next day — same convention as NavBlue. The running header `CCC####/DDMON/…` does not false-match (no word boundary after `DD`). |
-| 2 | `acftType`, `isHeavy` | | OFP p4 (`TIME FUEL` page), ICAO FPL item 9 `-TYPE/W-…` | 22 | ✅ | B744 12, B748 4, B77L 3, B763 2, BLCF 1; wake `H` in 22/22; parser equal in 22/22. |
-| 3 | `weightUnit` | | OFP p1 type line `MODEL / ENGINE / KG\|LB / IFR / FF +n.n [ETOPS Entry HH.MM]` | 22 | ✅ | KG 19 → `KGS`; **LB 3 (L01, L04, L15) → `LBS`**. Closes v1.0 ❓LB. |
-| 4 | `dateStr`, `flightDateISO` | | FPL item 18 `DOF/YYMMDD` (OFP p4) | 22 | ✅ | 22/22 equal to `DOF` and to the identity-line date. |
-| 5 | `origIcao`, `offFromOFP` | | OFP p1 `ORIG IIII/AAA NAME [Q] N#####W###### HHMMZ` | 22 | ✅ | 22/22. A **`Q`** token before the coordinates appears on at least one airport line in 8 packages (T1, T2, L03, L09, L10, L13, L16, L17), on ORIG, DEST, PALT or RALT; the template tolerates it. **Exec (SME-2): `Q` = Special Qualification airport**, to be shown on the airport card as "SPECIAL QUALIFICATION". Not read today (🔴 for that meaning; not a core field — candidate addition to Appendix B). |
-| 6 | `destIcao`, `etaDest`, `destEtaOffsetMins` | | OFP p1 `DEST IIII/AAA NAME [Q] LATLON HHMMZ` | 22 | ✅ | 22/22. |
-| 7 | `altData[]` (PALT) | | OFP p1 `PALT IIII/AAA NAME [Q] LATLON HHMMZ`; FPL item 16 second token | 22 | ✅ | 22/22, role `DEST ALT`. |
-| 8 | `altData[]` (RAPT/RALT) | | OFP p1 `RAPT …` and `RALT …` lines, directly under PALT | 9 (8 live) | ✅ | T3, L02, L08, L11, L12, L13, L14, L18, L19 — exactly the redispatch packages (POR present, row 40). Parser role `EN ROUTE ALT` in 9/9. The briefing labels the same airports `dest2` / `dest2AltnPlanned` (row 43). |
-| 8a | `altData[]` (SALT/TALT) | | — | 0 | ❓ | No second destination alternate or takeoff alternate in any of the 22 releases. Stays open. |
+| 1 | `fltNum` | | OFP p1 identity line `CCC####/DD ORIG - DEST DD MON YY REG`. Also FPL `(FPL-CCC####-IS`. | 26 | ✅ | Parser `CCC####/DD` in 26/26, equal to the identity line. Designators: GTI 23, BWA 1 (L01), ETD 1 (L17), **CMB 1 (L22)**. `/DD` is the schedule day; in 5 packages (L04, L08, L09, L11, L16) the flight date is the next day — same convention as NavBlue — and in L23 (release 3, re-planned) it is 7 days earlier than the flight date (`/03`, flight 10 NOV, `DOF/261110`). The running header `CCC####/DDMON/…` does not false-match (no word boundary after `DD`). **L22 carries two flight numbers:** the release, the FPL (`FPL-CMB550`, `OPR/GTI`) and the TLR page header say `CMB550`; the briefing parts (running header of the HSCN, Company NOTAM/NOTAM, Weather/Hazard and VA pages) and the TLR title line say `GTI8225`. The parser reads the release value (CMB550 → CAMBER through CS-1); which number the crew sees is **SME-16**. |
+| 2 | `acftType`, `isHeavy` | | OFP p4 (`TIME FUEL` page), ICAO FPL item 9 `-TYPE/W-…` | 26 | ✅ | B744 12, B748 4, B77L 4, B763 5, BLCF 1; wake `H` in 26/26; parser equal in 26/26. |
+| 3 | `weightUnit` | | OFP p1 type line `MODEL / ENGINE / KG\|LB / IFR / FF +n.n [ETOPS Entry HH.MM]` | 26 | ✅ | KG 20 → `KGS`; **LB 6 (L01, L04, L15, L21, L22, L23) → `LBS`** in 6/6. Closes v1.0 ❓LB. |
+| 4 | `dateStr`, `flightDateISO` | | FPL item 18 `DOF/YYMMDD` (OFP p4) | 26 | ✅ | 26/26 equal to `DOF` and to the identity-line date (including L23, where `/DD` differs by 7 days, row 1). |
+| 5 | `origIcao`, `offFromOFP` | | OFP p1 `ORIG IIII/AAA NAME [Q] N#####W###### HHMMZ`; an airport with no IATA code is printed `ORIG IIII/ NAME LATLON HHMMZ` (nothing after the `/`) | 26 | 🟡 | 25/26. **L22: `origIcao ''`, `offFromOFP ''`** — the origin has no IATA code (`IIII/ NAME`), and the NavBlue line pattern needs three letters after the `/`. The same form can occur on any OFP p1 airport line; it is seen only on ORIG. A **`Q`** token before the coordinates appears on at least one airport line in 8 packages (T1, T2, L03, L09, L10, L13, L16, L17), on ORIG, DEST, PALT or RALT; the template tolerates it. **Exec (SME-2): `Q` = Special Qualification airport**, to be shown on the airport card as "SPECIAL QUALIFICATION". Not read today (🔴 for that meaning; not a core field — candidate addition to Appendix B). |
+| 6 | `destIcao`, `etaDest`, `destEtaOffsetMins` | | OFP p1 `DEST IIII/AAA NAME [Q] LATLON HHMMZ` | 26 | 🟡 | `destIcao` and `etaDest` 26/26. `destEtaOffsetMins` 25/26: `null` in L22 because the OFF time is empty there (row 5). |
+| 7 | `altData[]` (PALT) | | OFP p1 `PALT IIII/AAA NAME [Q] LATLON HHMMZ`; FPL item 16 second token | 26 | ✅ | 26/26, role `DEST ALT`. |
+| 8 | `altData[]` (RAPT/RALT) | | OFP p1 `RAPT …` and `RALT …` lines, directly under PALT | 10 (9 live) | ✅ | T3, L02, L08, L11, L12, L13, L14, L18, L19, L20 — exactly the redispatch packages (POR present, row 40). Parser role `EN ROUTE ALT` in 10/10. The briefing labels the same airports `dest2` / `dest2AltnPlanned` (row 43). **Not the same thing:** FPL item 18 `RALT/IIII …` (ICAO en-route alternates, 10 packages, e.g. L21 `RALT/NFFN NZAA`) — the parser does not read it as an alternate, which is correct; the FlightKeys parser must keep it apart from the OFP p1 `RALT` line. |
+| 8a | `altData[]` (SALT/TALT) | | — (D55: as the NavBlue rule, `SALT` → `DEST ALT`, `TALT` → `TKOF ALT`) | 0 | ❓ | No second destination alternate or takeoff alternate in any of the 26 releases. **D55:** the NavBlue rule is applied unchanged; the row stays ❓ for live evidence. L21's Remarks carry a station restriction for NZWN that includes `Takeoff alternate required for all Departures` (767 operations), yet L21 has no `TALT` line and no takeoff alternate in the FPL: **SME-18**. |
 
 **Not core, seen on OFP p1 (for the extensions, §3):** release number and time (`RLS nn DDMONYY HH:MM`), `Revision: n.n` (`-.-` when not released), `Release Valid Until`, `COST INDEX`, `FF +n.n` (fuel-flow bias), `ETOPS Entry HH.MM` (row 39), `Coldest Fuel Temp`, `FMC Reserves`, `ADIS`, `POR: WPT[+nnNM] HH.MM` (row 40).
 
@@ -85,23 +98,23 @@ OFP p1 layout (every package): running header `CCC####/DDMON/ORIG-DEST/REG` · `
 
 ### 2.2 Fuel (OFP p1) — SC
 
-Fuel block (every package): heading `ORIG-DEST` and `ALT1/2 IIII/`, then `FUEL TIME GDIS` and one row per item `NAME nnnnnn HH.MM [GDIS]`. **Redispatch packages** (9: T3, L02, L08, L11, L12, L13, L14, L18, L19) print three columns: `ORIG-DEST (POR)-DEST ORIG-RAPT`, `ALT1/2 PALT/ PALT/ RALT`. Rows seen: `TRIP CONT ALT1 FRES [ADD.AL] [ADD.LD] PCF [BALST] MINF EXTRA TOF TAXI BLOCK REMF`, then `*ADDL FF ADJ ±n.nn *` when a fuel-flow adjustment applies.
+Fuel block (every package): heading `ORIG-DEST` and `ALT1/2 IIII/`, then `FUEL TIME GDIS` and one row per item `NAME nnnnnn HH.MM [GDIS]`. **Redispatch packages** (10: T3, L02, L08, L11, L12, L13, L14, L18, L19, L20) print three columns: `ORIG-DEST (POR)-DEST ORIG-RAPT`, `ALT1/2 PALT/ PALT/ RALT`. Rows seen: `TRIP CONT ALT1 FRES [ADD.AL] [ADD.LD] PCF [BALST] MINF EXTRA TOF TAXI BLOCK REMF`, then `*ADDL FF ADJ ±n.nn *` when a fuel-flow adjustment applies.
 
 | # | Return field | SC | FlightKeys location / form (structure) | Pkgs | Status | Evidence / notes |
 |---|---|---|---|---|---|---|
-| 9 | `blockFuelRaw` | **SC** | OFP p1 `BLOCK nnnnnn HH.MM` | 22 | ✅ | Parser equal to the text in 22/22. |
-| 10 | `minfFuelRaw` | **SC** | OFP p1 `MINF nnnnnn HH.MM ....` (first column) | 22 | ✅ | 22/22. |
-| 11 | `fresFuelRaw` | | OFP p1 `FRES nnnnnn HH.MM` | 22 | ✅ | 22/22 (time 00.30; 00.45 on the domestic L05). |
-| 12 | `taxiFuelRaw`, `taxiMins` | | OFP p1 `TAXI nnnnnn HH.MM` | 22 | ✅ | 22/22 (fuel and minutes). |
-| 13 | `tripMinutes` | | OFP p1 `TRIP nnnnnn HH.MM GDIS` (first column) | 22 | ✅ | 22/22. |
-| 14 | `alt1Fuel` | | OFP p1 `ALT1 nnnnnn HH.MM GDIS` | 22 | ✅ | 22/22. |
-| 15 | `destRemf` | | OFP p1 `REMF nnnnnn HH.MM ....` (first column) | 22 | ✅ | 22/22. |
-| 16 | `ballastFuel` | | OFP p1 `BALST nnnnnn 00.00` (all columns in redispatch tables). Remarks companion: `Dispatcher applied ADHOC penalty:` / `- Ballast fuel added = nnnnkg` (L02), free text `ADDED BALLAST FOR W&B` (L02). | 4 (4 live) | 🔴 | L02, L04, L12, L18. NavBlue pattern expects `BALLAST nnnn`; FlightKeys writes `BALST` → parser `null` in 4/4. Closes v1.0 ❓. |
-| 17 | `porMinf` | | OFP p1 `MINF` row, **second column** (`(POR)-DEST`) | 9 (8 live) | ✅ | Parser equal to the second column in 9/9 (same layout as NavBlue two-column MINF). Closes v1.0 ❓. |
-| 18 | `zfwIncrFactor` | | OFP p1 ZFW row: `ZFW nnnnnn ...... Snnnnnn ZFW INC/1000 X nnn MINF ADJ` | 22 | 🔴 | `INC` not `INCR` → parser `null` in 22/22; MINF-ADJ cascade lost. Unchanged from v1.0. |
-| 19 | `addlFfAdj` | | OFP p1 `*ADDL FF ADJ +n.nn *` (space before the closing `*`), directly under `REMF` | 10 (8 live) | 🔴 | T1, T3, L03, L08, L10, L12, L13, L16, L17, L18 → parser `null` in 10/10. Companion lines in the MEL/CDL block: `- All fuel flow values increased by n.nn PCT` (T1, T3 under `Dispatcher applied ADHOC penalty:`; L16, L18 under a CDL item). In L16 the two values differ (FF ADJ +4.30, CDL line 3.30 PCT): **SME-6**: the type-line `FF +n.n` is unrelated to `ADDL FF ADJ` (Exec); how the +4.30 is built is dispatch's automated system and out of scope for this comparison (Exec): the parser reads the printed `ADDL FF ADJ` value as it stands. |
+| 9 | `blockFuelRaw` | **SC** | OFP p1 `BLOCK nnnnnn HH.MM` | 26 | ✅ | Parser equal to the text in 26/26. |
+| 10 | `minfFuelRaw` | **SC** | OFP p1 `MINF nnnnnn HH.MM ....` (first column) | 26 | ✅ | 26/26. |
+| 11 | `fresFuelRaw` | | OFP p1 `FRES nnnnnn HH.MM` | 26 | ✅ | 26/26 (time 00.30; 00.45 on the domestic L05). |
+| 12 | `taxiFuelRaw`, `taxiMins` | | OFP p1 `TAXI nnnnnn HH.MM` | 26 | ✅ | 26/26 (fuel and minutes). |
+| 13 | `tripMinutes` | | OFP p1 `TRIP nnnnnn HH.MM GDIS` (first column) | 26 | ✅ | 26/26. |
+| 14 | `alt1Fuel` | | OFP p1 `ALT1 nnnnnn HH.MM GDIS` | 26 | ✅ | 26/26. |
+| 15 | `destRemf` | | OFP p1 `REMF nnnnnn HH.MM ....` (first column) | 26 | ✅ | 26/26. |
+| 16 | `ballastFuel` | | OFP p1 `BALST nnnnnn 00.00` (all columns in redispatch tables). Remarks companion: `Dispatcher applied ADHOC penalty:` / `- Ballast fuel added = nnnnkg` (L02), free text `ADDED BALLAST FOR W&B` (L02). | 4 (4 live) | 🔴 | L02, L04, L12, L18 (none in L20–L23). NavBlue pattern expects `BALLAST nnnn`; FlightKeys writes `BALST` → parser `null` in 4/4. Negative check: `null` in the other 22, correct. Closes v1.0 ❓. |
+| 17 | `porMinf` | | OFP p1 `MINF` row, **second column** (`(POR)-DEST`) | 10 (9 live) | ✅ | Parser equal to the second column in 10/10 (same layout as NavBlue two-column MINF). Closes v1.0 ❓. |
+| 18 | `zfwIncrFactor` | | OFP p1 ZFW row: `ZFW nnnnnn ...... Snnnnnn ZFW INC/1000 X nnn MINF ADJ` | 26 | 🔴 | `INC` not `INCR` → parser `null` in 26/26; MINF-ADJ cascade lost. Unchanged from v1.0. |
+| 19 | `addlFfAdj` | | OFP p1 `*ADDL FF ADJ +n.nn *` (space before the closing `*`), directly under `REMF` | 10 (8 live) | 🔴 | T1, T3, L03, L08, L10, L12, L13, L16, L17, L18 → parser `null` in 10/10. None in L20–L23 (their type-line `FF +n.n` is +0.8 to +5.0 with no `ADDL FF ADJ` line, which agrees with SME-6: the two are unrelated). Companion lines in the MEL/CDL block: `- All fuel flow values increased by n.nn PCT` (T1, T3 under `Dispatcher applied ADHOC penalty:`; L16, L18 under a CDL item). In L16 the two values differ (FF ADJ +4.30, CDL line 3.30 PCT): **SME-6**: the type-line `FF +n.n` is unrelated to `ADDL FF ADJ` (Exec); how the +4.30 is built is dispatch's automated system and out of scope for this comparison (Exec): the parser reads the printed `ADDL FF ADJ` value as it stands. |
 
-**Not core, seen in the fuel block (for `extraFuel` / `pcf`, §3):** `CONT` 22, `PCF` 22 (zero in some), `EXTRA` 22, `TOF` 22, `ADD.AL` 11, `ADD.LD` 1 (L05). `ADD.AL` / `ADD.LD`, `CF` and PCF follow the NavBlue rules (**Exec, SME-7**).
+**Not core, seen in the fuel block (for `extraFuel` / `pcf`, §3):** `CONT` 26, `PCF` 26 (zero in some), `EXTRA` 26, `TOF` 26, `ADD.AL` 12 (L20 added), `ADD.LD` 1 (L05). `ADD.AL` / `ADD.LD`, `CF` and PCF follow the NavBlue rules (**Exec, SME-7**).
 
 ### 2.3 Weights (OFP p1)
 
@@ -109,12 +122,12 @@ Weight block: `Weight Actual Limit` · `DOW` · [`SWA (nnnnnn)`] · `PYLD` · `Z
 
 | # | Return field | SC | FlightKeys location / form (structure) | Pkgs | Status | Evidence / notes |
 |---|---|---|---|---|---|---|
-| 20 | `zfwActual/Limit` | | OFP p1 `ZFW nnnnnn ...... Lnnnnnn ZFW INC/1000 X nnn MINF ADJ` (L = limit code) | 22 | ✅ | 22/22 equal; code `S` in all. |
-| 21 | `togwActual/Limit` | | OFP p1 `TOGW nnnnnn ...... Lnnnnnn [MTOW LTD BY VZFW/CK LIMITS]` | 22 | ✅ | 22/22 equal; codes `S` and `L`. |
-| 22 | `ldgwActual/Limit` | | OFP p1 `LDGW nnnnnn Lnnnnnn [*LDGW IIII nnnnnn*]` | 22 | ✅ | 22/22 equal; codes `S` and `P`. Redispatch packages add the planned landing weight at the redispatch airport on the same row (`*LDGW IIII nnnnnn*`, 9 packages); not read by any core field. |
-| 23 | `hasVzfwCkLimit` | | OFP p1, **inline on the TOGW row**, no asterisks: `MTOW LTD BY VZFW/CK LIMITS` | 9 (6 live) | 🔴 | T1, T2, T3, L02, L09, L10, L11, L12, L19. NavBlue pattern needs `*MTOW LTD BY VZFW/CK LIMITS*` → parser `false` in 9/9; the red weight alert is suppressed. Negative check: `false` is correct in the other 13. |
+| 20 | `zfwActual/Limit` | | OFP p1 `ZFW nnnnnn ...... Lnnnnnn ZFW INC/1000 X nnn MINF ADJ` (L = limit code) | 26 | ✅ | 26/26 equal; code `S` in all. |
+| 21 | `togwActual/Limit` | | OFP p1 `TOGW nnnnnn ...... Lnnnnnn [MTOW LTD BY VZFW/CK LIMITS]` | 26 | ✅ | 26/26 equal; codes `S` and `L` (`L` also in L21, L23). |
+| 22 | `ldgwActual/Limit` | | OFP p1 `LDGW nnnnnn Lnnnnnn [*LDGW IIII nnnnnn*]` | 26 | ✅ | 26/26 equal; codes `S` and `P`. Redispatch packages add the planned landing weight at the redispatch airport on the same row (`*LDGW IIII nnnnnn*`, 10 packages); not read by any core field. |
+| 23 | `hasVzfwCkLimit` | | OFP p1, **inline on the TOGW row**, no asterisks: `MTOW LTD BY VZFW/CK LIMITS` | 9 (6 live) | 🔴 | T1, T2, T3, L02, L09, L10, L11, L12, L19. NavBlue pattern needs `*MTOW LTD BY VZFW/CK LIMITS*` → parser `false` in 9/9; the red weight alert is suppressed. None in L20–L23. Negative check: `false` is correct in the other 17. |
 
-**Not core:** `SWA (nnnnnn)` between DOW and PYLD (L05, L15). **Exec (SME-8):** service weight adjustment; can appear on any flight; note `SWA` and its value (candidate addition to Appendix B).
+**Not core:** `SWA (nnnnnn)` between DOW and PYLD (4: L05, L15, L21, L22 — all passenger flights). **Exec (SME-8):** service weight adjustment; can appear on any flight; note `SWA` and its value (candidate addition to Appendix B).
 
 ### 2.4 Remarks / release (OFP p2–p3) — SC
 
