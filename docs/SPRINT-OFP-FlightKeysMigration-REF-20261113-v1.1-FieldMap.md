@@ -250,47 +250,57 @@ Today's parser returns none of these (the contract v2.0 extensions are not imple
 | SME-12 | Curfew sources that disagree (L18 p11–12; L02 p32–33; L14 p13–14) | "You will have to show me this scenario." | **Re-checked: no such scenario exists in the 22 packages** — the earlier question was based on a misread of the two-column layout (row 46). **Reworded, open:** one `IIII-CURFEW` item (RJAA in L02, L14, L18) lists curfews per type (747-400 family; B767/B777/B748) and per registration (five tails), with different start times. **Second round (Exec):** the parser cross-matches the aircraft type to the listed types to apply the appropriate curfew. **Third round (closed):** curfews listed like this ONLY apply to the appropriate type (e.g. a 747-400 OFP takes the 747-400 line). If the OFP's type is not listed, only the general curfew applies. Registration lists are therefore not matched. |
 | SME-13 | 747 `2EO` scenarios with E.ENT/E.EXIT only; Last/First Adequate (L09 p12, L11 p11; L03 p12, L14 p12, L15 p9) | Correct and fairly rare. These are alternate airports for consideration. | Row 41: these airports must appear as CFS alternates. |
 | SME-14 | Two NAT track messages in one package (L12 p25–27) | The TMI number is controlling. Same TMI in both = anomaly. Different TMIs → the track validity period determines which is the most current. | Row 42. **Second round (Exec):** TMI 308 is the most recent, so it is the most current and is displayed; the higher number is always the most current. The crew must also have access to TMI 307. (Our earlier reading of 307 was wrong.) |
-| SME-15 | (new, 13 Nov) E-WINS may be noted as either WSI or TWC. What exact wording does a FlightKeys E-WINS release use (e.g. a release remark naming WSI/TWC, and the forecast's own header)? A sample package would close row 48. | — | Open. Row 48: WSI/TWC appear in 21/22 packages only as en-route hazard products, which must not count as E-WINS. |
+| SME-15 | (13 Nov) E-WINS may be noted as either WSI or TWC (now **D56**). What exact wording does a FlightKeys E-WINS forecast use (the WSI and the TWC form, and the forecast's own header)? | D56 recorded (§1.4): both sources recognised, D46 unchanged. | Open for the wording. Row 48: no package prints an E-WINS forecast; WSI/TWC appear in 25/26 packages only as en-route hazard products, which must not count as E-WINS. The one FlightKeys E-WINS release (L22) has no forecast: SME-17. |
 | SME-3a | If `*` is not seniority, what does it mark? | A marker for pilot use with no bearing on anything; if present it is tied to the crew member's last name. In the crew rest module no crew names need to be displayed — only whether there are 3 or 4 operating crew. | Row 26: keep `*` with the last name; no logic depends on it. Crew rest uses the operating-crew count (3 or 4), not names. |
+| SME-16 | (addendum, 4 new packages) L22 carries two flight numbers: release, FPL and TLR page header `CMB550` (L22 PDF p2, p5, p44 header); briefing running header (HSCN p1, Company NOTAM/NOTAM p26–35, Weather p36–40, VA p43) and the TLR title line `GTI8225` (p44). Which is the Flight ID the crew sees, and is the other one ever shown? (Callsign: CS-1 gives CAMBER from `CMB550`.) | — | Open. Rows 1, 31, `designator`, 50. |
+| SME-17 | E-WINS release in FlightKeys (L22 PDF p3, OFP p2): `Released under EWINS Authority` — no airport, no WSI/TWC forecast anywhere in the package. Which airport is released under E-WINS (the origin EPPW? its TAF is marked `* PRIO *` on p36, and Company NOTAM `EPPW-TAFCOVERA…` on p27 says EPPW TAFs are short), where does FlightKeys print the E-WINS forecast, and what should the app do with a release line that names no airport? Under D55 the NavBlue rule is applied unchanged, but it cannot match or use this line. | — | Open. Row 48. |
+| SME-18 | Takeoff alternate (L21 PDF p3, OFP p2; also Company NOTAM p23): the NZWN restriction for 767 operations says `Takeoff alternate required for all Departures`, but L21 prints no `TALT` line and no takeoff alternate in the FPL. Is a takeoff alternate expected on this release, and where would FlightKeys print it (a `TALT` line on OFP p1 as NavBlue, D55)? | — | Open. Row 8a stays ❓. |
+| SME-19 | MEL named only in a remark (L23 PDF p3, OFP p2): `HHMMZ STR ADD M<ATA>` (an `A`-suffixed 25-chapter item) while the `MEL/CDL` block lists other items. Is the remark item an MEL on this flight that the crew must see with the others? What does `STR` mean? | — | Open. Row 25. |
+| SME-20 | NAT message for the opposite direction (L22 PDF p41–42; same message in L23 p40–41): a westbound random route (EPPW–KPSM) whose package carries only the eastbound track message (TMI 315, `WEST LVLS NIL` on every track). Should a westbound flight still be shown the attached message? Today's parser returns nothing for L22 and TMI 315 for the eastbound L23. | — | Open. Row 42. |
+| SME-21 | `* PRIO * TAF IIII …` in the Weather Briefing (L15, L20 p51, L22 p36): what does `PRIO` mark, and should it change the airport status or the display? | — | Open. Rows 43, 48. |
+| SME-22 | Curfews the package cannot resolve on its own (L23 PDF p27, Company NOTAM `ETAR-CURFEW`; L20 p33, `PAEI-CURFEW`): ETAR gives `SUMMER:` / `WINTER:` windows by `MONDAY-SATURDAY` and `SUNDAY & GERMAN HOLIDAYS`, with no dates for summer/winter or the holidays; PAEI says `QUIET HOURS ENFORCED HHMM-HHMMZ`. How should the app apply a seasonal/holiday curfew, and are quiet hours a curfew? | — | Open. Row 46. |
 
 ---
 
 ## 5. Summary
 
-### 5.1 Core rows (52 entries: rows 1–50 plus 8a, 32a)
+### 5.1 Core rows (52 entries: rows 1–50 plus 8a, 32a) — 26 packages
 
 | Status | Count | Rows |
 |---|---|---|
-| ✅ SAME | 21 | 1–8, 9–15, 17, 20–22, 30, 34 |
+| ✅ SAME | 19 | 1–4, 7, 8, 9–15, 17, 20–22, 30, 34 |
 | 🔴 SILENT | 22 | 16, 18, 19, 23, 24, 25, 26, 27, 32a, 33, 35, 36, 37, 39 (entry), 42, 43, 44, 45, 46, 47, 49, 50 |
-| 🟡 ADAPT | 5 | 29, 32, 38, 40, 41 |
+| 🟡 ADAPT | 7 | 5, 6 (both new: origin with no IATA code, L22), 29, 32, 38, 40, 41 |
 | ⚪ ABSENT | 1 | 31 |
-| ❓ UNSEEN | 3 | 8a SALT/TALT, 28 temperature control, 48 E-WINS |
+| ❓ UNSEEN | 3 | 8a SALT/TALT, 28 temperature control, 48 E-WINS — all three under D55 |
 
-**Safety-Critical fields:** block/min fuel ✅ · slot time ✅ (one form seen) · ETOPS exit and spec ✅, **ETOPS entry 🔴** · ETP/CFS 🟡 (no weather windows) · DOT/Polar exemption 🟡 (`altRequired` wrong when the line wraps) · **CAT II/III 🔴** · **crew 🔴** · **airport NOTAM / weather / curfew 🔴**.
+Change from the 22-package map: rows 5 and 6 move from ✅ to 🟡 (one new package); no other status changes. Every count is now over 26.
+
+**Safety-Critical fields:** block/min fuel ✅ (26/26) · slot time ✅ (one form seen) · ETOPS exit and spec ✅, **ETOPS entry 🔴** (7/7) · ETP/CFS 🟡 (no weather windows; no CFS airport for E.ENT/E.EXIT-only scenarios on the 747 and the 767) · DOT/Polar exemption 🟡 (`altRequired` wrong when the line wraps) · **CAT II/III 🔴** · **crew 🔴** · **airport NOTAM / weather / curfew 🔴**.
 
 ### 5.2 v1.0 ❓ items
 
 | v1.0 ❓ | Now | Row |
 |---|---|---|
-| ETOPS (blocker) | closed: 3 packages; entry 🔴, exit ✅, spec ✅ | 39 |
-| CFS/ETP (blocker) | closed: 6 packages; 🟡 | 41 |
-| POR/RDA | closed: 9 packages; MINF ✅, POR 🟡 | 17, 40 |
-| NAT | closed: 3 packages; 🔴 | 42 |
+| ETOPS (blocker) | closed: 7 packages; entry 🔴, exit ✅, spec ✅ | 39 |
+| CFS/ETP (blocker) | closed: 10 packages; 🟡 | 41 |
+| POR/RDA | closed: 10 packages; MINF ✅, POR 🟡 | 17, 40 |
+| NAT | closed: 5 packages; 🔴 (opposite-direction message in L22: SME-20) | 42 |
+| NOPAC / PACOTS | PACOTS messages inside the NOTAM Briefing in 10 packages; NOPAC only as a route (L20, R220), never named; parser `natTrack: null` for all | 42, 49 |
 | Slot / wheels-up | closed for `WHEELS UP NOT BEFORE` (1 package); other forms unseen | 30 |
-| DOT exemption | closed for the `EXEMPTION NO` form (4 packages); DOT-SP form unseen | 29 |
+| DOT exemption | closed for the `EXEMPTION NO` form (6 packages); DOT-SP form unseen | 29 |
 | Perishables | closed: 7 packages; 🔴 | 27 |
-| Temperature control | **open** | 28 |
+| Temperature control | **open** (D55): negative form `TEMPERATURE REQUIREMENTS: NO` seen once (L20), read correctly; positive form unseen | 28 |
 | Ballast | closed: 4 packages; 🔴 | 16 |
-| Verbal callsign | closed as ⚪ (not printed; SME-5) | 31 |
-| E-WINS | **open** | 48 |
-| SALT/RALT/TALT | RALT (and RAPT) closed ✅; **SALT/TALT open** | 8, 8a |
-| LB unit | closed: 3 packages ✅ | 3 |
-| TLR | closed: 19 packages; 🟡 | 32 |
+| Verbal callsign | closed as ⚪ (not printed; SME-5). Designators seen: GTI, BWA, ETD, CMB (CMB → CAMBER); two flight numbers in L22 (SME-16) | 31 |
+| E-WINS | **open** (D55, D56): release line seen once (L22) with no airport and no forecast (SME-17); WSI/TWC forecast wording unseen (SME-15) | 48 |
+| SALT/RALT/TALT | RALT (and RAPT) closed ✅ (10 packages); **SALT/TALT open** (D55; SME-18) | 8, 8a |
+| LB unit | closed: 6 packages ✅ | 3 |
+| TLR | closed: 23 packages; 🟡 | 32 |
 
-**Open ❓ after this map:** SALT/TALT (8a), temperature control (28), E-WINS (48).
+**Open ❓ after this map:** SALT/TALT (8a), temperature control (28), E-WINS (48) — all three held open by D55 until live evidence; the 4 new packages add only partial evidence (row 28 negative case; row 48 release line without airport or forecast).
 
-**Open SME details:** SME-15 (E-WINS wording as WSI/TWC; row 48). SME-1 to SME-14 and SME-3a answered by the Exec on 13 Nov.
+**Open SME questions:** SME-15 (E-WINS forecast wording, WSI/TWC), SME-16 (two flight numbers, L22), SME-17 (E-WINS release with no airport or forecast, L22), SME-18 (takeoff alternate required but not printed, L21), SME-19 (MEL named only in a remark, L23), SME-20 (opposite-direction NAT message, L22), SME-21 (`* PRIO *` TAF), SME-22 (seasonal/holiday curfew, quiet hours). SME-1 to SME-14 and SME-3a answered by the Exec on 13 Nov.
 
 ### 5.3 Corrections to v1.0
 
@@ -300,9 +310,13 @@ Today's parser returns none of these (the contract v2.0 extensions are not imple
 - Row 44: repeated NOTAM IDs were a prototype effect.
 - Row 43 / SME-1: EA/IA/TA/DEST2 are defined in a Company NOTAM of every live package.
 
+**Corrections to the 22-package v1.1 (made in the 26-package pass):** CDC attestation in 5 packages, not 2 (§2.4); briefing roles `ALTN 1` and `DEPARTURE` were undercounted (§2.6); the POR nav-log row is in 10/10.
+
 ---
 
 ## 6. Found outside this map's scope (reported, not acted on)
 
 - **`tools/redact` leaves some names in place.** Jump-seat lines in the form `JS 0 <NAME>` (several live packages) and the dispatcher line at the top of the Remarks in the three prototypes (where no `Signed by Dispatcher:` line repeats the name) are not replaced. This document contains none of them; the tool needs its own fix and a check of anything already published from redacted text.
 - **TLR page breaks** leak into a special engine-failure procedure (row 32, L10). Relevant to the TLR reader in either parser.
+- **`tools/redact`, more gaps in the 4 new packages:** the `JS 0 <NAME>` lines in L21 and L22 again keep their names; a dispatcher's initials in a free-text remark (`… <initials>/HHMMZ …`, L23) are not replaced; the dispatch desk phone number on the dispatcher line is left as is (a company number). This document quotes none of them.
+- **Callsign derivation** (app `deriveCallsign`, CS-1) returns `isHeavy: false` for designators outside its index (BWA, ETD) although the FPL wake category is `H` in both packages; the parser's own `isHeavy` (row 2) is right. Not a field-map row; reported for the aircraft-profile owner.
