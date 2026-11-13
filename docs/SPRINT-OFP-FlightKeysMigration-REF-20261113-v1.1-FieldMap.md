@@ -1,6 +1,6 @@
 # SPRINT-OFP-FlightKeysMigration — Field Map Reference
 
-**Version:** v1.1-REF | **Status:** REF (draft, built section by section) | **Date:** 2026-11-13
+**Version:** v1.1-REF | **Status:** REF | **Date:** 2026-11-13
 **Supersedes:** `SPRINT-OFP-FlightKeysMigration-REF-20261029-v1.0-FieldMap.md` (v1.0 stays in `docs/` for history).
 **What this file is:** the FlightKeys field map re-done on the **19 live packages** plus the 3 FlightKeys prototypes (fixtures branch `claude/fk-live-19`, fixtures PR #11). It covers every v1.0 row (1–50) and every ADR-005 Appendix B extension, and lists the questions only an SME can settle.
 **What it is not:** a parser. Nothing in the app changes. Statuses describe what today's NavBlue parser (`ofp-navblue` v2.0.0, run as `_ofpRulesetParse`) returns on FlightKeys text, i.e. what `ofp-flightkeys` must fix or carry over.
@@ -169,6 +169,100 @@ Briefing pages (all parts after the release except TLR, NAT, Jeppesen) carry a r
 
 **Company NOTAMs, general part (no airport):** heading `GENERAL`; items `X####/YY   YYYY-Mon-DD HH:MM - UFN` · `CREATED:…` · `SUBJECT: <topic>` (e.g. `FlightKeys OFP`, `ADMIN-DEICE`, `WX/NOTAMs in Briefing Acronyms`, `PUBS- <fleet>`, `<tail>-WB`, `<REG> <topic>`, `Chart Alert <IIII> <date>`). High Severity Company NOTAMs (PDF p1, 22/22): heading `HIGH SEVERITY COMPANY NOTAMS`, items `P####/YY …`. → `companyNotams[]` (§3).
 
-## 3. Extensions (ADR-005 Appendix B) — *pending*
-## 4. SME questions — *pending (SME-1, SME-2 carried from v1.0)*
-## 5. Summary and open ❓ — *pending*
+## 3. Extensions (ADR-005 Appendix B, contract v2.0)
+
+Today's parser returns none of these (the contract v2.0 extensions are not implemented in `ofp-navblue`, which returns them as explicit empties by design). The status here therefore says whether FlightKeys **carries** the item: **🟡 LOCATED** (to be read by `ofp-flightkeys`) · **⚪ ABSENT** · **❓ UNSEEN**.
+
+| Extension | FlightKeys location / form (structure) | Pkgs | Status | Notes |
+|---|---|---|---|---|
+| `revision` | OFP p1 `OPERATIONAL FLIGHT PLAN RLS nn DDMONYY HH:MM` (also on every OFP page header) and `COST INDEX nnn Revision: n.n`; `Release Valid Until HHMMZ DDMONYY`; TLR `TLR-n SEQ-…` and page header `REL n/n …` | 22 (19 released) | 🟡 | RLS 01 in 14, 02 in 3 (L08, L12, L16), 04 in 2 (L09, L13); prototypes `-- NOT RELEASED --` with `Revision: -.-`. `Revision: n.0` equals the RLS number in 19/19; `TLR-n` equals the RLS number in 19/19. **Repeated release**: L02 prints the whole release three times (PDF p2–11, 12–21, 22–31), text identical. |
+| `companyNotams[]` | High Severity Company NOTAMs (PDF p1, `P####/YY`), then Company NOTAMs (`COMPANY NOTAMS` → `GENERAL` part, then airport parts). Item: `[IIII ]X####/YY   <start> - <end\|UFN>` · `CREATED:… FL: …` · `SUBJECT: <topic>` · text. Two-column. | 22 | 🟡 | Airport items carry the airport both before the ID and in the subject (`SUBJECT: IIII-<TOPIC>`); general items have none. Items cross page breaks (row 50). Topic list in row 47. |
+| `ofpRemarks[]` | OFP p2 between the dispatcher line and `MEL/CDL`, in order | 22 | 🟡 | 6–32 lines per package (dispatcher line to `MEL/CDL`). The dispatcher line (`<NAME> DESK: nn [PHONE: …]`; `DESK: POLAR` in L08) and the fixed FlightKeys boilerplate are part of the block; whether to show them is a presentation decision. |
+| `airportData[icao].remarks[]` | Inside the OFP Remarks: `** IIII FLIGHT OPS RESTRICTIONS **` + numbered lines (L01); `**IIII/AAA FLIGHT OPS RESTRICTION **` with sub-headings `ARRIVALS` / `DEPARTURES` (L06); a dashed block `IIII B747 DEPARTURES:` (L09). Also Company NOTAM airport items (row 47). | 3 in Remarks (3 live) | 🟡 | Sub-headings exist only in L06; the block has no explicit end (it runs until the CAT II/III lines). |
+| `airportData[icao].remarksWeather[]` | Dispatcher weather in the OFP Remarks: `GOV TAF UPDATED` + full `TAF AMD IIII …` (L15, for an ETOPS alternate); `WSI FPG FOR AREA NEAR …` + WSI turbulence product (T3). E-WINS: none. | 2 (1 live) | 🟡 | Never merged into briefing weather (D34, D46). E-WINS unseen (row 48). |
+| `ddgItems[i].type` | Line prefix `MEL ` or `CDL ` (CDL codes start with `C`) | 21 | 🟡 | CDL in 3 packages (L01, L16, L18). |
+| `ddgItems[i].notes[]` | Lines under an item beginning `- ` or `RMK - `, until the next `MEL`/`CDL` line or the block end | 11 | 🟡 | Examples of note kinds: `- ETOPS MDT 180`, `- CAT III Restricted`, `- RCP Restricted`, `- "Xn" removed from ICAO FPL, field 10A.`, `- Enroute climb penalty nnnnkg`, `- All fuel flow values increased by n.nn PCT`, `RMK - The airplane must also be dispatched using DDG item nn-nn-nn.`. **Indentation is not in the extracted text**: notes start at a larger x (e.g. 69.9 vs 58.7 for the item line, L03) and can only be recovered from the positioned items. `Dispatcher applied ADHOC penalty:` lines are not item notes. |
+| `fplEquipment` | FPL item 10a/10b: `-TYPE/W-<10a>/<10b>` (OFP p4); removed codes from MEL notes `- "Xn" removed from ICAO FPL, field 10A.` | 22 (removals in 2) | 🟡 | Removals in L03 (`M1`, `M3`) and L09 (`J5`, `J7`, `M1`, `M3`); in both the filed 10a already lacks the removed codes. Reading belongs to `icao-fpl` (ADR-005 §2.1). |
+| `catIiIiiRestrictions[]` | `IIII CAT II/III RWY nnX APPROACH NOT AUTHORIZED FOR B747` (OFP p2, no dash); MEL notes `- CAT III Restricted`, `- CAT II / CAT III Restricted`; MEL item `MEL 22-AA-01 - CAT II/III Restriction` (L04) | 5 (4 live) | 🟡 | L05 (airport line); L01, L04, T1, T3 (MEL). **SME-10**. |
+| `securityMessages[]` | OFP p2 free text `POS LAUNCH TO <AAA> APPROVED BY SECURITY` | 1 (1 live) | 🟡 | L07 only. No other security wording in the 22. |
+| `extraFuel` | OFP p1 `EXTRA nnnnnn HH.MM`; tanker reason only as free text `ECON TANKER FUEL ADDED` (L15); other reasons e.g. `AIRCRAFT PRE-FUELED TO nnnnn` (L05) | 22 (tanker 1) | 🟡 | EXTRA 9–14709 (units of the package). Tanker flag true only for L15 (EXTRA 4427). A Company NOTAM `SUBJECT: IIII-TANKER` (L01) is station information, not this flight's tanker. |
+| `pcf` | OFP p1 `PCF nnnnnn HH.MM`; reasons in the OFP Remarks (`[- ]PCF …`, `ADDED PCF …`, `- CF FUEL FOR WX`, `- ADDITIONAL FUEL PLANNED FOR …`) | 22 (non-zero 14) | 🟡 | Non-zero PCF in 14; a reason line in 13 of them (none in L01). |
+| `permits[]` | Row 35: groups `--- OVERFLIGHT PERMITS` / `--- LANDING PERMIT` / `--- TAKEOFF PERMIT`, entries `<COUNTRY> <ref>` + route + `<REG> [AUTH] ONLY`; `/////PERMIT MISSING/////`. Air-defence clearance in Remarks: `BANGLADESH ADC NO-nnnn` (L17). | 13 (11 live) + ADC 1 | 🟡 | Registration restriction in L07; missing permit in T1. Permit references contain `/`, `-`, spaces and dates; keep the entry text whole. |
+| `designator` | Flight number prefix (row 1) | 22 | 🟡 | GTI 20, BWA 1, ETD 1. L08 is a GTI flight dispatched by the `POLAR` desk under the Polar exemption: **SME-5**. |
+| `sections[]` | §1.1 section map; titles `HIGH SEVERITY COMPANY NOTAMS`, `OPERATIONAL FLIGHT PLAN`, `COMPANY NOTAMS`, NOTAM airport/FIR blocks, Weather and Hazard briefing blocks, `NAT-TRACKS`, `VOLCANIC ASH ADVISORIES` (or `NO VOLCANIC ASH ADVISORIES FOUND FOR THIS FLIGHT`), `Chart Alert` / `+ JEPPESEN`, `TAKEOFF AND LANDING REPORT` | 22 | 🟡 | NOTAM and Weather briefings have no title line of their own in the extracted text; their start is the first airport block after the Company NOTAMs / after the NOTAM part. Image-only pages (L16, L18) have no text to anchor. |
+| `findings[]` | — | — | — | Candidates seen: repeated release (L02), `PERMIT MISSING` (T1), blank `TO/LNDG Expiry:` (9), MX/LM/FA/PU/DH/JS crew lines (§2.4 row 26), empty `MEL/CDL` block (L15). |
+
+---
+
+## 4. SME questions
+
+Items whose meaning the documents do not settle. Package and PDF page given for each (pages from §1.1).
+
+| # | Question | Where seen |
+|---|---|---|
+| SME-1 | **Briefing role windows** (v1.0 question, narrowed). The Company NOTAM *WX/NOTAMs in Briefing Acronyms* defines EA, IA, TA, DEST2 and DEST2 ALTN. Still open: (a) the difference between `ALTN 1` and `ALTN` (airports labelled `ALTN` appear only in the briefing, not in the release); (b) which window the app should use when one airport has several roles (e.g. the departure airport also listed as `IA`); (c) whether IA/TA/EA-only airports should get airport cards; (d) confirm `dest2` / `dest2AltnPlanned` are the release's RAPT / RALT. | Acronyms: L02 p32 (all live packages). Roles: L02 p34, p36, p40, p42, p49–51; T3 p16, p18. |
+| SME-2 | **`Q` token** on ORIG/DEST/PALT/RALT lines before the coordinates (v1.0 question). Seen only on some airports. What does it mean, and should the app show or use it? | OFP p1 (PDF p2) of T1, T2, L03, L09, L10, L13, L16, L17. |
+| SME-3 | **`*` after the employee number** on a pilot line (`ROLE <EMPNO> * <NAME>`). Is it the seniority (SEN) marker that NavBlue prints before the role? | L01 p3, L02 p3, L15 p3. |
+| SME-4 | **Same MEL item printed twice** (identical line). Two separate deferrals (two placards) or one item printed twice? Should the app list it once or twice? | L08 p3, L09 p3, L10 p3, L12 p3, L13 p3, L14 p3, L16 p3. |
+| SME-5 | **Callsign.** FlightKeys never prints a `VERBAL CALLSIGN` line. For a GTI flight dispatched by the Polar desk under the Polar exemption, is the callsign GIANT or POLAR? For BWA, confirm the callsign comes from the designator. | L08 p3 (desk `POLAR`, Polar exemption); L01 p2 (BWA). |
+| SME-6 | **Fuel-flow adjustment.** `*ADDL FF ADJ +4.30 *` but the CDL note says `All fuel flow values increased by 3.30 PCT`. Is ADDL FF ADJ the total of all adjustments? Which value should the crew see? | L16 p2 (fuel block), p3 (CDL). Equal values in L18 and T1/T3. |
+| SME-7 | **Fuel lines `ADD.AL` and `ADD.LD`**: what do they stand for? Also: is `CF` (L17) the same as PCF, and is a PCF without a reason line (L01) expected? | ADD.AL in 11 packages (e.g. L02 p2); ADD.LD L05 p2; CF L17 p3; L01 p2. |
+| SME-8 | **`SWA (nnnnnn)`** between DOW and PYLD on the two passenger flights. What is it, and does it matter to the crew? | L05 p2, L15 p2. |
+| SME-9 | **Blank `TO/LNDG Expiry:`** for every pilot. No data, or nothing due? Should the app say anything? | Crew list (OFP p2–p3) of L03, L14, L16, L17, L18, L19, T1, T2, T3. |
+| SME-10 | **CAT II/III restrictions.** How should `IIII CAT II/III RWY nnX APPROACH NOT AUTHORIZED FOR B747` and the MEL notes `CAT III Restricted` / `CAT II / CAT III Restricted` combine with the authorisation lines (downgrade per airport, per runway, or all airports)? | L05 p3; L01 p3; L04 p3; T1 p3; T3 p3. |
+| SME-11 | **POR with a distance** (`<WPT>+119NM`): show as printed? The nav log has no fix row at that point. | OFP p1 and nav log of L08, L12, L13. |
+| SME-12 | **Curfew sources.** Curfew times appear in `SUBJECT: IIII-CURFEW` items and also inside other Company NOTAMs for the same airport. Which is authoritative when they differ? | L18 p11–12; L02 p32–33; L14 p13–14. |
+| SME-13 | **747 `2EO` CFS scenarios with E.ENT/E.EXIT only** (no ETOPS, no ETP): should the app show the entry/exit points and the single airport like an ETOPS segment, or as a CFS alternate only? And should `Last Adequate` / `First Adequate` be shown? | L09 p12, L11 p11 (2EO); L03 p12, L14 p12, L15 p9 (Last/First Adequate). |
+| SME-14 | **Two NAT track messages** in one package (night eastbound TMI 308, day westbound TMI 307). Confirm the app should pick the message whose validity and direction match the flight. | L12 p25–27. |
+
+---
+
+## 5. Summary
+
+### 5.1 Core rows (52 entries: rows 1–50 plus 8a, 32a)
+
+| Status | Count | Rows |
+|---|---|---|
+| ✅ SAME | 21 | 1–8, 9–15, 17, 20–22, 30, 34 |
+| 🔴 SILENT | 22 | 16, 18, 19, 23, 24, 25, 26, 27, 32a, 33, 35, 36, 37, 39 (entry), 42, 43, 44, 45, 46, 47, 49, 50 |
+| 🟡 ADAPT | 5 | 29, 32, 38, 40, 41 |
+| ⚪ ABSENT | 1 | 31 |
+| ❓ UNSEEN | 3 | 8a SALT/TALT, 28 temperature control, 48 E-WINS |
+
+**Safety-Critical fields:** block/min fuel ✅ · slot time ✅ (one form seen) · ETOPS exit and spec ✅, **ETOPS entry 🔴** · ETP/CFS 🟡 (no weather windows) · DOT/Polar exemption 🟡 (`altRequired` wrong when the line wraps) · **CAT II/III 🔴** · **crew 🔴** · **airport NOTAM / weather / curfew 🔴**.
+
+### 5.2 v1.0 ❓ items
+
+| v1.0 ❓ | Now | Row |
+|---|---|---|
+| ETOPS (blocker) | closed: 3 packages; entry 🔴, exit ✅, spec ✅ | 39 |
+| CFS/ETP (blocker) | closed: 6 packages; 🟡 | 41 |
+| POR/RDA | closed: 9 packages; MINF ✅, POR 🟡 | 17, 40 |
+| NAT | closed: 3 packages; 🔴 | 42 |
+| Slot / wheels-up | closed for `WHEELS UP NOT BEFORE` (1 package); other forms unseen | 30 |
+| DOT exemption | closed for the `EXEMPTION NO` form (4 packages); DOT-SP form unseen | 29 |
+| Perishables | closed: 7 packages; 🔴 | 27 |
+| Temperature control | **open** | 28 |
+| Ballast | closed: 4 packages; 🔴 | 16 |
+| Verbal callsign | closed as ⚪ (not printed; SME-5) | 31 |
+| E-WINS | **open** | 48 |
+| SALT/RALT/TALT | RALT (and RAPT) closed ✅; **SALT/TALT open** | 8, 8a |
+| LB unit | closed: 3 packages ✅ | 3 |
+| TLR | closed: 19 packages; 🟡 | 32 |
+
+**Open ❓ after this map:** SALT/TALT (8a), temperature control (28), E-WINS (48).
+
+### 5.3 Corrections to v1.0
+
+- Row 33: the "1 point" nav log is a false match in the weather text; NavBlue's own output for this field is `[]` on every NavBlue package.
+- Row 34 (TOC): correct in 22/22 → ✅.
+- Row 36: the `MORA` line exists in live packages (20/22).
+- Row 44: repeated NOTAM IDs were a prototype effect.
+- Row 43 / SME-1: EA/IA/TA/DEST2 are defined in a Company NOTAM of every live package.
+
+---
+
+## 6. Found outside this map's scope (reported, not acted on)
+
+- **`tools/redact` leaves some names in place.** Jump-seat lines in the form `JS 0 <NAME>` (several live packages) and the dispatcher line at the top of the Remarks in the three prototypes (where no `Signed by Dispatcher:` line repeats the name) are not replaced. This document contains none of them; the tool needs its own fix and a check of anything already published from redacted text.
+- **TLR page breaks** leak into a special engine-failure procedure (row 32, L10). Relevant to the TLR reader in either parser.
