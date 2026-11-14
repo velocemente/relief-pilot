@@ -5,9 +5,9 @@
     "sha256": "0d615a13f8cfcb7afc625f825a086d47beedbfc47afa9a7c51f7c47ba9162557"
   },
   "ofp-navblue": {
-    "version": "2.0.0",
-    "file": "ofp-navblue/ofp-navblue-v2.0.0.js",
-    "sha256": "02ab2b43e3f86b13e6fe12a1eef188c47f36a415e5cedc2f3c0d18b5409863c4"
+    "version": "2.0.1",
+    "file": "ofp-navblue/ofp-navblue-v2.0.1.js",
+    "sha256": "f7dd7b28f2c61555a1cdfd9a21d601bd6c10ddc0af3d3df890d53541079c6025"
   },
   "aircraft-profile": {
     "version": "1.0.0",

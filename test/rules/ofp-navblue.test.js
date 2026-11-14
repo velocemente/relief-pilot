@@ -1,6 +1,6 @@
 'use strict';
 /**
- * TC-130 — NavBlue OFP parser module (rules/ofp-navblue, v2.0.0) is the app's OFP parser, LOCKED
+ * TC-130 — NavBlue OFP parser module (rules/ofp-navblue, v2.0.1) is the app's OFP parser, LOCKED
  *
  * The module was extracted from the app (src/ofp-parse.html and the ENR V2 helpers in
  * src/render-preflight.html) and must give IDENTICAL core fields to the parser the app ran
@@ -242,7 +242,7 @@ const SYNTH = [
 test('TC-130-001 metadata present; validateSchema() is valid; a broken parser object is rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'ofp');
   assert.equal(mod.OFP_FORMAT, 'navblue');
-  assert.equal(mod.RULESET_VERSION, '2.0.0');
+  assert.equal(mod.RULESET_VERSION, '2.0.1');
   assert.equal(mod.SCHEMA_VERSION, 2);
   assert.equal(mod.CONTRACT_VERSION, '2.0');
   assert.ok(mod.RULESET_SOURCE.trim().length > 0);
@@ -281,9 +281,9 @@ test('TC-130-001 metadata present; validateSchema() is valid; a broken parser ob
 test('TC-130-002 rules/manifest.json lists ofp-navblue with its version, file and SHA-256', () => {
   const e = MANIFEST['ofp-navblue'];
   assert.deepEqual(Object.keys(e).sort(), ['file', 'sha256', 'version']);
-  assert.equal(e.version, '2.0.0');
+  assert.equal(e.version, '2.0.1');
   assert.equal(e.version, mod.RULESET_VERSION, 'manifest version = RULESET_VERSION');
-  assert.equal(e.file, 'ofp-navblue/ofp-navblue-v2.0.0.js');
+  assert.equal(e.file, 'ofp-navblue/ofp-navblue-v2.0.1.js');
   assert.equal(crypto.createHash('sha256').update(fs.readFileSync(MOD_FILE)).digest('hex'), e.sha256, 'SHA-256 matches');
   assert.ok(MANIFEST['notam-rules'], 'the NOTAM module entry is still listed');
 });
@@ -441,11 +441,11 @@ const replaceLast = (hay, from, to) => { const i = hay.lastIndexOf(from); return
 
 test('TC-130-004 negative: a second copy, an edited module, a leftover or a wrong adapter is caught', () => {
   const html = builtHtml();
-  const VERSION_LINE = "const RULESET_VERSION  = '2.0.0';";
+  const VERSION_LINE = "const RULESET_VERSION  = '2.0.1';";
   assert.equal(once(MOD_SRC, VERSION_LINE), 1);
   const cases = [
     ['second copy of the module', html.replace(ADAPTER, () => MOD_SRC + ADAPTER), /more than once/],
-    ['module edited in index.html', html.replace(MOD_SRC, () => MOD_SRC.replace(VERSION_LINE, () => VERSION_LINE.replace('2.0.0', '2.0.1'))), /does not contain the module/],
+    ['module edited in index.html', html.replace(MOD_SRC, () => MOD_SRC.replace(VERSION_LINE, () => VERSION_LINE.replace('2.0.1', '2.0.2'))), /does not contain the module/],
     ['adapter missing', html.replace(ADAPTER, () => ''), /adapter .* is missing/],
     ['adapter without the NAT parser', html.replace(ADAPTER, () => ADAPTER.replace(', { parseNatTrack: window.parseNatTrack }', '')), /adapter .* is missing/],
     ['adapter before the module', html.replace(ADAPTER, () => '').replace(MOD_SRC, () => ADAPTER + MOD_SRC), /adapter comes before the module/],
