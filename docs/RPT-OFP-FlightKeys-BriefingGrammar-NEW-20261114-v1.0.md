@@ -1,6 +1,6 @@
 # RPT-OFP-FlightKeys — Briefing Grammar (NOTAM and Weather Briefing) and Beta Live Risk
 
-**Version:** v1.0-NEW | **Status:** NEW | **Date:** 2026-11-14
+**Version:** v1.0-NEW | **Status:** NEW | **Date:** 2026-11-14 (independent-QA corrections the same day: "items cut by a page" recounted, header rows split by a page added to §A.5)
 **Input for:** NOTAM ruleset v1.13.0 and parser step 5d (`ofp-flightkeys` briefing reader); D54 (NOTAM layout preservation).
 **Evidence:** the 26 FlightKeys packages on fixtures branch `claude/fk-live-19` (velocemente/pilotbrief-fixtures#11): 23 live (L01–L23) and 3 prototypes (T1–T3). Labels and the package list are those of the FlightKeys field map v1.1 (`docs/SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1-FieldMap.md`, §1.1).
 **What it is not:** a parser or a code change. Nothing in the app changes.
@@ -36,37 +36,37 @@ The outline embedded in the PDF names them ("High Severity Company NOTAMS", "NOT
 
 Per package (PDF pages; counts of items and blocks):
 
-| Pkg | NOTAM doc | WX doc | HSCN items | Company items | Airport NOTAM items | FIR NOTAM items | Airport blocks NOTAM | Airport blocks WX | FIR blocks NOTAM | FIR blocks WX | `UFN(EST …)` | `UFN` | `SCHEDULE:` | Items cut by a page | Curfew items |
+| Pkg | NOTAM doc | WX doc | HSCN items | Company items | Airport NOTAM items | FIR NOTAM items | Airport blocks NOTAM | Airport blocks WX | FIR blocks NOTAM | FIR blocks WX | `UFN(EST …)` | `UFN` | `SCHEDULE:` | Items cut by a page (page breaks) | Curfew items |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| L01 | 8-14 | 15-18 | 1 | 9 | 58 | 14 | 3 | 7 | 5 | 5 | 11 | 5 | 1 | 8 | 0 |
-| L02 | 32-48 | 49-68 | 1 | 14 | 171 | 41 | 7 | 14 | 7 | 7 | 21 | 4 | 45 | 16 | 3 |
-| L03 | 13-23 | 24-39 | 1 | 13 | 64 | 50 | 6 | 10 | 7 | 7 | 14 | 3 | 15 | 11 | 1 |
-| L04 | 8-14 | 15-17 | 1 | 8 | 45 | 20 | 3 | 7 | 3 | 3 | 8 | 0 | 14 | 7 | 0 |
-| L05 | 7-13 | 14-19 | 1 | 7 | 73 | 18 | 4 | 9 | 6 | 6 | 9 | 2 | 2 | 8 | 0 |
-| L06 | 10-17 | 18-21 | 1 | 10 | 26 | 35 | 3 | 8 | 10 | 10 | 17 | 11 | 4 | 8 | 0 |
-| L07 | 11-18 | 19-20 | 1 | 7 | 25 | 57 | 3 | 7 | 6 | 6 | 36 | 8 | 10 | 8 | 0 |
-| L08 | 10-17 | 18-28 | 1 | 7 | 51 | 29 | 5 | 14 | 11 | 11 | 17 | 7 | 5 | 6 | 0 |
-| L09 | 13-23 | 24-34 | 1 | 14 | 89 | 41 | 6 | 9 | 5 | 5 | 15 | 1 | 13 | 11 | 1 |
-| L10 | 12-19 | 20-26 | 1 | 9 | 55 | 21 | 4 | 9 | 9 | 9 | 7 | 5 | 2 | 9 | 0 |
-| L11 | 12-23 | 24-28 | 1 | 7 | 89 | 42 | 6 | 14 | 14 | 14 | 40 | 7 | 15 | 12 | 0 |
-| L12 | 10-18 | 19-24 | 1 | 8 | 103 | 23 | 5 | 12 | 13 | 13 | 26 | 7 | 4 | 9 | 0 |
-| L13 | 17-29 | 30-37 | 1 | 13 | 33 | 47 | 7 | 13 | 10 | 10 | 5 | 13 | 8 | 14 | 0 |
-| L14 | 13-30 | 31-47 | 1 | 18 | 187 | 49 | 11 | 18 | 9 | 9 | 27 | 6 | 43 | 18 | 3 |
-| L15 | 10-21 | 22-30 | 1 | 11 | 134 | 30 | 6 | 13 | 8 | 8 | 4 | 3 | 9 | 12 | 0 |
-| L16 | 12-20 | 21-30 | 1 | 8 | 67 | 30 | 3 | 9 | 5 | 5 | 13 | 2 | 5 | 10 | 0 |
-| L17 | 13-30 | 31-34 | 1 | 7 | 92 | 53 | 5 | 11 | 10 | 10 | 37 | 11 | 27 | 16 | 0 |
-| L18 | 11-25 | 26-39 | 1 | 11 | 184 | 30 | 6 | 12 | 8 | 8 | 29 | 1 | 32 | 16 | 1 |
-| L19 | 9-20 | 21-28 | 1 | 9 | 113 | 34 | 5 | 12 | 10 | 10 | 38 | 5 | 6 | 13 | 0 |
-| L20 | 32-48 | 49-69 | 1 | 20 | 182 | 46 | 9 | 18 | 7 | 7 | 19 | 5 | 40 | 17 | 3 |
-| L21 | 23-27 | 28-30 | 1 | 11 | 25 | 3 | 4 | 8 | 3 | 3 | 2 | 5 | 6 | 5 | 0 |
-| L22 | 26-35 | 36-40 | 1 | 12 | 45 | 44 | 6 | 12 | 12 | 12 | 18 | 11 | 3 | 11 | 0 |
-| L23 | 26-33 | 34-39 | 1 | 11 | 52 | 35 | 4 | 11 | 9 | 9 | 14 | 7 | 9 | 9 | 1 |
-| T1 | 13-27 | 28-33 | 1 | 10 | 102 | 93 | 4 | 9 | 19 | 19 | 19 | 10 | 37 | 15 | 1 |
-| T2 | 11-20 | 21-23 | 1 | 8 | 61 | 53 | 4 | 8 | 9 | 9 | 1 | 22 | 4 | 9 | 1 |
-| T3 | 11-26 | 27-41 | 1 | 10 | 166 | 51 | 8 | 11 | 6 | 6 | 11 | 7 | 22 | 16 | 1 |
-| **Total** | | | 26 | 272 | 2292 | 989 | 137 | 285 | 221 | 221 | 458 | 168 | 381 | 294 | 16 |
+| L01 | 8-14 | 15-18 | 1 | 9 | 58 | 14 | 3 | 7 | 5 | 5 | 11 | 5 | 1 | 6 (6) | 0 |
+| L02 | 32-48 | 49-68 | 1 | 14 | 171 | 41 | 7 | 14 | 7 | 7 | 21 | 4 | 45 | 11 (16) | 3 |
+| L03 | 13-23 | 24-39 | 1 | 13 | 64 | 50 | 6 | 10 | 7 | 7 | 14 | 3 | 15 | 8 (10) | 1 |
+| L04 | 8-14 | 15-17 | 1 | 8 | 45 | 20 | 3 | 7 | 3 | 3 | 8 | 0 | 14 | 3 (6) | 0 |
+| L05 | 7-13 | 14-19 | 1 | 7 | 73 | 18 | 4 | 9 | 6 | 6 | 9 | 2 | 2 | 5 (6) | 0 |
+| L06 | 10-17 | 18-21 | 1 | 10 | 26 | 35 | 3 | 8 | 10 | 10 | 17 | 11 | 4 | 6 (7) | 0 |
+| L07 | 11-18 | 19-20 | 1 | 7 | 25 | 57 | 3 | 7 | 6 | 6 | 36 | 8 | 10 | 6 (7) | 0 |
+| L08 | 10-17 | 18-28 | 1 | 7 | 51 | 29 | 5 | 14 | 11 | 11 | 17 | 7 | 5 | 5 (7) | 0 |
+| L09 | 13-23 | 24-34 | 1 | 14 | 89 | 41 | 6 | 9 | 5 | 5 | 15 | 1 | 13 | 7 (10) | 1 |
+| L10 | 12-19 | 20-26 | 1 | 9 | 55 | 21 | 4 | 9 | 9 | 9 | 7 | 5 | 2 | 7 (7) | 0 |
+| L11 | 12-23 | 24-28 | 1 | 7 | 89 | 42 | 6 | 14 | 14 | 14 | 40 | 7 | 15 | 6 (11) | 0 |
+| L12 | 10-18 | 19-24 | 1 | 8 | 103 | 23 | 5 | 12 | 13 | 13 | 26 | 7 | 4 | 6 (8) | 0 |
+| L13 | 17-29 | 30-37 | 1 | 13 | 33 | 47 | 7 | 13 | 10 | 10 | 5 | 13 | 8 | 11 (12) | 0 |
+| L14 | 13-30 | 31-47 | 1 | 18 | 187 | 49 | 11 | 18 | 9 | 9 | 27 | 6 | 43 | 10 (17) | 3 |
+| L15 | 10-21 | 22-30 | 1 | 11 | 134 | 30 | 6 | 13 | 8 | 8 | 4 | 3 | 9 | 9 (11) | 0 |
+| L16 | 12-20 | 21-30 | 1 | 8 | 67 | 30 | 3 | 9 | 5 | 5 | 13 | 2 | 5 | 7 (8) | 0 |
+| L17 | 13-30 | 31-34 | 1 | 7 | 92 | 53 | 5 | 11 | 10 | 10 | 37 | 11 | 27 | 13 (17) | 0 |
+| L18 | 11-25 | 26-39 | 1 | 11 | 184 | 30 | 6 | 12 | 8 | 8 | 29 | 1 | 32 | 9 (14) | 1 |
+| L19 | 9-20 | 21-28 | 1 | 9 | 113 | 34 | 5 | 12 | 10 | 10 | 38 | 5 | 6 | 10 (11) | 0 |
+| L20 | 32-48 | 49-69 | 1 | 20 | 182 | 46 | 9 | 18 | 7 | 7 | 19 | 5 | 40 | 11 (16) | 3 |
+| L21 | 23-27 | 28-30 | 1 | 11 | 25 | 3 | 4 | 8 | 3 | 3 | 2 | 5 | 6 | 4 (4) | 0 |
+| L22 | 26-35 | 36-40 | 1 | 12 | 45 | 44 | 6 | 12 | 12 | 12 | 18 | 11 | 3 | 7 (9) | 0 |
+| L23 | 26-33 | 34-39 | 1 | 11 | 52 | 35 | 4 | 11 | 9 | 9 | 14 | 7 | 9 | 5 (7) | 1 |
+| T1 | 13-27 | 28-33 | 1 | 10 | 102 | 93 | 4 | 9 | 19 | 19 | 19 | 10 | 37 | 11 (14) | 1 |
+| T2 | 11-20 | 21-23 | 1 | 8 | 61 | 53 | 4 | 8 | 9 | 9 | 1 | 22 | 4 | 6 (9) | 1 |
+| T3 | 11-26 | 27-41 | 1 | 10 | 166 | 51 | 8 | 11 | 6 | 6 | 11 | 7 | 22 | 13 (15) | 1 |
+| **Total** | | | 26 | 272 | 2292 | 989 | 137 | 285 | 221 | 221 | 458 | 168 | 381 | 202 (265) | 16 |
 
-"Company items" excludes the HSCN item. "UFN(EST …)", "UFN" and "SCHEDULE:" count NOTAM Briefing items only (Company NOTAMs separately in §A.7). "Items cut by a page" counts Company and NOTAM items whose lines run across a page footer and the next running header.
+"Company items" excludes the HSCN item. "UFN(EST …)", "UFN" and "SCHEDULE:" count NOTAM Briefing items only (Company NOTAMs separately in §A.7). "Items cut by a page" counts Company and NOTAM items (in the Company NOTAM + NOTAM Briefing document) that have lines on both sides of a page break, i.e. whose text continues after the page footer and the next running header. **Method:** the items are read from their positions in reading order (header, left column top to bottom, right column top to bottom, footer; §A.1), and the document is cut into items (an item runs from its header line, §A.5, to the next item header, category heading, airport or FIR block, or empty-state box). An item is counted once, however many breaks it crosses. In this reading order only the bottom of the right column continues on the next page, so a page break can cut at most one item: the count is never more than the number of page breaks in brackets (265 in all, = NOTAM document pages − 1 per package). 202 items are cut (172 NOTAM, 30 Company); 2 of them cross two breaks, so 204 of the 265 breaks fall inside an item, and 61 fall between items. The first count (294) was too high: it was more than the number of page breaks in 22 of the 26 packages (e.g. L07 8 with 7 breaks, L05 8 with 6, L22 11 with 9).
 
 ### A.3 Running header and footer (every briefing page)
 
@@ -79,7 +79,7 @@ Per package (PDF pages; counts of items and blocks):
 
 The callsign in the running header is the briefing callsign, which can differ from the release (L22: release and FPL carry the CMB number, the briefing pages the GTI number; field map row 1). A header stripper must therefore match the **shape**, not the release flight number or registration.
 
-**Headers cut into items.** Because both columns flow onto the next page, the footer of page *n* and the running header of page *n + 1* sit **inside** any item that crosses the page: 294 items in 26/26 packages (236 NOTAM items, 58 Company NOTAM items). In addition, 263 items continue from the bottom of the left column to the top of the right column on the same page (212 NOTAM, 51 Company). In the app's raw text (`processPDF()` line assembly) the second kind is worse: 9,132 of 37,024 briefing text lines (25 %, in 26/26 packages) hold **one line from each column joined by three spaces** (example in §A.10), so a left-column item and a right-column item are interleaved line by line. **The raw text cannot be segmented into items without the x positions.** Parser step 5d must read the briefing from positions (split at the page middle), or the app's line assembly must change for these pages (that is a `processPDF()` change, outside this report).
+**Headers cut into items.** Because the right column of page *n* continues at the top of the left column of page *n + 1*, the footer of page *n* and the running header of page *n + 1* sit **inside** any item that crosses the page: 202 items in 26/26 packages (172 NOTAM items, 30 Company NOTAM items; at most one per page break, method in §A.2). In 40 of them the break falls inside the item's header rows (§A.5). In addition, 263 items continue from the bottom of the left column to the top of the right column on the same page (212 NOTAM, 51 Company). In the app's raw text (`processPDF()` line assembly) the second kind is worse: 9,132 of 37,024 briefing text lines (25 %, in 26/26 packages) hold **one line from each column joined by three spaces** (example in §A.10), so a left-column item and a right-column item are interleaved line by line. **The raw text cannot be segmented into items without the x positions.** Parser step 5d must read the briefing from positions (split at the page middle), or the app's line assembly must change for these pages (that is a `processPDF()` change, outside this report).
 
 Example, an item crossing a page (L18, Company NOTAM, in reading order):
 
@@ -172,6 +172,19 @@ ZSHA
 CREATED:2026-Sep-21 07:47
 TRIGGER NOTAM
 ```
+
+**Header rows split across a page break.** When an item starts at the foot of a page, its header table is cut by the page: row 1 (locations + ID + dates) is the last line of page *n*, and `CREATED:` / `FL:` (or, in 4 items, a later header row: `SCHEDULE:` 3, `SUBJECT:` 1) follow on page *n + 1*, after the page footer and the next running header. 40 items in 21 packages (35 NOTAM, 5 Company; L02, L03, L06–L20, L23, T1–T3). A reader that expects row 2 straight after row 1 must strip the footer and header first (§A.3): the item's ID, start and end are on one page, and its `CREATED:`, `FL:` and `SCHEDULE:` on the next. Structure example (L07, LLBG-OMDW, NOTAM Briefing PDF p13 → p14, in reading order):
+
+```
+OMAA A3532/26   2026-Nov-04 04:30 - 2026-Nov-05 06:30    ← last line of p13 (right column)
+Page 3 of 8 <uuid>                                         ← footer of p13
+<CALLSIGN> / LLBG - OMDW / 2026-11-04 / <REG> 2026-Nov-04 HH:MM   ← running header of p14
+CREATED:2026-Nov-03 19:01   FL: 60 - 60                   ← first line of p14 (left column)
+SCHEDULE:0430-0630
+<body>
+```
+
+In the app's raw text this is a second desync case besides the wrapped location cell: the `CREATED:` row is joined, three spaces apart, to the top line of p14's right column, which belongs to a different item (`CREATED:2026-Nov-03 19:01   FL: 60 - 60   THU 1500(1400) - SUN 0600(0500)`). Read from positions, the header is whole once the footer and running header are removed.
 
 and a 5-code form where the ID stands alone (L23, L06):
 
@@ -349,7 +362,7 @@ NIL
 | 7 | TAF / METAR | Report start at indent 0–2; continuation indented (TAF groups 14–26, wrapped TAF 43–45, METAR 19–26, ATIS 7). A new report is recognised by the indent **and** the report keyword. A TAF line break is a change-group boundary in US-style TAFs but an arbitrary wrap in others (42 split groups). | §A.9 |
 | 8 | Empty-state box | `THERE ARE NO ACTIVE …` is centred (indent ≈ 80) and wraps; `NIL` sits **between** its two lines in reading order. | 367 |
 | 9 | Runway list | Continues at indent 87–89 under the name cell; may carry a role window in the role cell. | 24 blocks |
-| 10 | Page and column breaks | Footer + running header inside an item (294 items) and left→right column continuation (263 items) are **not** line breaks of the item and must be removed / joined before D54 preservation applies. | §A.3 |
+| 10 | Page and column breaks | Footer + running header inside an item (202 items; in 40 of them inside the header rows, §A.5) and left→right column continuation (263 items) are **not** line breaks of the item and must be removed / joined before D54 preservation applies. | §A.3 |
 
 ### A.11 Summary for ruleset v1.13.0 and parser step 5d
 
@@ -357,7 +370,7 @@ NIL
 2. Documents by content: HSCN, Company + NOTAM, Weather + Hazard, VA (§A.2).
 3. Airport block = name/role line + `APT<ICAO>` line + optional role/runway lines; role taken from the closed list anchored to the window; name may be clipped and glued (§A.4).
 4. `ALTN` (101) and `dest2Altn` (9) airports have **weather but never NOTAMs** in FlightKeys; `ALTN 1` and `dest2AltnPlanned` have both (§A.4).
-5. Item header grammar §A.5: locations (0–7, ICAO and IATA in either order), ID with optional series letter, start, end `date | UFN | UFN(EST date)` (no `PERM`), `CREATED:`, `FL:`, optional `SCHEDULE:`, Company `SUBJECT:`; handle the wrapped-location desync (13 items) and ASHTAM (4).
+5. Item header grammar §A.5: locations (0–7, ICAO and IATA in either order), ID with optional series letter, start, end `date | UFN | UFN(EST date)` (no `PERM`), `CREATED:`, `FL:`, optional `SCHEDULE:`, Company `SUBJECT:`; handle the wrapped-location desync (13 items), header rows split by a page break (40 items) and ASHTAM (4).
 6. Category headings: closed list of 17 (§A.6). FIR blocks: name + `FIR<ICAO>` (§A.8); no route/airway/waypoint split.
 7. Curfew is found by `SUBJECT: IIII-CURFEW` (16 items, 10 packages) (§A.7).
 8. Preserve in-item line breaks (§A.10 rows 5–6); remove page/column breaks (row 10).
