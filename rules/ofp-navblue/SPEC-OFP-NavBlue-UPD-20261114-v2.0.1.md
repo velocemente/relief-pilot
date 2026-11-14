@@ -1,11 +1,11 @@
 # SPEC-OFP-NavBlue
 
-**Version:** v2.0.0 | **Status:** NEW | **Date:** 2026-11-09
+**Version:** v2.0.1 | **Status:** UPD | **Date:** 2026-11-14
 **Owner:** Engineering | **Approver:** Exec
 **Tier:** 2 — Platform Architecture
-**Module file:** `rules/ofp-navblue/ofp-navblue-v2.0.0.js` (SHA-256 in `rules/manifest.json`)
+**Module file:** `rules/ofp-navblue/ofp-navblue-v2.0.1.js` (SHA-256 in `rules/manifest.json`)
 **Architecture:** ADR-005 §2.1–2.4 (module catalogue, module standard, master copies and CI, OFP output contract)
-**Ledger:** `RPT-OFP-NavBlue-RevisionLedger-NEW-20261109-v1.0.md` (beside this file)
+**Ledger:** `RPT-OFP-NavBlue-RevisionLedger-UPD-20261114-v1.1.md` (beside this file)
 **Supersedes:** master `CODE-OFP-AtlasPolar5yRuleset-NEW-20260513-v1.0.js` and `CODE-OFP-AtlasPolar5yRuleset-UPD-20260530-v1_1.js` with their SPECs (Drive "00_General Rulesets / 20_5Y specific / V1.0"). The archived v1.2 delta (D9) is not carried.
 
 ---
@@ -213,4 +213,5 @@ The fixtures are the 30 NavBlue/eOFP packages of the private fixtures repository
 | 1.9.9-r1 (master file v1.0) | 2026-05-13 | NEW | Extraction from `index.html` as CODE-OFP-AtlasPolar5yRuleset; `SLOT_TIME_AT` added. |
 | 1.9.9-r2 (master file v1.1) | 2026-05-30 | UPD | `ZFW_INCR_FACTOR`, `TAXI_FUEL`; `zfwIncrFactor`, `taxiFuelRaw`. (The v1.1 code file in Drive is a header only.) |
 | 1.9.9-r3 (master file v1.2) | 2026-09-13 | UPD — ARCHIVED (D9) | Delta: ops-notes size guard, `OFP_FORMAT 'atlas-5y'`, `ofpSource`, `ofpSections`. Never deployed; not carried. |
-| **2.0.0** | 2026-11-09 | NEW | Renamed NavBlue, locked. Engine = the app on `main` at `d073e54` (every app change since May carried in). Blueprint metadata, `validateSchema()`, contract v2.0 (`parseNavBlue`, Appendix B as explicit empties, findings). NAT parser passed in only (never read from `window`). |
+| 2.0.0 | 2026-11-09 | NEW | Renamed NavBlue, locked. Engine = the app on `main` at `d073e54` (every app change since May carried in). Blueprint metadata, `validateSchema()`, contract v2.0 (`parseNavBlue`, Appendix B as explicit empties, findings). NAT parser passed in only (never read from `window`). |
+| **2.0.1** | 2026-11-14 | UPD | Comment only (Exec D60; comment-only exception to the lock, D47): three sample crew lines in the `parseCrew()` comment use obviously fake names (privacy). `RULESET_VERSION` `'2.0.1'`. No code, pattern or output change; lock 30/30, golden unchanged. Ledger N-12. |

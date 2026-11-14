@@ -7245,13 +7245,18 @@ function showToast(typeOrMsg, msg) {
 
 
 /**
- * ofp-navblue.js — NavBlue OFP Parser  (v2.0.0, contract v2.0)
+ * ofp-navblue.js — NavBlue OFP Parser  (v2.0.1, contract v2.0)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.4): the NavBlue (Navtech) OFP parser,
  * formerly the OFP ruleset CODE-OFP-AtlasPolar5yRuleset, renamed and
  * LOCKED (Exec, 7 Nov 2026; D47). It reads the raw text of an Atlas Air /
  * Polar Air Cargo OFP package (company PDF or eOFP print) and returns the
  * briefing contract.
+ *
+ * Changelog v2.0.1 (vs v2.0.0; ledger N-12; Exec decision D60, 14 Nov 2026):
+ *   COMMENT ONLY — three sample crew lines in the parseCrew() comment now use
+ *     obviously fake names (privacy). No code, pattern or output change: the
+ *     lock holds (D47 comment-only exception, D60).
  *
  * Changelog v2.0.0 (vs master v1.0 / v1.1; ledger RPT-OFP-NavBlue-RevisionLedger v1.0):
  *   ENGINE — follows the app (src/ofp-parse.html and the ENR V2 helpers in
@@ -7309,7 +7314,7 @@ function showToast(typeOrMsg, msg) {
 
 const RULESET_TYPE     = 'ofp';
 const OFP_FORMAT       = 'navblue';
-const RULESET_VERSION  = '2.0.0';
+const RULESET_VERSION  = '2.0.1';
 // Contract v2.0 (ADR-005 §2.4, Appendix A + B). The export shape is new
 // (parseNavBlue, the contract lists), so the schema version is 2.
 const SCHEMA_VERSION   = 2;
@@ -7932,9 +7937,9 @@ function _ofpRulesetParse(rawText, options) {
     //   "CA 100002 * EXAMPLE R .."       — mid-line asterisk (unusual circumstance flag)
     //   "* FO 100003 TESTER E .."        — leading asterisk (senior designee)
     //   "* SEN FO 100004 PLACEHOLD R .." — asterisk + SEN prefix
-    //   "FO 100005 * MORARDALE T .."           — SEN in name-field position
-    //   "CA 1234567 JONES A.."           — no space before dots (PDF whitespace collapse)
-    //   "CA 12 SMITH B .."               — short emp# (2-digit contract format)
+    //   "FO 100005 * SEN DOE J .."       — SEN in name-field position
+    //   "CA 1234567 FAKER A.."           — no space before dots (PDF whitespace collapse)
+    //   "CA 12 DUMMY B .."               — short emp# (2-digit contract format)
     //   "FO 100006 VANDERLAAN DEMOSTRA K .." — compound last name (v1.2.0)
     //   "FO 100007 * SAMPLEMAN JR D .."  — generational suffix token (v1.2.0)
     //   "FO 100008 EXAMPLETON II T .."   — generational suffix token (v1.2.0)

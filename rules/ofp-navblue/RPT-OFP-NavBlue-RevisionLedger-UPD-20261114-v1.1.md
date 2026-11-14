@@ -1,12 +1,12 @@
 # NavBlue OFP Parser — Revision Ledger
 
-**File Standard:** `RPT-OFP-NavBlue-RevisionLedger-NEW-20261109-v1.0.md` (first ledger of this module; the 5Y OFP ruleset had none — its history was kept in the SPECs' version tables)
-**Module:** `ofp-navblue` — file `rules/ofp-navblue/ofp-navblue-v2.0.0.js`
-**Current Version:** 2.0.0 (contract v2.0) — **LOCKED** (ADR-005 §2.4; Exec, 7 Nov 2026; D47)
-**Lines:** 1,629
+**File Standard:** `RPT-OFP-NavBlue-RevisionLedger-UPD-20261114-v1.1.md` (v1.0 was the first ledger of this module; the 5Y OFP ruleset had none — its history was kept in the SPECs' version tables)
+**Module:** `ofp-navblue` — file `rules/ofp-navblue/ofp-navblue-v2.0.1.js`
+**Current Version:** 2.0.1 (contract v2.0) — **LOCKED** (ADR-005 §2.4; Exec, 7 Nov 2026; D47). v2.0.1 is a comment-only change under the D60 exception (N-12).
+**Lines:** 1,634
 **Patterns:** 47 `PATTERNS` entries (46 RegExp + `APT_LINE_TEMPLATE`)
 **QA Status:** TC-130-001 … 030 PASS (14/14); lock 30/30 fixtures, 1,710 core fields, 0 differences (NAT parser passed in, both entry points). Independent QA 3a: CHANGES-REQUESTED (F1–F3) — addressed in N-11, b-8 and O-1; re-QA pending
-**Last Updated:** 2026-11-09
+**Last Updated:** 2026-11-14
 
 ---
 
@@ -14,8 +14,8 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 11 (N-01 through N-11) |
-| Current Version | 2.0.0 |
+| Total entries | 12 (N-01 through N-12) |
+| Current Version | 2.0.1 |
 | Engine source | the app on `main` at `d073e54` (`src/ofp-parse.html`, ENR V2 helpers of `src/render-preflight.html`) |
 | Masters reconciled | Drive "00_General Rulesets / 20_5Y specific / V1.0": CODE v1.0 (56,451 bytes, SHA-256 `a4ffdd8d…858e99a9`), CODE v1.1 (728 bytes, header only), SPEC v1.0, SPEC v1.1. "90_Old Versions": `5Y-ofp-rules.js` (v1.9.0, 39,304 bytes, SHA-256 `76de363a…3dd6feb1`); "V1.2 (ARCHIVED 2026-10-29)": CODE v1.2 (delta), SPEC v1.2 |
 | Gate Status | N-11 pending Exec gate (ADR-005 §2.2.6) and independent QA; master copy to be written to Drive at the gate |
@@ -83,6 +83,13 @@ No code change; the parser is `src/ofp-parse.html`.
 - Tests TC-130-003 and TC-130-015 load and run the module with `window`, `document`, storage and app globals that throw on any access (`typeof` included): none is touched. TC-130-015 also shows that a published `window.parseNatTrack` is never called.
 - Lock evidence: 30 NavBlue/eOFP fixtures, 57 fields each (1,710), 6,464 values; module in the app context and in Node, the NAT parser passed in on both entry points (`_ofpRulesetParse`, `parseNavBlue` core); 0 differences. Golden, NOTAM and app-path snapshots unchanged (33/33 each). `src/`, `build/` and `index.html` unchanged.
 
+### N-12 — v2.0.1: crew comment samples replaced with fakes (2026-11-14)
+
+**Type:** COMMENT ONLY (no behaviour change) · **Decision:** Exec D60 (14 Nov 2026), a comment-only exception to the lock (D47)
+- Privacy: one sample crew line in the `parseCrew()` comment matched a real crew entry (surname and initial) in the fixtures. It and two other sample lines whose surnames also occur in the fixtures now use obviously fake names, in the style of N-09. The formats they illustrate are unchanged. The whole module, `src/` and `docs/` were searched against the fixtures' crew names (locally; no name recorded here): no other example matches.
+- Version metadata: `RULESET_VERSION` `'2.0.1'`; header banner and changelog; `rules/manifest.json` (version, file, SHA-256); v2.0.0 removed from `rules/`. The TC-130 version pins and the file path and line numbers in `test/known-gaps.json` follow the rename (the header is 5 lines longer).
+- Lock evidence: with the comments removed, the v2.0.1 code is identical to v2.0.0 except the `RULESET_VERSION` string. The lock test (30 NavBlue/eOFP fixtures × 57 fields) gives 0 differences, and the v2.0.0 and v2.0.1 outputs are identical. Golden, NOTAM and app-path snapshots are unchanged (V0 invariants pass).
+
 ---
 
 ## Reconciliation — the masters vs the app (2026-11-09)
@@ -138,6 +145,7 @@ Method: the v1.0 master (exact bytes from Drive) and `5Y-ofp-rules.js` were comp
 | NB-02 | ENR V2 helpers exist twice (module § 9b and `src/render-preflight.html`) until the en-route timeline module owns them | Open — with the ENR module |
 | NB-03 | Master copy of v2.0.0, this SPEC and ledger written to Drive at the gate; v1.0/v1.1/v1.2 masters to "90_Old Versions" | Exec, at the gate |
 | NB-04 | v1.0 master in Drive carries real crew sample lines (b-4) | Exec decision |
+| NB-05 | Master copy of v2.0.1 (D60) written to Drive "00_General Rulesets"; the v2.0.0 master, whose crew comment carries the sample replaced in N-12, to "90_Old Versions" or scrubbed | Exec |
 | O-1 | **`navLog` is empty for NavBlue packages in the app today; locked as-is (D47).** `navLog` is `[]` on all 30 fixtures in the app, in the module and in the committed golden snapshots (the navlog row pattern expects a time form the packages do not print). The lock therefore compares `navLog` only as an empty list; a change to that sub-parser is caught by the byte compare of the copies (TC-130-004), not by the lock. (QA 3a F3.) | Open — reported only; any change needs an Exec decision and its own gate |
 
 ---
@@ -148,3 +156,4 @@ Method: the v1.0 master (exact bytes from Drive) and `5Y-ofp-rules.js` were comp
 | :- | :- | :- |
 | v1.0 | 2026-11-09 | First ledger. History N-01 … N-10 from the 5Y SPECs v1.0/v1.1/v1.2, the archived files and the app's git history; extraction N-11; reconciliation (a)/(b)/(c). |
 | v1.0 (QA 3a) | 2026-11-09 | After independent QA 3a: N-11 NAT hook is passed-in only, with the "NAT parser not supplied" INFO (F1); b-8 v1.0 master's Node crash added (F2); O-1 `navLog` empty for NavBlue added (F3). Module SHA-256 in `rules/manifest.json` updated. |
+| v1.1 | 2026-11-14 | N-12: module v2.0.1, comment only (D60); NB-05 added. |
