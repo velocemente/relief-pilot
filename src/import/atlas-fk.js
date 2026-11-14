@@ -737,7 +737,7 @@ function extractCbm(doc) {
   }
 
   // Extract legacy dateStr format (DD MMM YY) from flight header line
-  // Format: "GTI8153/26 ZUCK - UAAA 27 OCT 26 N498MC"
+  // Format: "TST0001/26 ZUCK - UAAA 27 OCT 26 <registration>" (synthetic example)
   const flightHeaderRegex = /\b[A-Z0-9]+\/\d+\s+[A-Z]{4}\s*-\s*[A-Z]{4}\s+(\d{2})\s+([A-Z]{3})\s+(\d{2})/i;
   const headerMatch = flightHeaderRegex.exec(fullText);
   cbm.dateStr = headerMatch

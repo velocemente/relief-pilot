@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { adaptItems } = require('../../src/import/adapter-pdf');
 const {
   extractCbm,
@@ -30,10 +31,14 @@ const FIXTURES_DIR = FIXTURES_CANDIDATES.find(d => {
   try { return fs.existsSync(path.join(d, 'manifest.json')); } catch (_) { return false; }
 });
 
-// Helper to build a minimal Doc for negative/unit tests
+// Helper to build a minimal Doc for negative/unit tests.
+// Header lines use the synthetic flight number TST0001; no fixture flight numbers.
 function makeDoc(lines) {
   return { pages: [{ lines: lines.map(text => ({ text })) }] };
 }
+
+// Fixture-derived values appear in messages only as a hash.
+const hash = v => `#${crypto.createHash('sha256').update(String(v)).digest('hex').slice(0, 8)}`;
 
 if (!FIXTURES_DIR) {
   // Never skip, in CI or locally: without fixtures this test FAILS (V0 rule).
@@ -55,19 +60,36 @@ if (!FIXTURES_DIR) {
   }
 
   // ── Row 1: Flight identity (fltNum, dateStr) ────────────────────────────
+  // Expected fltNum of a fixture: its golden snapshot's result.fltNum (the app's
+  // parse) without the /NN suffix, selected by fixture id. Messages show the
+  // fixture id and hashes only.
+  function expectedFltNum(id) {
+    assert.ok(manifest.fixtures.find(f => f.id === id), `${id}: listed in the fixtures manifest`);
+    const file = path.join(FIXTURES_DIR, 'snapshots', `${id}.json`);
+    assert.ok(fs.existsSync(file), `${id}: golden snapshot present`);
+    const snap = JSON.parse(fs.readFileSync(file, 'utf8')).result.fltNum;
+    assert.equal(typeof snap, 'string', `${id}: snapshot fltNum is a string`);
+    return snap.replace(/\/\d+$/, '');
+  }
+  function assertFltNumMatchesSnapshot(id, cbm) {
+    const want = expectedFltNum(id);
+    assert.ok(cbm.fltNum === want,
+      `${id}: fltNum ${hash(cbm.fltNum)} should equal snapshot fltNum without /NN ${hash(want)}`);
+  }
+
   test('Row 1 (FLIGHT_ID): FK_ZUCK-UAAA extracts flight number and date', () => {
-    const { doc } = fixtureData['FK_ZUCK-UAAA_27OCT26_prototype'];
+    const id = 'FK_ZUCK-UAAA_27OCT26_prototype';
+    const { doc } = fixtureData[id];
     const cbm = extractCbm(doc);
-    // Line: GTI8153/26 ZUCK - UAAA 27 OCT 26 N498MC
-    assert.equal(cbm.fltNum, 'GTI8153', 'fltNum should be GTI8153');
+    assertFltNumMatchesSnapshot(id, cbm);
     assert.equal(cbm.dateStr, '27 OCT 26', 'dateStr should be legacy format 27 OCT 26');
   });
 
   test('Row 1 (FLIGHT_ID): FK_UAAA-EHAM extracts correct values', () => {
-    const { doc } = fixtureData['FK_UAAA-EHAM_27OCT26_prototype'];
+    const id = 'FK_UAAA-EHAM_27OCT26_prototype';
+    const { doc } = fixtureData[id];
     const cbm = extractCbm(doc);
-    // Line: GTI8153/27 UAAA - EHAM 27 OCT 26 N498MC
-    assert.equal(cbm.fltNum, 'GTI8153', 'fltNum should be GTI8153');
+    assertFltNumMatchesSnapshot(id, cbm);
     assert.equal(cbm.dateStr, '27 OCT 26', 'dateStr should be 27 OCT 26');
   });
 
@@ -321,7 +343,7 @@ if (!FIXTURES_DIR) {
   // For each SC field: missing/doctored input → empty value + finding, never wrong value.
 
   test('NEGATIVE (block fuel): missing BLOCK line → empty string + FAIL finding', () => {
-    const doc = makeDoc(['GTI8153/26 ZUCK - UAAA 27 OCT 26', 'MINF 064387 05.52']);
+    const doc = makeDoc(['TST0001/26 ZUCK - UAAA 27 OCT 26', 'MINF 064387 05.52']);
     const cbm = extractCbm(doc);
     assert.equal(cbm.blockFuelRaw, '', 'blockFuelRaw should be empty when BLOCK line missing');
     const v = validate(cbm);
@@ -330,7 +352,7 @@ if (!FIXTURES_DIR) {
   });
 
   test('NEGATIVE (min fuel): missing MINF line → empty string + FAIL finding', () => {
-    const doc = makeDoc(['GTI8153/26 ZUCK - UAAA 27 OCT 26', 'BLOCK 078200 07.28']);
+    const doc = makeDoc(['TST0001/26 ZUCK - UAAA 27 OCT 26', 'BLOCK 078200 07.28']);
     const cbm = extractCbm(doc);
     assert.equal(cbm.minfFuelRaw, '', 'minfFuelRaw should be empty when MINF line missing');
     const v = validate(cbm);
@@ -339,7 +361,7 @@ if (!FIXTURES_DIR) {
   });
 
   test('NEGATIVE (taxi fuel): missing TAXI line → empty string + FAIL finding', () => {
-    const doc = makeDoc(['GTI8153/26 ZUCK - UAAA 27 OCT 26', 'BLOCK 078200 07.28']);
+    const doc = makeDoc(['TST0001/26 ZUCK - UAAA 27 OCT 26', 'BLOCK 078200 07.28']);
     const cbm = extractCbm(doc);
     assert.equal(cbm.taxiFuelRaw, '', 'taxiFuelRaw should be empty when TAXI line missing');
     const v = validate(cbm);
@@ -351,7 +373,7 @@ if (!FIXTURES_DIR) {
     // Fit for Duty section with only FO — no CA. Leading line ensures regex finds \n before header.
     // Synthetic crew line uses invented number and name — no fixture data.
     const doc = makeDoc([
-      'GTI8153/26 ZUCK - UAAA 27 OCT 26',
+      'TST0001/26 ZUCK - UAAA 27 OCT 26',
       'Fit for Duty Attestation:',
       'FO 999001 SMITH TO/LNDG',
       'TO/LNDG currency questions?',
@@ -476,7 +498,7 @@ if (!FIXTURES_DIR) {
     assert.ok(!isFkHeaderLine('ZUCK A0926/26'), 'NOTAM ID is not a header');
     assert.ok(!isFkHeaderLine('TAF ZUCK 262113Z'), 'TAF line is not a header');
     assert.ok(!isFkHeaderLine(''), 'empty string is not a header');
-    assert.ok(isFkHeaderLine('GTI8153/26 ZUCK-UAAA 2026-10-27'), 'flt/route/date = header');
+    assert.ok(isFkHeaderLine('TST0001/26 ZUCK-UAAA 2026-10-27'), 'flt/route/date = header');
   });
 
   // ── P2b unit tests (findFkWeatherStart) ────────────────────────────────
@@ -688,7 +710,7 @@ if (!FIXTURES_DIR) {
   test('FK and matched pair comparison: same aircraft and crew count', () => {
     const fkDoc = fixtureData['FK_UAAA-EHAM_27OCT26_prototype'].doc;
     const fkCbm = extractCbm(fkDoc);
-    // GTI8153/27 on same B744 aircraft
+    // same flight, next leg, on the same B744 aircraft
     assert.equal(fkCbm.acftType, 'B744', 'matched pair: B744');
     assert.ok(fkCbm.crewMembers.length > 0, 'matched pair: crew members present');
   });
