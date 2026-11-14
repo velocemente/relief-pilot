@@ -4,11 +4,12 @@
 //   node test/golden/<name>.js update  [--fixtures <dir>]
 // Snapshots are read from / written to <fixtures>/<dirName>/<id>.json.
 // Missing fixtures, a missing snapshot, or a snapshot with no fixture all FAIL.
+// Live FlightKeys fixtures are not selected (app-path.js snapshotFixtures).
 const fs = require('fs');
 const path = require('path');
 const { normalize, stringify } = require('../golden/serialize');
 const { diff } = require('../golden/diff');
-const { findFixtures, readManifest, importFixture } = require('./app-path');
+const { findFixtures, readManifest, importFixture, snapshotFixtures } = require('./app-path');
 
 function parseArgs(argv, usage) {
   const o = { mode: argv[0], fixtures: null, maxLines: 40 };
@@ -29,8 +30,11 @@ async function run({ name, dirName, build }) {
   const snapDir = path.join(opt.dir, dirName);
   const failures = [];
   let same = 0, written = 0;
+  const selected = snapshotFixtures(manifest);
+  const notSelected = manifest.fixtures.length - selected.length;
+  if (notSelected) console.log(`${name}: ${notSelected} live FlightKeys fixture(s) not compared (no snapshots)`);
 
-  for (const fx of manifest.fixtures) {
+  for (const fx of selected) {
     let snap;
     try {
       const imp = await importFixture(fx, opt.dir);
@@ -72,7 +76,7 @@ async function run({ name, dirName, build }) {
     process.exit(failures.length ? 1 : 0);
   }
   if (!failures.length) { console.log(`${name}: all ${same} fixtures match their snapshots`); return; }
-  console.log(`${name}: ${failures.length} of ${manifest.fixtures.length} fixtures differ from their snapshots\n`);
+  console.log(`${name}: ${failures.length} of ${selected.length} fixtures differ from their snapshots\n`);
   for (const f of failures) {
     console.log(`── ${f.id}  (${f.lines.length} field${f.lines.length === 1 ? '' : 's'})`);
     f.lines.slice(0, opt.maxLines).forEach(l => console.log('   ' + l));

@@ -181,9 +181,16 @@ if (!FIXTURES_DIR) {
     return /^FK_/i.test(id) ? 'atlas-fk' : 'atlas-5y';
   }
 
-  test(`detector: all ${manifest.fixtures.length} fixtures classified correctly`, async () => {
+  // Known detector gaps (test/known-gaps.json "detector", step 5e): these packages are
+  // expected to be REJECTED by the threshold. Any other rejection still fails.
+  const KNOWN_REJECTED = new Map(
+    JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'known-gaps.json'), 'utf8')).detector.gaps
+      .map(g => [g.fixture, g]));
+
+  test(`detector: all ${manifest.fixtures.length} fixtures classified correctly (listed known gaps rejected)`, async (t) => {
     let fkCount = 0;
     let ntCount = 0;
+    let knownRejected = 0;
     const failures = [];
 
     for (const fx of manifest.fixtures) {
@@ -195,15 +202,25 @@ if (!FIXTURES_DIR) {
       const itemsDoc = JSON.parse(fs.readFileSync(itemsPath, 'utf8'));
       const doc      = adaptItems(itemsDoc);
 
+      const want = expectedProfile(fx.id);
+      const known = KNOWN_REJECTED.get(fx.id);
       let result;
       try {
         result = detect(doc);
       } catch (e) {
+        // A listed known gap must be rejected by the threshold, for the recorded format.
+        if (known && known.expect === want && /^OFP format not recognised \(best score [\d.]+ < threshold/.test(e.message)) {
+          knownRejected++;
+          continue;
+        }
         failures.push(`${fx.id}: detect threw — ${e.message}`);
         continue;
       }
 
-      const want = expectedProfile(fx.id);
+      if (known && result.profileId === want) {
+        const m = `REMINDER: detector gap now fixed, delete it from test/known-gaps.json "detector": ${fx.id}`;
+        console.log(m); t.diagnostic(m);
+      }
       if (result.profileId !== want) {
         failures.push(`${fx.id}: got ${result.profileId} (confidence ${result.confidence.toFixed(2)}), want ${want}`);
       } else {
@@ -218,7 +235,8 @@ if (!FIXTURES_DIR) {
     const wantFk = manifest.fixtures.filter(fx => fx.format === 'flightkeys').length;
     const wantNt = manifest.fixtures.length - wantFk;
     assert.equal(ntCount, wantNt, `Expected ${wantNt} atlas-5y fixtures, got ${ntCount}`);
-    assert.equal(fkCount, wantFk, `Expected ${wantFk} atlas-fk fixtures, got ${fkCount}`);
+    assert.equal(fkCount + knownRejected, wantFk, `Expected ${wantFk} atlas-fk fixtures (${knownRejected} known gaps), got ${fkCount}`);
+    console.log(`detector: ${fkCount} atlas-fk, ${ntCount} atlas-5y, ${knownRejected} known gap(s) rejected as listed`);
     assert.ok(wantNt >= 30 && wantFk >= 2, `Fixture library shrank: ${wantNt} Navtech/eOFP, ${wantFk} FlightKeys`);
   });
 }

@@ -41,7 +41,7 @@ const path   = require('path');
 const vm     = require('vm');
 const crypto = require('crypto');
 const { loadApp } = require('../harness');
-const { findFixtures, readManifest } = require('../lib/app-path');
+const { findFixtures, readManifest, snapshotFixtures } = require('../lib/app-path');
 const { assemble } = require('../../build/build');
 
 const ROOT      = path.resolve(__dirname, '..', '..');
@@ -74,10 +74,11 @@ function requireFixturesDir() {
   if (!d) throw new Error('fixtures not found (set PB_FIXTURES or clone pilotbrief-fixtures beside the repo)');
   return d;
 }
-// acftType and fltNum of every fixture, from its golden snapshot (the app's parse).
+// acftType and fltNum of every snapshot fixture (app-path.js snapshotFixtures), from its golden
+// snapshot (the app's parse).
 function fixtureInputs() {
   const dir = requireFixturesDir();
-  const list = readManifest(dir).fixtures;
+  const list = snapshotFixtures(readManifest(dir));
   const navblue = list.filter(f => NAVBLUE_FORMATS.has(f.format));
   assert.ok(navblue.length >= 30, `at least the 30 NavBlue/eOFP packages (found ${navblue.length})`);
   return list.map(fx => {
