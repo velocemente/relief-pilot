@@ -166,7 +166,7 @@ test('TC-140-002 no edit, every fixture: each time is OUT + its OFP offset on th
         continue;
       }
     }
-    assert.equal(at(t.outMs),`${dof} ${S.outZ.slice(0, 2)}:${S.outZ.slice(2)}Z`, `${fx.id}: OUT on the DOF date`);
+    assert.equal(at(t.outMs), `${dof} ${S.outZ.slice(0, 2)}:${S.outZ.slice(2)}Z`, `${fx.id}: OUT on the DOF date`);
     if (S.destEtaOffsetMins !== null) {
       assert.equal(t.etaDestMs - t.outMs, S.destEtaOffsetMins * 60000, `${fx.id}: DEST = OUT + offset`);
       checked++;
@@ -187,6 +187,7 @@ test('TC-140-002 no edit, every fixture: each time is OUT + its OFP offset on th
       seen[`${fx.id} ${apt.icao}`] = iso(e);
     }
   }
+  if (knownNoOut) tc.diagnostic(`${knownNoOut} fixture(s) without OUT: known gap G-NB-1 (test/known-gaps.json "navblue-parser")`);
   assert.ok(checked > 100, `${checked} downline times checked`);
   assert.ok(nextDay > 0, `${nextDay} airports reached on a later UTC day than DOF`);
   // Spot checks: a next-day arrival and a same-day arrival.
