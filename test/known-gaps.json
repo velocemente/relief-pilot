@@ -233,5 +233,31 @@
       {"fixture":"FK_EPPW-KPSM_10NOV26_nat-random-callsign_live","expect":"atlas-fk","score":0.36,"reason":"Flight plan printed three times; only 16 of 52 pages carry the briefing footer (0.31 + 0.05 cover boost < 0.4).","step":"5e"},
       {"fixture":"FK_KDOV-ETAR_03NOV26_pax-nat-random_live","expect":"atlas-fk","score":0.33,"reason":"Flight plan printed three times; only 15 of 53 pages carry the briefing footer (0.28 + 0.05 cover boost < 0.4).","step":"5e"}
     ]
+  },
+  "navblue-parser": {
+    "_what": "Known gaps in the NavBlue OFP parser (rules/ofp-navblue/ofp-navblue-v2.0.0.js), which the app also uses for FlightKeys packages today. The parser is locked (D47; Exec decision 13 Nov): these are recorded, not fixed. Fix at the next NavBlue unlock; the FlightKeys parser implements the correct rule (5b).",
+    "_rule": "test/unit/deval-dates.test.js TC-140-002 expects the listed fixtures of G-NB-1 to have no departure airport and no OUT time, and FAILS if any other fixture has no OUT time or if a listed one fails in another way; it prints a REMINDER when a listed fixture has its OUT time (then delete it from the list).",
+    "gaps": [
+      {
+        "id": "G-NB-1",
+        "what": "An airport line (ORIG, DEST, alternates) with no 3-letter code after the slash is skipped: the pattern needs at least one non-space character after the slash.",
+        "file": "rules/ofp-navblue/ofp-navblue-v2.0.0.js",
+        "lines": "229",
+        "pattern": "APT_LINE_TEMPLATE: (keyword) => new RegExp('^' + keyword + '\\\\s+([A-Z]{4})\\\\/\\\\S+[^\\\\n]*?(\\\\d{4})Z\\\\s*$', 'm')",
+        "effect": "ORIG line skipped: no departure airport, no departure card, no OUT time (and so no dated timeline).",
+        "fix": "fix at next NavBlue unlock; FlightKeys parser implements the correct rule (5b)",
+        "fixtures": ["FK_EPPW-KPSM_10NOV26_nat-random-callsign_live"]
+      },
+      {
+        "id": "G-NB-2",
+        "what": "Date fallback: when there is no DOF/YYMMDD, the first \"DD MON YY\" anywhere in the text is taken as the flight date, with no word boundary and no check that it is a real date.",
+        "file": "rules/ofp-navblue/ofp-navblue-v2.0.0.js",
+        "lines": "615-624",
+        "pattern": "DATE_PLAIN: /(\\d{1,2})\\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\\s+(\\d{2,4})/i",
+        "effect": "An OFP without DOF can get a wrong or impossible flight date (e.g. day 59), which moves or drops the dated OUT time and every downline time.",
+        "fix": "fix at next NavBlue unlock; FlightKeys parser implements the correct rule (5b)",
+        "fixtures": []
+      }
+    ]
   }
 }

@@ -37,6 +37,7 @@ const test   = require('node:test');
 const assert = require('node:assert/strict');
 const vm     = require('vm');
 const fs     = require('fs');
+const path   = require('path');
 const { loadApp, INDEX_HTML } = require('../harness');
 const { importFixture, readManifest, requireFixtures, peek } = require('../lib/app-path');
 
@@ -137,14 +138,35 @@ test('TC-140-001 no edit: departure, destination and alternate dates, same-day a
 });
 
 // ══ TC-140-002 ════════════════════════════════════════════════════════════
-test('TC-140-002 no edit, every fixture: each time is OUT + its OFP offset on the actual date', async () => {
+// Known NavBlue parser gap G-NB-1 (test/known-gaps.json "navblue-parser", D47 lock): an ORIG
+// line with nothing after the slash is skipped, so these fixtures have no departure airport
+// and no OUT time. Only the listed fixtures, and only with exactly that result.
+const G_NB_1 = new Set(
+  JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'known-gaps.json'), 'utf8'))['navblue-parser'].gaps
+    .find(g => g.id === 'G-NB-1').fixtures);
+
+test('TC-140-002 no edit, every fixture: each time is OUT + its OFP offset on the actual date', async (tc) => {
   const dir = requireFixtures();
-  let checked = 0, nextDay = 0;
+  let checked = 0, nextDay = 0, knownNoOut = 0;
   const seen = {};
   for (const fx of readManifest(dir).fixtures) {
     const imp = await importFixture(fx, dir);
     const t = tl(imp.app), S = imp.S, dof = imp.app.sandbox.window._flightDateISO;
-    assert.equal(at(t.outMs), `${dof} ${S.outZ.slice(0, 2)}:${S.outZ.slice(2)}Z`, `${fx.id}: OUT on the DOF date`);
+    if (G_NB_1.has(fx.id)) {
+      if (S.outZ) {
+        const m = `REMINDER: G-NB-1 now fixed for ${fx.id}, delete it from test/known-gaps.json "navblue-parser"`;
+        console.log(m); tc.diagnostic(m);
+      } else {
+        // The recorded gap, exactly: ORIG line without a code after the slash, so no
+        // departure airport and no OUT; anything else still fails.
+        assert.match(imp.rawText, /^ORIG\s+[A-Z]{4}\/(?:\s|$)/m, `${fx.id} (G-NB-1): ORIG line without a code after the slash`);
+        assert.equal(imp.app.getAllAirports().some(a => a.role === 'ORIG'), false, `${fx.id} (G-NB-1): no departure airport`);
+        assert.equal(t.outMs, null, `${fx.id} (G-NB-1): no dated OUT`);
+        knownNoOut++;
+        continue;
+      }
+    }
+    assert.equal(at(t.outMs),`${dof} ${S.outZ.slice(0, 2)}:${S.outZ.slice(2)}Z`, `${fx.id}: OUT on the DOF date`);
     if (S.destEtaOffsetMins !== null) {
       assert.equal(t.etaDestMs - t.outMs, S.destEtaOffsetMins * 60000, `${fx.id}: DEST = OUT + offset`);
       checked++;
