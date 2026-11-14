@@ -366,4 +366,120 @@ NIL
 
 ## Part B — Today in beta (live risk)
 
-*(Part B follows in the next commit.)*
+### B.1 Method
+
+| Step | Detail |
+|---|---|
+| Build | `index.html` on `main` at 15d2252 (`APP_VERSION` 1.9.9-hf6): the NavBlue parser module `ofp-navblue` v2.0.0 inside the app, NOTAM ruleset v1.12.0. FlightKeys packages go through this path today; there is no FlightKeys parser in the app yet. |
+| Path | `test/lib/app-path.js` `importFixture()` (stored pdf.js items → the app's own `processPDF()` → `parseOFP()`), then `getAllAirports()` (the airport cards) and `evalAirport(icao, eta, notams, weather, wxWindow, role, acftType)` for every card, exactly as `test/lib/v0-snapshots.js` `appSnapshot()` does. `index.html` unmodified; harness clock fixed. |
+| Packages | The 23 live packages (L01–L23). The prototypes are left out (not live). |
+| Truth | From the redacted text of the first release copy: `BLOCK` / `MINF` (OFP p1), crew roster lines `CA|FO|MX|LM|DH|FA|PU|JS <number>`, CAT lines `IIII CAT II|III|II/III - …`, `EXEMPTION NO` + `ALTERNATE AIRPORT REQUIRED` (across a line break), `WHEELS UP NOT BEFORE HHMMZ`, `ETOPS Entry HH.MM`; briefing blocks and items from Part A. Forms as in field map v1.1 rows 9, 10, 24, 26, 29, 30, 39, 41, 43–46. |
+| Card display | `evalAirport()` returns `color: 'unknown'` when a card has neither NOTAM nor weather text; the card badge then reads **NO DATA** (grey) — `src/airports.html`, `sl = {…, unknown:'NO DATA'}`. The crew sees an empty card with a grey badge, not a green one. |
+
+### B.2 Airport cards
+
+| Pkg | Cards | Beta cards (role ICAO) | NOTAM items in the package for these airports | Card airports with a WX block in the package | Cards with no NOTAMs (beta) | Cards with no weather (beta) |
+|---|---|---|---|---|---|---|
+| L01 | 3 | ORIG MKJP, DEST KMIA, DEST ALT KRSW | 58 | 3 | 3 | 3 |
+| L02 | 5 | ORIG KORD, DEST RKSI, DEST ALT RKSS, EN ROUTE ALT RJTT, EN ROUTE ALT RJAA | 128 | 5 | 5 | 5 |
+| L03 | 5 | ORIG PANC, DEST ZHEC, DEST ALT ZHCC, CFS ALT PACD, CFS ALT RJCC | 45 | 5 | 5 | 5 |
+| L04 | 3 | ORIG RCTP, DEST RJGG, DEST ALT RJBB | 45 | 3 | 3 | 3 |
+| L05 | 3 | ORIG KCVG, DEST KSEA, DEST ALT KBFI | 65 | 3 | 3 | 3 |
+| L06 | 3 | ORIG LEZG, DEST LLBG, DEST ALT OJAI | 26 | 3 | 3 | 3 |
+| L07 | 3 | ORIG LLBG, DEST OMDW, DEST ALT OMAA | 25 | 3 | 3 | 3 |
+| L08 | 5 | ORIG KMIA, DEST EHBK, DEST ALT EBLG, EN ROUTE ALT CYYR, EN ROUTE ALT CYQX | 51 | 5 | 5 | 5 |
+| L09 | 3 | ORIG VHHH, DEST PANC, DEST ALT PAED | 69 | 3 | 3 | 3 |
+| L10 | 3 | ORIG KMIA, DEST SBGL, DEST ALT SBGR | 48 | 3 | 3 | 3 |
+| L11 | 5 | ORIG KGSP, DEST EPWA, DEST ALT EPLB, EN ROUTE ALT EDDL, EN ROUTE ALT EDDK | 88 | 5 | 5 | 5 |
+| L12 | 5 | ORIG EBLG, DEST KORD, DEST ALT KIND, EN ROUTE ALT KPSM, EN ROUTE ALT KBOS | 103 | 5 | 5 | 5 |
+| L13 | 5 | ORIG UBBB, DEST RJFK, DEST ALT RJFT, EN ROUTE ALT ZSNB, EN ROUTE ALT ZSHC | 18 | 5 | 5 | 5 |
+| L14 | 5 | ORIG KORD, DEST RKSI, DEST ALT RKSS, EN ROUTE ALT RJTT, EN ROUTE ALT RJAA | 140 | 5 | 5 | 5 |
+| L15 | 6 | ORIG PHNL, DEST WIHH, DEST ALT WIII, CFS ALT PHLI, CFS ALT PWAK, CFS ALT PGUA | 134 | 6 | 6 | 6 |
+| L16 | 3 | ORIG ZHEC, DEST PANC, DEST ALT PAED | 67 | 3 | 3 | 3 |
+| L17 | 3 | ORIG OMAA, DEST VHHH, DEST ALT ZGSZ | 52 | 3 | 3 | 3 |
+| L18 | 5 | ORIG KORD, DEST RJAA, DEST ALT RJTT, EN ROUTE ALT PAED, EN ROUTE ALT PANC | 177 | 5 | 5 | 5 |
+| L19 | 5 | ORIG PANC, DEST KMIA, DEST ALT KRSW, EN ROUTE ALT KHSV, EN ROUTE ALT KATL | 113 | 5 | 5 | 5 |
+| L20 | 7 | ORIG KORD, DEST RKSI, DEST ALT RKSS, EN ROUTE ALT RJTY, EN ROUTE ALT RJTT, CFS ALT PASY, CFS ALT RJCC | 152 | 7 | 7 | 7 |
+| L21 | 4 | ORIG NZWN, DEST NFFN, DEST ALT NFTF, CFS ALT NZAA | 25 | 4 | 4 | 4 |
+| L22 | 5 | DEST KPSM, DEST ALT KBOS, CFS ALT EINN, CFS ALT BIKF, CFS ALT CYYR | 40 | 5 | 5 | 5 |
+| L23 | 3 | ORIG KDOV, DEST ETAR, DEST ALT EDDK | 49 | 3 | 3 | 3 |
+| **Total** | **97** | | **1,718** | **97** | **97** | **97** |
+
+- **Every card of every live package is empty: 97/97 cards show no NOTAMs and no weather, badge NO DATA, in 23/23 packages.** The packages hold a NOTAM block for all 97 card airports (95 with at least one item, 1,718 items; L15 WIHH and L13 RJFT print "no active NOTAMs") and a weather block for all 97. `airportData` has the 97 airports with `notams: ''`, `weather: ''`. Cause: the NavBlue NOTAM/weather sections do not exist in FlightKeys (Part A; field map rows 43–45). This matches `test/known-gaps.json` (V0 gaps) for the packages it lists.
+- **En-route NOTAMs:** the packages hold 792 FIR NOTAM items; beta's `enrouteNotams` is empty (all five groups) in 23/23.
+- `EN ROUTE ALT` on the `RAPT`/`RALT` airports (9 redispatch packages) is the NavBlue mapping (`ofp-navblue` v2.0.0, `RALT`/`RAPT` → `EN ROUTE ALT`), not a FlightKeys error.
+
+### B.3 Alternates and release airports without a card
+
+| What | Count | Packages | Detail |
+|---|---|---|---|
+| Release airport without a card | 1 | L22 | The origin EPPW has no IATA code (`EPPW/ POWIDZ`), so `origIcao` is empty and there is no ORIG card (field map row 5). |
+| Release alternates (`PALT`, `RAPT`, `RALT`) without a card | 0 | — | 23 `PALT`, 9 `RAPT`, 9 `RALT`: all have a card. |
+| ETOPS / ETP / critical-fuel alternates named in the release, without a card | **6** | **4** | L14 RJCC, PAKN, PASY (777 ETOPS; `ETP1`/`ETP2` read, but no `CFS ALT` card; field map row 41, cause not diagnosed); L09 PASY and L11 BIKF (747 `2EO` scenario with `E.ENT`/`E.EXIT IIII`); L23 LPLA (767 `E.ENT`/`E.EXIT`-only scenario). Each is an `EA` airport in both briefings. |
+| `CFS ALT` cards without a weather window | 13 cards | 5 (L03, L15, L20, L21, L22) | `wxWindow: null` on every CFS card (FlightKeys prints `HH:MM-HH:MM` without `Z`; field map row 41). With no weather text the card is NO DATA anyway; once weather is read, the window is needed for the evaluation time. |
+| Briefing alternates with weather only (`ALTN`, `dest2Altn`) and no card | 99 | 23 | Further alternates FlightKeys prints in the Weather Briefing only (Part A §A.4). Not release alternates; listed for the Exec, not counted as a beta defect. |
+
+### B.4 Safety-Critical fields (CLAUDE.md rule 6) — per field
+
+| Field | Packages carrying it | Beta right | Beta empty | Beta wrong | Notes |
+|---|---|---|---|---|---|
+| Block fuel | 23 | **23** | 0 | 0 | `blockFuelRaw` equals `BLOCK` (leading zero dropped, same value). |
+| Min fuel | 23 | **23** | 0 | 0 | `minfFuelRaw` equals `MINF`. |
+| Crew | 23 (142 lines, 72 pilots) | 0 | **23** | 0 | `crewMembers: []` in 23/23 (comma form, field map row 26). |
+| CAT II/III | 19 (99 lines) | 0 | **19** | 0 | `catIiIiiApproaches: null`. Negative cases right: `null` in L01, L05 (restriction line only), L15, L19. |
+| DOT exemption alternate | 6 | 5 | 0 | **1** | L08: the line wraps before `REQUIRED.`, so `altRequired: false`. Right in L11, L13, L15, L21, L22; `null` correctly in the other 17. |
+| Slot time | 1 (L16) | **1** | 0 | 0 | `NOT BEFORE 1627Z`; `null` correctly in the other 22. |
+| ETOPS entry | 7 | 0 | **7** | 0 | `etopsEntry: ''` (FlightKeys `HH.MM`); L03, L14, L15, L20, L21, L22, L23. |
+| ETOPS exit | 7 | **7** | 0 | 0 | Read from the nav log `(E.EXT)` row. |
+| ETOPS/ETP alternate card | 9 live packages with an ETP/critical-fuel scenario | 5 | **4** (6 airports) | 0 | §B.3. |
+| Airport NOTAMs | 97 cards (95 with items) | 0 | **97** | 0 | §B.2. |
+| Airport weather | 97 cards | 0 | **97** | 0 | §B.2. Includes L15 PWAK, the E-WINS (`* PRIO *`) airport on a CFS card. |
+| Airport curfew | 9 card airports with a `IIII-CURFEW` item, 6 packages | 0 | **9** | 0 | L02 RKSS, RJAA · L03 RJCC · L14 RKSS, RJAA · L18 RJAA · L20 RKSS, RJCC · L23 ETAR. No curfew is shown on any card. |
+
+### B.5 Per package — beta-risk count
+
+Count of safety-critical gaps per package (empty or wrong): cards without NOTAMs + cards without weather + release/ETOPS alternates without a card + crew + CAT II/III + DOT + ETOPS entry + curfew airports.
+
+| Pkg | Cards no NOTAM | Cards no WX | Missing card | Crew | CAT II/III | DOT | ETOPS entry | Curfew | **Total** |
+|---|---|---|---|---|---|---|---|---|---|
+| L01 | 3 | 3 | 0 | 1 | 0 | 0 | 0 | 0 | **7** |
+| L02 | 5 | 5 | 0 | 1 | 1 | 0 | 0 | 2 | **14** |
+| L03 | 5 | 5 | 0 | 1 | 1 | 0 | 1 | 1 | **14** |
+| L04 | 3 | 3 | 0 | 1 | 1 | 0 | 0 | 0 | **8** |
+| L05 | 3 | 3 | 0 | 1 | 0 | 0 | 0 | 0 | **7** |
+| L06 | 3 | 3 | 0 | 1 | 1 | 0 | 0 | 0 | **8** |
+| L07 | 3 | 3 | 0 | 1 | 1 | 0 | 0 | 0 | **8** |
+| L08 | 5 | 5 | 0 | 1 | 1 | 1 | 0 | 0 | **13** |
+| L09 | 3 | 3 | 1 | 1 | 1 | 0 | 0 | 0 | **9** |
+| L10 | 3 | 3 | 0 | 1 | 1 | 0 | 0 | 0 | **8** |
+| L11 | 5 | 5 | 1 | 1 | 1 | 0 | 0 | 0 | **13** |
+| L12 | 5 | 5 | 0 | 1 | 1 | 0 | 0 | 0 | **12** |
+| L13 | 5 | 5 | 0 | 1 | 1 | 0 | 0 | 0 | **12** |
+| L14 | 5 | 5 | 3 | 1 | 1 | 0 | 1 | 2 | **18** |
+| L15 | 6 | 6 | 0 | 1 | 0 | 0 | 1 | 0 | **14** |
+| L16 | 3 | 3 | 0 | 1 | 1 | 0 | 0 | 0 | **8** |
+| L17 | 3 | 3 | 0 | 1 | 1 | 0 | 0 | 0 | **8** |
+| L18 | 5 | 5 | 0 | 1 | 1 | 0 | 0 | 1 | **13** |
+| L19 | 5 | 5 | 0 | 1 | 0 | 0 | 0 | 0 | **11** |
+| L20 | 7 | 7 | 0 | 1 | 1 | 0 | 1 | 2 | **19** |
+| L21 | 4 | 4 | 0 | 1 | 1 | 0 | 1 | 0 | **11** |
+| L22 | 5 | 5 | 1 | 1 | 1 | 0 | 1 | 0 | **14** |
+| L23 | 3 | 3 | 1 | 1 | 1 | 0 | 1 | 1 | **11** |
+| **Total** | **97** | **97** | **7** | **23** | **19** | **1** | **7** | **9** | **260** |
+
+"Missing card" = the L22 origin plus the 6 ETOPS/ETP alternates of §B.3 (L14 counts 3).
+
+### B.6 Beta-risk totals
+
+- **Airport cards:** 97/97 with no NOTAMs and no weather (NO DATA) in 23/23 live packages; 1,718 airport NOTAM items and 97 weather blocks not shown; 792 en-route NOTAM items not shown.
+- **Cards missing:** 1 release airport (L22 origin) and 6 ETOPS/ETP alternates in 4 packages; 99 weather-only briefing alternates have no card (not counted).
+- **Safety-Critical fields empty:** crew 23/23 · CAT II/III 19/19 · ETOPS entry 7/7 · curfew 9 airports in 6 packages. **Wrong:** DOT exemption `altRequired` 1/6 (L08).
+- **Right today:** block fuel 23/23 · min fuel 23/23 · slot time 1/1 (and 22 correct negatives) · ETOPS exit 7/7 · DOT exemption 5/6.
+- **Total safety-critical gaps: 260 across 23/23 packages (7–19 per package).** The NO DATA badge makes the empty cards visible to the crew; the empty crew list, CAT II/III, ETOPS entry and curfew fields, and the missing ETOPS alternate cards are silent (nothing tells the crew a value is missing).
+
+---
+
+## Found outside this report's scope (reported, not acted on)
+
+- `tools/redact` still leaves the `JS 0 <NAME>` jump-seat lines (L11 among others), as already reported in field map v1.1 §6. This report quotes none of them.
+- Field map v1.1 row 44 lists `PERM` as a NOTAM end form in 8 packages; no NOTAM header in the 26 packages ends in `PERM` (§A.5). The field map is not edited in this PR.
