@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// Replaces crew names, dispatcher names and employee numbers in extracted
-// OFP text (.raw.txt) and positional items (.items.json) with stable fake values.
+// Replaces crew names (jump seat included), dispatcher names and initials, and
+// employee numbers in extracted OFP text (.raw.txt) and positional items
+// (.items.json) with stable fake values.
 //
 //   * Stable: the fake value is a pure function of the original token and a
 //     fixed salt (SHA-256). Same input -> same output, in any run, on any file.
 //   * Raw and items are redacted by the same line rules, so they stay in step.
 //   * Not redacted: ordinary text that happens to look like a name (airports,
-//     NOTAM text, month names...). Only the patterns listed in findLineSpans().
+//     NOTAM text, month names...). Only the patterns listed in ruleMatches().
 //
 // Usage:
 //   node tools/redact/redact.js --out <dir> [--show-map] <file.raw.txt|file.items.json> ...
@@ -47,12 +48,30 @@ function fakeNumber(n) {
 function fakeName(name) {
   return name.replace(/[A-Za-z]+/g, fakeWord);
 }
+// Initials keep their length: "ABC" -> three stable fake letters.
+function fakeInitials(s) {
+  const d = digest('initials', s.toUpperCase());
+  let out = '';
+  for (let i = 0; i < s.length; i++) out += String.fromCharCode(65 + (d[i] % 26));
+  return out;
+}
 
 // ── line rules ────────────────────────────────────────────────────────────
 // Returns { found: [{kind, orig}] } entries for registry building, and spans.
-const ROSTER = /^(\s*(?:CA|FO|FA|PU|LM|MX|DH|RO|IRO|SO)\s+(?:\*\s*)?)(\d{5,7})(\s+)(.+?)(?=\s+\.\.|\s*$)/;
+// Employee numbers are 3 to 7 digits (Navtech prints some 3- and 4-digit ones).
+const ROSTER = /^(\s*(?:CA|FO|FA|PU|LM|MX|DH|RO|IRO|SO)\s+(?:\*\s*)?)(\d{3,7})(\s+)(.+?)(?=\s+\.\.|\s*$)/;
 const DH_NONUM = /^(\s*DH\s+)([A-Za-z][A-Za-z’'\-. ]*?)(\s+(?:FA|FO|CPT|PR|CA)\s*)$/;
+// LM / MX / PU printed with a name and no employee number: the whole line is the name.
+const CREW_NONUM = /^(\s*(?:LM|MX|PU)\s+)([A-Z][A-Z’'\-.]*(?:,?\s+[A-Z(][A-Z’'\-.()]*){1,4})\s*$/;
+// Jump seat: "JS <name> .. .." (Navtech/eOFP) or "JS <seat digit> <name>" (FlightKeys).
+// The seat digit is not an employee number and stays. "JS VERIFY" is a heading.
+const JUMPSEAT = /^(\s*JS\s+(?:\d\s+)?)(?!VERIFY\b)([A-Za-z][A-Za-z’'\-.,() ]*?)(?=\s+\.\.|\s*$)/;
 const DISPATCHER = /^(\s*Signed by Dispatcher:\s*)([A-Za-z][A-Za-z’'\-.() ]*?)\s*$/;
+// FlightKeys first Remarks line: "<dispatcher name> DESK: nn PHONE: ...". The
+// prototypes have no "Signed by Dispatcher:" line that repeats the name.
+const DISPATCH_DESK = /^(\s*)([A-Za-z][A-Za-z’'\-.]*(?:\s+[A-Za-z][A-Za-z’'\-.]*)+?)(?=\s+DESK:)/;
+// Dispatcher initials in a free-text remark: "... ABC/1234Z ...".
+const INITIALS = /(?<![A-Za-z0-9/])([A-Z]{2,3})(?=\/\d{4}Z(?![A-Za-z0-9]))/g;
 
 function ruleMatches(line) {
   const out = []; // { kind, start, end, orig }
@@ -62,10 +81,19 @@ function ruleMatches(line) {
     out.push({ kind: 'empno', start: numStart, end: numStart + m[2].length, orig: m[2] });
     const nameStart = numStart + m[2].length + m[3].length;
     out.push({ kind: 'crew', start: nameStart, end: nameStart + m[4].length, orig: m[4] });
-  } else if ((m = DH_NONUM.exec(line))) {
+  } else if ((m = DH_NONUM.exec(line)) || (m = CREW_NONUM.exec(line))) {
     out.push({ kind: 'crew', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
+  } else if ((m = JUMPSEAT.exec(line))) {
+    out.push({ kind: 'jumpseat', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
   } else if ((m = DISPATCHER.exec(line)) && !/NOT RELEASED/i.test(m[2])) {
     out.push({ kind: 'dispatcher', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
+  } else if ((m = DISPATCH_DESK.exec(line))) {
+    out.push({ kind: 'dispatcher', start: m[1].length, end: m[1].length + m[2].length, orig: m[2] });
+  }
+  INITIALS.lastIndex = 0;
+  while ((m = INITIALS.exec(line))) {
+    if (out.some(f => m.index < f.end && m.index + m[1].length > f.start)) continue;
+    out.push({ kind: 'initials', start: m.index, end: m.index + m[1].length, orig: m[1] });
   }
   return out;
 }
@@ -78,9 +106,14 @@ function makeRedactor(lines) {
   const names = new Map(); // normalised multi-token name -> kind
   for (const line of lines) {
     for (const r of ruleMatches(line)) {
-      if (r.kind === 'empno') numbers.add(r.orig);
-      // Only distinctive names are searched for elsewhere; "MAY A" or "HALL N"
-      // would also rewrite ordinary text ("MAY A BIRD", "SHALL NOT").
+      // Short numbers (3-4 digits) are replaced on their roster line only; a
+      // search elsewhere would rewrite fuel figures, times and NOTAM numbers.
+      if (r.kind === 'empno') { if (r.orig.length >= 5) numbers.add(r.orig); }
+      else if (r.kind === 'initials') continue;
+      // Only distinctive names (two words of 3+ letters) are searched for
+      // elsewhere. A short surname plus an initial (e.g. "WELARFORD S",
+      // "FARENWOOD O") can also be ordinary words, and searching for it would
+      // rewrite ordinary NOTAM text.
       else if (r.orig.split(/[^A-Za-z]+/).filter(t => t.length >= 3).length >= 2) {
         names.set(r.orig.trim().replace(/\s+/g, ' '), r.kind);
       }
@@ -106,7 +139,8 @@ function makeRedactor(lines) {
     add(numRe, 'empno');
     add(nameRe, 'crew');
     found.sort((a, b) => a.start - b.start);
-    return found.map(f => ({ ...f, text: f.kind === 'empno' ? fakeNumber(f.orig) : fakeName(f.orig) }));
+    return found.map(f => ({ ...f, text: f.kind === 'empno' ? fakeNumber(f.orig)
+      : f.kind === 'initials' ? fakeInitials(f.orig) : fakeName(f.orig) }));
   };
 }
 
@@ -217,16 +251,16 @@ function main() {
     else { console.error(`skip (unknown type): ${f}`); continue; }
     fs.writeFileSync(path.join(outDir, path.basename(f)), out);
     const c = rep.counts;
-    console.log(`${path.basename(f)}: ${c.empno || 0} employee numbers, ${c.crew || 0} crew names, ${c.dispatcher || 0} dispatcher names replaced`);
+    console.log(`${path.basename(f)}: ${c.empno || 0} employee numbers, ${c.crew || 0} crew names, ${c.jumpseat || 0} jump-seat names, ${c.dispatcher || 0} dispatcher names, ${c.initials || 0} initials replaced`);
     rep.map.forEach((v, k) => total.map.set(k, v));
   }
   const u = total.unique();
-  console.log(`\nDistinct values replaced: ${u.empno || 0} employee numbers, ${u.crew || 0} crew names, ${u.dispatcher || 0} dispatcher names`);
+  console.log(`\nDistinct values replaced: ${u.empno || 0} employee numbers, ${u.crew || 0} crew names, ${u.jumpseat || 0} jump-seat names, ${u.dispatcher || 0} dispatcher names, ${u.initials || 0} initials`);
   if (showMap) {
     console.log('\nPERSONAL DATA BELOW (original -> fake)');
     total.map.forEach((v, k) => console.log(`${k.replace('\t', ' ')} -> ${v}`));
   }
 }
 
-module.exports = { redactRaw, redactItems, Report, fakeName, fakeNumber };
+module.exports = { redactRaw, redactItems, Report, fakeName, fakeNumber, fakeInitials };
 if (require.main === module) main();
