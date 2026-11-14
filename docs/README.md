@@ -9,6 +9,7 @@ Reference documents for sessions working on PilotBrief. They are copies of the f
 | `RPT-OFP-FlightKeys-BriefingGrammar-NEW-20261114-v1.0.md` | FlightKeys NOTAM / Weather Briefing grammar on the 26 FlightKeys fixtures (input for NOTAM ruleset v1.13.0, parser step 5d, D54) and today's beta live risk on the 23 live packages | same name |
 | `RPT-OFP-LiveDefectDiagnosis-UPD-20261029-v1.1.md` | DEF-A (NOTAM year) and DEF-B (Company Remarks) diagnosis, test cases TC-110 | same name |
 | `SPRINT-OFP-FlightKeysMigration-REF-20261029-v1.0-FieldMap.md` | The 50-row FlightKeys field map (reference for P2a/P2b) | same name |
+| `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1-FieldMap.md` | The field map re-done on the 23 live FlightKeys packages + 3 prototypes (26): rows 1–50, Appendix B extensions, SME questions (supersedes v1.0) | written in the repository (session 5a-2); no Drive original yet |
 | `SPRINT-OFP-ImportPlatform-UPD-20261030-v2.4.md` | The sprint plan and every session prompt (authoring, review, QA, release) | Drive build folder (copy placed by the Exec) |
 | `OperatingPractice-IV-1-CodeMap.md` | `index.html` code map (Operating Practice §IV-1 only) | `SOP-PROJ-OperatingPractice-NEW-20260606-v1.0.md`, Volume IV |
 

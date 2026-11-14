@@ -20,6 +20,12 @@ function findFixtures(explicit) {
   return candidates.find(d => fs.existsSync(path.join(d, 'manifest.json'))) || null;
 }
 
+// Fixtures the golden snapshot compares select: every fixture except the live FlightKeys
+// packages (manifest format "flightkeys" with source.type "live"), which are added without
+// snapshots. Any selected fixture without a snapshot still FAILS.
+const isLiveFlightKeys = fx => fx.format === 'flightkeys' && !!fx.source && fx.source.type === 'live';
+const snapshotFixtures = manifest => manifest.fixtures.filter(fx => !isLiveFlightKeys(fx));
+
 // Missing fixtures are a FAILURE, never a skip (V0 rule 4).
 function requireFixtures(explicit) {
   const dir = findFixtures(explicit);
@@ -94,4 +100,5 @@ function notamKey(notamRaw) {
   return null;
 }
 
-module.exports = { findFixtures, requireFixtures, readManifest, importFixture, peek, notamKey, NOTAM_ID_RE };
+module.exports = { findFixtures, requireFixtures, readManifest, importFixture, peek, notamKey, NOTAM_ID_RE,
+                   isLiveFlightKeys, snapshotFixtures };

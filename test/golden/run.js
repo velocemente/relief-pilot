@@ -14,6 +14,7 @@ const path = require('path');
 const { loadApp } = require('../harness');
 const { normalize, stringify } = require('./serialize');
 const { diff } = require('./diff');
+const { snapshotFixtures } = require('../lib/app-path');
 
 function parseArgs(argv) {
   const o = { mode: argv[0], fixtures: null, maxLines: 40 };
@@ -51,8 +52,11 @@ function main() {
   const app = loadApp();
   const failures = [];
   let same = 0, written = 0;
+  const selected = snapshotFixtures(manifest);
+  const notSelected = manifest.fixtures.length - selected.length;
+  if (notSelected) console.log(`golden: ${notSelected} live FlightKeys fixture(s) not compared (no snapshots)`);
 
-  for (const fx of manifest.fixtures) {
+  for (const fx of selected) {
     const raw = fs.readFileSync(path.join(opt.fixtures, fx.files.text), 'utf8');
     const snap = { id: fx.id, parser: '_ofpRulesetParse', ...snapshotFor(app, raw) };
 
@@ -94,7 +98,7 @@ function main() {
     console.log(`golden: all ${same} fixtures match their snapshots`);
     return;
   }
-  console.log(`golden: ${failures.length} of ${manifest.fixtures.length} fixtures differ from their snapshots\n`);
+  console.log(`golden: ${failures.length} of ${selected.length} fixtures differ from their snapshots\n`);
   for (const f of failures) {
     console.log(`── ${f.id}  (${f.lines.length} field${f.lines.length === 1 ? '' : 's'})`);
     f.lines.slice(0, opt.maxLines).forEach(l => console.log('   ' + l));
