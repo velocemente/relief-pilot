@@ -7,10 +7,18 @@
 //     fixed salt (SHA-256). Same input -> same output, in any run, on any file.
 //   * Raw and items are redacted by the same line rules, so they stay in step.
 //   * Not redacted: ordinary text that happens to look like a name (airports,
-//     NOTAM text, month names...). Only the patterns listed in ruleMatches().
+//     NOTAM text, month names...). Names are found by the line patterns in
+//     ruleMatches(); their words then form the name lexicon (below).
+//   * Name lexicon: every first/last name word printed on a crew, jump-seat or
+//     dispatcher line of ANY package given (inputs plus --lexicon-from) is also
+//     replaced in free text, as a whole word, in any letter case. The lexicon
+//     is built in memory on every run and never written anywhere.
+//     A lexicon word that is also an ordinary word (see AMBIGUOUS RULES at
+//     buildLexicon) is replaced only where it stands in a name position.
 //
 // Usage:
-//   node tools/redact/redact.js --out <dir> [--show-map] <file.raw.txt|file.items.json> ...
+//   node tools/redact/redact.js --out <dir> [--show-map] [--lexicon-from <file|dir>]...
+//        <file.raw.txt|file.items.json> ...
 //
 // The report lists counts and fake values only. Original values are printed
 // only with --show-map; treat that output as personal data.
@@ -99,9 +107,166 @@ function ruleMatches(line) {
 }
 function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
+// ── name lexicon ──────────────────────────────────────────────────────────
+// Words that are ordinary English, aviation or OFP words and also occur as
+// first or last names. A lexicon word in this list is AMBIGUOUS (see below).
+// Generic list of common words: it does not say which of them is a name in any
+// package.
+const ORDINARY_WORDS = new Set(`
+  JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER
+  MONDAY TUESDAY WEDNESDAY THURSDAY FRIDAY SATURDAY SUNDAY DAY DAYS NIGHT MORNING NOON DAWN DUSK
+  SPRING SUMMER AUTUMN FALL WINTER NORTH SOUTH EAST WEST NORTHERN SOUTHERN EASTERN WESTERN
+  ALFA ALPHA BRAVO CHARLIE DELTA ECHO FOXTROT GOLF HOTEL INDIA JULIET JULIETT KILO LIMA MIKE
+  OSCAR PAPA QUEBEC ROMEO SIERRA TANGO UNIFORM VICTOR WHISKEY WHISKY XRAY YANKEE ZULU
+  WHITE BLACK BROWN GREEN GREY GRAY RED BLUE GOLD SILVER AMBER ROSE
+  WILL MARK GRANT CASE COST BELL BALL WALL POOL POLE MAST POST POSE CROSS BEST BOLD BRIGHT
+  SHARP SHORT LONG LARGE LITTLE SMALL WIDE HIGH LOW MAJOR GUARD PAGE WARD MARSHALL
+  WOOD HILL FIELD LAKE RIVER STONE ROCK BROOK MARSH FORD BANK CLIFF DALE GLEN HEATH LANE ROW
+  STREET WELL SPRINGS SNOW FROST STORM RAIN STAR SKY SUN MOON ASH OAK PINE BUSH REED CRANE
+  BIRD CAPE PARK PORT FORT HAVEN MILES MILE TRUE GOOD MAN WAY KEY TOWER TOWERS LIGHT LIGHTS
+  FLAG SEA BAY BEACH ISLAND HARBOR HARBOUR VALLEY RIDGE MOUNT MOUNTAIN CANYON CREEK CAMP
+  GATE BRIDGE CHURCH CASTLE MILL MILLS BARN HOUSE NEW OLD GREAT BIG FAIR
+  DA DH MDA RA TA FA CA FO SO PU LM MX DO GO NO ON OR AT AS AN IN IS IT TO UP US WE
+`.trim().split(/\s+/));
+// A person cue right before a word puts that word in a name position. Titles
+// may carry a dot ("MR."); role codes must be followed by a space only.
+const TITLE_CUE = /(?:^|[^A-Za-z0-9])(?:CAPT|CAPTAIN|CPT|MR|MRS|MS|DR|DISPATCHER|DSP|ATTN|HELLO|DEAR)\.?\s+$/i;
+const ROLE_CUE = /(?:^|\s)(?:CA|FO|FA)\s+$/;
+// A remark line that is only a sign-off and a name: "THANKS <x>", "FROM <x> :P".
+const SIGNOFF_LINE = /^\s*(?:THANKS|THANK YOU|THX|TY|FROM|REGARDS|BEST REGARDS|CHEERS|SIGNED)[\s,.:-]+$/i;
+const LINE_END = /^[\s.,!?;)\-'"]*(?:[:;]-?[A-Za-z()]{1,2}[\s.!]*)?$/;
+// Place cues: a word in a place name (airport, navaid, FIR, area, taxiway).
+const PLACE_PREFIX = /^(?:FORT|FT|SAN|SANTA|SAINT|ST|STE|LAKE|CAPE|MOUNT|MT|PORT|PUERTO|GENERAL|GEN|TAXIWAY|TWY|RWY|RAMP|APRON|STAND|GATE)$/i;
+// An ATS route designator (N147, UL975, J521) is followed by a waypoint or navaid.
+const AIRWAY = /^[A-Z]{1,3}\d{1,4}$/;
+const PLACE_SUFFIX = /^(?:INTL\w*|INT|INTERNATIONAL|FLD|FIELD|ARPT|AIRPORT|COUNTY|MUNI|MUNICIPAL|RGNL|REGIONAL|AFB|NAS|OCEANIC|FIR|UIR|CTA|TMA|CORRIDOR|PASS|LN|VOR|VORTAC|VORDME|NDB|DME|TACAN|\d{3}\.\d{1,3}|\d{3,4}KHZ|\d{3}\.\d{1,3}MHZ)$/i;
+const MIN_PACKAGES_ORDINARY = 2;
+
+function words(s) { return s.match(/[A-Za-z0-9]+(?:\.\d+[A-Za-z]*)?/g) || []; }
+function caseLike(fake, orig) {
+  if (orig === orig.toUpperCase()) return fake;
+  if (orig === orig.toLowerCase()) return fake.toLowerCase();
+  return fake[0] + fake.slice(1).toLowerCase();
+}
+function lexWordsOf(name) {
+  return (name.match(/[A-Za-z]+/g) || []).map(w => w.toUpperCase()).filter(w => w.length >= 2 && !KEEP.has(w));
+}
+
+// Context of one occurrence [start,end) of a lexicon word in a line.
+function contextOf(line, start, end) {
+  const pre = line.slice(0, start), post = line.slice(end);
+  return { pre, post, before: words(pre), after: words(post) };
+}
+
+// NAME POSITION — true when the word stands where a person's name stands:
+//   P1 next to another word of the SAME person's name (first + last, either
+//      order; one initial or a comma may sit between);
+//   P2 right after a title (CAPT, MR., DISPATCHER, DEAR ...) or a role code
+//      (CA, FO, FA) separated by spaces only;
+//   P3 the line is only a sign-off cue, the word and punctuation or an
+//      emoticon: "THANKS <x>", "FROM <x> :P";
+//   P4 exact case: a separate word written in the same mixed case the roster
+//      prints it in ("Grant") inside an otherwise upper-case line. FlightKeys
+//      prints names in mixed case; OFP and NOTAM free text is upper case. Dates
+//      such as 2026-May-27 are not separate words.
+function isNamePosition(lex, word, orig, line, start, end) {
+  const { pre, post, before, after } = contextOf(line, start, end);
+  const persons = lex.persons.get(word) || new Set();
+  const samePerson = w => {
+    const p = w && lex.persons.get(w.toUpperCase());
+    return !!p && [...p].some(id => persons.has(id));
+  };
+  const near = (list, dir) => {
+    const seq = dir < 0 ? list.slice().reverse() : list;
+    const [a, b] = seq;
+    if (samePerson(a)) return true;
+    return !!a && /^[A-Za-z]$/.test(a) && samePerson(b);
+  };
+  if (near(before, -1) || near(after, 1)) return true;                              // P1
+  if (TITLE_CUE.test(pre) || ROLE_CUE.test(pre)) return true;                        // P2
+  if (SIGNOFF_LINE.test(pre) && LINE_END.test(post)) return true;                    // P3
+  if (orig !== orig.toUpperCase() && lex.forms.has(orig)                          // P4
+      && /(?:^|\s)$/.test(pre) && /^(?:$|[\s.,!?:;])/.test(post)
+      && !/[a-z]/.test(pre + post)) return true;
+  return false;
+}
+
+// PLACE POSITION — the word is part of a place name: right after "<text>/"
+// (CITY/NAME, ICAO/IATA), right after a place prefix (FORT, SAN, LAKE,
+// TAXIWAY ...) or an airway (a waypoint), within 3 words before a place suffix
+// (INTL, FLD, COUNTY, FIR, PASS, LN, a radio frequency ...), or a 3-letter
+// code opening an airport header ("XXX - CITY").
+function isPlacePosition(word, line, start, end) {
+  const { pre, post, before, after } = contextOf(line, start, end);
+  if (/[A-Za-z0-9]\/$/.test(pre)) return true;
+  const prev = before[before.length - 1];
+  if (prev && (PLACE_PREFIX.test(prev) || AIRWAY.test(prev))) return true;
+  if (after.slice(0, 3).some(t => PLACE_SUFFIX.test(t))) return true;
+  if (word.length === 3 && !/\S/.test(pre) && /^\s+-\s/.test(post)) return true;
+  return false;
+}
+
+// Build the lexicon from packages [{ name, lines }]. Returns
+//   { words: Set, persons: Map(word -> Set(personId)), forms: Set(mixed-case
+//     forms as printed), ambiguous: Set, re: RegExp }.
+// AMBIGUOUS RULES — a lexicon word is ambiguous (replaced only in a name
+// position) when ANY of:
+//   A1 it is in ORDINARY_WORDS (generic ordinary/aviation words);
+//   A2 some package uses it in a place position (and not a name position);
+//   A3 it occurs outside name positions in >= MIN_PACKAGES_ORDINARY packages
+//      that do not list it as a name (it is part of their ordinary text).
+// Every other lexicon word is DISTINCTIVE and is replaced everywhere.
+function buildLexicon(packages) {
+  const persons = new Map(), forms = new Set(), namePkgs = new Map();
+  let pid = 0;
+  for (const pkg of packages) {
+    for (const line of pkg.lines) {
+      for (const r of ruleMatches(line)) {
+        if (r.kind === 'empno' || r.kind === 'initials') continue;
+        const id = pid++;
+        for (const w of lexWordsOf(r.orig)) {
+          if (!persons.has(w)) { persons.set(w, new Set()); namePkgs.set(w, new Set()); }
+          persons.get(w).add(id);
+          namePkgs.get(w).add(pkg.name);
+        }
+        for (const f of r.orig.match(/[A-Za-z]+/g) || []) if (f !== f.toUpperCase() && f.length >= 2) forms.add(f);
+      }
+    }
+  }
+  const lex = { words: new Set(persons.keys()), persons, forms, ambiguous: new Set(), re: null };
+  if (!lex.words.size) return lex;
+  lex.re = new RegExp(`(?<![A-Za-z0-9])(?:${[...lex.words].sort((a, b) => b.length - a.length).map(esc).join('|')})(?![A-Za-z0-9])`, 'gi');
+  const outside = new Map();
+  for (const pkg of packages) {
+    for (const line of pkg.lines) {
+      const spans = ruleMatches(line);
+      lex.re.lastIndex = 0;
+      let m;
+      while ((m = lex.re.exec(line))) {
+        const s = m.index, e = s + m[0].length;
+        if (spans.some(f => s < f.end && e > f.start)) continue;
+        const w = m[0].toUpperCase();
+        if (isNamePosition(lex, w, m[0], line, s, e)) continue;
+        if (isPlacePosition(w, line, s, e)) lex.ambiguous.add(w);                    // A2
+        if (!namePkgs.get(w).has(pkg.name)) {
+          if (!outside.has(w)) outside.set(w, new Set());
+          outside.get(w).add(pkg.name);
+        }
+      }
+    }
+  }
+  for (const w of lex.words) {
+    if (ORDINARY_WORDS.has(w)) lex.ambiguous.add(w);                                 // A1
+    if ((outside.get(w) || new Set()).size >= MIN_PACKAGES_ORDINARY) lex.ambiguous.add(w); // A3
+  }
+  return lex;
+}
+
 // Build the per-file registry from every line, then return a function that
-// maps a line to replacement spans [{start,end,text,kind}].
-function makeRedactor(lines) {
+// maps a line to replacement spans [{start,end,text,kind}]. `lex` is the name
+// lexicon (built from this file alone when not given).
+function makeRedactor(lines, lex) {
+  if (!lex) lex = buildLexicon([{ name: '', lines }]);
   const numbers = new Set();
   const names = new Map(); // normalised multi-token name -> kind
   for (const line of lines) {
@@ -138,9 +303,21 @@ function makeRedactor(lines) {
     };
     add(numRe, 'empno');
     add(nameRe, 'crew');
+    // Single name words from the lexicon, anywhere in the line.
+    if (lex.re) {
+      lex.re.lastIndex = 0;
+      let m;
+      while ((m = lex.re.exec(line))) {
+        const s = m.index, e = s + m[0].length, w = m[0].toUpperCase();
+        if (found.some(f => s < f.end && e > f.start)) continue;
+        if (lex.ambiguous.has(w) && !isNamePosition(lex, w, m[0], line, s, e)) continue;
+        found.push({ start: s, end: e, kind: 'nameword', orig: m[0] });
+      }
+    }
     found.sort((a, b) => a.start - b.start);
     return found.map(f => ({ ...f, text: f.kind === 'empno' ? fakeNumber(f.orig)
-      : f.kind === 'initials' ? fakeInitials(f.orig) : fakeName(f.orig) }));
+      : f.kind === 'initials' ? fakeInitials(f.orig)
+      : f.kind === 'nameword' ? caseLike(fakeWord(f.orig), f.orig) : fakeName(f.orig) }));
   };
 }
 
@@ -161,9 +338,9 @@ class Report {
 }
 
 // ── raw text ──────────────────────────────────────────────────────────────
-function redactRaw(text, report) {
+function redactRaw(text, report, lex) {
   const lines = text.split('\n');
-  const spansFor = makeRedactor(lines);
+  const spansFor = makeRedactor(lines, lex);
   return lines.map(l => {
     const sp = spansFor(l);
     sp.forEach(s => report.add(s));
@@ -198,9 +375,14 @@ function assemble(pageItems) {
   });
 }
 
-function redactItems(json, report) {
+// The text lines of an items file, assembled like the app.
+function itemLines(json) {
+  return json.pages.flatMap(p => assemble(p.items)).map(l => l.str);
+}
+
+function redactItems(json, report, lex) {
   const perPage = json.pages.map(p => assemble(p.items));
-  const spansFor = makeRedactor(perPage.flat().map(l => l.str));
+  const spansFor = makeRedactor(perPage.flat().map(l => l.str), lex);
   perPage.forEach(pageLines => pageLines.forEach(line => {
     const sp = spansFor(line.str);
     if (!sp.length) return;
@@ -231,36 +413,50 @@ function redactItems(json, report) {
 function main() {
   const args = process.argv.slice(2);
   let outDir = null, showMap = false;
-  const files = [];
+  const files = [], lexFrom = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--out') outDir = args[++i];
     else if (args[i] === '--show-map') showMap = true;
+    else if (args[i] === '--lexicon-from') lexFrom.push(args[++i]);
     else files.push(args[i]);
   }
   if (!outDir || !files.length) {
-    console.error('usage: redact.js --out <dir> [--show-map] <file.raw.txt|file.items.json> ...');
+    console.error('usage: redact.js --out <dir> [--show-map] [--lexicon-from <file|dir>]... <file.raw.txt|file.items.json> ...');
     process.exit(2);
   }
+  const isPkgFile = f => /\.(raw\.txt|items\.json)$/.test(f);
+  const expand = p => fs.statSync(p).isDirectory()
+    ? fs.readdirSync(p).filter(isPkgFile).map(f => path.join(p, f)) : [p];
+  // The lexicon: names from every input and every --lexicon-from package,
+  // kept in memory only.
+  const docs = [];
+  for (const f of new Set([...files, ...lexFrom.flatMap(expand)].filter(isPkgFile).map(f => path.resolve(f)))) {
+    const text = fs.readFileSync(f, 'utf8');
+    const name = path.basename(f).replace(/\.(raw\.txt|items\.json)$/, '');
+    docs.push({ name, lines: /\.items\.json$/.test(f) ? itemLines(JSON.parse(text)) : text.split('\n') });
+  }
+  const lex = buildLexicon(docs);
+  console.log(`Name lexicon: ${lex.words.size} words from ${new Set(docs.map(d => d.name)).size} packages (${lex.ambiguous.size} ambiguous: name positions only). Not stored.`);
   fs.mkdirSync(outDir, { recursive: true });
   const total = new Report();
   for (const f of files) {
     const rep = new Report();
     let out;
-    if (/\.items\.json$/.test(f)) out = JSON.stringify(redactItems(JSON.parse(fs.readFileSync(f, 'utf8')), rep));
-    else if (/\.raw\.txt$/.test(f)) out = redactRaw(fs.readFileSync(f, 'utf8'), rep);
+    if (/\.items\.json$/.test(f)) out = JSON.stringify(redactItems(JSON.parse(fs.readFileSync(f, 'utf8')), rep, lex));
+    else if (/\.raw\.txt$/.test(f)) out = redactRaw(fs.readFileSync(f, 'utf8'), rep, lex);
     else { console.error(`skip (unknown type): ${f}`); continue; }
     fs.writeFileSync(path.join(outDir, path.basename(f)), out);
     const c = rep.counts;
-    console.log(`${path.basename(f)}: ${c.empno || 0} employee numbers, ${c.crew || 0} crew names, ${c.jumpseat || 0} jump-seat names, ${c.dispatcher || 0} dispatcher names, ${c.initials || 0} initials replaced`);
+    console.log(`${path.basename(f)}: ${c.empno || 0} employee numbers, ${c.crew || 0} crew names, ${c.jumpseat || 0} jump-seat names, ${c.dispatcher || 0} dispatcher names, ${c.initials || 0} initials, ${c.nameword || 0} name words in free text replaced`);
     rep.map.forEach((v, k) => total.map.set(k, v));
   }
   const u = total.unique();
-  console.log(`\nDistinct values replaced: ${u.empno || 0} employee numbers, ${u.crew || 0} crew names, ${u.jumpseat || 0} jump-seat names, ${u.dispatcher || 0} dispatcher names, ${u.initials || 0} initials`);
+  console.log(`\nDistinct values replaced: ${u.empno || 0} employee numbers, ${u.crew || 0} crew names, ${u.jumpseat || 0} jump-seat names, ${u.dispatcher || 0} dispatcher names, ${u.initials || 0} initials, ${u.nameword || 0} name words`);
   if (showMap) {
     console.log('\nPERSONAL DATA BELOW (original -> fake)');
     total.map.forEach((v, k) => console.log(`${k.replace('\t', ' ')} -> ${v}`));
   }
 }
 
-module.exports = { redactRaw, redactItems, Report, fakeName, fakeNumber, fakeInitials };
+module.exports = { redactRaw, redactItems, itemLines, buildLexicon, Report, fakeName, fakeNumber, fakeInitials, ruleMatches, ORDINARY_WORDS };
 if (require.main === module) main();
