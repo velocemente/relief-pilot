@@ -21,7 +21,9 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  // D51 timeline (TC-140): the edit commit path, save, and the TAF window reader.
                  'confirmEdit', 'saveFlight', 'extractEtaWindow',
                  // Aircraft-profile module equivalence (TC-150): the app's callsign derivation.
-                 'deriveCallsign'];
+                 'deriveCallsign',
+                 // D61 (TC-171-104): the airport card's NOTAM rows.
+                 'renderAptIssues'];
 // The NOTAM functions the standalone module (rules/notam-rules) provides. index.html builds the
 // module in (global NotamRules) and binds only evalNotams and _splitNotams as app names; for a
 // name the app does not bind, the harness reads the module's export from the same script.

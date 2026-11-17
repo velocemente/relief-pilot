@@ -1,6 +1,6 @@
 'use strict';
 /**
- * TC-120 — NOTAM ruleset module (rules/notam-rules, v1.12.0) is the app's NOTAM engine
+ * TC-120 — NOTAM ruleset module (rules/notam-rules, v1.13.0) is the app's NOTAM engine
  *
  * The module was extracted from the app (src/notam.html, src/airports.html) and behaves
  * IDENTICALLY to the engine the app ran (ADR-005 §2.1–2.3). Since the integration PR the
@@ -118,7 +118,7 @@ const idOf = raw => { const k = notamKey(raw); return k ? `${k.loc} ${k.id}` : '
 
 test('TC-120-001 metadata present; validateSchema() is valid; a broken ruleset is rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'notam');
-  assert.equal(mod.RULESET_VERSION, '1.12.0');
+  assert.equal(mod.RULESET_VERSION, '1.13.0');
   assert.equal(mod.SCHEMA_VERSION, 2, 'SCHEMA_VERSION stays at the current contract value (rules-loader: notam >= 2)');
   assert.equal(typeof mod.RULESET_SOURCE, 'string');
   assert.ok(mod.RULESET_SOURCE.trim().length > 0);

@@ -3640,12 +3640,40 @@ const API = {
 return API;
 });
 /**
- * notam-rules.js — NOTAM Interpretation Ruleset  (v1.12.0)
+ * notam-rules.js — NOTAM Interpretation Ruleset  (v1.13.0)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.3): NOTAM splitting, header and date
  * reading, schedules, evaluation (evalNotams) and grouping, exactly as the
  * PilotBrief app runs them on main at the time of extraction. The GNSS NOTAM
  * ruleset (evalGNSS) is a separate module and is not part of this file.
+ *
+ * Changelog v1.13.0 (vs v1.12.0; ledger P-25):
+ *   NEW — the FlightKeys NOTAM item header (§ 2b; RPT-OFP-FlightKeys-
+ *     BriefingGrammar §A.5, §A.7): "[locations] [ID]  YYYY-Mon-DD HH:MM -
+ *     YYYY-Mon-DD HH:MM | UFN | UFN(EST …)", the CREATED: / FL: row, the
+ *     wrapped location cell, the SCHEDULE: cell (with its wrapped lines) and
+ *     SUBJECT:. _splitNotams() cuts at each item header; xNW_standalone() and
+ *     _windowEndEstimated() read the header first when there is one; evalNotams()
+ *     reads the D) cell for schedules and the D) and body lines for the content
+ *     rules, and keys duplicates by location(s) + ID (D43). The same rules as for
+ *     NavBlue (FK-P): the window on its actual UTC date (ETA ± 60), T6, D27, D31,
+ *     D43; UFN = PERM, UFN(EST) = an EST end. A date that cannot be read → that
+ *     NOTAM has no window and is shown; no date is guessed.
+ *   UNCHANGED — NavBlue: a text with no FlightKeys header takes exactly the
+ *     v1.12.0 path (golden, V0 NOTAM-at-ETA and app-path snapshots unchanged).
+ *     The edits to v1.12.0 code are marked "v1.13.0".
+ *   D54 — the item text is read as delivered, line by line; nothing is joined
+ *     into it or reflowed, and issues[].notamRaw is the item text unchanged.
+ *   QA F1 — a FlightKeys row 1 whose location/ID cell reads but whose date cell
+ *     cannot ("PERM", an en dash, a numeric month, no colon, a trailing EST …) is
+ *     still an item header when its CREATED: row follows: that NOTAM stands alone
+ *     (D43, T6) and is never joined to the NOTAM above it.
+ *   D61 (Exec, 16 Nov) — a NOTAM whose own date range is impossible or unreadable
+ *     (T6 path: a NOTAM header and no window) is ALWAYS shown: no schedule check
+ *     (day-range or DLY) is made for it, and its item carries dateUnreadable: true
+ *     and the flag "DATE NOT READABLE – CHECK NOTAM" at the start of its text and
+ *     rowLabel (escaped). NavBlue and FlightKeys alike; the window rule, content
+ *     filters (obstacle, aircraft) and D43 are unchanged.
  *
  * Changelog v1.12.0 (vs v1.11.2; ledger P-24):
  *   REMOVED — this module no longer holds aircraft data: AIRCRAFT_DATA,
@@ -3741,12 +3769,12 @@ return API;
 // ═══════════════════════════════════════════════════════════════
 
 const RULESET_TYPE    = 'notam';
-const RULESET_VERSION = '1.12.0';
+const RULESET_VERSION = '1.13.0';
 // Unchanged from the current contract: rules-loader.js v1.0.0 requires
 // SCHEMA_VERSION >= 2 for 'notam'. The export shape and the evalNotams()
 // return shape are unchanged, so the value stays 2.
 const SCHEMA_VERSION  = 2;
-const RULESET_SOURCE  = 'ICAO Annex 15, Doc 8126 and Doc 4444 App 6; FAA JO 7930.2 and AIP GEN 3.1; Atlas Air / Polar Air Cargo OFP NOTAM briefing (NavBlue)';
+const RULESET_SOURCE  = 'ICAO Annex 15, Doc 8126 and Doc 4444 App 6; FAA JO 7930.2 and AIP GEN 3.1; Atlas Air / Polar Air Cargo OFP NOTAM briefing (NavBlue and FlightKeys)';
 
 // ═══════════════════════════════════════════════════════════════
 // § 2 · SPLITTING — copied from src/airports.html
@@ -3754,10 +3782,268 @@ const RULESET_SOURCE  = 'ICAO Annex 15, Doc 8126 and Doc 4444 App 6; FAA JO 7930
 
 // Split a NOTAM text blob into individual NOTAM entries.
 // Each entry starts with "- ICAO" (Atlas/Polar OFP format).
+// v1.13.0: or with a FlightKeys item header (§ 2b). Text with no FlightKeys item
+// header takes the NavBlue path below, unchanged.
 function _splitNotams(text) {
+  // v1.13.0: FlightKeys item headers → cut at each one, and only there: a FlightKeys body
+  // line can start "- XXXX" ("- FIRE RESCUE PH: …" in Company NOTAMs).
+  const fkStarts = _fkItemStarts(text);
+  if (fkStarts.length) return _splitAt(text, fkStarts);
   // Split on lines beginning with "- XXXX" where XXXX is a 4-letter ICAO
   const parts = text.split(/^(?=- [A-Z]{4}\b)/m).filter(s => s.trim());
   return parts.length > 1 ? parts : [text]; // fallback: treat as single block
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 2b · FLIGHTKEYS ITEM HEADER (v1.13.0)
+//        RPT-OFP-FlightKeys-BriefingGrammar §A.5 / §A.7. The parser hands
+//        over the item text in reading order, with its line breaks and
+//        indentation (D54); this module never reads positions and never
+//        reflows: it only reads the lines.
+//
+//   <LOCATIONS> <ID>   <START> - <END>          row 1
+//   CREATED:<YYYY-Mon-DD HH:MM>   FL: <LO> - <HI>   row 2
+//   [SCHEDULE:<text>]                            D) — may wrap onto the next line(s)
+//   [SUBJECT: <key>]                             Company NOTAMs
+//   <body>
+//
+//   LOCATIONS  0–7 codes of 3–4 capital letters (ICAO and IATA, either order).
+//              More than 3 wrap onto the next row(s), before CREATED:, and the ID
+//              may then stand on row 2 or 3 ("header row desync").
+//   ID         <series><nnnn>/<yy>, series letter optional; "ASHTAM nnnn".
+//   START      YYYY-Mon-DD HH:MM (UTC).
+//   END        YYYY-Mon-DD HH:MM · UFN · UFN(EST YYYY-Mon-DD HH:MM).
+//
+// The same rules as the NavBlue header apply (FK-P): the header is the NOTAM's
+// B)/C), so when it is present it alone gives the window — the body is not
+// searched for other dates. A FlightKeys date carries its year, so the year
+// inference of T1–T5 is not needed; T6 applies in full: a date that cannot be
+// read (month, day of month, 29 Feb, hour, minute) or a backwards window → no
+// window → in effect, and no date is ever guessed or rolled over.
+//   UFN            = NavBlue "-PERM" (same NOTAM in both formats): start kept, the
+//                    end is the PERM end (flight year + 50) — no end (D31).
+//   UFN(EST date)  = NavBlue "start-date EST": the window ends at the estimated
+//                    date and _windowEndEstimated() says EST, so evalNotams()
+//                    removes the end (D31).
+// ═══════════════════════════════════════════════════════════════
+
+const _FK_DATE = '\\d{4}-[A-Za-z]{3}-\\d{1,2}[ \\t]+\\d{1,2}:\\d{2}';
+const _FK_ID   = '(?:[A-Z]?\\d{4}\\/\\d{2}|ASHTAM[ \\t]+\\d{4})';
+// Row 1: [locations] [ID] START - END, alone on its line.
+const _FK_ROW1 = new RegExp(`^[ \\t]*((?:[A-Z]{3,4}[ \\t]+)*)(?:(${_FK_ID})[ \\t]+)?(${_FK_DATE})[ \\t]*-[ \\t]*(${_FK_DATE}|UFN(?:[ \\t]*\\([ \\t]*EST[ \\t]+(${_FK_DATE})[ \\t]*\\))?)[ \\t]*$`);
+// v1.13.0 (QA F1, D61): row 1 whose location/ID cell reads but whose date cell does not
+// ("2026-Nov-04 0700", "2026-11-04 07:00", "… - PERM", an en dash, a trailing EST, …): a
+// date cell that starts with a digit. It is a header only with its ID and a CREATED: row
+// following (_fkHeaderAt); it then stands alone, with no window (T6, D61).
+const _FK_ROW1_UNREAD = new RegExp(`^[ \\t]*((?:[A-Z]{3,4}[ \\t]+)*)(?:(${_FK_ID})[ \\t]+)?(\\d.*?)[ \\t]*$`);
+// A wrapped location cell row (desync): codes and/or the ID, optionally the FL: cell.
+const _FK_WRAP = new RegExp(`^[ \\t]*((?:[A-Z]{3,4}[ \\t]+)*(?:[A-Z]{3,4})?)[ \\t]*(?:(${_FK_ID})(?=[ \\t]|$))?[ \\t]*(FL:[ \\t]*\\S+[ \\t]*-[ \\t]*\\S+)?[ \\t]*$`);
+const _FK_CREATED  = /^[ \t]*CREATED:[ \t]*(\S+[ \t]+\S+)?(?:[ \t]+FL:[ \t]*(\S+)[ \t]*-[ \t]*(\S+))?/;
+const _FK_SCHEDULE = /^[ \t]*SCHEDULE:(.*)$/;
+const _FK_SUBJECT  = /^[ \t]*SUBJECT:/;
+// A wrapped SCHEDULE: cell continues on lines made only of schedule words.
+const _FK_SCHED_CONT = /^[ \t]*(?:(?:\d{1,4}(?:[-\/]\d{1,4})?|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|MON|TUE|WED|THU|FRI|SAT|SUN|DLY|DAILY|EXC|AND|TO|EVERY|H24|SR|SS|BTN|HOL)(?:[ \t]*[,.]?[ \t]*|$))+$/;
+
+/**
+ * Read a FlightKeys item header starting at line i, or null.
+ * Row 1 must carry the ID, or the ID must stand on one of the (at most 3)
+ * wrapped location rows that follow it before CREATED:.
+ * v1.13.0 (QA F1, D61): a row 1 whose date cell cannot be read is a header too when its
+ * location/ID cell reads and its CREATED: row follows within the distance _fkHeader() uses
+ * (4 lines, no other row 1 between). It is returned with dateUnreadable: true and no
+ * start/end, so the NOTAM stands alone (D43) with no window (T6) and is flagged (D61).
+ */
+function _fkHeaderAt(lines, i) {
+  let m = lines[i].match(_FK_ROW1);
+  let dateText = null;                              // v1.13.0 (F1): the unread date cell
+  if (!m) {
+    const u = lines[i].match(_FK_ROW1_UNREAD);
+    if (!u) return null;
+    m = [u[0], u[1], u[2], null, null, null];
+    dateText = u[3];
+  }
+  const locs = m[1].trim() ? m[1].trim().split(/[ \t]+/) : [];
+  let id = m[2] ? m[2].replace(/[ \t]+/g, ' ') : null;
+  if (!id && !locs.length) return null;
+  let fl = null;
+  // Wrapped location cell (desync): up to 3 rows of codes / ID / FL: before CREATED:.
+  let k = i + 1;
+  const wrapped = [];
+  for (; k < lines.length && k <= i + 3; k++) {
+    if (_FK_CREATED.test(lines[k])) break;
+    const w = lines[k].match(_FK_WRAP);
+    if (!w || !lines[k].trim()) { wrapped.length = 0; break; }
+    wrapped.push(w);
+  }
+  if (!(k < lines.length && _FK_CREATED.test(lines[k]))) wrapped.length = 0;   // only before a CREATED: row
+  for (const w of wrapped) {
+    if (w[1].trim()) locs.push(...w[1].trim().split(/[ \t]+/));
+    if (w[2] && !id) id = w[2].replace(/[ \t]+/g, ' ');
+    if (w[3]) fl = w[3];
+  }
+  if (!id) return null;                             // every item has an ID (row 1 or a wrapped row)
+  const rows = [i, ...wrapped.map((_, n) => i + 1 + n)];
+  if (dateText !== null && !_fkCreatedFollows(lines, rows[rows.length - 1])) return null;   // v1.13.0 (F1)
+  return { line: i, locations: locs, id, start: m[3], endText: m[4], est: m[5] || null, rows, fl,
+           dateUnreadable: dateText !== null, dateText };
+}
+
+// v1.13.0 (F1): a CREATED: row within 4 lines after the header rows (as _fkHeader() looks for
+// it), with no other row 1 (one with an ID) between them.
+function _fkCreatedFollows(lines, last) {
+  for (let k = last + 1; k < lines.length && k <= last + 4; k++) {
+    if (_FK_CREATED.test(lines[k])) return true;
+    const u = lines[k].match(_FK_ROW1_UNREAD);
+    if (_FK_ROW1.test(lines[k]) || (u && u[2])) return false;
+  }
+  return false;
+}
+
+// A FlightKeys date, or (v1.13.0, F1: the header date may be the unreadable one) a CREATED: row.
+function _fkMaybe(text) {
+  return /\d{4}-[A-Za-z]{3}-\d/.test(text) || /^[ \t]*CREATED:/m.test(text);
+}
+
+/** Line indexes where a FlightKeys item header starts (row 1). [] for NavBlue text. */
+function _fkItemStarts(text) {
+  if (!_fkMaybe(text)) return [];                    // no FlightKeys date or CREATED: row: NavBlue path
+  const lines = text.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) if (_fkHeaderAt(lines, i)) out.push(i);
+  return out;
+}
+
+// Cut text before the given line indexes. The pieces are exact substrings of the text, in
+// order (D54: nothing is reflowed); text before the first header is kept as its own piece,
+// as the NavBlue split keeps it.
+function _splitAt(text, fkStarts) {
+  const lines = text.split('\n');
+  const cut = new Set(fkStarts);
+  const parts = [];
+  let cur = [];
+  lines.forEach((l, i) => {
+    if (cut.has(i) && cur.length) { parts.push(cur.join('\n') + '\n'); cur = []; }
+    cur.push(l);
+  });
+  parts.push(cur.join('\n'));
+  const kept = parts.filter(s => s.trim());
+  return kept.length > 1 ? kept : [text];
+}
+
+// "YYYY-Mon-DD HH:MM" → UTC ms, or null when any part cannot be read (T6). Never rolls over.
+function _fkDate(s) {
+  const m = String(s).trim().toUpperCase().match(/^(\d{4})-([A-Z]{3})-(\d{1,2})[ \t]+(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const yr = parseInt(m[1], 10), mo = _SMON[m[2]], dd = parseInt(m[3], 10);
+  const hh = parseInt(m[4], 10), mi = parseInt(m[5], 10);
+  if (mo === undefined || yr < 1900) return null;
+  if (!_validDateParts(yr, mo, dd, hh, mi)) return null;
+  return Date.UTC(yr, mo, dd, hh, mi);
+}
+
+/**
+ * The FlightKeys item header of a NOTAM text (the first one in it), or null — always
+ * null for NavBlue text. Returns:
+ *   { locations[], id, start, endKind: 'DATE'|'UFN'|'UFN_EST'|null, end, created, fl,
+ *     dateUnreadable,  // F1/D61: row 1's date cell cannot be read (start, end, endKind null)
+ *     dateText,        // that date cell as printed, or null
+ *     schedule,        // the D) cell: SCHEDULE: text with its wrapped lines, or null
+ *     headerRows,      // line indexes of row 1, wrapped location rows and the CREATED: row
+ *     scheduleRows,    // line indexes of the SCHEDULE: cell
+ *     subjectRow,      // line index of SUBJECT:, or -1
+ *     ambiguous }      // more than one CREATED: row: two items in one text (not trusted)
+ * start / end / created are the header texts as printed; _fkWindow() reads them.
+ */
+function _fkHeader(text) {
+  if (!_fkMaybe(text)) return null;                 // v1.13.0 (F1): or a CREATED: row
+  const lines = text.split('\n');
+  let h = null;
+  for (let i = 0; i < lines.length && !h; i++) h = _fkHeaderAt(lines, i);
+  if (!h) return null;
+  const last = h.rows[h.rows.length - 1];
+  // CREATED: row — normally straight after row 1 (or the wrapped rows); a page footer and
+  // running header left in the text can sit between them (header split by a page).
+  let created = null, fl = h.fl, createdRow = -1;
+  for (let k = last + 1; k < lines.length && k <= last + 4; k++) {
+    const c = lines[k].match(_FK_CREATED);
+    if (c) { created = c[1] || null; if (c[2]) fl = `FL: ${c[2]} - ${c[3]}`; createdRow = k; break; }
+  }
+  const headerRows = createdRow >= 0 ? [...h.rows, createdRow] : h.rows.slice();
+  // D) cell: the first SCHEDULE: line and the lines it wraps onto.
+  let schedule = null;
+  const scheduleRows = [];
+  const s0 = lines.findIndex((l, k) => k > h.line && _FK_SCHEDULE.test(l));
+  if (s0 >= 0) {
+    const parts = [lines[s0].match(_FK_SCHEDULE)[1].replace(/[ \t]{2,}(?:CREATED:|FL:).*$/, '')];
+    scheduleRows.push(s0);
+    for (let k = s0 + 1; k < lines.length && _FK_SCHED_CONT.test(lines[k]); k++) {
+      parts.push(lines[k]);
+      scheduleRows.push(k);
+    }
+    schedule = parts.map(p => p.trim()).filter(Boolean).join(' ');
+  }
+  const subjectRow = lines.findIndex((l, k) => k > h.line && _FK_SUBJECT.test(l));
+  const nCreated = lines.filter(l => _FK_CREATED.test(l)).length;
+  const endKind = h.dateUnreadable ? null : /^UFN/i.test(h.endText) ? (h.est ? 'UFN_EST' : 'UFN') : 'DATE';
+  return {
+    locations: h.locations, id: h.id, start: h.start,
+    endKind, end: endKind === 'DATE' ? h.endText : endKind === 'UFN_EST' ? h.est : null,
+    created, fl, schedule, headerRows, scheduleRows, subjectRow,
+    ambiguous: nCreated > 1,
+    dateUnreadable: h.dateUnreadable, dateText: h.dateText,   // v1.13.0 (F1, D61)
+  };
+}
+
+/**
+ * The window of a FlightKeys header (§ 2b), or null (= in effect: T6, D27).
+ * baseYear — the flight year, for the PERM-style end of UFN.
+ */
+function _fkWindow(h, baseYear) {
+  if (h.ambiguous || h.dateUnreadable) return null;   // v1.13.0 (F1): date cell not read → T6
+  const startMs = _fkDate(h.start);
+  if (startMs === null) return null;
+  if (h.endKind === 'UFN') return { startMs, endMs: Date.UTC(baseYear + 50, 0, 1) };
+  const endMs = _fkDate(h.end);
+  if (endMs === null || startMs > endMs) return null;
+  return { startMs, endMs };
+}
+
+/**
+ * The D) schedule of a FlightKeys item, as the schedule readers read the NavBlue line
+ * (FK-P): the SCHEDULE: cell with its wrapped lines joined, "DAILY" as NavBlue prints it
+ * ("DLY"). Only this cell is read: a body line is never taken for a schedule, and a
+ * wrapped cell is never read in pieces. '' = no schedule (or a header not trusted).
+ */
+function _fkScheduleText(h) {
+  if (!h || h.ambiguous || !h.schedule) return '';
+  return h.schedule.replace(/^DAILY\b/i, 'DLY');
+}
+
+/**
+ * The text the content rules read for a FlightKeys item (obstacle and aircraft filters,
+ * classification, highlighting): every line except the header rows (row 1, wrapped
+ * location rows, CREATED:/FL:) — i.e. the D) and body lines, as a NavBlue NOTAM's text
+ * carries them below its "- ICAO ID dates" line. The header rows carry what a NavBlue
+ * header does not (IATA codes such as SID or GLS, CREATED:, FL: SFC - UNL). The lines
+ * are taken as they are, in order; nothing is joined or reflowed (D54).
+ */
+function _fkRuleText(text, h) {
+  const skip = new Set(h.headerRows);
+  return text.split('\n').filter((_, k) => !skip.has(k)).join('\n');
+}
+
+// The display line of a FlightKeys item: its first body line (header rows, the SCHEDULE:
+// cell and SUBJECT: skipped), as NavBlue skips its header and schedule lines.
+function _fkFirstBodyLine(text, h) {
+  const skip = new Set([...h.headerRows, ...h.scheduleRows, h.subjectRow]);
+  return text.split('\n').find((l, k) => !skip.has(k) && l.trim()) || null;
+}
+
+// D43 key of a FlightKeys item: its location(s) and ID, as for a NavBlue NOTAM. No ID, or
+// a text holding more than one item (not trusted) → null (the caller keys it by its text).
+function _fkDupKey(h) {
+  if (!h || h.ambiguous || !h.id) return null;
+  return `ID:${h.locations.join(' ')} ${h.id}`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3844,6 +4130,7 @@ function _validDateParts(yr, mo, dd, hh, mi) {
  *   WEF DDMMMHHmm UFC/UNTIL DDMMMHHmm  — some domestic NOTAMs
  *   EFFECTIVE DDMMMHHmm UNTIL/TO ...   — plain language NOTAMs
  *   B) YYMMDDHHmm ... C) YYMMDDHHmm   — structured NOTAM items
+ *   v1.13.0: a FlightKeys item header (§ 2b) first, when the text has one
  *
  * @param {string} notamText
  * @param {number|string|null} flightDateISO — 'YYYY-MM-DD' or null (uses current year)
@@ -3860,6 +4147,12 @@ function xNW_standalone(notamText, flightDateISO) {
   // Issue year from the NOTAM ID (/YY), e.g. "A0486/26" → 2026. null if absent.
   const idM     = tu.match(/\b[A-Z]\d{4}\/(\d{2})\b/);
   const issYear = idM ? 2000 + parseInt(idM[1]) : null;
+
+  // ── v1.13.0: FlightKeys item header (§ 2b) — the item's B)/C) ─────────
+  // When present it alone decides: a header that cannot be read → no window
+  // (in effect, T6); the body is never searched for another date.
+  const fkH = _fkHeader(notamText);
+  if (fkH) return _fkWindow(fkH, baseYear);
 
   // ── B/C structured items (highest confidence) ──────────────────────────
   // B) 2603010000  C) 2603312359 | PERM
@@ -4069,10 +4362,14 @@ function nwOverlap_standalone(w, etaMin, flightDateISO, depMin) {
  *   2604191606-2605031500EST
  * A UFN end ("01MAY0800-UFN", "UFN(EST …)") is not read as a date range by
  * xNW_standalone(): such a NOTAM has no window and is already in effect (T6).
+ * v1.13.0: a FlightKeys item header decides first: true for "UFN(EST …)" only.
  * @param {string} notamText
  * @returns {boolean}
  */
 function _windowEndEstimated(notamText) {
+  // v1.13.0: a FlightKeys header decides, as in xNW_standalone(): "UFN(EST …)".
+  const fkH = _fkHeader(notamText);
+  if (fkH) return fkH.endKind === 'UFN_EST';
   const tu  = notamText.toUpperCase();
   const MON = '(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)';
   const estAfter = m => /^[ \t]*\(?EST\b/.test(tu.slice(m.index + m[0].length));
@@ -5232,6 +5529,9 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active, getWingspan) {
  *
  * @returns {{
  *   issues:    Array<{slot,level,text,active,notamRaw,rwy,label}>,
+ *              v1.13.0 (D61): plus dateUnreadable: true (only then present) on a NOTAM
+ *              whose own date range is impossible or unreadable; its text and rowLabel
+ *              then start with DATE_UNREADABLE_FLAG.
  *   rwyGroups: Map<string, {
  *                rwy:       string|null,
  *                twy:       string|null,
@@ -5254,6 +5554,11 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active, getWingspan) {
  *   Single item  → label = "CLSD" | "RESTR"
  *   Multi items  → label = "N Taxiway NOTAMs"
  */
+// v1.13.0 (D61): the flag on a NOTAM whose own date range is impossible or cannot be read.
+const DATE_UNREADABLE_FLAG = 'DATE NOT READABLE – CHECK NOTAM';
+// v1.13.0 (D61): a NavBlue NOTAM header with its ID — the same pattern as the D43 key below.
+const _NB_ID_HDR = /^\s*-\s+((?:[A-Z]{4}\s+)+)([A-Z]\d{1,4}\/\d{2})(?=\s|$)/;
+
 function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, getWingspan) {
   if (!notams || !notams.length) {
     return { issues: [], rwyGroups: new Map(), worst: 'unknown' };
@@ -5278,19 +5583,25 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
   };
 
   for (const notamRaw of notams) {
-    const nu = notamRaw.toUpperCase();
+    // v1.13.0: a FlightKeys item (§ 2b) is read by the same rules as a NavBlue NOTAM (FK-P):
+    // the content rules read its D) and body lines (ruleRaw), the schedule readers its D)
+    // cell (schedRaw). NavBlue text has no FlightKeys header: ruleRaw = schedRaw = notamRaw.
+    const fkH      = _fkHeader(notamRaw);
+    const ruleRaw  = fkH ? _fkRuleText(notamRaw, fkH) : notamRaw;
+    const schedRaw = fkH ? _fkScheduleText(fkH) : notamRaw;
+    const nu = ruleRaw.toUpperCase();
 
     // ── Obstacle filter: skip pure obstacle NOTAMs (no approach/departure keyword) ──
     // ODP/Takeoff Minimums NOTAMs often contain "OBST" in the title but are operationally
     // critical — always pass them through regardless of other keywords.
-    const hasTkofKeyword = /\bTAKEOFF\s+MINIMUMS?\b|\bOBST(?:ACLE)?\s+DEP(?:ARTURE)?\s+PROC|\bODP\b|\bMINIMUM\s+CLIMB\b|\bMIN\s+CLIMB\b|\bCLIMB\s+GRADIENT\b/i.test(notamRaw);
-    const hasApchKeyword = hasTkofKeyword || /\b(?:ILS|LOC|GLS|RNAV|RNP|NDB|VOR|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|IAP|APCH|PROC|RWY|SID|STAR|CAT\s+I{1,3})\b/i.test(notamRaw);
+    const hasTkofKeyword = /\bTAKEOFF\s+MINIMUMS?\b|\bOBST(?:ACLE)?\s+DEP(?:ARTURE)?\s+PROC|\bODP\b|\bMINIMUM\s+CLIMB\b|\bMIN\s+CLIMB\b|\bCLIMB\s+GRADIENT\b/i.test(ruleRaw);   // v1.13.0: ruleRaw
+    const hasApchKeyword = hasTkofKeyword || /\b(?:ILS|LOC|GLS|RNAV|RNP|NDB|VOR|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|IAP|APCH|PROC|RWY|SID|STAR|CAT\s+I{1,3})\b/i.test(ruleRaw);   // v1.13.0: ruleRaw
     if (/\bOBST\b|\bCRANE\b|\bOBSTACLE\b/.test(nu) && !hasApchKeyword) continue;
 
     // ── Aircraft applicability filter ─────────────────────────────────────
     // Only applied when the NOTAM contains an explicit restriction qualifier.
     // If no qualifier is found, _acftApplies returns true (conservative — show it).
-    if (!_acftApplies(notamRaw, acft, getWingspan)) continue;
+    if (!_acftApplies(ruleRaw, acft, getWingspan)) continue;   // v1.13.0: ruleRaw
 
     // ── Active status ─────────────────────────────────────────────────────
     // T6 fail-safe: no resolvable window → in effect. The legacy xNW() is
@@ -5302,6 +5613,12 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     if (w && _windowEndEstimated(notamRaw)) w = { startMs: w.startMs, endMs: Infinity };
     if (w) active = nwOverlap_standalone(w, etaMin, resolvedISO, depMin);   // v1.11.2: _evalWindows
 
+    // v1.13.0 (D61, Exec 16 Nov): a NOTAM whose own date range is impossible or cannot be read
+    // (the T6 path: it has a NOTAM header — FlightKeys item header, or NavBlue "- LOC ID" — and
+    // no window) is ALWAYS shown: no schedule check (day-range or DLY) is made for it, and it
+    // carries the flag DATE_UNREADABLE_FLAG. NavBlue and FlightKeys alike.
+    const dateUnreadable = w === null && (fkH !== null || _NB_ID_HDR.test(notamRaw));
+
     // ── OFP inline schedule (Atlas Air format): "DD-DD DD-DD ... HHMM-HHMM" ──
     // These lines follow the NOTAM header and restrict activity to specific
     // day-of-month ranges and a daily time window within the overall validity period.
@@ -5311,8 +5628,8 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     // counts on the listed day from the start time on, on the listed day up to the
     // end time, and on the day after a listed day up to the end time.
     // D27: a day or time that cannot be read → the schedule is not applied.
-    if (active !== false && etaMin !== null && resolvedISO) {
-      const ofpSchedM = notamRaw.match(/^\s*((?:\d{2}-\d{2}\s+)+)(\d{4})-(\d{4})\s*$/m);
+    if (active !== false && etaMin !== null && resolvedISO && !dateUnreadable) {   // v1.13.0: D61
+      const ofpSchedM = schedRaw.match(/^\s*((?:\d{2}-\d{2}\s+)+)(\d{4})-(\d{4})\s*$/m);   // v1.13.0: schedRaw
       if (ofpSchedM) {
         const startT = _schedHM(ofpSchedM[2]);
         const endT   = _schedHM(ofpSchedM[3]);
@@ -5347,11 +5664,11 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     // effect if any minute of ETA ± 60 (wrapping past 0000Z) is in a window
     // (v1.11.2: the times of day of the _evalWindows window).
     // D27: a time that cannot be read → the schedule is not applied.
-    if (active !== false && etaMin !== null) {
-      const hasDayRangeSched = /^\s*(?:\d{2}-\d{2}\s+)+\d{4}-\d{4}\s*$/m.test(notamRaw);
+    if (active !== false && etaMin !== null && !dateUnreadable) {   // v1.13.0: D61
+      const hasDayRangeSched = /^\s*(?:\d{2}-\d{2}\s+)+\d{4}-\d{4}\s*$/m.test(schedRaw);   // v1.13.0: schedRaw
       if (!hasDayRangeSched) {
         // Match DLY-prefixed or bare HHMM-HHMM schedule line (with optional multiple windows)
-        const dlyLine = notamRaw.match(/^\s*(?:DLY\s+)?(\d{4}\s*-\s*\d{4}(?:\s*,\s*\d{4}\s*-\s*\d{4})*)/m);
+        const dlyLine = schedRaw.match(/^\s*(?:DLY\s+)?(\d{4}\s*-\s*\d{4}(?:\s*,\s*\d{4}\s*-\s*\d{4})*)/m);   // v1.13.0: schedRaw
         if (dlyLine) {
           // Extract all HHMM-HHMM window pairs from the line
           const pairs = [...dlyLine[1].matchAll(/(\d{4})\s*-\s*(\d{4})/g)]
@@ -5375,7 +5692,7 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     if (active === false) continue;
 
     const { slot, level, label, keyRe, rwy, category } =
-      _classifyNotamSlot(nu, notamRaw, role, (acft && acft.type) || '', active, getWingspan);
+      _classifyNotamSlot(nu, ruleRaw, role, (acft && acft.type) || '', active, getWingspan);   // v1.13.0: ruleRaw
 
     // ── Build display text ────────────────────────────────────────────────
     // Skip: (1) header lines starting with "- ICAO", (2) day-range+time schedule
@@ -5383,7 +5700,8 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     // e.g. "1410-2030" — all precede the operative NOTAM body text.
     const _SCHED_LINE = /^(?:\d{2}-\d{2}(?:\s+\d{2}-\d{2})*\s+)?\d{4}-\d{4}$/;
     const _notamLines = notamRaw.split('\n');
-    const firstLine = _notamLines.find(l => {
+    const firstLine = (fkH ? (_fkFirstBodyLine(notamRaw, fkH) || notamRaw) : null) ||   // v1.13.0: FlightKeys body line
+      _notamLines.find(l => {
       const tr = l.trim();
       return tr && !tr.startsWith('-') && !_SCHED_LINE.test(tr);
     }) || _notamLines.find(l => l.trim() && !l.trim().startsWith('-')) || notamRaw;
@@ -5405,6 +5723,8 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
         displayText = _hlText(shortLine, eL, eR);
       }
     }
+    // v1.13.0 (D61): the flag at the start of the display text, escaped like the rest.
+    if (dateUnreadable) displayText = `${_esc(DATE_UNREADABLE_FLAG)} — ${displayText}`;
 
     // D43: the NOTAM ID is the unique identifier. Two NOTAMs are duplicates
     // ONLY when they have the same location(s) and the same ID (the same
@@ -5412,7 +5732,8 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     // no readable ID is a duplicate only of one whose text is identical after
     // whitespace is normalised. The first copy is kept.
     const idM    = notamRaw.match(/^\s*-\s+((?:[A-Z]{4}\s+)+)([A-Z]\d{1,4}\/\d{2})(?=\s|$)/);
-    const dupKey = idM
+    const fkKey  = fkH ? _fkDupKey(fkH) : null;   // v1.13.0: FlightKeys location(s) + ID
+    const dupKey = fkKey ? fkKey : idM
       ? `ID:${idM[1].trim().split(/\s+/).join(' ')} ${idM[2]}`
       : `TXT:${notamRaw.replace(/\s+/g, ' ').trim()}`;
     if (seen.has(dupKey)) continue;
@@ -5423,10 +5744,14 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     // on each row — e.g. "ILS GS U/S RWY 25L", "PAPI/VASI U/S RWY 25L".
     // We keep the runway that the classifier already embedded in the label.
     // If no label, fall back to the first line of the NOTAM text.
-    const rowLabel = label || shortLine.slice(0, 60);
+    // v1.13.0 (D61): the row the airport card renders (rowLabel) carries the flag too.
+    const rowLabel = dateUnreadable
+      ? `${DATE_UNREADABLE_FLAG} — ${label || shortLine.slice(0, 60)}`.replace(/ — $/, '')
+      : label || shortLine.slice(0, 60);
 
     collected.push({ slot, level, active, text: displayText, notamRaw,
-                     rwy: rwy || null, label: label || null, rowLabel, category: category || null });
+                     rwy: rwy || null, label: label || null, rowLabel, category: category || null,
+                     ...(dateUnreadable ? { dateUnreadable: true } : {}) });   // v1.13.0: D61
     _bumpW(level);
   }
 
@@ -5586,6 +5911,10 @@ const API = {
   RULESET_TYPE, RULESET_VERSION, SCHEMA_VERSION, RULESET_SOURCE,
   validateSchema,
   _splitNotams,
+  _fkHeader,                 // v1.13.0
+  _fkWindow,                 // v1.13.0
+  _fkScheduleText,           // v1.13.0
+  DATE_UNREADABLE_FLAG,      // v1.13.0 (D61)
   evalNotams,
   xNW_standalone,
   nwOverlap_standalone,
