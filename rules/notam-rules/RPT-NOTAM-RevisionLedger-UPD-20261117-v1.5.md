@@ -1,12 +1,12 @@
 # NOTAM Ruleset — Revision Ledger
 
-**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261109-v1.4.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261108-v1.3.md`)
-**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.12.0.js`
-**Current Version:** 1.12.0
-**Lines:** 1,960
-**Patterns:** 66 NM (v1.10.1 also has 66; the "39 NM" in ledger v1.0 did not match its own file)
-**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); TC-122-001 … 009 PASS (9/9); NOTAM unit tests 82/82 PASS against the module; TC-151-001 … 030 PASS (7/7). Independent QA pending
-**Last Updated:** 2026-11-09
+**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261117-v1.5.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261109-v1.4.md`)
+**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.13.0.js`
+**Current Version:** 1.13.0
+**Lines:** 2,222
+**Patterns:** 66 NM (v1.10.1 also has 66; the "39 NM" in ledger v1.0 did not match its own file). v1.13.0 adds no NM entry: the FlightKeys header patterns are module-private (`_FK_*`, §2b of the file)
+**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); TC-122-001 … 009 PASS (9/9); NOTAM unit tests 82/82 PASS against the module; TC-151-001 … 030 PASS (7/7); TC-171-001 … 040 PASS (16/16). Independent QA pending
+**Last Updated:** 2026-11-17
 
 ---
 
@@ -14,11 +14,11 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total Patches | 24 (P-01 through P-24) |
-| Current Version | 1.12.0 |
+| Total Patches | 25 (P-01 through P-25) |
+| Current Version | 1.13.0 |
 | First Integration | v1.9.7 |
-| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 on `main` (P-23); module 1.12.0 pending (P-24, this PR) |
-| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 independent QA APPROVE-FOR-EXEC, merged (#41); P-23 merged; P-24 pending Exec gate and independent QA (ADR-005 §2.2.6) |
+| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 on `main` (P-23); module 1.12.0 on `main` (P-24); module 1.13.0 pending (P-25, this PR) |
+| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 independent QA APPROVE-FOR-EXEC, merged (#41); P-23 merged; P-24 merged; P-25 pending Exec gate and independent QA (ADR-005 §2.2.6) |
 | Open DEFs Against This Ruleset | 4 (ARCH-03 through ARCH-06, all DEFERRED S4). ARCH-01 and ARCH-02 closed by P-21. |
 
 **What changed in v1.1 of this ledger.** The entries P-01 … P-13 of v1.0 are kept unchanged below. P-14 … P-20 record the NOTAM fixes made in the app (`src/notam.html`) since June, which the master v1.10.1 never received (ADR-005 §1.2). P-21 is the extraction of the module. The planned patch numbers of the ARCH items (v1.0: P-14 … P-19) are therefore re-assigned (see "Pending Architecture Items"). A reconciliation of master v1.10.1 against the app follows the patch chain.
@@ -418,6 +418,21 @@
 | Integrated In | this PR (module revision with `build/build.js`, `src/airports.html`, `src/ofp-parse.html`) |
 | QA Verification | TC-151-001 … 030 (7/7): 42 synthetic NOTAMs × 70 types give exactly what v1.11.2 gave for the type string — `_acftApplies()` and `evalNotams()` (ORIG, DEST), standalone file and `index.html` (0 differences); string / empty / null / undefined / number aircraft → every aircraft-restricted NOTAM shown, real profile hides them; `getWingspan` passed / not passed, positive and negative; `evalAirport()` passes the module's profile and `getWingspan` at every release airport of the 30 Navtech/eOFP fixtures; one copy in `index.html`; the gate bites. Golden, V0 NOTAM-at-ETA and V0 app-path snapshots unchanged (33/33 each); HF-5 oracle: hidden 0, not found 0. |
 
+### P-25 — FlightKeys NOTAM item headers (v1.13.0)
+
+| Field | Value |
+|:------|:------|
+| Date | 2026-11-17 |
+| Ruleset Version | 1.13.0 |
+| Type | FEATURE (FlightKeys grammar; NavBlue unchanged) |
+| DEF-ID | ADR-005 §2.5 (the NOTAM ruleset reads both header styles); plan v4.10 §6 (brief 5c); SPEC v1.12.0 §11 limitation "FlightKeys header style not read" (closed) |
+| PR | relief-pilot, branch `claude/notam-v1.13.0` (no fixtures companion: no snapshot changes) |
+| Summary | The module reads the FlightKeys NOTAM item header (`RPT-OFP-FlightKeys-BriefingGrammar` §A.5, §A.7): row 1 `[locations] [ID]  YYYY-Mon-DD HH:MM - YYYY-Mon-DD HH:MM / UFN / UFN(EST …)`, the wrapped location cell (> 3 codes), `CREATED:` / `FL:`, the `SCHEDULE:` cell with its wrapped lines, `SUBJECT:`, ASHTAM. `_splitNotams` cuts FlightKeys text at each item header and only there. `xNW_standalone` and `_windowEndEstimated` read the header first, and it alone decides: UFN = NavBlue `-PERM` (start kept, no end), UFN(EST) = NavBlue `… EST` (start kept, no end; D31); a date that cannot be read or a backwards window → no window → shown (T6), never a guessed or rolled-over date. `evalNotams` reads the `SCHEDULE:` cell (joined, `DAILY` = `DLY`) with the NavBlue schedule readers and never a body line; the content rules read the D) and body lines (not the header rows, which hold IATA codes and `CREATED:`/`FL:`); display line = first body line; D43 key = location(s) + ID; a text holding two `CREATED:` rows is not trusted (no window, no schedule → shown). Evaluation window unchanged (`_evalWindows`: actual UTC date, ETA ± 60, D51). D54: the module reads text only, line by line; split pieces are exact substrings; `notamRaw` unchanged. New exports `_fkHeader`, `_fkWindow`, `_fkScheduleText`. A text with no FlightKeys header takes the v1.12.0 path. |
+| Patterns Affected | none of the 66 NM patterns; new module-private `_FK_DATE`, `_FK_ID`, `_FK_ROW1`, `_FK_WRAP`, `_FK_CREATED`, `_FK_SCHEDULE`, `_FK_SUBJECT`, `_FK_SCHED_CONT`; `_splitNotams`, `xNW_standalone`, `_windowEndEstimated`, `evalNotams` (each edit marked `v1.13.0`) |
+| Gate Result | Pending — Exec gate and independent QA session (ADR-005 §2.2.6) |
+| Integrated In | this PR (module revision with rebuilt `index.html`; no `src/` change) |
+| QA Verification | TC-171-001 … 040 (16/16): every §A.5 form on the 26 FlightKeys fixtures counted as in the grammar doc (2 five-code wrapped cells added to its location forms); 3,281/3,281 NOTAM items and 298/298 Company/HSCN items with a readable window; split = the items (7,158); 40 header rows split by a page and 13 wrapped cells read whole (L07 example); 14 impossible-date forms → only that NOTAM shown; FlightKeys/NavBlue twins shown at the same ETAs (13,972 cases); matched pair: 133/133 equal windows, shown equal except 3 FlightKeys-shown/NavBlue-hidden (NavBlue's wrapped D) line). NavBlue: 30 fixtures, 7,704 NOTAMs, 22,572 `evalNotams` calls equal to recorded v1.12.0 results; golden, V0 NOTAM-at-ETA and app-path snapshots unchanged (33/33 each); HF-5 oracle: hidden 0, not found 0 (7,538 oracle NOTAMs). All 439 unit tests pass. |
+
 ---
 
 ## Reconciliation — master v1.10.1 vs the app (2026-11-07)
@@ -481,3 +496,4 @@ These are tracked in the Defect Register as ARCH-01 through ARCH-06. ARCH-01 and
 | 2026-11-08 | v1.2: P-22 (v1.11.1, next-day arrival at or after 1200Z) added; summary updated for the 1.9.9-hf3 integration of P-21. P-01 … P-21 entries unchanged. |
 | 2026-11-08 | v1.3: P-23 (v1.11.2, the evaluation window on its actual UTC date; `_evalWindows`) added; P-22 gate result and integration recorded (#41). P-01 … P-21 entries unchanged. |
 | 2026-11-09 | v1.4: P-24 (v1.12.0, the aircraft data leaves the module; one aircraft-profile module; `evalNotams()` takes the profile object and `getWingspan`) added. P-01 … P-23 entries unchanged. |
+| 2026-11-17 | v1.5: P-25 (v1.13.0, FlightKeys NOTAM item headers) added; P-24 recorded as merged. P-01 … P-24 entries unchanged. |
