@@ -38,6 +38,10 @@
  *   TC-160-019  rows 33, 34, 36, 39–41 on all 26 fixtures; field-map counts
  *   TC-160-020  where the field map says today's NavBlue parser already reads FlightKeys right (✅
  *               rows), the module gives exactly the NavBlue value on all 26 fixtures
+ *   TC-160-040  FK-P matched pair: FK UAAA-EHAM 27OCT prototype (this module) vs EOFP UAAA-EHAM 27OCT
+ *               matchedpair (the NavBlue parser): every in-scope core field whose printed content is
+ *               the same in both packages is EQUAL; every difference is listed with its reason
+ *               (different plans; the redispatch alternates exist in the EOFP only) — none hidden
  *   TC-160-030  fixtures missing → the fixture tests FAIL (never skip)
  *
  * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
@@ -480,7 +484,32 @@ test('TC-160-018 route synthetic: nav log, TOC, ETOPS, POR, ETP/CFS, alternate r
 
 // ══ fixtures ═════════════════════════════════════════════════════════════════
 
-const FIXTURES = findFixtures();
+// PB_FIXTURES is authoritative when set (a wrong path fails; no silent fallback).
+function fixturesDir() {
+  if (process.env.PB_FIXTURES) {
+    const d = path.resolve(process.env.PB_FIXTURES);
+    return fs.existsSync(path.join(d, 'manifest.json')) ? d : null;
+  }
+  return findFixtures();
+}
+const FIXTURES = fixturesDir();
+
+test('TC-160-031 fixtures missing → the fixture tests FAIL, none skipped (child run, empty PB_FIXTURES)', () => {
+  if (process.env.PB_FC_CHILD) return;   // the child itself does not recurse
+  const os = require('os');
+  const { spawnSync } = require('child_process');
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'pb-nofix-'));
+  try {
+    const env = Object.assign({}, process.env, { PB_FIXTURES: empty, PB_FC_CHILD: '1' });
+    delete env.NODE_TEST_CONTEXT;   // a standalone child run, not a subtest stream of this runner
+    const run = spawnSync(process.execPath, ['--test', '--test-reporter=tap', __filename], { encoding: 'utf8', env });
+    assert.notEqual(run.status, 0, 'the child run fails');
+    assert.match(run.stdout, /not ok \d+ - TC-160-030 fixtures missing/);
+    assert.match(run.stdout, /# skipped 0/);
+  } finally {
+    fs.rmSync(empty, { recursive: true, force: true });
+  }
+});
 if (!FIXTURES) {
   test('TC-160-030 fixtures missing → the fixture tests FAIL (never skip)', () => {
     assert.fail('pilotbrief-fixtures not found (set PB_FIXTURES or clone it beside the repo): TC-160-005/010 cannot run');
@@ -644,6 +673,49 @@ if (!FIXTURES) {
     assert.deepEqual(labelsWhere(r => r.altRoutes.some(a => a.title === 'Initial Airport Route')), ['L02', 'L08', 'L11', 'L12', 'L13', 'L14', 'L18', 'L19', 'L20', 'T3']);
     assert.deepEqual(labelsWhere(r => r.altRoutes.some(a => a.mora === '')), ['L07', 'T1'], 'no MORA line in T1, L07');
     assert.equal(labelsWhere(r => r.etpPoints.length === 2).length, 4);
+  });
+
+  test('TC-160-040 FK-P matched pair: equal where the printed content is equal; differences listed', () => {
+    const fkFx = fkFixtures.find(f => f.id === 'FK_UAAA-EHAM_27OCT26_prototype');
+    const nbFx = manifest.fixtures.find(f => f.id === 'EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11');
+    assert.ok(fkFx && nbFx, 'both packages of the matched pair are in the fixtures');
+    const r = runFixture(fkFx);
+    const nb = navblue._ofpRulesetParse(fs.readFileSync(path.join(FIXTURES, nbFx.files.text), 'utf8'));
+    // Content the two PDFs print differently (checked in both texts). The EOFP is release 11, the FK
+    // package an unreleased prototype of the same flight: a different plan, not a parser difference.
+    const PLAN_DIFFERENCES = {
+      etaDest:           'DEST time printed 1710Z (EOFP) vs 1706Z (FK)',
+      destEtaOffsetMins: 'follows etaDest',
+      tripMinutes:       'TRIP time 07.30 vs 07.26',
+      tocOffsetMins:     'different SID: TOC TOT-T 00.19 vs 00.14',
+      alt1Fuel:          'ALT1 fuel differs', destRemf: 'REMF differs', blockFuelRaw: 'BLOCK differs',
+      minfFuelRaw:       'MINF differs', fresFuelRaw: 'FRES differs',
+      togwActual:        'TOGW differs', togwLimit: 'TOGW limit L381022 vs S377116',
+      zfwLimit:          'ZFW limit differs', ldgwActual: 'LDGW differs',
+      zfwIncrFactor:     'ZFW INCR/INC factor 244 vs 191',
+      hasVzfwCkLimit:    'only the FK plan prints MTOW LTD BY VZFW/CK LIMITS',
+      altRoutes:         'different alternate route; the EOFP also prints the two redispatch routes',
+      // the known plan difference — redispatch exists in the EOFP only
+      altData:           'REDISPATCH: EOFP lists RAPT EDDP and RALT EDDB (EN ROUTE ALT); the FK plan has no redispatch. PALT EBBR in both (time 1737Z vs 1733Z)',
+      porWpt:            'REDISPATCH: EOFP DP(POR) KENIN; none in the FK plan',
+      porOffsetMins:     'REDISPATCH: as porWpt',
+      porMinf:           'REDISPATCH: second MINF column in the EOFP only',
+    };
+    const NOT_COMPARED = new Set([...Object.keys(mod.DEFERRED_FIELDS).filter(k => !k.includes('.')), 'airportData', 'rawOFP']);
+    const equal = [], differ = [];
+    for (const f of mod.CORE_FIELDS) {
+      if (NOT_COMPARED.has(f)) continue;
+      (JSON.stringify(r[f]) === JSON.stringify(nb[f]) ? equal : differ).push(f);
+    }
+    assert.deepEqual(differ.sort(), Object.keys(PLAN_DIFFERENCES).sort(), 'exactly the listed plan differences differ');
+    assert.deepEqual(equal, ['fltNum', 'acftType', 'weightUnit', 'isHeavy', 'dateStr', 'flightDateISO', 'origIcao', 'destIcao',
+      'offFromOFP', 'taxiMins', 'etopsEntry', 'etopsSpec', 'etopsEntryMins', 'etopsExit', 'etopsExitMins', 'ballastFuel',
+      'zfwActual', 'ldgwLimit', 'dotExemption', 'slotTime', 'addlFfAdj', 'etpPoints', 'navLog',
+      'parsedVerbalCallsign', 'taxiFuelRaw'], 'equal where the content is equal');
+    // the redispatch difference, field by field
+    assert.deepEqual(nb.altData.map(a => [a.icao, a.role]), [['EBBR', 'DEST ALT'], ['EDDB', 'EN ROUTE ALT'], ['EDDP', 'EN ROUTE ALT']]);
+    assert.deepEqual(r.altData.map(a => [a.icao, a.role]), [['EBBR', 'DEST ALT']]);
+    assert.deepEqual(r.altData[0].ofpOffsetMins - nb.altData[0].ofpOffsetMins, -4, 'PALT time 4 min apart, same airport and role');
   });
 
   test('TC-160-020 the ✅ rows of the field map: module value = NavBlue value on all 26 fixtures', () => {
