@@ -27,6 +27,10 @@
  *               BALST, ZFW INC, ADDL FF ADJ as printed, VZFW/CK inline and NavBlue form, SWA
  *   TC-160-015  rows 9–23 + SWA on all 26 fixtures; field-map counts (ballast 4, FF ADJ 10, VZFW 9,
  *               POR MINF 10, SWA 4)
+ *   TC-160-016  rows 29–31 synthetic (SC DOT exemption and slot: positive and negative): one-line and
+ *               wrapped exemption, DOT-SP form, every NavBlue slot form; text outside the release
+ *               Remarks (Company NOTAMs, briefing) never read
+ *   TC-160-017  rows 29–31 on all 26 fixtures (exemption 6 incl. L08 wrapped, slot 1, callsign 0)
  *   TC-160-020  where the field map says today's NavBlue parser already reads FlightKeys right (✅
  *               rows), the module gives exactly the NavBlue value on all 26 fixtures
  *   TC-160-030  fixtures missing → the fixture tests FAIL (never skip)
@@ -66,7 +70,7 @@ function fplBlock({ dof = 'DOF/260308 ', type = 'B744/H' } = {}) {
     '-N0481F320 DCT AAAAA DCT BBBBB', '-KBBB0933 KCCC',
     `-PBN/A1B1 ${dof}REG/N000ZZ SEL/ABCD RMK/TCAS II EQUIPPED)`];
 }
-function release({ identity = 'TST0001/08 KAAA - KBBB 08 MAR 26 N000ZZ', airports, extraP1 = [], fpl } = {}) {
+function release({ identity = 'TST0001/08 KAAA - KBBB 08 MAR 26 N000ZZ', airports, extraP1 = [], fpl, remarks, after = '' } = {}) {
   const apts = airports || [
     'ORIG KAAA/AAA ALPHA INTL N40000W080000 1755Z',
     'DEST KBBB/BBB BRAVO INTL N41000W081000 0328Z',
@@ -76,8 +80,9 @@ function release({ identity = 'TST0001/08 KAAA - KBBB 08 MAR 26 N000ZZ', airport
     `FUFI: 00000000-0000-0000-0000-000000000000 PAGE ${n}/${of}`].join('\n') + '\n\n';
   const p1 = [identity, 'COST INDEX 020 Revision: 1.0', 'B747-400F / CF6-80C2-B1F / KG / IFR / FF +4.0',
     'PROGS 081200 Release Valid Until 2300Z 08MAR26', ...apts, ...extraP1];
-  const p2 = ['TIME FUEL', ...(fpl === null ? [] : (fpl || fplBlock()))];
-  return 'BRIEFING COVER PAGE\n\n' + page(1, 2, p1) + page(2, 2, p2) + 'NOTAM BRIEFING PAGE\n\n';
+  const rem = remarks ? ['Remarks', 'DISPATCHER DESK: 00', ...remarks, 'RAIM VALIDATION PASSED', 'MEL/CDL', 'Flight Release Authorization'] : [];
+  const p2 = [...rem, 'TIME FUEL', ...(fpl === null ? [] : (fpl || fplBlock()))];
+  return 'BRIEFING COVER PAGE\n\n' + page(1, 2, p1) + page(2, 2, p2) + 'NOTAM BRIEFING PAGE\n' + after + '\n';
 }
 const parseText = (text, opts = OPTS) => mod.parseFlightKeys({ text, pages: [] }, opts);
 
@@ -363,6 +368,47 @@ test('TC-160-014 fuel and weights, synthetic (rows 9–23; SC block/min fuel pos
   assert.deepEqual([e.blockFuelRaw, e.minfFuelRaw, e.togwActual, e.hasVzfwCkLimit], ['', '', 0, false]);
 });
 
+test('TC-160-016 rows 29–31 synthetic: DOT exemption (wrapped), slot forms, verbal callsign; Remarks only', () => {
+  const one = parseText(release({ remarks: ['FLIGHT RELEASED UNDER EXEMPTION NO 12345A. ALTERNATE AIRPORT REQUIRED.', 'REFER TO FOM FOR ADDITIONAL INFORMATION.'] }));
+  assert.deepEqual(one.dotExemption, { number: 'Exemption 12345A', restrictions: "ALT REQ'D", altRequired: true });
+  // wrapped between "ALTERNATE AIRPORT" and "REQUIRED." (L08 form), and between ALTERNATE and AIRPORT
+  for (const lines of [['FLIGHT RELEASED UNDER POLAR EXEMPTION NO 12345B. ALTERNATE AIRPORT', 'REQUIRED.REFER TO FOM FOR ADDITIONAL INFORMATION.'],
+                       ['FLIGHT RELEASED UNDER EXEMPTION NO 12345B. ALTERNATE', 'AIRPORT REQUIRED. REFER TO FOM.']]) {
+    const w = parseText(release({ remarks: lines }));
+    assert.deepEqual(w.dotExemption, { number: 'Exemption 12345B', restrictions: "ALT REQ'D", altRequired: true }, lines.join(' / '));
+  }
+  // exemption without the alternate sentence → altRequired false + WARN
+  const na = parseText(release({ remarks: ['FLIGHT RELEASED UNDER EXEMPTION NO 12345C.'] }));
+  assert.deepEqual(na.dotExemption, { number: 'Exemption 12345C', restrictions: null, altRequired: false });
+  assert.ok(warns(na, 'dotExemption').length === 1);
+  // a sentence far away is not joined to it
+  const far = parseText(release({ remarks: ['FLIGHT RELEASED UNDER EXEMPTION NO 12345D.', 'OTHER REMARK', 'ALTERNATE AIRPORT REQUIRED FOR KZZZ'] }));
+  assert.equal(far.dotExemption.altRequired, false);
+  // NavBlue DOT-SP form
+  // (the NavBlue rule, unchanged: one continuation line is joined unless it starts with "-" or "*")
+  const sp = parseText(release({ remarks: ['*OPERATING UNDER EXEMPTION DOT-SP7573*', 'RESTRICTIONS: DAY VMC ONLY', '- END OF RESTRICTIONS'] }));
+  assert.deepEqual(sp.dotExemption, { number: 'DOT-SP7573', restrictions: 'DAY VMC ONLY', altRequired: false });
+  // slot forms (NavBlue value forms)
+  const slot = l => parseText(release({ remarks: [l] })).slotTime;
+  assert.equal(slot('WHEELS UP NOT BEFORE 1627Z DUE TO ANC PARKING'), 'NOT BEFORE 1627Z');
+  assert.equal(slot('WHEELS UP MUST BE BETWEEN 0737Z AND 0807Z DUE TO ANC SLOT TIME'), '0737Z – 0807Z');
+  assert.equal(slot('WHEELS UP MUST BE BEFORE 0807Z'), 'BEFORE 0807Z');
+  assert.equal(slot('EARLIEST WHEELS UP 2247Z DUE TO ANC PARKING'), 'NOT BEFORE 2247Z');
+  assert.equal(slot('WHEELS UP 0433Z'), 'AT 0433Z');
+  assert.equal(slot('NO EARLY DEPARTURE. AIRPORT CLOSED TILL 06:00Z'), 'NOT BEFORE 0600Z');
+  assert.equal(slot('ADJUST WHEELS UP TIME TO ENSURE ARRIVAL WITHIN 15 MINS'), null);
+  // verbal callsign remark (NavBlue form)
+  assert.equal(parseText(release({ remarks: ['ICAO - THY = IATA - TK = VERBAL CALLSIGN - TURKISH'] })).parsedVerbalCallsign, 'TURKISH');
+  // negative: none printed → null; the same words OUTSIDE the release Remarks are never read
+  const outside = 'WHEELS UP NOT BEFORE 1627Z\nFLIGHT RELEASED UNDER EXEMPTION NO 12345A. ALTERNATE AIRPORT REQUIRED.\nVERBAL CALLSIGN - TURKISH\n';
+  for (const r of [parseText(release({ remarks: ['ROUTE NOTE ONLY'] })), parseText(release({ remarks: ['ROUTE NOTE ONLY'], after: outside })),
+                   parseText(release({ remarks: ['ROUTE NOTE ONLY'], extraP1: outside.trim().split('\n') }))]) {
+    assert.equal(r.dotExemption, null);
+    assert.equal(r.slotTime, null);
+    assert.equal(r.parsedVerbalCallsign, null);
+  }
+});
+
 // ══ fixtures ═════════════════════════════════════════════════════════════════
 
 const FIXTURES = findFixtures();
@@ -482,9 +528,26 @@ if (!FIXTURES) {
     assert.equal(runFixture(fkFixtures.find(f => f.id === byLabel.L16)).addlFfAdj, '+4.30', 'SME-6: as printed');
   });
 
+  test('TC-160-017 rows 29–31 on 26 fixtures: exemption 6 (L08 wrapped), slot 1, verbal callsign 0', () => {
+    for (const fx of fkFixtures) {
+      const r = runFixture(fx), e = EXPECTED[fx.id];
+      for (const f of ['dotExemption', 'slotTime', 'parsedVerbalCallsign']) assert.deepEqual(r[f], e[f], `${e.label}: ${f}`);
+      assert.deepEqual(warns(r).filter(f => ['dotExemption', 'slotTime'].includes(f.field)), [], `${e.label}: no WARN`);
+    }
+    const labelsWhere = pred => fkFixtures.filter(fx => pred(runFixture(fx))).map(fx => EXPECTED[fx.id].label).sort();
+    assert.deepEqual(labelsWhere(r => r.dotExemption && r.dotExemption.altRequired), ['L08', 'L11', 'L13', 'L15', 'L21', 'L22'], 'row 29');
+    assert.deepEqual(labelsWhere(r => r.dotExemption !== null).length, 6);
+    assert.deepEqual(labelsWhere(r => r.slotTime !== null), ['L16'], 'row 30');
+    assert.equal(runFixture(fkFixtures.find(f => f.id === byLabel.L16)).slotTime, 'NOT BEFORE 1627Z');
+    assert.deepEqual(labelsWhere(r => r.parsedVerbalCallsign !== null), [], 'row 31 ⚪');
+    // the NavBlue parser gets L08 wrong (altRequired false); the module reads it right
+    const l08 = fkFixtures.find(f => f.id === byLabel.L08);
+    assert.equal(navblue._ofpRulesetParse(fs.readFileSync(path.join(FIXTURES, l08.files.text), 'utf8')).dotExemption.altRequired, false);
+  });
+
   test('TC-160-020 the ✅ rows of the field map: module value = NavBlue value on all 26 fixtures', () => {
     // Field map v1.1 rows marked ✅ (today's NavBlue parser reads FlightKeys right) plus rows 5–6 outside L22.
-    const SAME = ['fltNum', 'acftType', 'weightUnit', 'isHeavy', 'dateStr', 'flightDateISO', 'blockFuelRaw',
+    const SAME = ['slotTime', 'parsedVerbalCallsign', 'fltNum', 'acftType', 'weightUnit', 'isHeavy', 'dateStr', 'flightDateISO', 'blockFuelRaw',
       'minfFuelRaw', 'fresFuelRaw', 'taxiFuelRaw', 'taxiMins', 'tripMinutes', 'alt1Fuel', 'destRemf', 'porMinf',
       'zfwActual', 'zfwLimit', 'togwActual', 'togwLimit', 'ldgwActual', 'ldgwLimit'];
     let n = 0;

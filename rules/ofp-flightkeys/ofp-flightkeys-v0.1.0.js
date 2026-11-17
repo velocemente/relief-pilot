@@ -158,6 +158,24 @@ const PATTERNS = {
   VZFW_CK_LIMIT:   /\*?MTOW\s+LTD\s+BY\s+VZFW\/CK\s+LIMITS\*?/,
   // SME-8: service weight adjustment between DOW and PYLD
   SWA:             /^SWA\s+\((\d{3,7})\)\s*$/,
+  // Remarks block of the release (rows 29–31): "Remarks" … "Flight Release Authorization"
+  REMARKS_START:   /^Remarks\s*$/,
+  REMARKS_END:     /^Flight Release Authorization\b/,
+  // Row 29: "FLIGHT RELEASED UNDER [POLAR ]EXEMPTION NO nnnnnX. ALTERNATE AIRPORT REQUIRED."
+  // — the sentence may wrap over two lines (L08); the NavBlue DOT-SP form is kept.
+  EXEMPTION_NO:    /\bEXEMPTION NO\s+(\d+[A-Z]?)\b/,
+  EXEMPTION_ALT:   /\bEXEMPTION NO\s+\d+[A-Z]?\b[^\n]*?(?:\n[^\n]*?)?\bALTERNATE\s+AIRPORT\s*(?:\n\s*)?REQUIRED\b/,
+  DOT_EXEMPT:      /\*OPERATING UNDER EXEMPTION\s+(DOT-SP\d+)\*/i,
+  DOT_RESTRICT:    /\*OPERATING UNDER EXEMPTION\s+DOT-SP\d+\*[^\n]*\nRESTRICTIONS:\s*([^\n]+(?:\n(?![\n\-\*])[^\n]+)?)/i,
+  // Row 30: the NavBlue wheels-up / slot forms, unchanged
+  SLOT_TIME_WINDOW:     /WHEELS\s+UP\s+MUST\s+BE\s+BETWEEN\s+(\d{4}Z?)\s+AND\s+(\d{4}Z?)/i,
+  SLOT_TIME_NOT_BEFORE: /WHEELS\s+UP\s+NOT\s+BEFORE\s+(\d{4}Z?)/i,
+  SLOT_TIME_BEFORE:     /WHEELS\s+UP\s+(?:MUST\s+BE\s+)?BEFORE\s+(\d{4}Z?)/i,
+  SLOT_TIME_EARLIEST:   /EARLIEST\s+WHEELS\s+UP\s+(\d{4}Z?)/i,
+  SLOT_TIME_CURFEW:     /NO\s+EARLY\s+DEPARTURE\b[\s\S]{0,200}?CLOSED?\s+TILL?\s+(\d{1,2}:\d{2}Z?|\d{4}Z?)/i,
+  SLOT_TIME_AT:         /\bWHEELS\s+UP\s+(\d{4}Z?)\b(?!\s*(?:MUST|NOT|BEFORE|BETWEEN))/i,
+  // Row 31: the NavBlue verbal callsign remark, unchanged
+  VERBAL_CALLSIGN: /VERBAL\s+CALLSIGN\s*[-\u2013]\s*([A-Z]+)/i,
 };
 
 // Alternate keywords → crew roles: the NavBlue rule (ALT_PATTERNS), unchanged
@@ -533,10 +551,56 @@ function _readWeights(ctx) {
   if (sw) ext.swa = { value: parseInt(sw[1], 10), unit: out.weightUnit };
 }
 
+// ── Remarks items (rows 29–31) ─────────────────────────────────────────
+// Read only from the release Remarks block (first copy): never from the
+// Company NOTAMs or the briefing.
+function _readRemarksItems(ctx) {
+  const { out, add, rel } = ctx;
+  const lines = rel ? rel.lines : [];
+  const s = lines.findIndex(l => PATTERNS.REMARKS_START.test(l));
+  if (s === -1) { if (rel) add('WARN', 'dotExemption', 'Remarks block not found in the release: rows 29–31 not read'); return; }
+  let e = lines.findIndex((l, i) => i > s && PATTERNS.REMARKS_END.test(l));
+  if (e === -1) e = lines.length;
+  const rem = lines.slice(s + 1, e).join('\n');
+
+  // Row 29 (SC): DOT / Polar exemption. NavBlue value form.
+  const dot = PATTERNS.DOT_EXEMPT.exec(rem);
+  if (dot) {
+    const rm = PATTERNS.DOT_RESTRICT.exec(rem);
+    out.dotExemption = { number: dot[1], restrictions: rm ? rm[1].trim() : null, altRequired: false };
+  } else {
+    const ex = PATTERNS.EXEMPTION_NO.exec(rem);
+    if (ex) {
+      const alt = PATTERNS.EXEMPTION_ALT.test(rem);
+      out.dotExemption = { number: 'Exemption ' + ex[1], restrictions: alt ? "ALT REQ'D" : null, altRequired: alt };
+      if (!alt) add('WARN', 'dotExemption', 'exemption printed without "ALTERNATE AIRPORT REQUIRED"');
+    }
+  }
+
+  // Row 30 (SC): wheels-up / slot — the NavBlue chain and value forms.
+  const fmt = v => v ? v.replace(/z$/i, 'Z').toUpperCase() : v;
+  let m;
+  if ((m = PATTERNS.SLOT_TIME_WINDOW.exec(rem)))          out.slotTime = `${fmt(m[1])} – ${fmt(m[2])}`;
+  else if ((m = PATTERNS.SLOT_TIME_NOT_BEFORE.exec(rem))) out.slotTime = `NOT BEFORE ${fmt(m[1])}`;
+  else if ((m = PATTERNS.SLOT_TIME_BEFORE.exec(rem)))     out.slotTime = `BEFORE ${fmt(m[1])}`;
+  else if ((m = PATTERNS.SLOT_TIME_EARLIEST.exec(rem)))   out.slotTime = `NOT BEFORE ${fmt(m[1])}`;
+  else if ((m = PATTERNS.SLOT_TIME_AT.exec(rem)))         out.slotTime = 'AT ' + m[1];
+  else if ((m = PATTERNS.SLOT_TIME_CURFEW.exec(rem))) {
+    const raw = m[1].replace(':', '').toUpperCase();
+    out.slotTime = `NOT BEFORE ${raw.endsWith('Z') ? raw : raw + 'Z'}`;
+  }
+
+  // Row 31: verbal callsign remark (none in the 26 packages; SME-5: the
+  // callsign itself comes from the flight number through CS-1).
+  const vc = PATTERNS.VERBAL_CALLSIGN.exec(rem);
+  if (vc) out.parsedVerbalCallsign = vc[1].toUpperCase();
+}
+
 // Fields of the v0.1.0 scope still being built on this branch.
 function _readPending(ctx) {
   _readFuel(ctx);
   _readWeights(ctx);
+  _readRemarksItems(ctx);
   _buildAltData(ctx);
 }
 

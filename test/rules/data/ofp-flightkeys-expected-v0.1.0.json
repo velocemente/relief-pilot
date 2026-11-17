@@ -42,7 +42,10 @@
   "ldgwActual": 291237,
   "ldgwLimit": 302092,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_ZUCK-UAAA_27OCT26_prototype": {
   "label": "T2",
@@ -89,7 +92,10 @@
   "ldgwActual": 296984,
   "ldgwLimit": 302092,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KLAX-RKSI_31OCT26_rda-etp_prototype": {
   "label": "T3",
@@ -142,7 +148,10 @@
   "ldgwActual": 228070,
   "ldgwLimit": 302092,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_MKJP-KMIA_03NOV26_caribbean-callsign_live": {
   "label": "L01",
@@ -185,7 +194,10 @@
   "ldgwActual": 247800,
   "ldgwLimit": 326000,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KORD-RKSI_05NOV26_crew-ballast-rda_live": {
   "label": "L02",
@@ -238,7 +250,10 @@
   "ldgwActual": 173779,
   "ldgwLimit": 302092,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_PANC-ZHEC_04NOV26_etops-ddg_live": {
   "label": "L03",
@@ -284,7 +299,10 @@
   "ldgwActual": 229028,
   "ldgwLimit": 260815,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_RCTP-RJGG_03NOV26_lcf-lbs_live": {
   "label": "L04",
@@ -327,7 +345,10 @@
   "ldgwActual": 460458,
   "ldgwLimit": 575000,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KCVG-KSEA_04NOV26_pax-catiii_live": {
   "label": "L05",
@@ -373,7 +394,10 @@
   "swa": {
    "value": 3718,
    "unit": "KGS"
-  }
+  },
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_LEZG-LLBG_04NOV26_remarks-subcards_live": {
   "label": "L06",
@@ -416,7 +440,10 @@
   "ldgwActual": 328684,
   "ldgwLimit": 333500,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live": {
   "label": "L07",
@@ -459,7 +486,10 @@
   "ldgwActual": 221175,
   "ldgwLimit": 350626,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KMIA-EHBK_03NOV26_polar-callsign_live": {
   "label": "L08",
@@ -512,7 +542,14 @@
   "ldgwActual": 283177,
   "ldgwLimit": 336000,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": {
+   "number": "Exemption 18486C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_VHHH-PANC_02NOV26_mtow-equipcode_live": {
   "label": "L09",
@@ -557,7 +594,10 @@
   "ldgwActual": 282218,
   "ldgwLimit": 302092,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KMIA-SBGL_03NOV26_perishables-ddg_live": {
   "label": "L10",
@@ -602,7 +642,10 @@
   "ldgwActual": 283570,
   "ldgwLimit": 302092,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KGSP-EPWA_03NOV26_nat-track-ddg_live": {
   "label": "L11",
@@ -655,7 +698,14 @@
   "ldgwActual": 268986,
   "ldgwLimit": 302092,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_EBLG-KORD_03NOV26_nat-random_live": {
   "label": "L12",
@@ -708,7 +758,10 @@
   "ldgwActual": 177887,
   "ldgwLimit": 270000,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_UBBB-RJFK_03NOV26_bcf-multicrew_live": {
   "label": "L13",
@@ -763,7 +816,14 @@
   "ldgwActual": 280029,
   "ldgwLimit": 295742,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KORD-RKSI_03NOV26_etops-rda-dateline_live": {
   "label": "L14",
@@ -816,7 +876,10 @@
   "ldgwActual": 180163,
   "ldgwLimit": 260815,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_PHNL-WIHH_03NOV26_pax-etops-tanker_live": {
   "label": "L15",
@@ -862,7 +925,14 @@
   "swa": {
    "value": 4793,
    "unit": "LBS"
-  }
+  },
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_ZHEC-PANC_02NOV26_wheelsup-penalty_live": {
   "label": "L16",
@@ -907,7 +977,10 @@
   "ldgwActual": 345719,
   "ldgwLimit": 346090,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": "NOT BEFORE 1627Z",
+  "parsedVerbalCallsign": null
  },
  "FK_OMAA-VHHH_03NOV26_etihad-permits_live": {
   "label": "L17",
@@ -952,7 +1025,10 @@
   "ldgwActual": 153218,
   "ldgwLimit": 260815,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KORD-RJAA_03NOV26_intl-redispatch_live": {
   "label": "L18",
@@ -1005,7 +1081,10 @@
   "ldgwActual": 176835,
   "ldgwLimit": 295742,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_PANC-KMIA_03NOV26_dom-redispatch-mel_live": {
   "label": "L19",
@@ -1058,7 +1137,10 @@
   "ldgwActual": 292626,
   "ldgwLimit": 302092,
   "hasVzfwCkLimit": true,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KORD-RKSI_10NOV26_nopac-etops-remarks_live": {
   "label": "L20",
@@ -1111,7 +1193,10 @@
   "ldgwActual": 162300,
   "ldgwLimit": 260815,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_NZWN-NFFN_10NOV26_pax-remarks_live": {
   "label": "L21",
@@ -1157,7 +1242,14 @@
   "swa": {
    "value": 4793,
    "unit": "LBS"
-  }
+  },
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_EPPW-KPSM_10NOV26_nat-random-callsign_live": {
   "label": "L22",
@@ -1203,7 +1295,14 @@
   "swa": {
    "value": 5099,
    "unit": "LBS"
-  }
+  },
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  },
  "FK_KDOV-ETAR_03NOV26_pax-nat-random_live": {
   "label": "L23",
@@ -1246,6 +1345,9 @@
   "ldgwActual": 273358,
   "ldgwLimit": 326000,
   "hasVzfwCkLimit": false,
-  "swa": null
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null
  }
 }
