@@ -13,7 +13,8 @@
  *               SCHEDULE:, SUBJECT:, Company ID indent); lines that are not headers are not read
  *   TC-171-011  windows: date end; UFN = NavBlue "-PERM"; UFN(EST) = NavBlue "… EST" (D31)
  *   TC-171-012  a date that cannot be read → no window → that NOTAM alone is shown (T6); never
- *               a guessed or rolled-over date; 24:00 as NavBlue 2400
+ *               a guessed or rolled-over date; 24:00 as NavBlue 2400; a header whose date cell
+ *               cannot be read still starts its own item (QA F1)
  *   TC-171-013  the window rule is NavBlue's: a FlightKeys item and its NavBlue twin are shown
  *               at exactly the same ETAs (actual UTC date, ETA ± 60 with edges, D + 1 after
  *               0000Z, departure unknown, ORIG, no flight date, year end)
@@ -27,10 +28,22 @@
  *   TC-171-022  header rows split across a page (40 items; the L07 example)
  *   TC-171-023  wrapped location cell (13 items)
  *   TC-171-024  FK-P on the matched pair (NavBlue eOFP and FlightKeys, same flight)
- *   TC-171-030  NavBlue unchanged: no FlightKeys header in any NavBlue text; split rule
- *               unchanged; evalNotams()/windows equal v1.12.0's recorded results (sweep)
+ *   TC-171-030  NavBlue unchanged except D61: no FlightKeys header in any NavBlue text; split rule
+ *               and windows unchanged; evalNotams() equals v1.12.0's recorded results (sweep) for
+ *               every NOTAM except the D61 list (test/reports/NOTAM-v1.13.0-D61-changes.md), each
+ *               of which is shown at every sweep point and flagged
  *   TC-171-031  the gate bites: broken variants of the new code are caught
  *   TC-171-040  fixtures missing → the fixture tests FAIL (never skip)
+ *   TC-171-101  QA F1 + D61: each of the 17 unreadable / impossible header-date forms, placed
+ *               directly after another NOTAM: two items, two IDs; the second shown at every ETA
+ *               with the flag; the first unchanged (NEGATIVE: no cut without CREATED:)
+ *   TC-171-102  D61: impossible / unreadable date + readable schedule (daily, DAILY, day-range;
+ *               FlightKeys and NavBlue) → shown outside the schedule, flagged; readable date +
+ *               schedule → unchanged (hidden outside, shown inside, no flag)
+ *   TC-171-103  D61: the flag text is escaped like the rest; only NOTAMs with a header (location
+ *               and ID) are flagged; content filters and D43 unchanged
+ *   TC-171-104  D61: the airport card (src/edit.html renderAptIssues) shows the flag on the
+ *               NOTAM's own row, with exactly the markup of an unflagged row (no src/ change)
  *
  * Synthetic NOTAMs use airports XXXX / XXX and invented IDs. Fixture tests report counts, fixture
  * labels, ICAO codes and NOTAM IDs only; no fixture text is printed or asserted.
@@ -271,16 +284,22 @@ test('TC-171-012 a date that cannot be read → no window → only that NOTAM is
   // 24:00 = 00:00 the next day, as NavBlue's 2400 (not an impossible date).
   assert.deepEqual(M.xNW_standalone(fkItem({ start: '2026-Nov-03 00:00', end: '2026-Nov-03 24:00' }), D0),
                    M.xNW_standalone(nbItem({ head: '03NOV0000-03NOV2400' }), D0));
-  // A header so garbled that it is no longer a header: the two items stay one text, which then holds two
-  // CREATED: rows and is not trusted → no window, no schedule → shown (fail-safe; D54 "flag, not guess").
+  // QA F1: a header whose date cell cannot be read ("2O26", letter O) but whose location/ID cell reads
+  // and whose CREATED: row follows is still a header: the NOTAM stands alone (D43), with no window (T6),
+  // shown and flagged (D61). It is never joined to the NOTAM above it (v1.13.0 before F1 joined them).
   const garbled = fkItem({ id: 'A0098/26', start: '2O26-Nov-03 12:00', end: '2026-Nov-05 02:00' });
   const two = M._splitNotams([ok(1), garbled].join('\n'));
-  assert.equal(two.length, 1);
-  assert.equal(M._fkHeader(two[0]).ambiguous, true);
-  assert.equal(M.xNW_standalone(two[0], D0), null);
-  assert.ok(shownAt(two[0], hm('1200'), hm('0800')), 'garbled neighbour: the merged text is shown');
-  // NEGATIVE: the readable neighbour alone stays hidden.
-  assert.ok(!shownAt(ok(1), hm('1200'), hm('0800')));
+  assert.equal(two.length, 2, 'two items');
+  assert.deepEqual(two.map(x => M._fkHeader(x).id), ['A0011/26', 'A0098/26'], 'two IDs');
+  assert.equal(M._fkHeader(two[1]).dateUnreadable, true);
+  assert.equal(M._fkHeader(two[1]).ambiguous, false);
+  assert.equal(M.xNW_standalone(two[1], D0), null);
+  const r2 = M.evalNotams(two, 'DEST', hm('1200'), null, D0, hm('0800'));
+  assert.deepEqual(r2.issues.filter(i => i.notamRaw).map(i => [M._fkHeader(i.notamRaw).id, i.dateUnreadable]), [['A0098/26', true]],
+    'only the unreadable NOTAM is shown, flagged');
+  // NEGATIVE: the readable neighbour keeps its own window and stays hidden.
+  assert.ok(!shownAt(two[0], hm('1200'), hm('0800')));
+  assert.deepEqual(M.xNW_standalone(two[0], D0), M.xNW_standalone(ok(1), D0));
 });
 
 // ══ TC-171-013 the window rule is NavBlue's ═══════════════════════════════════
@@ -594,12 +613,21 @@ test('TC-171-024 FK-P on the matched pair: the same NOTAM gets the same window, 
 // The sweep whose v1.12.0 results are recorded in test/rules/data/notam-v1.12.0-navblue.json.
 const SWEEP = { roles: ['ORIG', 'DEST'], etas: [0, 59, 300, 600, 719, 720, 1000, 1380, 1439], deps: [null, 0, 700], group: 40 };
 const canonStr = r => JSON.stringify(r, (k, v) => v instanceof Map ? [...v] : v === Infinity ? '$Inf' : v);
-function navblueDigest(mod, fx, dir) {
+// D61 (Exec, 16 Nov): the NOTAMs v1.13.0 flags (its own date range cannot be read: a NOTAM header and no
+// window) — piece indexes of the split. Their results change by design (always shown, flagged); every
+// other NOTAM is compared with v1.12.0. Recorded with the digests; listed in the report.
+function d61Indexes(mod, fx, parts) {
+  const prof = AP.buildAcftProfile(fx.aircraft || '');
+  return parts.map((x, k) => mod.evalNotams([x], 'DEST', null, prof, fx.date, null, AP.getWingspan).issues
+    .some(i => i.dateUnreadable) ? k : -1).filter(k => k >= 0);
+}
+function navblueDigest(mod, fx, dir, skip = []) {
   const text = fs.readFileSync(path.join(dir, fx.files.text), 'utf8').replace(/\r\n/g, '\n');
   const h = crypto.createHash('sha256');
-  const parts = mod._splitNotams(text);
-  h.update(canonStr(parts.map(p => crypto.createHash('sha256').update(p).digest('hex'))));
-  for (const n of parts) h.update(canonStr([mod.xNW_standalone(n, fx.date), mod._windowEndEstimated(n)]));
+  const all = mod._splitNotams(text);
+  h.update(canonStr(all.map(p => crypto.createHash('sha256').update(p).digest('hex'))));
+  for (const n of all) h.update(canonStr([mod.xNW_standalone(n, fx.date), mod._windowEndEstimated(n)]));
+  const parts = all.filter((_, k) => !skip.includes(k));   // D61 NOTAMs out of the evalNotams() sweep
   const prof = AP.buildAcftProfile(fx.aircraft || '');
   let calls = 0;
   for (let i = 0; i < parts.length; i += SWEEP.group) {
@@ -609,16 +637,31 @@ function navblueDigest(mod, fx, dir) {
       calls++;
     }
   }
-  return { digest: h.digest('hex'), notams: parts.length, calls };
+  return { digest: h.digest('hex'), notams: all.length, calls, d61: skip };
 }
 
-test('TC-171-030 NavBlue unchanged: no FlightKeys header in any NavBlue text; split and results equal v1.12.0', () => {
+// The D61 list on the NavBlue/eOFP fixtures (= test/reports/NOTAM-v1.13.0-D61-changes.md): fixture,
+// location, NOTAM ID. All print the date range in a form the rules cannot read (the start year after
+// the start time, "07JAN0000 2026-…"), so they had no window and were already shown at every ETA.
+const D61_NAVBLUE = [
+  'EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 KMIA A3337/25', 'EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 KMIA A3340/25',
+  'NB_ELLX-KHSV_08MAR26_baseline_rev16 LPPO A6120/25',
+  'NB_KCHS-LIBG_12MAR26_lcf_rev16 LIRR W5239/25',
+  'NB_KMIA-EHAM_12MAR26_etp_rev8 KMIA A3337/25', 'NB_KMIA-EHAM_12MAR26_etp_rev8 KMIA A3340/25', 'NB_KMIA-EHAM_12MAR26_etp_rev8 LPPO A6120/25',
+  'NB_KORD-RJAA_05APR26_tempcontrol_rev8 KZMP A0144/22', 'NB_KORD-RKSI_08APR26_catii_rev14 KZMP A0144/22',
+  'NB_KORD-RKSI_31MAY26_altroute_rev10 KZMP A0144/22',
+  'NB_LTFM-EBLG_11MAR26_thy_rev10 LTBB A5825/25', 'NB_LTFM-EBLG_11MAR26_thy_rev10 LTBB A5826/25', 'NB_LTFM-EBLG_11MAR26_thy_rev10 LTBB A5829/25',
+  'NB_PANC-KORD_10APR26_maxldgw_rev6 KZMP A0144/22',
+];
+
+test('TC-171-030 NavBlue unchanged except D61: no FlightKeys header; split, windows and results equal v1.12.0 except the D61 list', () => {
   const dir = requireFixturesDir();
   const rec = JSON.parse(fs.readFileSync(RECORD, 'utf8'));
   assert.equal(rec.recordedFrom.sha256, '0d615a13f8cfcb7afc625f825a086d47beedbfc47afa9a7c51f7c47ba9162557', 'recorded from the v1.12.0 file');
   const list = readManifest(dir).fixtures.filter(f => f.format !== 'flightkeys');
   assert.equal(Object.keys(rec.fixtures).length, list.length);
-  let notams = 0, calls = 0;
+  let notams = 0, calls = 0, flagCalls = 0;
+  const d61 = [];
   for (const fx of list) {
     const text = fs.readFileSync(path.join(dir, fx.files.text), 'utf8').replace(/\r\n/g, '\n');
     // The FlightKeys path is never taken for NavBlue text.
@@ -628,11 +671,28 @@ test('TC-171-030 NavBlue unchanged: no FlightKeys header in any NavBlue text; sp
     // The v1.12.0 split rule, verbatim.
     const old = text.split(/^(?=- [A-Z]{4}\b)/m).filter(s => s.trim());
     assert.deepEqual(parts, old.length > 1 ? old : [text], `${fx.id}: split = v1.12.0`);
-    const d = navblueDigest(M, fx, dir);
-    assert.deepEqual(d, rec.fixtures[fx.id], `${fx.id}: windows and evalNotams() results = v1.12.0 (sweep)`);
+    // D61: the flagged NOTAMs are exactly the recorded ones; each is shown at every sweep point, flagged.
+    const skip = d61Indexes(M, fx, parts);
+    assert.deepEqual(skip, rec.fixtures[fx.id].d61, `${fx.id}: D61 NOTAMs = the recorded list`);
+    const prof = AP.buildAcftProfile(fx.aircraft || '');
+    for (const k of skip) {
+      const x = parts[k], m = x.match(/^\s*-\s+((?:[A-Z]{4}\s+)+)([A-Z]\d{1,4}\/\d{2})/);
+      d61.push(`${fx.id} ${m[1].trim().split(/\s+/).join(' ')} ${m[2]}`);
+      assert.equal(M.xNW_standalone(x, fx.date), null, `${fx.id} #${k}: no window (T6)`);
+      for (const role of SWEEP.roles) for (const eta of [...SWEEP.etas, null]) for (const dep of SWEEP.deps) for (const dd of [fx.date, null]) {
+        const it = M.evalNotams([x], role, eta, prof, dd, dep, AP.getWingspan).issues.find(i => i.notamRaw === x);
+        assert.ok(it && it.dateUnreadable === true && it.text.startsWith(M.DATE_UNREADABLE_FLAG + ' — ') && it.rowLabel.startsWith(M.DATE_UNREADABLE_FLAG),
+          `${fx.id} #${k}: shown and flagged (${role} ${eta} ${dep} ${dd})`);
+        flagCalls++;
+      }
+    }
+    // Every other NOTAM: windows and evalNotams() results = v1.12.0 (sweep).
+    const d = navblueDigest(M, fx, dir, skip);
+    assert.deepEqual(d, rec.fixtures[fx.id], `${fx.id}: windows and evalNotams() results = v1.12.0 (sweep), D61 NOTAMs aside`);
     notams += d.notams; calls += d.calls;
   }
-  console.log(`TC-171-030: ${list.length} NavBlue/eOFP fixtures, ${notams} NOTAMs, ${calls} evalNotams() calls: identical to v1.12.0`);
+  assert.deepEqual(d61.sort(), [...D61_NAVBLUE].sort(), 'the D61 list (report)');
+  console.log(`TC-171-030: ${list.length} NavBlue/eOFP fixtures, ${notams} NOTAMs, ${calls} evalNotams() calls: identical to v1.12.0 except the ${d61.length} D61 NOTAMs, each shown and flagged in ${flagCalls / d61.length} of ${flagCalls / d61.length} calls`);
 });
 
 // ══ TC-171-031 the gate bites ════════════════════════════════════════════════
@@ -669,6 +729,199 @@ test('TC-171-031 the gate bites: broken variants of the FlightKeys code are caug
   assert.notEqual(v5._splitNotams([co, co].join('\n')).length, 2, 'variant 5 splits wrongly');
 });
 
+// ══ TC-171-101 … 104 QA F1 and Exec decision D61 ═════════════════════════════
+
+// A FlightKeys item with row 1's date cell exactly as given (it may be unreadable).
+function fkRaw({ loc = 'XXXX', id = 'A0099/26', cell, sched = null, body = ['RWY 09/27 CLSD.'] }) {
+  const lines = [`${loc ? loc + '            ' : ''}${id}        ${cell}`, 'CREATED:2026-Nov-01 00:00       FL: SFC - UNL'];
+  if (sched !== null) [].concat(sched).forEach((x, i) => lines.push(i ? x : 'SCHEDULE:' + x));
+  return [...lines, ...body].join('\n');
+}
+const FLAGGED = it => !!it && it.dateUnreadable === true && it.text.startsWith(M.DATE_UNREADABLE_FLAG + ' — ') &&
+  it.rowLabel.startsWith(M.DATE_UNREADABLE_FLAG);
+// The 9 unreadable header-date forms of the QA (§4, F1) and the 8 impossible ones (§4).
+const UNREADABLE_FORMS = [
+  ['no colon',            '2026-Nov-04 0700 - 2026-Nov-04 11:00'],
+  ['numeric month',       '2026-11-04 07:00 - 2026-11-04 11:00'],
+  ['day first',           '04-Nov-2026 07:00 - 04-Nov-2026 11:00'],
+  ['PERM',                '2026-Nov-04 07:00 - PERM'],
+  ['UNK',                 '2026-Nov-04 07:00 - UNK'],
+  ['UFN EST, no brackets', '2026-Nov-04 07:00 - UFN EST 2026-Nov-05 00:00'],
+  ['trailing EST',        '2026-Nov-04 07:00 - 2026-Nov-04 11:00 EST'],
+  ['no end',              '2026-Nov-04 07:00 -'],
+  ['en dash',             '2026-Nov-04 07:00 – 2026-Nov-04 11:00'],
+];
+const IMPOSSIBLE_FORMS = [
+  ['30 Feb',              '2026-Feb-30 10:00 - 2026-Mar-02 10:00'],
+  ['29 Feb non-leap',     '2026-Feb-29 10:00 - 2026-Mar-02 10:00'],
+  ['31 Nov',              '2026-Nov-31 10:00 - 2026-Dec-02 10:00'],
+  ['25:00',               '2026-Nov-04 25:00 - 2026-Nov-05 02:00'],
+  ['12:60',               '2026-Nov-04 12:60 - 2026-Nov-05 02:00'],
+  ['month Abc',           '2026-Abc-04 07:00 - 2026-Nov-05 02:00'],
+  ['backwards window',    '2026-Nov-05 12:00 - 2026-Nov-03 02:00'],
+  ['impossible EST',      '2026-Nov-04 07:00 - UFN(EST 2026-Feb-30 10:00)'],
+];
+// The sweep: every 30 min of the day and no ETA, three flight dates (incl. none), three OUT times
+// (incl. unknown), both roles.
+function* sweep() {
+  for (const date of [D0, '2026-11-05', null]) for (const dep of [0, hm('1200'), null]) for (const role of ['DEST', 'ORIG']) {
+    for (let eta = 0; eta < 1440; eta += 30) yield { date, dep, role, eta };
+    yield { date, dep, role, eta: null };
+  }
+}
+
+test('TC-171-101 F1 + D61: each unreadable / impossible header date, directly after another NOTAM: two items, two IDs; it is shown at every ETA, flagged; the first is unchanged', () => {
+  // The first NOTAM: readable window (04 NOV 06:00–18:00) and a daily schedule 0800-1000. It is shown at
+  // some ETAs and hidden at others; joined with the next item (as before F1) it would be shown at all.
+  const first = fkItem({ id: 'A0010/26', start: '2026-Nov-04 06:00', end: '2026-Nov-04 18:00', sched: '0800-1000', body: ['TWY A CLSD.'] });
+  let points = 0;
+  for (const [what, cell] of [...UNREADABLE_FORMS, ...IMPOSSIBLE_FORMS]) {
+    const second = fkRaw({ id: 'A0099/26', cell });
+    const text = [first, second].join('\n');
+    const parts = M._splitNotams(text);
+    // Two items, two IDs (D43); the pieces are the text (D54).
+    assert.equal(parts.length, 2, `${what}: two items`);
+    assert.equal(parts.join(''), text, `${what}: the pieces are the text`);
+    assert.deepEqual(parts.map(x => M._fkHeader(x).id), ['A0010/26', 'A0099/26'], `${what}: two IDs`);
+    assert.equal(M._fkHeader(parts[1]).ambiguous, false, `${what}: one item per text`);
+    assert.equal(M.xNW_standalone(parts[1], D0), null, `${what}: no window (T6), no date guessed`);
+    assert.deepEqual(M.xNW_standalone(parts[0], D0), { startMs: ms('2026-11-04 06:00'), endMs: ms('2026-11-04 18:00') }, `${what}: the first keeps its window`);
+    let firstShown = 0, firstHidden = 0;
+    for (const p of sweep()) {
+      points++;
+      const r = M.evalNotams(parts, p.role, p.eta, null, p.date, p.dep);
+      const where = `${what}: ${p.role} ETA ${p.eta} OUT ${p.dep} ${p.date}`;
+      // The second: shown at every ETA, flagged.
+      const s2 = r.issues.filter(i => i.notamRaw === parts[1]);
+      assert.equal(s2.length, 1, `${where}: the unreadable NOTAM is shown`);
+      assert.ok(FLAGGED(s2[0]), `${where}: and flagged`);
+      // The first: exactly as when it is evaluated alone, and never flagged.
+      const s1 = r.issues.find(i => i.notamRaw === parts[0]) || null;
+      const alone = M.evalNotams([parts[0]], p.role, p.eta, null, p.date, p.dep).issues.find(i => i.notamRaw === parts[0]) || null;
+      assert.deepEqual(s1, alone, `${where}: the first NOTAM is unchanged`);
+      if (s1) { firstShown++; assert.ok(!('dateUnreadable' in s1) && !s1.text.includes(M.DATE_UNREADABLE_FLAG), `${where}: the first is not flagged`); }
+      else firstHidden++;
+    }
+    assert.ok(firstShown > 0 && firstHidden > 0, `${what}: the first keeps its window and schedule (shown ${firstShown}, hidden ${firstHidden})`);
+  }
+  // The same with the location cell wrapped (5 codes, the ID on a row of its own: header row desync).
+  const wrapped = ['XXXA XXXB XXXC   2026-Nov-04 07:00 - PERM', 'A0098/26', 'XXXD XXXE    FL: 195 - UNL', 'CREATED:2026-Nov-01 00:00', 'RWY 09/27 CLSD.'].join('\n');
+  const pw = M._splitNotams([first, wrapped].join('\n'));
+  assert.deepEqual(pw.map(x => M._fkHeader(x).id), ['A0010/26', 'A0098/26'], 'wrapped cell: two IDs');
+  assert.deepEqual(M._fkHeader(pw[1]).locations, ['XXXA', 'XXXB', 'XXXC', 'XXXD', 'XXXE']);
+  assert.ok(FLAGGED(M.evalNotams(pw, 'DEST', hm('1500'), null, D0, 0).issues.find(i => i.notamRaw === pw[1])), 'wrapped cell: shown, flagged');
+  // A Company item (no location) and a page footer + running header between row 1 and CREATED: (§A.5).
+  const co = ['                A0929/26        2026-Nov-03 00:00 - PERM', 'Page 3 of 8 00000000-0000-0000-0000-000000000000',
+    'GTI000 / XXXX - XXXY / 2026-11-04 / N000XX 2026-Nov-04 08:17', 'CREATED:2026-Nov-03 00:14       FL: SFC - UNL', 'SUBJECT: XXXX-CURFEW', 'CURFEW TEXT'].join('\n');
+  const pc = M._splitNotams([first, co].join('\n'));
+  assert.deepEqual(pc.map(x => M._fkHeader(x).id), ['A0010/26', 'A0929/26'], 'Company item, header split by a page: two IDs');
+  // NEGATIVE: no cut without the CREATED: row (a body line naming another NOTAM), nor across another row 1.
+  const bodyRef = fkItem({ id: 'A0011/26', start: '2026-Nov-01 00:00', end: '2026-Nov-30 23:59', body: ['SEE ALSO', 'XXXX A0002/26 2026 TEXT', 'RWY 09/27 CLSD.'] });
+  assert.equal(M._splitNotams([bodyRef, first].join('\n')).length, 2, 'a body line "XXXX A0002/26 2026 …" is not a header');
+  const lastLine = fkItem({ id: 'A0012/26', start: '2026-Nov-01 00:00', end: '2026-Nov-30 23:59', body: ['XXXX A0003/26 12 NM'] });
+  assert.equal(M._splitNotams([lastLine, first].join('\n')).length, 2, 'a last body line before the next header is not a header');
+  assert.equal(M._fkHeader('XXXX A0099/26   2026-Nov-04 07:00 - PERM\nRWY 09/27 CLSD.'), null, 'no CREATED: row → not a header');
+  console.log(`TC-171-101: ${UNREADABLE_FORMS.length} unreadable + ${IMPOSSIBLE_FORMS.length} impossible header-date forms, ${points} evaluations: two items each, the second shown and flagged at every one, the first unchanged`);
+});
+
+test('TC-171-102 D61: an impossible / unreadable date with a readable schedule is shown outside the schedule, flagged; a readable date with a schedule is unchanged', () => {
+  const at = (t, eta, date = D0, dep = hm('0700')) => M.evalNotams([t], 'DEST', hm(eta), null, date, dep).issues.find(i => i.notamRaw === t) || null;
+  // POSITIVE (D61): the schedule says 0800-1000; at 1500Z (outside it) the NOTAM is still shown, flagged.
+  const bad = [
+    ['FK 30 Feb + SCHEDULE: hhmm-hhmm',  fkRaw({ cell: '2026-Feb-30 10:00 - 2026-Mar-02 10:00', sched: '0800-1000' })],
+    ['FK 30 Feb + SCHEDULE: DAILY',      fkRaw({ cell: '2026-Feb-30 10:00 - 2026-Mar-02 10:00', sched: 'DAILY 0800-1000' })],
+    ['FK 30 Feb + day-range schedule',   fkRaw({ cell: '2026-Feb-30 10:00 - 2026-Mar-02 10:00', sched: '04-05 0800-1000' })],
+    ['FK 25:00 + DAILY',                 fkRaw({ cell: '2026-Nov-04 25:00 - 2026-Nov-05 02:00', sched: 'DAILY 0800-1000' })],
+    ['FK backwards + DAILY',             fkRaw({ cell: '2026-Nov-05 12:00 - 2026-Nov-03 02:00', sched: 'DAILY 0800-1000' })],
+    ['FK PERM (unreadable) + DAILY',     fkRaw({ cell: '2026-Nov-04 07:00 - PERM', sched: 'DAILY 0800-1000' })],
+    ['FK en dash (unreadable) + day-range', fkRaw({ cell: '2026-Nov-04 07:00 – 2026-Nov-30 11:00', sched: '04-05 0800-1000' })],
+    ['NavBlue 30FEB + DLY',              nbItem({ head: '30FEB1000-02MAR1000', sched: 'DLY 0800-1000' })],
+    ['NavBlue 30FEB + bare hhmm-hhmm',   nbItem({ head: '30FEB1000-02MAR1000', sched: '0800-1000' })],
+    ['NavBlue 30FEB + day-range',        nbItem({ head: '30FEB1000-02MAR1000', sched: '04-05 0800-1000' })],
+    ['NavBlue backwards + DLY',          nbItem({ head: '05NOV1200-03NOV0200', sched: 'DLY 0800-1000' })],
+    ['NavBlue B)/C) 2500 + DLY',         nbItem({ head: 'B) 2611042500 C) 2611050200', sched: 'DLY 0800-1000' })],
+  ];
+  for (const [what, t] of bad) {
+    assert.equal(M.xNW_standalone(t, D0), null, `${what}: no window`);
+    for (const eta of ['1500', '0300', '2200', '0900']) assert.ok(FLAGGED(at(t, eta)), `${what}: shown at ${eta}Z, flagged`);
+    assert.ok(FLAGGED(at(t, '1500', '2026-11-20')), `${what}: shown on another day, flagged`);
+    assert.ok(FLAGGED(M.evalNotams([t], 'ORIG', null, null, null, null).issues[0]), `${what}: no ETA, no flight date: shown, flagged`);
+  }
+  // NEGATIVE: a readable date with the same schedules → the schedule still applies; no flag.
+  const good = [
+    ['FK SCHEDULE: hhmm-hhmm', fkItem({ start: '2026-Nov-01 00:00', end: '2026-Nov-30 23:59', sched: '0800-1000' })],
+    ['FK SCHEDULE: DAILY',     fkItem({ start: '2026-Nov-01 00:00', end: '2026-Nov-30 23:59', sched: 'DAILY 0800-1000' })],
+    ['FK PERM-style UFN + DAILY', fkItem({ start: '2026-Nov-01 00:00', end: 'UFN', sched: 'DAILY 0800-1000' })],
+    ['NavBlue DLY',            nbItem({ head: '01NOV0000-30NOV2359', sched: 'DLY 0800-1000' })],
+    ['NavBlue bare hhmm-hhmm', nbItem({ head: '01NOV0000-30NOV2359', sched: '0800-1000' })],
+  ];
+  for (const [what, t] of good) {
+    assert.equal(at(t, '1500'), null, `${what}: hidden at 1500Z (outside the schedule)`);
+    const i = at(t, '0900');
+    assert.ok(i && !('dateUnreadable' in i) && !i.text.includes(M.DATE_UNREADABLE_FLAG) && !i.rowLabel.includes(M.DATE_UNREADABLE_FLAG), `${what}: shown at 0900Z, not flagged`);
+  }
+  for (const [what, t] of [['FK day-range', fkItem({ start: '2026-Nov-01 00:00', end: '2026-Nov-30 23:59', sched: '04-05 0800-1000' })],
+                           ['NavBlue day-range', nbItem({ head: '01NOV0000-30NOV2359', sched: '04-05 0800-1000' })]]) {
+    assert.ok(at(t, '0900') && !at(t, '0900').dateUnreadable, `${what}: shown on 04 NOV 0900Z, not flagged`);
+    assert.equal(at(t, '0900', '2026-11-10'), null, `${what}: hidden on 10 NOV (not a listed day)`);
+    assert.equal(at(t, '1500'), null, `${what}: hidden at 1500Z`);
+  }
+  // NEGATIVE: a readable window that has ended → hidden (the window rule is unchanged; only T6 is shown).
+  assert.equal(at(fkItem({ start: '2026-Oct-01 00:00', end: '2026-Nov-01 00:00' }), '1200'), null);
+  assert.equal(at(nbItem({ head: '01OCT0000-01NOV0000' }), '1200'), null);
+});
+
+test('TC-171-103 D61: the flag is escaped like the rest; only NOTAMs with a header are flagged; filters and D43 unchanged', () => {
+  const ev = (arr, eta = hm('1500')) => M.evalNotams(arr, 'DEST', eta, null, D0, hm('0700')).issues.filter(i => i.notamRaw);
+  assert.equal(M.DATE_UNREADABLE_FLAG, 'DATE NOT READABLE – CHECK NOTAM');
+  // The display text is HTML: flag and body escaped (rule 2); rowLabel is plain text (the card escapes it).
+  const t = fkRaw({ cell: '2026-Nov-04 07:00 - PERM', body: ['RWY 09/27 CLSD <B> & X.'] });
+  const [i] = ev([t]);
+  assert.ok(i.text.startsWith('DATE NOT READABLE – CHECK NOTAM — '), 'flag first');
+  assert.ok(i.text.includes('&lt;B&gt; &amp; X') && !i.text.includes('<B>'), 'body escaped');
+  assert.ok(i.rowLabel.startsWith('DATE NOT READABLE – CHECK NOTAM — '), 'row label');
+  const nb = ev([nbItem({ head: '30FEB1000-02MAR1000', body: ['RWY 09/27 CLSD <B>.'] })])[0];
+  assert.ok(FLAGGED(nb) && nb.text.includes('&lt;B&gt;'), 'NavBlue: flagged, escaped');
+  // NEGATIVE: an item with no NOTAM header (no ID) and no date has no date range of its own → not
+  // flagged, and its schedule line still applies, as before (NavBlue "- XXXX …" text).
+  const noId = '- XXXX INFO LAST VERIFIED 06-JAN-22\nRWY 09/27 CLSD.';
+  assert.ok(ev([noId]).length === 1 && !ev([noId])[0].dateUnreadable, 'no ID: shown, not flagged');
+  const noIdSched = '- XXXX RWY 09/27 CLSD.\nDLY 0800-1000';
+  assert.equal(ev([noIdSched]).length, 0, 'no ID + DLY: hidden at 1500Z as before');
+  // NEGATIVE: the content filters are not windows or schedules and still apply (obstacle with no approach
+  // or departure keyword).
+  assert.equal(ev([fkRaw({ cell: '2026-Nov-04 07:00 - PERM', body: ['CRANE 250FT AGL 1NM E OF AD.'] })]).length, 0, 'obstacle filter unchanged');
+  // D43: the same NOTAM twice → one item; different IDs → both, each flagged.
+  const a = fkRaw({ id: 'A0101/26', cell: '2026-Nov-04 07:00 - PERM' }), b = fkRaw({ id: 'A0102/26', cell: '2026-Nov-04 07:00 - PERM' });
+  assert.equal(ev(M._splitNotams([a, a].join('\n'))).length, 1, 'same ID: one');
+  const two = ev(M._splitNotams([a, b].join('\n')));
+  assert.equal(two.length, 2, 'different IDs: two');
+  assert.ok(two.every(FLAGGED), 'both flagged');
+});
+
+test('TC-171-104 D61: the airport card shows the flag on the NOTAM\'s own row, with the markup of an unflagged row (no src/ change)', () => {
+  const { loadApp } = require('../harness');
+  const app = loadApp();
+  // QUOTED (src/edit.html renderNotamGroups _renderItem): the row text is
+  //   const lbl = esc(item.rowLabel || item.label || '');  …  <span class="notam-item-label">${lbl}</span>
+  const card = t => {
+    const r = app.evalNotams([t], 'DEST', hm('1500'), null, D0, hm('0700'));
+    return app.renderAptIssues({ rwyGroups: r.rwyGroups, sidIssues: r.sidIssues || [], starIssues: r.starIssues || [], wxIssues: [] });
+  };
+  const body = ['RWY 09/27 CLSD <B>.'];
+  const flagged = card(fkRaw({ cell: '2026-Nov-04 07:00 - PERM', body }));
+  const plain   = card(fkItem({ id: 'A0099/26', start: '2026-Nov-01 00:00', end: '2026-Nov-30 23:59', body }));
+  assert.ok(flagged.includes('<span class="notam-item-label">DATE NOT READABLE – CHECK NOTAM — '), 'the flag on the NOTAM row');
+  assert.ok(!plain.includes('DATE NOT READABLE'), 'NEGATIVE: no flag on a readable NOTAM');
+  // Same elements, classes and order: only the text differs (no new element, no layout change).
+  const skeleton = h => h.replace(/>[^<]*</g, '><').replace(/>[^<]*$/, '>');
+  assert.equal(skeleton(flagged), skeleton(plain), 'the same markup as an unflagged row');
+  assert.ok(!flagged.includes('<B>'), 'escaped');
+  // The NavBlue twin is rendered the same way.
+  const nbFlag = card(nbItem({ head: '30FEB1000-02MAR1000', body }));
+  assert.ok(nbFlag.includes('<span class="notam-item-label">DATE NOT READABLE – CHECK NOTAM — '), 'NavBlue: the flag on the row');
+});
+
 // ══ TC-171-040 ═══════════════════════════════════════════════════════════════
 
 test('TC-171-040 fixtures missing: the fixture tests fail, they are never skipped', () => {
@@ -678,7 +931,7 @@ test('TC-171-040 fixtures missing: the fixture tests fail, they are never skippe
   finally { if (saved === undefined) delete process.env.PB_FIXTURES; else process.env.PB_FIXTURES = saved; }
 });
 
-// Recording (run once, by hand, from the v1.12.0 file):
+// Recording (run once, by hand, from the v1.12.0 file; the D61 indexes come from this module):
 //   PB_RECORD_V112=<path to notam-rules-v1.12.0.js> PB_FIXTURES=<fixtures> node test/rules/notam-flightkeys.test.js
 if (require.main === module && process.env.PB_RECORD_V112) {
   const file = path.resolve(process.env.PB_RECORD_V112);
@@ -686,7 +939,12 @@ if (require.main === module && process.env.PB_RECORD_V112) {
   const dir = requireFixturesDir();
   const out = { recordedFrom: { file: 'notam-rules/notam-rules-v1.12.0.js', version: old.RULESET_VERSION,
     sha256: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') }, sweep: SWEEP, fixtures: {} };
-  for (const fx of readManifest(dir).fixtures.filter(f => f.format !== 'flightkeys')) out.fixtures[fx.id] = navblueDigest(old, fx, dir);
+  // D61: the NOTAMs v1.13.0 flags (this module, M) are left out of v1.12.0's evalNotams() sweep.
+  out.d61 = { from: MANIFEST['notam-rules'].file, note: 'piece indexes of the NOTAMs v1.13.0 flags (D61), left out of the evalNotams() sweep' };
+  for (const fx of readManifest(dir).fixtures.filter(f => f.format !== 'flightkeys')) {
+    const text = fs.readFileSync(path.join(dir, fx.files.text), 'utf8').replace(/\r\n/g, '\n');
+    out.fixtures[fx.id] = navblueDigest(old, fx, dir, d61Indexes(M, fx, M._splitNotams(text)));
+  }
   fs.writeFileSync(RECORD, JSON.stringify(out, null, 1) + '\n');
   console.log(`recorded ${Object.keys(out.fixtures).length} fixtures to ${path.relative(ROOT, RECORD)}`);
 }

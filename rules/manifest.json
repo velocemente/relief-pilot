@@ -2,7 +2,7 @@
   "notam-rules": {
     "version": "1.13.0",
     "file": "notam-rules/notam-rules-v1.13.0.js",
-    "sha256": "e2e71d6fa1194ece648244256bc561f17e72787c974e1615e872b706595c525d"
+    "sha256": "e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b"
   },
   "ofp-navblue": {
     "version": "2.0.1",
