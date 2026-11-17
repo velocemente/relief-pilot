@@ -270,6 +270,10 @@ const PATTERNS = {
   PERMIT_MISSING:  /\/{3,}\s*PERMIT MISSING\s*\/{3,}/,
   PERMIT_ADC:      /^([A-Z][A-Z ]*?[A-Z])\s+(ADC\s+NO\.?\s*-?\s*\S+)\s*$/,
   // Remarks categories (field map §2.4 table) — start lines
+  // CDC attestation (5 US-bound packages): after the Flight Release Authorization text,
+  // not in the Remarks run; heading to the "Signed by PIC" line
+  CDC_START:       /^\*{3}\s*CDC ATTESTATION\b/,
+  CDC_END:         /^Signed by PIC\b|^Fit for Duty Affirmation\b/,
   RMK_DISPATCHER:  /\bDESK:\s*\S+/,
   RMK_BOILERPLATE: /^This OFP prepared with FlightKeys\b/,
   RMK_BOILER_END:  /questions\.\s*$/,
@@ -1502,6 +1506,19 @@ function _readReleasePages(ctx) {
       if (me === -1) ctx.add('WARN', 'ddgItems', 'MEL/CDL heading not found in the Remarks page');
       else _readMelBlock(ctx, me + 1, fe);
       _readRemarks(ctx, rs + 1, me === -1 ? fe : me);
+      // CDC attestation: after the release authorization text (field map §2.4 category table).
+      if (fe0 !== -1) {
+        const cs = _idx(lines, PATTERNS.CDC_START, fe0 + 1);
+        const ce = cs === -1 ? -1 : _idx(lines, PATTERNS.CDC_END, cs + 1);
+        const stop = _idx(lines, PATTERNS.CREW_START, fe0 + 1);
+        if (cs !== -1 && (stop === -1 || cs < stop)) {
+          const end = ce === -1 ? (stop === -1 ? lines.length : stop) : ce;
+          for (let i = cs; i < end; i++) {
+            const t = lines[i].trim();
+            if (t) ctx.ext.ofpRemarks.push({ text: t, category: 'cdcAttestation', airport: null, subHeading: null, page: rel.pos[i].page, line: rel.pos[i].line });
+          }
+        }
+      }
     }
   }
   _readTlr(ctx);

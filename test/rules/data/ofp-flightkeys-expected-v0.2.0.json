@@ -15,6 +15,8 @@
    "notCrew": {},
    "ofpRemarksLines": 10,
    "ofpRemarksSha": "12950b83726e0c59bd52c1bbb8a8c6108a0265e5fec3aa9fefeaf894e3f52ddf",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "UAAA": [
      {
@@ -136,6 +138,8 @@
    "notCrew": {},
    "ofpRemarksLines": 6,
    "ofpRemarksSha": "c7debb985778110a1bcd89c312f1d4d0374aa2132d11a1f397f0c3ca13e27e11",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "UAAA": [
      {
@@ -217,6 +221,8 @@
    },
    "ofpRemarksLines": 32,
    "ofpRemarksSha": "43f59087469d7b5312d0e3d95af52f204f7ffbdeecdd7ac3f5b3883bfeccc439",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "RKSI": [
      {
@@ -357,6 +363,8 @@
    },
    "ofpRemarksLines": 7,
    "ofpRemarksSha": "e216f968c2f9227db882c18a1bb8857fec635e81117f069a40654533382a2698",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
    "catIiIiiApproaches": null,
    "catRestrictions": [
     "MEL 22-14-02-01"
@@ -424,6 +432,8 @@
    "notCrew": {},
    "ofpRemarksLines": 14,
    "ofpRemarksSha": "8c556a4e52f843fec7ec710025bfb19997aee7f6f848a101bf7eb6ca81d28f9f",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "RKSI": [
      {
@@ -517,6 +527,8 @@
    "notCrew": {},
    "ofpRemarksLines": 18,
    "ofpRemarksSha": "8fd359103f54e07920450e474afc9c14b7d1e1420e8d60addf38052e34b2d43c",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "ZHEC": [
      {
@@ -625,6 +637,8 @@
    "notCrew": {},
    "ofpRemarksLines": 13,
    "ofpRemarksSha": "abfb022c54cf66ed33097c9094343a73c4823ffb61b4f4cbc46bf08bb515107f",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "RCTP": [
      {
@@ -715,6 +729,8 @@
    },
    "ofpRemarksLines": 7,
    "ofpRemarksSha": "2adaf0071ba83e0cc4cba35fdeead055b71afb65f32eb368afd6d4c13fb56be4",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": null,
    "catRestrictions": [
     "KCVG"
@@ -766,6 +782,8 @@
    },
    "ofpRemarksLines": 21,
    "ofpRemarksSha": "5031360480e74a25c81a683d600daf3270e0a256e1a27c4628b7a6ccd1dee272",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "LEZG": [
      {
@@ -839,6 +857,8 @@
    },
    "ofpRemarksLines": 10,
    "ofpRemarksSha": "2c7356bbee3a6c8ae0a5aa8c210d94b8d8d10860255936facc9b6dba52a40e98",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "OMDW": [
      {
@@ -916,6 +936,8 @@
    "notCrew": {},
    "ofpRemarksLines": 17,
    "ofpRemarksSha": "32b3c25f80ca7653e12e60c9d99f67de1d8b4d5a7e1847f2414cda86dea8d626",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "EHBK": [
      {
@@ -1019,6 +1041,8 @@
    "notCrew": {},
    "ofpRemarksLines": 13,
    "ofpRemarksSha": "3b5c908991a3969288dad574235d0fef58c2604eb7f8b0d747ae92d883f623b7",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
    "catIiIiiApproaches": {
     "VHHH": [
      {
@@ -1110,6 +1134,8 @@
    },
    "ofpRemarksLines": 10,
    "ofpRemarksSha": "29067c4aa5e47c772f75f4045d127247c380f002031c802717530edb33571eca",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "SBGL": [
      {
@@ -1207,6 +1233,8 @@
    },
    "ofpRemarksLines": 19,
    "ofpRemarksSha": "2558567a1519d12498c96556283a684c1f956c57607d9904feedcad30850eb79",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "EPWA": [
      {
@@ -1344,6 +1372,8 @@
    "notCrew": {},
    "ofpRemarksLines": 14,
    "ofpRemarksSha": "262e5d981f403c9e476402b8ecc30658be7570ec777f64adf5f2fdb3fc65869a",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
    "catIiIiiApproaches": {
     "EBLG": [
      {
@@ -1433,6 +1463,8 @@
    },
    "ofpRemarksLines": 20,
    "ofpRemarksSha": "e98ef9552bdbb76e78e227df72e1436147cb18815240ad703df973e7a51c5376",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "UBBB": [
      {
@@ -1596,6 +1628,8 @@
    "notCrew": {},
    "ofpRemarksLines": 17,
    "ofpRemarksSha": "bcbeaca67ab6c7df7280d9133cae56bf2cd43bd9e09e1216fb8fc6a4f9c19721",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "RKSI": [
      {
@@ -1692,6 +1726,8 @@
    },
    "ofpRemarksLines": 13,
    "ofpRemarksSha": "19f8c01eff89addf9b27cb61bf4ba249c62e3bb3d2c3e1dd7192748fed70ca78",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": null,
    "catRestrictions": [],
    "ddgItems": [],
@@ -1734,6 +1770,8 @@
    "notCrew": {},
    "ofpRemarksLines": 9,
    "ofpRemarksSha": "9e4866be9c1d4d4ef22c8be7fe58c92573c7273b44477bf96cf9feaa6ffabfb3",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
    "catIiIiiApproaches": {
     "ZHEC": [
      {
@@ -1816,6 +1854,8 @@
    "notCrew": {},
    "ofpRemarksLines": 18,
    "ofpRemarksSha": "27c0c801354f9ecc404bccd0aab71706486ca8aed03ee899fda5bf6c8aa916d5",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "OMAA": [
      {
@@ -1912,6 +1952,8 @@
    "notCrew": {},
    "ofpRemarksLines": 11,
    "ofpRemarksSha": "a657ee29b759349c9e33639978284aa5f97ff32256c8fa4541721eb95995351e",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "RJAA": [
      {
@@ -1995,6 +2037,8 @@
    "notCrew": {},
    "ofpRemarksLines": 6,
    "ofpRemarksSha": "941c6045a6ae78285d94dafa163fcf8c09bbf7580a72b6f0f4442c9a30dc2dcd",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": null,
    "catRestrictions": [],
    "ddgItems": [
@@ -2070,6 +2114,8 @@
    "notCrew": {},
    "ofpRemarksLines": 19,
    "ofpRemarksSha": "75ab67fa13235fa1a0f75a70e76516f1255fd4e53b2540ab01029a1bd266cd36",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "RKSI": [
      {
@@ -2158,6 +2204,8 @@
    },
    "ofpRemarksLines": 21,
    "ofpRemarksSha": "caf3e6132b4de693a90656176aeb6cc3a78484b2e68d1a3247e48cb6618429d8",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "NZAA": [
      {
@@ -2220,6 +2268,8 @@
    },
    "ofpRemarksLines": 15,
    "ofpRemarksSha": "da4d20c2054d40c6c75041559a8f3b0abd47849e05d48c1881500a7335a7f4a5",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
    "catIiIiiApproaches": {
     "EINN": [
      {
@@ -2291,6 +2341,8 @@
    },
    "ofpRemarksLines": 18,
    "ofpRemarksSha": "63ced7acacf3f8f494c596e532d3cdb23ce132f7dd1e3874f70debb1a166cfac",
+   "cdcLines": 0,
+   "cdcSha": null,
    "catIiIiiApproaches": {
     "ETAR": [
      {

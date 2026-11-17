@@ -77,7 +77,8 @@ function pkg(o = {}) {
   const p2 = ['Remarks', 'DISPATCHER DESK: 00', 'This OFP prepared with FlightKeys. Review Operations Bulletin',
     'for FlightKeys OFP and procedure changes. Contact Dispatch with', 'questions.', ...(o.remarks || []),
     'RAIM VALIDATION PASSED', ...(o.cat || []), 'MEL/CDL', ...(o.mel || []), 'Flight Release Authorization',
-    'Signed by Dispatcher: DISPATCHER', 'Fit for Duty Affirmation', 'By signing below, I affirm that I am fit for duty to operate this',
+    'I certify that this flight has been dispatched in accordance with', ...(o.afterAuth || []),
+    'Signed by PIC .. .. .. .. (Circle name below)', 'Signed by Dispatcher: DISPATCHER', 'Fit for Duty Affirmation', 'By signing below, I affirm that I am fit for duty to operate this',
     'flight.', 'FIT FOR DUTY/   RELIEF PIC', 'JS VERIFY   START-END(Z)', ...(o.crew || CREW_DEFAULT)];
   const p3 = ['TIME FUEL', ...(o.fpl || ['(FPL-TST0001-IS', `-${o.fplType || 'B744/H'}-SDE1E2E3FGHIJ3J5M1P2RWXYZ/LB1D1`, '-KAAA1755',
     '-N0481F320 DCT AAAAA DCT BBBBB', '-KBBB0933 KCCC', '-PBN/A1B1 DOF/260308 REG/N000ZZ SEL/ABCD RMK/TCAS II EQUIPPED)']),
@@ -343,6 +344,12 @@ test('TC-161-051 remarks synthetic: categories, airport remarks, weather, flags 
   assert.equal(diff.revision.copiesIdentical, false);
   assert.ok(warns(diff, 'revision').length === 0 && warns(diff, 'release').length === 1);
   assert.ok(warns(parse(pkg({ revision: '3.0' })), 'revision').some(w => /differ/.test(w.message)), 'RLS 01 with Revision 3.0 → WARN');
+  // CDC attestation: after the release authorization text, kept as remarks in release order; absent → none
+  const cdc = parse(pkg({ afterAuth: ['*** CDC ATTESTATION — U.S.-BOUND FLIGHTS ***', 'BY ACCEPTING THIS RELEASE, THE PIC CONFIRMS', 'THE STATEMENT.'] }));
+  assert.deepEqual(cdc.ofpRemarks.filter(x => x.category === 'cdcAttestation').map(x => x.text),
+    ['*** CDC ATTESTATION — U.S.-BOUND FLIGHTS ***', 'BY ACCEPTING THIS RELEASE, THE PIC CONFIRMS', 'THE STATEMENT.']);
+  assert.equal(cdc.ofpRemarks[cdc.ofpRemarks.length - 1].category, 'cdcAttestation');
+  assert.equal(parse(pkg()).ofpRemarks.filter(x => x.category === 'cdcAttestation').length, 0);
 });
 
 // ══ fixtures ═════════════════════════════════════════════════════════════════
@@ -543,9 +550,14 @@ if (!FIXTURES) {
   test('TC-161-050 remarks on 26 fixtures: ofpRemarks, airport remarks, weather, flags, fuel, permits, revision', () => {
     for (const fx of fk) {
       const r = run(fx), e = EXPECTED[fx.id], lbl = e.label;
-      const rem = r.ofpRemarks.filter(x => x.category !== 'adhocPenalty');
+      const rem = r.ofpRemarks.filter(x => x.category !== 'adhocPenalty' && x.category !== 'cdcAttestation');
       assert.equal(rem.length, e.ofpRemarksLines, `${lbl}: every Remarks line`);
       assert.equal(sha(rem.map(x => x.text).join('\n')), e.ofpRemarksSha, `${lbl}: Remarks text, in order`);
+      const cdc = r.ofpRemarks.filter(x => x.category === 'cdcAttestation');
+      assert.equal(cdc.length, e.cdcLines, `${lbl}: CDC attestation lines`);
+      if (cdc.length) assert.equal(sha(cdc.map(x => x.text).join('\n')), e.cdcSha, `${lbl}: CDC attestation text`);
+      assert.deepEqual(r.ofpRemarks.map(x => x.category).filter(c => c === 'adhocPenalty' || c === 'cdcAttestation'),
+        r.ofpRemarks.slice(rem.length).map(x => x.category), `${lbl}: release order (Remarks, MEL-block penalty lines, CDC)`);
       assert.equal(r.hasPerishables, e.perishables, `${lbl}: perishables`);
       assert.equal(r.hasTemperatureControl, e.temperatureControl, `${lbl}: temperature control`);
       assert.equal(r.securityMessages.length, e.securityMessages, `${lbl}: security`);
@@ -576,6 +588,8 @@ if (!FIXTURES) {
     assert.deepEqual(has('fleetNote'), ['L03', 'L14', 'L17', 'L20']);
     assert.deepEqual(has('exemption'), ['L08', 'L11', 'L13', 'L15', 'L21', 'L22']);
     assert.deepEqual(has('extraFuel'), ['L05', 'L15', 'L23']);
+    assert.deepEqual(has('cdcAttestation'), ['L01', 'L09', 'L12', 'L16', 'L22'], 'CDC attestation in every US-bound live package (5)');
+    assert.deepEqual(has('adhocPenalty'), ['L02', 'T1', 'T3']);
     assert.deepEqual(labelsWhere(r => r.hasPerishables), ['L03', 'L08', 'L10', 'L12', 'L13', 'L16', 'L17'], 'row 27: 7');
     assert.deepEqual(labelsWhere(r => r.hasTemperatureControl), [], 'row 28: none (L20 declares NO)');
     assert.deepEqual(labelsWhere(r => r.extraFuel.tanker), ['L15'], 'D39: tanker in L15 only');
