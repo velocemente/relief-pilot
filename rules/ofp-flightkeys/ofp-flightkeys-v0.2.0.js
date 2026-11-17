@@ -1070,7 +1070,8 @@ function _readCrew(ctx) {
 // ── MEL / CDL / DDG block (row 25; SME-4) ───────────────────────────────
 // "MEL|CDL <code> - <title>" (title wraps onto the next line), notes "- …" /
 // "RMK - …" under the item (their wrapped lines join the note), until the next
-// item or the block end. "Dispatcher applied ADHOC penalty:" and its lines are
+// item or the block end. Every printed item is kept, a repeated one included (Exec,
+// 17 Nov). "Dispatcher applied ADHOC penalty:" and its lines are
 // not item notes (kept in ofpRemarks). Indentation comes from the positioned
 // items (the text has none): a note further right than its item → indent 1.
 function _readMelBlock(ctx, from, to) {
@@ -1127,20 +1128,12 @@ function _readMelBlock(ctx, from, to) {
   if (!items.length) add('INFO', 'ddgItems', 'MEL/CDL block printed with no item');
 }
 
-// Finishes ddgItems: late additions (SME-19), NavBlue dedup, melItems (NavBlue form).
+// Finishes ddgItems: the block's items, then late additions (SME-19); melItems (NavBlue form).
+// Every item is kept as this OFP prints it, including an item printed more than once:
+// that is possible and not an anomaly (Exec, 17 Nov, PR #62; SME-4). No dedup, no finding.
 function _finishDdg(ctx) {
-  const { out, add } = ctx;
+  const { out } = ctx;
   const items = (ctx.melBlockItems || []).concat(ctx.lateMel || []);
-  // NavBlue rule: an item printed more than once is listed once (the last copy is
-  // kept, as NavBlue's loop does). Notes are part of the key so none is lost.
-  const keyOf = it => it.code + '|' + it.desc + '|' + it.notes.map(n => n.text).join('\n');
-  const seen = new Set();
-  let dup = 0;
-  for (let i = items.length - 1; i >= 0; i--) {
-    const k = keyOf(items[i]);
-    if (seen.has(k)) { items.splice(i, 1); dup++; } else seen.add(k);
-  }
-  if (dup) add('INFO', 'ddgItems', `${dup} MEL/CDL item(s) printed more than once: listed once (NavBlue rule; SME-4)`);
   out.ddgItems = items.map(it => ({ code: it.code, desc: it.desc, tlr: it.tlr, type: it.type,
     notes: it.notes.map(n => ({ text: n.text, indent: n.indent })) }));
   out.melItems = out.ddgItems.map(i => i.code + ' ' + i.desc).join(' | ').substring(0, 600);

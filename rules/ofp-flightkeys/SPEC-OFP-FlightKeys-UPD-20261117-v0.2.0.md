@@ -119,7 +119,7 @@ Nothing is read from the High Severity Company NOTAMs, Company NOTAMs, NOTAM / W
 - Items: `MEL|CDL <code> - <title>`. A title that wraps continues on the next line, joined with a space. `ddgItems[i] = { code, desc, tlr, type, notes[] }`, where `code` is as printed (CDL codes start with `C`) and `type` is `'MEL'` or `'CDL'`.
 - Notes: every `- …` or `RMK - …` line under the item, in order. Its wrapped lines join the note. `notes[i] = { text (as printed, with its "- " / "RMK - "), indent }`. **Indentation comes from the positioned items** (the text has none): a note printed further right than its item line is indent 1. If the positions put a note at the item's x, positions win (`indent 0`) and a WARN is raised. With no positions, notes are indent 1.
 - `Dispatcher applied ADHOC penalty:` and its `- …` lines are **not** item notes. They are kept in `ofpRemarks` (category `adhocPenalty`).
-- An item printed more than once is listed once (the NavBlue rule; the last copy is kept). Notes are part of the key, so no note is lost. One INFO is raised (SME-4: the items are this OFP's own; nothing is carried over from another import).
+- **Every printed item is kept, an item printed more than once included** (Exec, 17 Nov, PR #62 review: "this is possible and is not an anomaly; keep all items"). No finding is raised for it. This differs from the NavBlue parser, which lists a repeated item once; the Exec's answer on NavBlue was to ignore it (below, §9). SME-4: the items are this OFP's own, and nothing is carried over from another import.
 - **Late additions (SME-19).** An MEL named only in a late-addition remark is added after the block's items: `HHMMZ STR ADD M<code>`, `ADD MEL <code> …`, or `MEL ADDED` with the code on the next line. It is added as `{ type 'MEL', desc: the text after the code or '', notes: [the remark as printed] }`, with an INFO. A remark that names an MEL already in the block adds nothing (negative case). Codes inside RMK notes are never additions.
 - `tlr` (row 32a): `'takeoff'`, `'landing'`, `'both'` or `''`, as NavBlue, from the TLR `/// TAKEOFF DATA ///` and `/// LANDING DATA ///` parts. The code is read on the `RMKS` line (the NavBlue rule) **and** on the lines below it up to the next separator (`---`, `RWY`, `APT`, `///`). FlightKeys prints further codes there, e.g. L11 `RMKS 36-11-01` / `36-12-02-01 ONE VLV INOP`.
 - `melItems` = `ddgItems.map(code + ' ' + desc).join(' | ')`, at most 600 characters (NavBlue).
@@ -188,7 +188,7 @@ The Company NOTAM boilerplate `*ANYTIME PERISHABLES OR LIVE ANIMALS ARE ON BOARD
 | TC-161-002 | QA F4: the FPL from the release only | PASS |
 | TC-161-010 / 011 | crew on 26 (values against the **private** `expected/ofp-flightkeys-v0.2.0/crew.json` in the fixtures repo; public: roles, counts, flags, operating pilots per package) / synthetic positive and negative | PASS |
 | TC-161-020 / 021 | CAT II/III on 26 / synthetic (restriction never an authorisation; US restriction only; authorised airport with a restriction; MEL restrictions; outside the release never read) | PASS |
-| TC-161-030 / 031 | MEL/CDL/DDG on 26 / synthetic (wraps, notes, indentation from positions, ADHOC, dedup, late additions positive and negative, TLR codes below RMKS) | PASS |
+| TC-161-030 / 031 | MEL/CDL/DDG on 26 / synthetic (wraps, notes, indentation from positions, ADHOC, repeated items kept, late additions positive and negative, TLR codes below RMKS) | PASS |
 | TC-161-032 / 032a | TLR on 26 (= NavBlue except L10) / synthetic page break | PASS |
 | TC-161-040 | **FK-P matched pair** (§7) | PASS |
 | TC-161-050 / 051 | remarks and everything they feed, on 26 / synthetic with a negative per rule | PASS |
@@ -203,7 +203,7 @@ Expected values (`test/rules/data/ofp-flightkeys-expected-v0.2.0.json`) were tak
 FK `UAAA-EHAM 27OCT` prototype (this module) against EOFP `UAAA-EHAM 27OCT` matchedpair (the NavBlue parser), over the v0.2.0 core fields:
 
 - **Equal:** `hasTemperatureControl`. **Crew:** the same four pilots, and every NavBlue key (`role, empNum, lastName, initial, displayName, active, isSen`) is equal person by person; the two plans print them in another order. **CAT II/III:** equal for all four airports both packages list (UAAA, EHAM, EBBR, LTAC). **DDG:** the same four codes and the same `tlr` values.
-- **Different because the packages print different content** (EOFP release 11 vs an unreleased FlightKeys prototype; checked in both texts): `hasPerishables` (only the EOFP prints `PERISHABLES O/B - YES`); `catIiIiiApproaches` (other airports: EOFP EDDB/EDDP, its redispatch airports; FK EBLG/EDDK/ELLX); `ddgItems`/`melItems` (titles worded differently, other order); `overflightPerms` (different permit lists; the FK prototype has two permits MISSING); `oeiData` (no TLR in the FK prototype); `crewMembers` (order only).
+- **Different because the packages print different content** (EOFP release 11 vs an unreleased FlightKeys prototype; checked in both texts): `hasPerishables` (only the EOFP prints `PERISHABLES O/B - YES`); `catIiIiiApproaches` (other airports: EOFP EDDB/EDDP, its redispatch airports; FK EBLG/EDDK/ELLX); `ddgItems`/`melItems` (titles worded differently, other order; a repeated item would also differ, since NavBlue lists it once and FlightKeys keeps every copy by Exec decision); `overflightPerms` (different permit lists; the FK prototype has two permits MISSING); `oeiData` (no TLR in the FK prototype); `crewMembers` (order only).
 
 On the 26 FlightKeys packages, `oeiData` equals NavBlue in 25 (the L10 difference is §5.8), and perishables/temperature equal NavBlue's whole-text rule in 19. The other 7 are the bare `PERISHABLES ONBOARD` line NavBlue misses (field map row 27).
 
@@ -213,13 +213,13 @@ On the 26 FlightKeys packages, `oeiData` equals NavBlue in 25 (the L10 differenc
 
 Every row in scope is ✅ on every package that carries it, with the field-map counts:
 - crew: pilots 2 in 4 packages, 3 in 12, 4 in 10; DH in 3; JS in 10; blank expiry in 9; `*` in 3.
-- CAT: authorisations in 22, restrictions in 5. MEL: items in 25 (CDL in 3), duplicates in 9, late addition only in L23. TLR cross-reference in 5.
+- CAT: authorisations in 22, restrictions in 5. MEL: items in 25 (CDL in 3), an item printed twice in 9 (every copy kept), late addition only in L23. TLR cross-reference in 5.
 - perishables 7, temperature 0. Permits: overflight 8, landing 5, takeoff 2. Security 1, tanker 1, PCF reason in 16 of 17.
 - station blocks 5 (SME-18 flag only in L21; the 747 line not attached for its 767); remarks weather 1 (L15 PWAK); CDC attestation 5.
 
 The module raises no WARN on the 26 except two kinds, both intended: the L21 takeoff-alternate flag (SME-18) and the two T1 `PERMIT MISSING` permits.
 
-Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) give **3 differences**: L07 1, L08 1, L12 1; the other five 0. None is a misread of the PDF; each is a presentation decision for the Exec. The private report is in the fixtures repo, `expected/ofp-flightkeys-v0.2.0/TRUTH-SHEETS-REPORT.md`.
+Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) gave **3 differences** at first: L07 1, L08 1, L12 1; the other five 0. None was a misread of the PDF. The Exec decided all three on 17 Nov: L07 is kept as it is (the security line on the Preflight card only), and the L08 and L12 items are now kept twice, as the sheets and the PDF show. **0 open differences remain.** The private report is in the fixtures repo, `expected/ofp-flightkeys-v0.2.0/TRUTH-SHEETS-REPORT.md`.
 
 ---
 
@@ -228,13 +228,14 @@ Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) 
 | Item | Note |
 | :--- | :--- |
 | Explicit empties | v0.2.0 must not be integrated (§1). |
-| Contract 2.2 vs NavBlue 2.0 | `operatingPilots` and the crew-record extensions (addendum 2), like `swa` / `specialQualification` (addendum 1), are not returned by the locked NavBlue parser (D47). Exec decision. |
-| Security line on the airport card | L07's `POS LAUNCH TO DWC …` goes to `securityMessages[]` (D45), not to the OMDW card (truth sheet asks for D34). Exec decision. |
-| Duplicate MEL items | listed once (NavBlue rule) with an INFO; the truth sheets list them twice. Exec to confirm (SME-4). |
-| Names as printed | FlightKeys prints mixed case; NavBlue prints capitals. No case is changed. |
+| Contract 2.2 vs NavBlue 2.0 | `operatingPilots` and the crew-record extensions (addendum 2), like `swa` / `specialQualification` (addendum 1), are not returned by the locked NavBlue parser (D47). **Exec, 17 Nov: ignore NavBlue.** The contract 2.2 fields are FlightKeys only, and NavBlue stays locked as it is. |
+| Security line | **Exec, 17 Nov: keep it on the Preflight card only.** L07's `POS LAUNCH TO DWC …` goes to `securityMessages[]` (D45), never to an airport card (TC-161-050). |
+| Repeated MEL items | **Exec, 17 Nov: possible, not an anomaly; keep all items** (§5.7). |
+| Names as printed | FlightKeys prints mixed case; NavBlue prints capitals. No case is changed (**Exec, 17 Nov: OK**). |
 | Company NOTAM repeats of a station restriction | "not noted twice" (SME-18) needs the Company NOTAMs: step 5d. |
 | NavBlue-style E-WINS remark (`WSITAF` / TWC, D56) | unseen in FlightKeys; not read in the Remarks. The FlightKeys E-WINS is the `* PRIO *` TAF (5d). |
-| `fplEquipment` (D41) | not in the v0.2.0 brief: `null` with an INFO (step `open`). |
+| `fplEquipment` (D41) | not in the v0.2.0 brief: `null` with an INFO (step `open`). **Exec, 17 Nov: a later issue.** |
+| Truth sheets | drafts (the "Exec checked" column is empty). **Exec, 17 Nov: OK** as the comparison basis for now. |
 | SALT/TALT, temperature control positive | unseen (D55); rules in place, synthetic tests only. |
 | v0.1.0 open items | unchanged: `porWpt` `+nnNM` form (SME-11), `navLog` `[]` (FK-P), date fallback. |
 

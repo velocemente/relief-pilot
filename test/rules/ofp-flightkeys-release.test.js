@@ -16,7 +16,7 @@
  *   TC-161-020  CAT II/III (row 24, SC) on 26 fixtures: authorisations (NavBlue form) and restrictions
  *   TC-161-021  CAT II/III synthetic (SME-10), positive and negative
  *   TC-161-030  MEL/CDL/DDG (row 25) on 26 fixtures: items, type, notes, TLR cross-reference (row 32a)
- *   TC-161-031  MEL/CDL/DDG synthetic: wraps, notes with indentation (positions), ADHOC lines, dedup,
+ *   TC-161-031  MEL/CDL/DDG synthetic: wraps, notes with indentation (positions), ADHOC lines, repeated items kept,
  *               late addition (SME-19) positive and negative, TLR cross-reference
  *   TC-161-032  TLR (row 32) on 26 fixtures = NavBlue, except the page-break leak NavBlue has (L10);
  *               synthetic page-break case
@@ -208,20 +208,21 @@ test('TC-161-031 MEL/CDL/DDG synthetic (row 25, 32a; SME-4, SME-19): items, note
     ['MEL', '23-15-01-01A', 'SATCOM Voice Systems - Alternate Procedures Required', ''],
     ['MEL', '36-11-08C', '(PRV) Systems - PRV Open', 'takeoff'],
     ['MEL', '25-20-01', 'Non-Essential Equipment', ''],
+    ['MEL', '25-20-01', 'Non-Essential Equipment', ''],
     ['CDL', 'C27-51-02', 'Flap Track (Canoe) Fairing', 'both'],
     ['MEL', '33-44-01-02A', '', ''],
     ['MEL', '25-57-01', '', ''],
-  ], 'wrapped title joined; duplicate listed once (NavBlue); late additions after the block; TLR codes on the RMKS line and below it');
+  ], 'wrapped title joined; an item printed twice is kept twice (Exec 17 Nov); late additions after the block; TLR codes on the RMKS line and below it');
   assert.deepEqual(r.ddgItems[1].notes, [{ text: '- ETOPS MDT 180', indent: 1 }, { text: '- "M1" removed from ICAO FPL, field 10A.', indent: 1 }]);
   assert.deepEqual(r.ddgItems[2].notes, [{ text: 'RMK - The airplane must also be dispatched using DDG item 78-31-01, 36-11-03 and 36-21-04.', indent: 1 }],
     'the RMK line is kept with its item, its wrap joined');
-  assert.deepEqual(r.ddgItems[4].notes, [{ text: '- Enroute climb penalty 7779kg', indent: 1 }], 'ADHOC penalty lines are not item notes');
-  assert.deepEqual(r.ddgItems[5].notes, [{ text: '1829Z STR ADD M33-44-01-02A', indent: 1 }]);
+  assert.deepEqual(r.ddgItems[5].notes, [{ text: '- Enroute climb penalty 7779kg', indent: 1 }], 'ADHOC penalty lines are not item notes');
+  assert.deepEqual(r.ddgItems[6].notes, [{ text: '1829Z STR ADD M33-44-01-02A', indent: 1 }]);
   assert.deepEqual(r.ofpRemarks.filter(x => x.category === 'adhocPenalty').map(x => x.text),
     ['Dispatcher applied ADHOC penalty:', '- All fuel flow values increased by 1.00 PCT']);
   assert.equal(r.melItems, r.ddgItems.map(d => d.code + ' ' + d.desc).join(' | ').substring(0, 600), 'melItems: the NavBlue form');
   assert.equal(infos(r, 'ddgItems').filter(f => /late-addition/.test(f.message)).length, 2, 'SME-19: two added, the MEL quoted again (25-20-01) adds nothing');
-  assert.ok(infos(r, 'ddgItems').some(f => /1 MEL\/CDL item\(s\) printed more than once/.test(f.message)));
+  assert.ok(!r.findings.some(f => /more than once/.test(f.message)), 'a repeated item is not an anomaly: no finding');
   // negative (SME-19): codes quoted in RMK notes or remarks already in the block add nothing
   const neg = parse(pkg({ mel: ['MEL 74-00-01 - Ignition Systems', 'RMK - Must also comply with DDG item 21-51-01 operational', 'requirements.'],
     remarks: ['ADD MEL 74-00-01 IGNITION SYSTEMS', 'NO RESTRICTIONS'] }));
@@ -483,8 +484,12 @@ if (!FIXTURES) {
     assert.deepEqual(labelsWhere(r => r.ddgItems.length === 0), ['L15'], 'empty block in L15');
     assert.deepEqual(labelsWhere(r => r.ddgItems.some(d => d.type === 'CDL')), ['L01', 'L16', 'L18'], 'CDL in 3');
     assert.deepEqual(labelsWhere(r => r.ddgItems.some(d => d.tlr)), ['L10', 'L11', 'L12', 'L13', 'L16'], 'row 32a: 5');
-    assert.deepEqual(labelsWhere(r => infos(r, 'ddgItems').some(f => /printed more than once/.test(f.message))),
-      ['L08', 'L09', 'L10', 'L12', 'L13', 'L14', 'L16', 'L20', 'L23'], 'SME-4: duplicates in 9, listed once');
+    // Exec 17 Nov (PR #62): an item printed more than once is possible and not an anomaly — every copy is kept, no finding
+    const repeated = r => r.ddgItems.some((d, i) => r.ddgItems.findIndex(x => x.code === d.code && x.desc === d.desc) !== i);
+    assert.deepEqual(labelsWhere(repeated), ['L08', 'L09', 'L10', 'L12', 'L13', 'L14', 'L16', 'L20', 'L23'], 'repeated items in 9, every copy kept');
+    assert.deepEqual(run(byLabel('L08')).ddgItems.map(d => d.code), ['31-41-01-01', '25-58-01A', '25-58-01A'], 'KMIA-EHBK truth sheet: listed twice');
+    assert.deepEqual(run(byLabel('L12')).ddgItems.map(d => d.code), ['29-34-01-03', '25-57-01', '25-57-01', '25-20-01', '78-31-01A'], 'EBLG-KORD truth sheet: listed twice');
+    assert.deepEqual(labelsWhere(r => infos(r, 'ddgItems').some(f => /more than once/.test(f.message))), [], 'no finding for a repeated item');
     assert.deepEqual(labelsWhere(r => infos(r, 'ddgItems').some(f => /late-addition/.test(f.message))), ['L23'], 'SME-19: L23 only (L12, L13 quote MELs already in the block)');
     assert.deepEqual(run(byLabel('L23')).ddgItems.slice(-1).map(d => [d.type, d.code]), [['MEL', '25-58-01A']]);
     assert.deepEqual(run(byLabel('L11')).ddgItems.filter(d => d.tlr).map(d => [d.code, d.tlr]), [['36-11-01', 'takeoff'], ['36-12-02-01', 'both']],
@@ -578,6 +583,10 @@ if (!FIXTURES) {
     assert.deepEqual(has('cargoDeclaration'), ['L20']);
     assert.deepEqual(has('perishables'), ['L03', 'L08', 'L10', 'L12', 'L13', 'L16', 'L17']);
     assert.deepEqual(has('security'), ['L07']);
+    // Exec 17 Nov (PR #62): the security line is for the Preflight card only (D45), never on the airport card
+    const l07 = run(byLabel('L07'));
+    assert.deepEqual(l07.securityMessages.map(s => s.text), ['POS LAUNCH TO DWC APPROVED BY SECURITY']);
+    assert.ok(Object.values(l07.airportData).every(a => a.remarks.every(x => !/SECURITY/.test(x.text))), 'security line on no airport card');
     assert.deepEqual(has('permit'), ['L17']);
     assert.deepEqual(has('slot'), ['L16']);
     assert.deepEqual(has('ewins'), ['L22']);

@@ -29,7 +29,7 @@
 **Type:** UPD · **Brief:** FlightKeys parser v0.2.0 (Exec prompt, 17 Nov; D58, D62)
 - Crew (row 26, SC): pilots with role and TO/LNDG currency (blank → "Not Reported", SME-9); `*` kept with the last name, never seniority (SME-3/3a); DH/JS as NavBlue; MX/LM/FA/PU not crew (INFO counts); new extension `operatingPilots` (D62); crew-record extensions `firstName`, `toLndgExpiry`.
 - CAT II/III (row 24, SC): authorisations in the NavBlue form; restrictions from Remarks lines and MEL notes/titles in `catIiIiiRestrictions[]`, never as an authorisation (SME-10).
-- MEL/CDL/DDG (row 25): items as printed with `type` and `notes[]`; indentation from the positioned items; ADHOC penalty lines kept apart; NavBlue dedup; late additions named only in a remark (SME-19). TLR cross-reference (32a), including the codes printed below the `RMKS` line.
+- MEL/CDL/DDG (row 25): items as printed with `type` and `notes[]`; indentation from the positioned items; ADHOC penalty lines kept apart; every printed item kept, a repeated one included (Exec, 17 Nov); late additions named only in a remark (SME-19). TLR cross-reference (32a), including the codes printed below the `RMKS` line.
 - TLR (row 32): `oeiData` by the NavBlue rule on the TLR with page furniture removed (fixes the L10 page-break leak; field map §6).
 - Perishables (27, bare `PERISHABLES ONBOARD` + NavBlue rule) and temperature control (28, NavBlue rule, D55), read on the release Remarks only.
 - Permits (35): `overflightPerms` (NavBlue form), `permits[]` with route, registration restriction, missing permit, ADC number.
@@ -37,7 +37,16 @@
 - 5b-1 QA F4: `icao-fpl` reads the release lines only. QA F3: SPEC corrected (no `curfew` / `opsNotes` keys before 5d).
 - `fplEquipment` (D41) is not in the brief: explicit `null`, step `open`.
 - Proof: every v0.1.0 field byte-identical on the 26 fixtures (TC-161-001, SHA-256 per field against the output recorded with v0.1.0 before the change).
-- Truth sheets: 3 differences (L07 1, L08 1, L12 1), all presentation decisions; private report `pilotbrief-fixtures/expected/ofp-flightkeys-v0.2.0/TRUTH-SHEETS-REPORT.md`.
+- Truth sheets: 3 differences at first (L07 1, L08 1, L12 1), all presentation decisions; private report `pilotbrief-fixtures/expected/ofp-flightkeys-v0.2.0/TRUTH-SHEETS-REPORT.md`.
+- **Exec decisions, 17 Nov (PR #62 review):**
+  - L07 security line stays on the Preflight card only (O-5 closed).
+  - Repeated MEL items are possible and not an anomaly; every printed item is kept and no finding is raised (O-6 closed; L08 and L12 now match their sheets). This replaces the NavBlue dedup of the first push.
+  - Ignore NavBlue for the contract 2.2 fields (O-1 closed).
+  - Names as printed: OK.
+  - `fplEquipment` is a later issue (O-7 deferred).
+  - Step 5d items stay with 5d: OK (O-4).
+  - Draft truth sheets: OK (O-8 closed).
+  After these, 0 truth-sheet differences remain open.
 - Tests: TC-161-001 … 090 (`test/rules/ofp-flightkeys-release.test.js`); TC-160 scoped to the v0.1.0 fields. Crew values only in the private fixtures repo (`expected/ofp-flightkeys-v0.2.0/crew.json`).
 - Nothing else changes: `index.html`, `src/`, `build/`, the other modules, golden / NOTAM / app-path snapshots unchanged.
 
@@ -57,11 +66,11 @@
 
 | ID | Item | Owner |
 |:---|:-----|:------|
-| O-1 | NavBlue (locked, contract 2.0) does not return the addendum fields (`swa`, `specialQualification`, `operatingPilots`, crew `firstName` / `toLndgExpiry`); ADR-005 §2.4 asks every parser to return every extension | Exec |
+| O-1 | ~~NavBlue does not return the addendum fields~~ **Closed (Exec, 17 Nov): ignore NavBlue**; the contract 2.2 fields are FlightKeys only | — |
 | O-2 | `porWpt` for a fix-plus-distance POR carries the lat/long in the same string (SME-11) | Exec (confirm at the visual check) |
 | O-3 | `navLog` stays `[]` by FK-P; a real nav log would change the en-route screen | Exec |
 | O-4 | Step 5d: Company NOTAMs, NOTAMs, weather incl. the `* PRIO *` E-WINS TAF, curfew, opsNotes, NAT, sections; SME-18 "not noted twice" against the Company NOTAM repeat | next session |
-| O-5 | L07 security line: `securityMessages[]` only (D45) vs the truth sheet's OMDW card (D34) | Exec |
-| O-6 | Duplicate MEL items listed once (NavBlue rule, INFO) vs the truth sheets listing them twice (L08, L12) | Exec (SME-4) |
-| O-7 | `fplEquipment` (D41: filed 10a and the codes the MEL notes remove) has no brief | Exec |
-| O-8 | Truth sheets are drafts (Exec-checked column empty); the comparison is against unverified sheet values | Exec |
+| O-5 | ~~L07 security line~~ **Closed (Exec, 17 Nov): Preflight card only** (`securityMessages[]`, D45) | — |
+| O-6 | ~~Duplicate MEL items~~ **Closed (Exec, 17 Nov): keep all items**, a repeat is not an anomaly | — |
+| O-7 | `fplEquipment` (D41: filed 10a and the codes the MEL notes remove) has no brief. **Exec, 17 Nov: a later issue** | Exec (later brief) |
+| O-8 | ~~Truth sheets are drafts~~ **Closed (Exec, 17 Nov): OK** | — |

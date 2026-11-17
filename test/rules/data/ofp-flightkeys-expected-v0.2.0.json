@@ -1003,6 +1003,13 @@
      "tlr": "",
      "notes": 0,
      "descSha256": "a3dd9e0ea3025d58ea04f8b603d6224378e6311efc0fd3a6b0d7e095f848199c"
+    },
+    {
+     "type": "MEL",
+     "code": "25-58-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a3dd9e0ea3025d58ea04f8b603d6224378e6311efc0fd3a6b0d7e095f848199c"
     }
    ],
    "perishables": true,
@@ -1069,6 +1076,13 @@
      "tlr": "",
      "notes": 0,
      "descSha256": "4c00b592002906b9fe281c7c79e4ca1d39905019cbdbc43ca10c1ddc7795c793"
+    },
+    {
+     "type": "MEL",
+     "code": "25-54-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "27a0f2e803d49c1081f5eb9d19c722c9956e86842d9f1a9c35b16b32a5cdadf8"
     },
     {
      "type": "MEL",
@@ -1165,6 +1179,13 @@
     },
     {
      "type": "MEL",
+     "code": "26-16-01-02-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "6226d498a8e9e56b970f7ef597dcc65e342c332b35d798cf489c861381a0cf5a"
+    },
+    {
+     "type": "MEL",
      "code": "33-43-01A",
      "tlr": "",
      "notes": 0,
@@ -1176,6 +1197,13 @@
      "tlr": "",
      "notes": 0,
      "descSha256": "0c2040d826308c5bac0aa526b69755830272b9cf21fadd04de29451322e375ae"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
     },
     {
      "type": "MEL",
@@ -1406,6 +1434,13 @@
     },
     {
      "type": "MEL",
+     "code": "25-57-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "0c2040d826308c5bac0aa526b69755830272b9cf21fadd04de29451322e375ae"
+    },
+    {
+     "type": "MEL",
      "code": "25-20-01",
      "tlr": "",
      "notes": 0,
@@ -1555,6 +1590,13 @@
     },
     {
      "type": "MEL",
+     "code": "25-53-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a8bc7c3f06aaeb9f0cf90ea77ac324128a1761fe04b4bb835a1cbe3d3ef92854"
+    },
+    {
+     "type": "MEL",
      "code": "36-21-04",
      "tlr": "both",
      "notes": 1,
@@ -1566,6 +1608,13 @@
      "tlr": "both",
      "notes": 1,
      "descSha256": "2987c91ae00c012ccb79de3bd981514b19ba0b57163fa0678a2d6949fe54467a"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
     },
     {
      "type": "MEL",
@@ -1676,6 +1725,13 @@
      "tlr": "",
      "notes": 0,
      "descSha256": "b078ecc9348614d1685fa1b1b1c51ceaa56b0806db60488d3b0f17f95005ec8f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
     },
     {
      "type": "MEL",
@@ -1801,6 +1857,13 @@
      "tlr": "",
      "notes": 0,
      "descSha256": "e5cf2500ff34c5759d3fe191a3895752d66619c3cfb81150c1688b02c1008b6f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-00-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
     },
     {
      "type": "MEL",
@@ -2162,6 +2225,13 @@
      "tlr": "",
      "notes": 0,
      "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
     }
    ],
    "perishables": false,
@@ -2395,6 +2465,13 @@
      "tlr": "",
      "notes": 0,
      "descSha256": "8a5dad873cee0e74740c2432f57afbd5e1a522abc11dd1e9c14097a230ab9181"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
     },
     {
      "type": "MEL",
