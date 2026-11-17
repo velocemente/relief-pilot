@@ -35,6 +35,9 @@
  *               boilerplate, MEL-change and weather paragraphs) are ONE remark each; records per package
  *   TC-161-201  D63a synthetic: a blank line, a sub-heading or a recognised item ends a remark; a one-line item never
  *               takes a continuation; a paragraph across a page break; the reason lists keep their line breaks
+ *   TC-161-202  O-10 (1), Exec 17 Nov: a fixed-length recognised item never takes a continuation (every one-line kind,
+ *               the boilerplate to "questions."; T3 on the fixtures)
+ *   TC-161-203  O-10 (2), Exec 17 Nov: a page break is not a blank line (a remark continues across it; a blank line splits)
  *   TC-161-090  fixtures (or the private crew file) missing → FAIL, never skip (child run)
  *
  * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
@@ -485,6 +488,43 @@ test('TC-161-201 D63a synthetic: blank line, sub-heading and recognised item end
   assert.deepEqual(aptRemarks(st, 'KBBB'), ['- A ITEM\nWRAP OF A', '- B ITEM', 'C ITEM']);
 });
 
+test('TC-161-202 O-10 (1): a fixed-length recognised item never takes a continuation; the next unmarked line is a new remark', () => {
+  const NEXT = 'UNMARKED LINE AFTER THE ITEM';
+  const oneLine = { cargoDeclaration: 'DANGEROUS GOODS: NO', perishables: 'PERISHABLES ONBOARD', security: 'POS LAUNCH TO BBB APPROVED BY SECURITY',
+    permit: 'NOWHERE ADC NO-0001', ewins: 'Released under EWINS Authority' };
+  for (const [cat, line] of Object.entries(oneLine)) {
+    const r = parse(pkg({ remarks: [line, NEXT] }));
+    assert.deepEqual(r.ofpRemarks.filter(x => x.text === line || x.text.includes(NEXT)).map(x => [x.category, x.text]),
+      [[cat, line], ['other', NEXT]], `${cat}: stays one line; the next line is a remark of its own`);
+  }
+  // RAIM and a CAT II/III line (printed after the Remarks run)
+  const rc = parse(pkg({ cat: [NEXT, 'KAAA CAT II - RWY 10', NEXT + ' 2'] }));
+  assert.deepEqual(rc.ofpRemarks.filter(x => ['raim', 'catIiIii', 'other'].includes(x.category)).map(x => [x.category, x.text]),
+    [['raim', 'RAIM VALIDATION PASSED'], ['other', NEXT], ['catIiIii', 'KAAA CAT II - RWY 10'], ['other', NEXT + ' 2']]);
+  // the boilerplate ends at its "questions." line
+  const bp = parse(pkg({ remarks: [NEXT] }));
+  assert.deepEqual(bp.ofpRemarks.slice(0, 3).map(x => [x.category, x.text.split('\n').length]), [['dispatcher', 1], ['boilerplate', 3], ['other', 1]],
+    'the dispatcher line stays one line; the boilerplate is 3 lines; the next line is a new remark');
+  // negative control: an item that can run over lines does take the unmarked line (PCF)
+  assert.deepEqual(parse(pkg({ remarks: ['PCF FOR WX', NEXT] })).pcf.reasons, ['PCF FOR WX\n' + NEXT]);
+});
+
+test('TC-161-203 O-10 (2): a page break is not a blank line; a remark continues across it, a blank line splits', () => {
+  const across = parse(pkg({ remarks: ['FLIGHT RELEASED UNDER EXEMPTION NO 00000Z. ALTERNATE AIRPORT'],
+    remarksNextPage: ['REQUIRED.REFER TO FOM FOR ADDITIONAL INFORMATION.'] }));
+  const ex = across.ofpRemarks.filter(x => x.category === 'exemption');
+  assert.deepEqual(ex.map(x => x.text.split('\n').length), [2], 'one remark across the page break');
+  assert.deepEqual(across.ofpRemarks.filter(x => x.text.includes('REFER TO FOM')).map(x => x.page), [ex[0].page], 'it keeps the page of its first line');
+  const relPages = across.ofpRemarks.map(x => x.page);
+  assert.ok(Math.max(...relPages) > ex[0].page, 'the remarks run really spans two release pages');
+  // negative: the same two lines separated by a blank line on one page are two remarks
+  const blank = parse(pkg({ remarks: ['- PCF FOR ENROUTE WX', '   ', 'BTWN TWO POINTS'] }));
+  assert.deepEqual(blank.ofpRemarks.filter(x => x.category === 'pcf' || x.text === 'BTWN TWO POINTS').map(x => [x.category, x.text]),
+    [['pcf', '- PCF FOR ENROUTE WX'], ['other', 'BTWN TWO POINTS']]);
+  // and across a page break the same pair is one remark
+  assert.deepEqual(parse(pkg({ remarks: ['- PCF FOR ENROUTE WX'], remarksNextPage: ['BTWN TWO POINTS'] })).pcf.reasons, ['- PCF FOR ENROUTE WX\nBTWN TWO POINTS']);
+});
+
 // ══ fixtures ═════════════════════════════════════════════════════════════════
 
 function fixturesDir() {
@@ -809,6 +849,9 @@ if (!FIXTURES) {
     assert.deepEqual(lines(run(byLabel('L20')), 'cargoDeclaration'), [1, 1, 1, 1], 'one-line items never take a continuation');
     assert.ok(labelsWhere(r => r.ofpRemarks.some(x => ['dispatcher', 'raim', 'catIiIii', 'perishables', 'security', 'permit', 'ewins'].includes(x.category) && x.text.includes('\n'))).length === 0,
       'a one-line recognised item is never joined');
+    // O-10 (1) on the fixtures: T3's 3 test lines after the dispatcher line stay a remark of their own (counts only)
+    const t3 = run(byLabel('T3')).ofpRemarks;
+    assert.deepEqual(t3.slice(0, 2).map(x => [x.category, x.text.split('\n').length]), [['dispatcher', 1], ['other', 3]]);
     // the reason lists keep the printed line breaks (no reflow)
     assert.deepEqual(run(byLabel('L13')).pcf.reasons.map(x => x.split('\n').length), [1, 2]);
     assert.ok(run(byLabel('L15')).airportData.PWAK.remarksWeather[0].text.split('\n').length === 4);
