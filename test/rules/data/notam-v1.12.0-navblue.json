@@ -1,0 +1,182 @@
+{
+ "recordedFrom": {
+  "file": "notam-rules/notam-rules-v1.12.0.js",
+  "version": "1.12.0",
+  "sha256": "0d615a13f8cfcb7afc625f825a086d47beedbfc47afa9a7c51f7c47ba9162557"
+ },
+ "sweep": {
+  "roles": [
+   "ORIG",
+   "DEST"
+  ],
+  "etas": [
+   0,
+   59,
+   300,
+   600,
+   719,
+   720,
+   1000,
+   1380,
+   1439
+  ],
+  "deps": [
+   null,
+   0,
+   700
+  ],
+  "group": 40
+ },
+ "fixtures": {
+  "EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11": {
+   "digest": "d4c41dbcf83997ae129276df1d10bd79a30b59aad84abaa260579afdd7078ce0",
+   "notams": 268,
+   "calls": 756
+  },
+  "NB_EBLG-KORD_12OCT26_remarksdump_rev11": {
+   "digest": "b776bd0ca898edb6e9b5e3b321a5bae9590837a4bed1152edfb0f8697f61a3a7",
+   "notams": 209,
+   "calls": 648
+  },
+  "NB_KCHS-LIBG_12MAR26_lcf_rev16": {
+   "digest": "75c165c189fddd0c35b925136558acfffecaf565b3d1faa2155d04d39c38b853",
+   "notams": 300,
+   "calls": 864
+  },
+  "NB_KWRI-EPRZ_08APR26_cmb-nat_rev30": {
+   "digest": "a0d62a7d7d4ad0ae9ca4f0cb7f9559d45e6d78867be60f08916f3e5678570ea9",
+   "notams": 185,
+   "calls": 540
+  },
+  "NB_RODN-PANC_13MAR26_etops_rev16": {
+   "digest": "205b46eb8f225729c1bedaabf97b37b2077b4d03b4650d8780cb9b475c985119",
+   "notams": 317,
+   "calls": 864
+  },
+  "NB_YPDN-PHNL_11MAR26_etops_rev16": {
+   "digest": "e99132d6f826ae56a089982c3b3c0a45bffc298143bd935afa3586c6d5b1c104",
+   "notams": 172,
+   "calls": 540
+  },
+  "NB_EHAM-RKSI_08MAY26_exemption_rev11": {
+   "digest": "a2aba1fe2b9e1883a84e9eec7de2d442cf1abe589dd775af88e6f9a22a0fc831",
+   "notams": 198,
+   "calls": 540
+  },
+  "NB_RJAA-PANC_11APR26_notamschedule_rev5": {
+   "digest": "27c5b1d8f6d0c56766edf6df46b0303b51256ec028877c8fd0160cc865ea44f7",
+   "notams": 167,
+   "calls": 540
+  },
+  "NB_KGTB-EDDN_13MAR26_cmb_rev17": {
+   "digest": "7778b5c92d18a77b3fd421118a18618325b908ef09c9425a5528eef2c420ec57",
+   "notams": 127,
+   "calls": 432
+  },
+  "NB_VHHH-PANC_11MAR26_perishables_rev6": {
+   "digest": "61c7903749e1c80b9e2c8299b1c7f09c59ad099056a4c1f17ebf07dce5a5aaeb",
+   "notams": 172,
+   "calls": 540
+  },
+  "NB_VHHH-PANC_05APR26_vzfw_rev29": {
+   "digest": "da8f3abf679e051ac976fd308019445ff3bcb121e20e97a25ca6e6eb862cc1bd",
+   "notams": 177,
+   "calls": 540
+  },
+  "NB_VHHH-PANC_11MAY26_wheelsup_rev23": {
+   "digest": "2c84d44a2ad44accd3ab64d38c083da37683c50009a7e2225473fcd4870191b2",
+   "notams": 296,
+   "calls": 864
+  },
+  "NB_KORD-EDDF_06MAY26_notam_rev10": {
+   "digest": "780af01e8d4317a7ae4a1579e8fe386acbc852f670a12599db88e273f3a306ec",
+   "notams": 247,
+   "calls": 756
+  },
+  "NB_ELLX-KHSV_08MAR26_baseline_rev16": {
+   "digest": "34a75abdacc3173168bf4b7121f99d0c4df5899c2be07cb3cab9802c14af021f",
+   "notams": 348,
+   "calls": 972
+  },
+  "NB_KLAX-RJAA_01MAY26_notam_rev5": {
+   "digest": "e685c59358195e32cf5ed89e89a33720a1882750a16d36781a23887bb2851ecb",
+   "notams": 492,
+   "calls": 1404
+  },
+  "NB_KLAX-ZSAM_11MAR26_etops-rda_rev6": {
+   "digest": "d1a09ec6bf2328e756afcb9410a7ef1024920b0b6c453023e1c43a61580a4afa",
+   "notams": 494,
+   "calls": 1404
+  },
+  "NB_KMIA-EHAM_12MAR26_etp_rev8": {
+   "digest": "87e4729e7b035c239516f274ca4d7fddf53067950caa2dc0978ab72898ef4896",
+   "notams": 288,
+   "calls": 864
+  },
+  "NB_PANC-KORD_10APR26_maxldgw_rev6": {
+   "digest": "0ee93eba3e5ceb45e8d333119820f468a84a5d153702467757e646acee7a24ff",
+   "notams": 205,
+   "calls": 648
+  },
+  "NB_ZSNB-PANC_12MAR26_baseline_rev6": {
+   "digest": "ea8a0e1f4fd031c3beb68269b50a62e00bff084189549d3fed3a260e3d01b124",
+   "notams": 173,
+   "calls": 540
+  },
+  "NB_KORD-RKSI_31MAY26_altroute_rev10": {
+   "digest": "bbf7a58fbaddc90a167a64dbb59359b66c7df149ab554732c00e53653d4fd409",
+   "notams": 447,
+   "calls": 1296
+  },
+  "NB_KORD-RKSI_08APR26_catii_rev14": {
+   "digest": "dab2232dcab899c9d5ad39d6df0f786ca253b1bf477cae3c1786287d26741a53",
+   "notams": 434,
+   "calls": 1188
+  },
+  "NB_KORD-RJAA_05APR26_tempcontrol_rev8": {
+   "digest": "41a5f52a2af308545b1befa7db406b69a2278eaea2011ca906037bb118cd5fb2",
+   "notams": 382,
+   "calls": 1080
+  },
+  "NB_KPSM-ETAR_19APR26_nat_rev12": {
+   "digest": "3a3edb7924241cd8f7252765ce1120b829003b49bf6f601b5f4735614b93daca",
+   "notams": 120,
+   "calls": 324
+  },
+  "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7": {
+   "digest": "dc11fb71c6fb5d6c5663464af9dce76203bbf86619934a84ff83f97b6eae2d9f",
+   "notams": 306,
+   "calls": 864
+  },
+  "EOFP_RJAA-PANC_12SEP26_pkgB_rev3": {
+   "digest": "276ec56b245589331afa3389a9f82d0c40b06a56a1960ca0d769d9213e6acbc2",
+   "notams": 226,
+   "calls": 648
+  },
+  "EOFP_EHBK-RKSI_09SEP26_pkgC_rev16": {
+   "digest": "0ad4fe0a8900bc5fa496ad88e59aa79398c3da7f7368fe32cdc6a27cfc3580a6",
+   "notams": 286,
+   "calls": 864
+  },
+  "NB_NZAA-YSSY_06APR26_qfa_rev3": {
+   "digest": "e7be7c31340862a04e46b08075a955c5422fea451e1b9e458fc54f826e24c448",
+   "notams": 129,
+   "calls": 432
+  },
+  "NB_YSSY-RKSI_11MAR26_rda_rev6": {
+   "digest": "3f0f4c14228ef0bb43381e8a39713ab583dcf4a59a5c1d9d535954c024a9d40e",
+   "notams": 312,
+   "calls": 864
+  },
+  "NB_LTFM-EBLG_11MAR26_thy_rev10": {
+   "digest": "be431cccfee7c41494723501b22aec53c1cc3ec00ceed82e1bb5182605be10c2",
+   "notams": 97,
+   "calls": 324
+  },
+  "NB_PGUA-RKSO_05JUN26_dod_rev5": {
+   "digest": "da0871cefd446db6bf76be4979a1051aa7118db5e411a4b046510f05c115dadd",
+   "notams": 130,
+   "calls": 432
+  }
+ }
+}

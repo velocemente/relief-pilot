@@ -3775,7 +3775,8 @@ const RULESET_SOURCE  = 'ICAO Annex 15, Doc 8126 and Doc 4444 App 6; FAA JO 7930
 // v1.13.0: or with a FlightKeys item header (§ 2b). Text with no FlightKeys item
 // header takes the NavBlue path below, unchanged.
 function _splitNotams(text) {
-  // v1.13.0: FlightKeys item headers → cut at each one (and at any NavBlue "- XXXX" line).
+  // v1.13.0: FlightKeys item headers → cut at each one, and only there: a FlightKeys body
+  // line can start "- XXXX" ("- FIRE RESCUE PH: …" in Company NOTAMs).
   const fkStarts = _fkItemStarts(text);
   if (fkStarts.length) return _splitAt(text, fkStarts);
   // Split on lines beginning with "- XXXX" where XXXX is a 4-letter ICAO
@@ -3855,7 +3856,7 @@ function _fkHeaderAt(lines, i) {
     if (w[2] && !id) id = w[2].replace(/[ \t]+/g, ' ');
     if (w[3]) fl = w[3];
   }
-  if (!id && !wrapped.length) return null;          // location-only row 1 needs the ID below it
+  if (!id) return null;                             // every item has an ID (row 1 or a wrapped row)
   const rows = [i, ...wrapped.map((_, n) => i + 1 + n)];
   return { line: i, locations: locs, id, start: m[3], endText: m[4], est: m[5] || null, rows, fl };
 }
@@ -3869,12 +3870,12 @@ function _fkItemStarts(text) {
   return out;
 }
 
-// Cut text before the given line indexes (and before NavBlue "- XXXX" lines). The pieces
-// are exact substrings of the text, in order (D54: nothing is reflowed).
+// Cut text before the given line indexes. The pieces are exact substrings of the text, in
+// order (D54: nothing is reflowed); text before the first header is kept as its own piece,
+// as the NavBlue split keeps it.
 function _splitAt(text, fkStarts) {
   const lines = text.split('\n');
   const cut = new Set(fkStarts);
-  lines.forEach((l, i) => { if (/^- [A-Z]{4}\b/.test(l)) cut.add(i); });
   const parts = [];
   let cur = [];
   lines.forEach((l, i) => {
