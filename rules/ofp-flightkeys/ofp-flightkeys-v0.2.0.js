@@ -1,5 +1,5 @@
 /**
- * ofp-flightkeys.js — FlightKeys OFP Parser  (v0.1.0, development version, contract v2.1)
+ * ofp-flightkeys.js — FlightKeys OFP Parser  (v0.2.0, development version, contract v2.2)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.4): the FlightKeys OFP parser. It reads
  * an Atlas Air / Polar Air Cargo package in the FlightKeys format and returns
@@ -7,15 +7,20 @@
  * and meanings, as the locked NavBlue parser (FK-P), plus the Appendix B
  * extensions and findings[].
  *
- * v0.1.0 (D58) is a DEVELOPMENT version. It is not built into index.html, not
+ * v0.2.0 (D58) is a DEVELOPMENT version. It is not built into index.html, not
  * used by the app and not published to the master folder. It reads the OFP
- * release (page 1 and the route): identity and header, airports and times,
- * fuel, weights, DOT exemption, slot, ETOPS, POR, ETP/CFS, nav log (for TOC
- * and the ETOPS/ETP/POR times) and alternate routes (field map v1.1 rows
- * 1–23, 29–31, 33, 34, 36, 39–41). Every other field is returned as an
- * explicit empty value with one INFO finding naming the step that reads it
- * ("read in 5b-2" — the rest of the release; "read in 5d" — the briefing
- * package). v0.1.0 must not be integrated: an explicit empty is not a value.
+ * release: identity and header, airports and times, fuel, weights, DOT
+ * exemption, slot, ETOPS, POR, ETP/CFS, nav log (for TOC and the ETOPS/ETP/POR
+ * times) and alternate routes (v0.1.0: field map v1.1 rows 1–23, 29–31, 33,
+ * 34, 36, 39–41) and, new in v0.2.0, the release and remarks pages: crew and
+ * the operating-pilot count (row 26, D62), CAT II/III authorisations and
+ * restrictions (24), MEL/CDL/DDG items (25), perishables (27), temperature
+ * control (28), permits (35), the TLR (32, 32a), the OFP Remarks with their
+ * categories and sub-headings, airport remarks and remarks weather, security
+ * messages, extra fuel, PCF and the revision. The briefing package (NOTAMs,
+ * weather, curfew, Company NOTAMs, NAT, sections) is returned as an explicit
+ * empty value with one INFO finding ("read in 5d"). v0.2.0 must not be
+ * integrated: an explicit empty is not a value.
  *
  * INPUT  parseFlightKeys(input, options)
  *   input   { text, pages:[{ page, width, height, items:[{ str, x, y, w, h,
@@ -54,12 +59,14 @@
 
 const RULESET_TYPE     = 'ofp';
 const OFP_FORMAT       = 'flightkeys';
-const RULESET_VERSION  = '0.1.0';
+const RULESET_VERSION  = '0.2.0';
 const SCHEMA_VERSION   = 2;
-// Contract v2.0 (ADR-005 Appendix A + B) plus two extension fields added by
-// the Appendix B addendum (Exec SME answers 13 Nov: specialQualification, swa).
-// Adding fields is a minor contract version (ADR-005 §2.4) → 2.1.
-const CONTRACT_VERSION = '2.1';
+// Contract v2.0 (ADR-005 Appendix A + B) plus the extension fields of the
+// Appendix B addenda: specialQualification, swa (Exec SME answers 13 Nov,
+// contract 2.1); operatingPilots (D62) and the crew-record extensions
+// firstName, toLndgExpiry (SME-9) (contract 2.2). Adding fields is a minor
+// contract version (ADR-005 §2.4).
+const CONTRACT_VERSION = '2.2';
 const RULESET_SOURCE   = 'FlightKeys OFP issued by Atlas Air / Polar Air Cargo dispatch (release, ICAO FPL and briefing package); field map SPRINT-OFP-FlightKeysMigration v1.1; ICAO Doc 4444 App 2/3 through icao-fpl';
 
 // ═══════════════════════════════════════════════════════════════
@@ -83,46 +90,36 @@ const CORE_FIELDS = Object.freeze([
 ]);
 
 // Appendix B — top-level extensions, in order (contract v2.0 list with `swa`
-// added before `sections` by the addendum).
+// (addendum 1) and `operatingPilots` (addendum 2, D62) added before `sections`).
 const EXTENSION_FIELDS = Object.freeze([
   'revision', 'companyNotams', 'ofpRemarks', 'fplEquipment',
   'catIiIiiRestrictions', 'securityMessages', 'extraFuel', 'pcf', 'permits',
-  'designator', 'swa', 'sections', 'findings',
+  'designator', 'swa', 'operatingPilots', 'sections', 'findings',
 ]);
 // Extensions on core records. specialQualification: addendum (SME-2).
 const AIRPORT_EXTENSION_FIELDS = Object.freeze(['remarks', 'remarksWeather', 'specialQualification']);
 const DDG_EXTENSION_FIELDS     = Object.freeze(['type', 'notes']);
+// Extensions on crewMembers[i] (addendum 2): the full first name as printed and
+// the TO/LNDG currency expiry ("Not Reported" when blank, SME-9).
+const CREW_EXTENSION_FIELDS    = Object.freeze(['firstName', 'toLndgExpiry']);
 
-// Fields v0.1.0 does not read: the explicit empty is returned and one INFO
-// finding names the step that reads the field (field map v1.1 rows).
+// Fields v0.2.0 does not read: the explicit empty is returned and one INFO
+// finding names the step that reads the field (field map v1.1 rows). Step
+// 'open' = in no brief yet. The airportData entries carry no curfew / opsNotes
+// keys until 5d (NavBlue also leaves them out when nothing is printed); the
+// INFO names them (QA F3).
 const DEFERRED_FIELDS = Object.freeze({
-  crewMembers:            '5b-2',  // row 26
-  hasPerishables:         '5b-2',  // row 27
-  hasTemperatureControl:  '5b-2',  // row 28 (D55)
-  catIiIiiApproaches:     '5b-2',  // row 24
-  ddgItems:               '5b-2',  // row 25
-  melItems:               '5b-2',  // row 25
-  overflightPerms:        '5b-2',  // row 35
-  oeiData:                '5b-2',  // row 32
   enrouteNotams:          '5d',    // row 49
   natTrack:               '5d',    // row 42
   'airportData.weather':  '5d',    // rows 43, 45, 48
   'airportData.notams':   '5d',    // rows 44, 45
   'airportData.curfew':   '5d',    // row 46
   'airportData.opsNotes': '5d',    // row 47
-  'airportData.remarks':  '5b-2',  // Appendix B
-  'airportData.remarksWeather': '5b-2',
-  revision:               '5b-2',
   companyNotams:          '5d',
-  ofpRemarks:             '5b-2',
-  fplEquipment:           '5b-2',
-  catIiIiiRestrictions:   '5b-2',
-  securityMessages:       '5b-2',
-  extraFuel:              '5b-2',
-  pcf:                    '5b-2',
-  permits:                '5b-2',
+  fplEquipment:           'open',  // D41 field 10a + MEL removals: not in the v0.2.0 brief (icao-fpl reads field 10)
   sections:               '5d',
 });
+const DEFERRED_STEPS = Object.freeze({ '5d': 'read in 5d', open: 'not in any brief yet (open item)' });
 
 // ═══════════════════════════════════════════════════════════════
 // § 3 · PATTERNS (FlightKeys release, structure per field map v1.1)
@@ -206,6 +203,101 @@ const PATTERNS = {
   ALT_ROUTE_TITLE: /^(Destination Primary Alternate Route|Initial Airport Route|Initial Alternate Route)\s*$/,
   ALT_ROUTE_END:   /^(?:[A-Z]{4}\/\d{3,4}\s*$|GCD\s+\d+\s+GDIS\b|MORA\s+\d+)/,
   ALT_ROUTE_MORA:  /^MORA\s+(\d+)\s*$/,
+
+  // ── v0.2.0: release and remarks pages ───────────────────────────
+  // Release title (revision extension): "OPERATIONAL FLIGHT PLAN RLS nn DDMONYY HH:MM"
+  // (L20–L23: "REV nn"; prototypes "-- NOT RELEASED --").
+  RELEASE_KIND:    /^OPERATIONAL FLIGHT PLAN\s+(?:(RLS|REV)\s+(\d{1,3})\s+(\d{2}[A-Z]{3}\d{2})\s+(\d{2}:\d{2})\b|(--\s*NOT RELEASED\s*--))/,
+  REVISION_NO:     /\bRevision:\s+(\d+\.\d+|-\.-)(?=\s|$)/,
+  VALID_UNTIL:     /\bRelease Valid Until\s+(\d{4}Z)\s+(\d{2}[A-Z]{3}\d{2})\b/,
+  MEL_START:       /^MEL\/CDL\s*$/,
+  // Row 26: crew list, OFP p2 end / p3 — "Fit for Duty Affirmation" … "TIME FUEL"
+  CREW_START:      /^Fit for Duty Affirmation\b/,
+  CREW_STOP:       /^TIME FUEL\b/,
+  CREW_HDR:        /^(?:FIT FOR DUTY\/\s+RELIEF PIC|JS VERIFY\s+START-END\(Z\))\s*$/,
+  // pilot "ROLE <EMPNO> [*] <LAST>, <FIRST …> .. .. .." (the NavBlue pilot roles)
+  CREW_PILOT:      /^(CA|FO1?|FO2|SO|AO|RO)\s+(\d{1,7})\s+(\*\s*)?([^,.]+?),\s*(.*?)\s*\.\.(?:\s*\.\.)*\s*$/,
+  CREW_EXPIRY:     /^TO\/LNDG Expiry:\s*(\S*)\s*$/,
+  // other crew "ROLE <EMPNO> <NAME …>" (no dots): DH, JS are returned (NavBlue); MX LM FA PU are not
+  CREW_OTHER:      /^(DH|JS|MX|LM|FA|PU)\s+(\d{1,7})\s+(\S.*?)\s*$/,
+  CREW_ANY_ROLE:   /^[A-Z]{2}\d?\s+\d{1,7}\s+\S/,
+  // Row 24: CAT II/III — the NavBlue AIRPORT_ENTRY form, bare in the FlightKeys Remarks.
+  CAT_AUTH:        /^([A-Z]{4})\s+CAT\s+(II\/III|II|III)\s*-\s*(?:ALL\s+RWYS?|RWY\s+([A-Z0-9\/]+))\s*$/,
+  // Restrictions (never authorisations): any CAT line that says NOT AUTHORIZED / PROHIBITED / RESTRICTED.
+  CAT_ANY:         /^([A-Z]{4})\s+CAT\s+(II\/III|II|III)\b/,
+  CAT_NEGATIVE:    /\bNOT\s+AUTHORI[SZ]ED\b|\bPROHIBITED\b|\bRESTRICT(?:ED|ION)\b|\bNOT\s+APPROVED\b/i,
+  CAT_RWYS:        /\bRWYS?\s+((?:\d{1,2}[LCR]?)(?:\s*\/\s*\d{1,2}[LCR]?)*)\b/,
+  // MEL note / title "- CAT III Restricted", "- CAT II / CAT III Restricted", "CAT II/III Restriction"
+  CAT_MEL:         /\bCAT\s+(II|III)(?:\s*\/\s*(?:CAT\s+)?(II|III))?\s+Restrict(?:ed|ion)\b/i,
+  // Row 25: MEL/CDL block — "MEL nn-nn-nn[-nn][A] - <title>" / "CDL Cnn-nn-nn - <title>"
+  MEL_ITEM:        /^(MEL|CDL)\s+(C?\d{2}(?:-[0-9A-Z]+)+)\s+-\s*(.*)$/,
+  MEL_NOTE:        /^(?:RMK\s+-|-)\s*\S/,
+  ADHOC_PENALTY:   /^Dispatcher applied ADHOC penalty:?\s*$/,
+  // SME-19: an MEL named only in a late-addition remark ("HHMMZ STR ADD M<ATA>",
+  // "ADD MEL <ATA> …", "MEL ADDED" + "<ATA>" on the next line)
+  LATE_MEL_ADD:    /\bADD\s+M(?:EL)?\s*(C?\d{2}(?:-[0-9A-Z]+)+)(?:\s+(.*))?$/,
+  LATE_MEL_ADDED:  /^MEL\s+ADDED\s*$/,
+  ATA_ALONE:       /^(C?\d{2}(?:-[0-9A-Z]+)+)\s*$/,
+  // Row 32a: TLR "RMKS <ATA>" — the code at the start of the RMKS line (NavBlue) and of
+  // its continuation lines (FlightKeys prints further codes on the lines below)
+  TLR_RMKS_LINE:   /^RMKS\s+(C?[\d][\d-]+[A-Z]?)\b/,          // NavBlue TLR_RMKS_ATA, one line
+  TLR_ATA:         /^(C?\d{2}(?:-\d+)+[A-Z]?)\b/,             // a code on a continuation line
+  TLR_RMKS_END:    /^(?:-{3,}|\/\/\/|RWY\s|APT\s)/,
+  // TLR pages: header "REL n/n DDMONYYYY HHMMZ CCC#### ORIG/DEST DDMONYY", footer "FUFI<uuid> PAGE n/N"
+  TLR_PAGE_HDR:    /^REL\s+\d+\/\d+\s+\d{2}[A-Z]{3}\d{2}\s+\d{4}Z\s+\S+\s+[A-Z]{4}\/[A-Z]{4}\b/,
+  TLR_PAGE_FOOTER: /^FUFI[0-9A-F-]+ PAGE (\d+)\/(\d+)$/,
+  TLR_PAGE_TITLE:  /^TAKEOFF AND LANDING REPORT\b.*\bPAGE\s+\d+\s*$/,
+  TLR_SEQ:         /^TLR-(\d+)\s+SEQ-/,
+  // NavBlue TLR_PATTERNS, unchanged (row 32: oeiData as NavBlue)
+  TLR_SECTION_START:    /TAKEOFF AND LANDING REPORT/,
+  TLR_SECTION_END:      /^END TAKEOFF AND LANDING REPORT/m,
+  TLR_TKOFF_SECTION:    /\/\/\/ TAKEOFF DATA \/\/\//,
+  TLR_LAND_SECTION:     /\/\/\/ LANDING DATA \/\/\//,
+  TLR_RUNWAY_INFO_HDR:  /RUNWAY INFO\s*-+\s*\nRWY\s+LENGTH\s+EFP\s+NOTES\s*\n([\s\S]*?)(?=-{5})/,
+  TLR_RUNWAY_INFO_LINE: /^(\d{2}[LRC]?(?:-\w+)?(?:\s+[A-Z]+)?)\s+\d+\s+(SPECIAL|DT\s+\S+|LT\s+\S+|RT\s+\S+)/,
+  TLR_SPECIAL_EFP_HDR:  /SPECIAL ENG FAIL TAKEOFF PROCEDURES\s*-+\s*\nRWY\s+CLB\s+VIA[^\n]*\n([\s\S]*?)(?=-{5})/,
+  TLR_SPECIAL_EFP_LINE: /^(\d{2}[LRC]?(?:-\w+)?(?:\s+[A-Z]+)?)\s+(.*)/,
+  TLR_SHIPS_SUFFIX:     /\s+SHIPS$/,
+  // Rows 27, 28: the NavBlue rules (D55), read in the release Remarks only; FlightKeys
+  // also prints the bare line "PERISHABLES ONBOARD" (row 27)
+  PERISHABLE:      /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES|LIVE\s+ANIMALS\s*:\s*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
+  PERISHABLES_ONBOARD: /^PERISHABLES?\s+ON\s*BOARD\b/,
+  TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
+  // Row 35: "Overflight/Landing Permits" … the nav-log header; groups "--- OVERFLIGHT PERMITS" etc.
+  PERMITS_START:   /^Overflight\/Landing Permits?\s*$/,
+  PERMIT_GROUP:    /^---\s+(OVERFLIGHT|LANDING|TAKEOFF)\s+PERMITS?\s*$/,
+  PERMIT_REG_ONLY: /^([A-Z0-9-]{3,8})\s+(?:AUTH\s+)?ONLY\s*$/,
+  PERMIT_MISSING:  /\/{3,}\s*PERMIT MISSING\s*\/{3,}/,
+  PERMIT_ADC:      /^([A-Z][A-Z ]*?[A-Z])\s+(ADC\s+NO\.?\s*-?\s*\S+)\s*$/,
+  // Remarks categories (field map §2.4 table) — start lines
+  RMK_DISPATCHER:  /\bDESK:\s*\S+/,
+  RMK_BOILERPLATE: /^This OFP prepared with FlightKeys\b/,
+  RMK_BOILER_END:  /questions\.\s*$/,
+  RMK_CARGO:       /^(DANGEROUS GOODS|COMAT|LIVE ANIMALS|TEMPERATURE REQUIREMENTS):\s*(YES|NO)\s*$/,
+  RMK_SECURITY:    /\bSECURITY\b/,
+  RMK_SLOT:        /\bWHEELS\s+UP\b|\bSLOT\s+TIME\b/,
+  RMK_EWINS:       /\bE-?WINS\b/i,
+  RMK_RAIM:        /^RAIM VALIDATION\b/,
+  RMK_EXEMPTION:   /\bEXEMPTION\b/,
+  RMK_FLEET_NOTE:  /^B7\d7-\d+[A-Z]*\/\s*\S/,
+  RMK_STATION:     /^(?:\*\*\s*([A-Z]{4})(?:\/[A-Z]{3})?\s+FLIGHT\s+OP(?:S|ERATIONS)\s+RESTRICTIONS?\s*\*\*|([A-Z]{4})(?:\/[A-Z]{3})?\s+FLIGHT\s+OP(?:S|ERATIONS)\s+RESTRICTIONS?:?|([A-Z]{4})\s+(?:B?(7\d7)\s+)?(?:ARRIVALS|DEPARTURES|OPERATIONS):)\s*$/,
+  RMK_DASHES:      /^-{10,}\s*$/,
+  RMK_SUBHEAD:     /^(ARRIVALS|DEPARTURES)\s*$|^[A-Za-z][A-Za-z ,]*:\s*$/,
+  RMK_FLEET_SUB:   /^B?(7\d7)\s+Operations\b(.*)$/i,
+  RMK_WEATHER:     /^(?:GOV\s+)?TAF\s+UPDATED\b|^(?:WSI|TWC)\b|^(?:TAF|METAR|SPECI)\s+(?:AMD\s+|COR\s+)?[A-Z]{4}\s+\d{6}Z\b/,
+  RMK_WX_REPORT:   /^(TAF|METAR|SPECI)\s+(?:AMD\s+|COR\s+)?([A-Z]{4})\s+\d{6}Z\b/,
+  RMK_MEL_CHANGE:  /^MEL\s+ADDED\b|\bADD\s+M(?:EL)?\s*C?\d{2}-/,
+  RMK_PCF:         /\bPCF\b|^-?\s*CF\b|\bADDITIONAL\s+FUEL\b/,
+  RMK_EXTRA:       /\bTANKER\b|\bPRE-?FUELED\b|\bFINAL\s+FUEL\b|\bEXTRA\s+FUEL\b/,
+  RMK_BALLAST:     /\bBALLAST\b/,
+  RMK_ROUTE:       /\bROUTED?\b|\bAVOID\b|\bNAT\s+TRACK\b|\bRANDOM\s+ROUTE\b|\bVA\s+(?:ACTIVITY|FROM)\b|\bATLANTIC\s+CROSSING\b/,
+  // SME-18: a station restriction that requires a takeoff alternate
+  TKOF_ALT_REQ:    /\bTAKE-?\s*OFF\s+ALTERNATE\s+(?:IS\s+)?REQUIRED\b/i,
+  // D39: extra fuel that is tanker fuel for this flight
+  TANKER_FUEL:     /\b(?:ECON\s+)?TANKER(?:ING)?\s+FUEL\b|\bTANKERING\b/,
+  NO_TANKER:       /\bNO\s+TANKER/,
+  EXTRA_PREFUEL:   /\bPRE-?FUELED\b/,
+  EXTRA_CAPTAIN:   /\bCAPT(?:AIN)?\b/,
 };
 
 // Alternate keywords → crew roles: the NavBlue rule (ALT_PATTERNS), unchanged
@@ -217,6 +309,46 @@ const ALT_ROLES = Object.freeze({
 
 const MONTHS = Object.freeze({ JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11 });
 const MON_NAMES = Object.freeze(['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']);
+
+// Row 35: a permit entry starts with the state's name, as printed in English
+// capitals ("SAUDI ARABIA SGF-…", "CHINA CAD/…"). A line that does not start
+// with a state name is the route (or a registration restriction) of the entry
+// above it ("RULAD A343 POSOT …"). Longest names are tried first.
+const PERMIT_STATES = Object.freeze([
+  'AFGHANISTAN','ALBANIA','ALGERIA','ANDORRA','ANGOLA','ANTIGUA AND BARBUDA','ARGENTINA','ARMENIA','ARUBA',
+  'AUSTRALIA','AUSTRIA','AZERBAIJAN','BAHAMAS','BAHRAIN','BANGLADESH','BARBADOS','BELARUS','BELGIUM','BELIZE',
+  'BENIN','BERMUDA','BHUTAN','BOLIVIA','BOSNIA AND HERZEGOVINA','BOTSWANA','BRAZIL','BRUNEI','BULGARIA',
+  'BURKINA FASO','BURUNDI','CABO VERDE','CAPE VERDE','CAMBODIA','CAMEROON','CANADA','CAYMAN ISLANDS',
+  'CENTRAL AFRICAN REPUBLIC','CHAD','CHILE','CHINA','COLOMBIA','COMOROS','CONGO','COSTA RICA',"COTE D'IVOIRE",
+  'CROATIA','CUBA','CURACAO','CYPRUS','CZECH REPUBLIC','CZECHIA','DEMOCRATIC REPUBLIC OF THE CONGO','DENMARK',
+  'DJIBOUTI','DOMINICA','DOMINICAN REPUBLIC','ECUADOR','EGYPT','EL SALVADOR','EQUATORIAL GUINEA','ERITREA',
+  'ESTONIA','ESWATINI','ETHIOPIA','FIJI','FINLAND','FRANCE','FRENCH GUIANA','FRENCH POLYNESIA','GABON','GAMBIA',
+  'GEORGIA','GERMANY','GHANA','GREECE','GREENLAND','GRENADA','GUAM','GUATEMALA','GUINEA','GUINEA-BISSAU',
+  'GUYANA','HAITI','HONDURAS','HONG KONG','HUNGARY','ICELAND','INDIA','INDONESIA','IRAN','IRAQ','IRELAND',
+  'ISRAEL','ITALY','IVORY COAST','JAMAICA','JAPAN','JORDAN','KAZAKHSTAN','KENYA','KIRIBATI','KOSOVO','KUWAIT',
+  'KYRGYZSTAN','LAOS','LATVIA','LEBANON','LESOTHO','LIBERIA','LIBYA','LIECHTENSTEIN','LITHUANIA','LUXEMBOURG',
+  'MACAO','MACAU','MADAGASCAR','MALAWI','MALAYSIA','MALDIVES','MALI','MALTA','MARSHALL ISLANDS','MAURITANIA',
+  'MAURITIUS','MEXICO','MICRONESIA','MOLDOVA','MONACO','MONGOLIA','MONTENEGRO','MOROCCO','MOZAMBIQUE','MYANMAR',
+  'NAMIBIA','NAURU','NEPAL','NETHERLANDS','NEW CALEDONIA','NEW ZEALAND','NICARAGUA','NIGER','NIGERIA',
+  'NORTH KOREA','NORTH MACEDONIA','NORWAY','OMAN','PAKISTAN','PALAU','PANAMA','PAPUA NEW GUINEA','PARAGUAY',
+  'PERU','PHILIPPINES','POLAND','PORTUGAL','PUERTO RICO','QATAR','ROMANIA','RUSSIA','RUSSIAN FEDERATION','RWANDA',
+  'SAINT KITTS AND NEVIS','SAINT LUCIA','SAINT VINCENT AND THE GRENADINES','SAMOA','SAN MARINO',
+  'SAO TOME AND PRINCIPE','SAUDI ARABIA','SENEGAL','SERBIA','SEYCHELLES','SIERRA LEONE','SINGAPORE','SLOVAKIA',
+  'SLOVENIA','SOLOMON ISLANDS','SOMALIA','SOUTH AFRICA','SOUTH KOREA','SOUTH SUDAN','SPAIN','SRI LANKA','SUDAN',
+  'SURINAME','SWEDEN','SWITZERLAND','SYRIA','TAIWAN','TAJIKISTAN','TANZANIA','THAILAND','TIMOR-LESTE','TOGO',
+  'TONGA','TRINIDAD AND TOBAGO','TUNISIA','TURKEY','TURKIYE','TURKMENISTAN','TUVALU','UGANDA','UKRAINE',
+  'UNITED ARAB EMIRATES','UNITED KINGDOM','UNITED STATES','URUGUAY','UZBEKISTAN','VANUATU','VENEZUELA','VIETNAM',
+  'YEMEN','ZAMBIA','ZIMBABWE',
+].sort((a, b) => b.length - a.length));
+
+// SME-12 / SME-18a: the fleet an aircraft type belongs to, as fleet sub-headings
+// name it ("747 Operations Prohibited", "767 Operations", "VHHH B747 DEPARTURES:").
+function _fleetOf(acftType) {
+  const t = String(acftType || '').toUpperCase();
+  if (t === 'BLCF') return '747';
+  const m = /^B7([0-9])[0-9A-Z]$/.exec(t);
+  return m ? '7' + m[1] + '7' : null;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // § 4 · SMALL HELPERS
@@ -272,13 +404,16 @@ function _releaseCopies(pages) {
     const fm = PATTERNS.RELEASE_FOOTER.exec(lines[lines.length - 1]);
     if (!fm) return;
     const n = +fm[1], of = +fm[2];
-    const page = { pdfPage: i + 1, n, of, body: lines.slice(2, -1) };
+    const page = { pdfPage: i + 1, n, of, title: lines[1], body: lines.slice(2, -1) };
     if (n === 1) { cur = { pages: [page], of }; copies.push(cur); }
     else if (cur && cur.of === of && cur.pages[cur.pages.length - 1].n === n - 1) cur.pages.push(page);
   });
   return copies.map(c => ({
     pages: c.pages, of: c.of, complete: c.pages.length === c.of,
     lines: [].concat(...c.pages.map(p => p.body)),
+    // provenance of each body line: PDF page and 1-based line on that page's text
+    // (lines 1–2 are the running header and the title line)
+    pos: [].concat(...c.pages.map(p => p.body.map((_, j) => ({ page: p.pdfPage, line: j + 3 })))),
   }));
 }
 
@@ -308,7 +443,7 @@ function _emptyExtensions() {
   return {
     revision: null, companyNotams: [], ofpRemarks: [], fplEquipment: null,
     catIiIiiRestrictions: [], securityMessages: [], extraFuel: null, pcf: null, permits: [],
-    designator: '', swa: null, sections: [], findings: [],
+    designator: '', swa: null, operatingPilots: null, sections: [], findings: [],
   };
 }
 
@@ -334,17 +469,20 @@ function parseFlightKeys(input, options) {
   if (!pagesIn) add('WARN', 'input', 'positioned items (input.pages) not supplied; read from text only');
   else if (pagesIn.length !== textPages.length) add('WARN', 'input', `input.pages has ${pagesIn.length} pages, the text ${textPages.length}`);
 
+  // The FPL block is read from the release (first copy) only, never from the first
+  // "(FPL-" anywhere in the package (5b-1 QA F4): an FPL quoted in a Company NOTAM or
+  // a briefing page is not this flight's filed plan. No release → no FPL.
+  const copies = _releaseCopies(textPages);
+  const rel = copies[0] || null;
   const fplMod = opts.icaoFpl && typeof opts.icaoFpl.parseIcaoFpl === 'function' ? opts.icaoFpl : null;
-  const fpl = fplMod ? fplMod.parseIcaoFpl(text) : null;
+  const fpl = fplMod ? fplMod.parseIcaoFpl(rel ? rel.lines.join('\n') : '') : null;
   if (!fplMod) add('WARN', 'icaoFpl', 'icao-fpl module not supplied: aircraft type, wake and FPL date not read');
-  else if (!fpl.found) add('WARN', 'icaoFpl', 'no ICAO flight plan (FPL) block found');
+  else if (!fpl.found) add('WARN', 'icaoFpl', 'no ICAO flight plan (FPL) block found in the release');
   else if (!fpl.complete) add('WARN', 'icaoFpl', 'ICAO flight plan block incomplete: field 18 (DOF) not read');
   const acp = opts.aircraftProfile && typeof opts.aircraftProfile === 'object' ? opts.aircraftProfile : null;
   if (!acp) add('INFO', 'aircraftProfile', 'aircraft-profile module not supplied');
 
   // ── Release ─────────────────────────────────────────────────────────
-  const copies = _releaseCopies(textPages);
-  const rel = copies[0] || null;
   if (!rel) {
     add('WARN', 'release', 'no FlightKeys release (OPERATIONAL FLIGHT PLAN pages with a FUFI footer) found');
   } else {
@@ -356,14 +494,14 @@ function parseFlightKeys(input, options) {
     }
   }
   const p1 = rel ? rel.pages[0].body : [];
-  const ctx = { out, ext, add, fpl, acp, rel, p1, pagesIn, textPages };
+  const ctx = { out, ext, add, fpl, acp, rel, p1, pagesIn, textPages, copies };
 
   _readIdentity(ctx);
   _readAirports(ctx);
   _readPending(ctx);
 
   // ── Deferred fields: explicit empties, one INFO each ───────────────
-  for (const f of Object.keys(DEFERRED_FIELDS)) add('INFO', f, `not read in v${RULESET_VERSION}: read in ${DEFERRED_FIELDS[f]}`);
+  for (const f of Object.keys(DEFERRED_FIELDS)) add('INFO', f, `not read in v${RULESET_VERSION}: ${DEFERRED_STEPS[DEFERRED_FIELDS[f]]}`);
   if (typeof opts.parseNatTrack === 'function') add('INFO', 'natTrack', `NAT parser supplied; not called in v${RULESET_VERSION} (row 42, 5d)`);
 
   // ── Assemble: core fields in CORE_FIELDS order, then the extensions ─
@@ -813,6 +951,566 @@ function _readAltRoutes(ctx) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// § 5b · v0.2.0 · RELEASE AND REMARKS PAGES
+// ═══════════════════════════════════════════════════════════════
+
+function _idx(lines, re, from) {
+  for (let i = from || 0; i < lines.length; i++) if (re.test(lines[i])) return i;
+  return -1;
+}
+const _isoReal = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return !!m && _isRealDate(+m[1], +m[2], +m[3]); };
+
+// Positioned items: the x of the first item of a text line on its PDF page, found
+// by the line's characters (white space ignored). null when the items cannot answer.
+function _lineX(ctx, pdfPage, text) {
+  if (!ctx.pagesIn) return null;
+  ctx.rowCache = ctx.rowCache || {};
+  if (!ctx.rowCache[pdfPage]) {
+    const pg = ctx.pagesIn.find(p => p && p.page === pdfPage);
+    const rows = [];
+    for (const it of (pg && Array.isArray(pg.items) ? pg.items : [])) {
+      if (!it || typeof it.str !== 'string' || !it.str.trim() || typeof it.x !== 'number' || typeof it.y !== 'number') continue;
+      let r = rows.find(x => Math.abs(x.y - it.y) <= 1);
+      if (!r) { r = { y: it.y, items: [] }; rows.push(r); }
+      r.items.push(it);
+    }
+    ctx.rowCache[pdfPage] = rows.map(r => {
+      const its = r.items.slice().sort((a, b) => a.x - b.x);
+      return { key: its.map(i => i.str).join('').replace(/\s+/g, ''), x: its[0].x };
+    });
+  }
+  const key = String(text).replace(/\s+/g, '');
+  const hit = ctx.rowCache[pdfPage].find(r => r.key === key);
+  return hit ? hit.x : null;
+}
+
+// Airport entry for a remark: the page-1 airports exist already; an airport the
+// release names elsewhere (an alternate in altData, e.g. a CFS alternate) gets an
+// entry of the same shape; any other airport is not attached (INFO).
+function _airportEntry(ctx, icao, what) {
+  const { out, add } = ctx;
+  if (out.airportData[icao]) return out.airportData[icao];
+  if (!out.altData.some(a => a.icao === icao)) {
+    add('INFO', 'airportData', `${icao}: ${what} for an airport that is not in the release; kept in ofpRemarks only`);
+    return null;
+  }
+  out.airportData[icao] = { weather: '', notams: '', remarks: [], remarksWeather: [], specialQualification: false };
+  add('INFO', 'airportData', `${icao}: airport entry added for its ${what} (a release alternate not on OFP page 1)`);
+  return out.airportData[icao];
+}
+
+// ── Crew (row 26; SME-3, SME-3a, SME-9; D62) ────────────────────────────
+// Pilots "ROLE <EMPNO> [*] <LAST>, <FIRST …> .. .." each followed by "TO/LNDG
+// Expiry: [YYYY-MM-DD]"; DH and JS lines are returned as NavBlue returns them
+// (active false); MX, LM, FA, PU are not crew for the briefing (counted, INFO).
+// The "*" stays with the last name and never sets isSen (SME-3/3a). Text as printed.
+function _readCrew(ctx) {
+  const { out, ext, add, rel } = ctx;
+  const lines = rel ? rel.lines : [];
+  const s = _idx(lines, PATTERNS.CREW_START);
+  if (s === -1) {
+    if (rel) add('WARN', 'crewMembers', 'crew list ("Fit for Duty Affirmation") not found in the release');
+    return;
+  }
+  let e = _idx(lines, PATTERNS.CREW_STOP, s + 1);
+  if (e === -1) e = lines.length;
+  const nameParts = raw => {
+    const c = raw.indexOf(',');
+    return c === -1 ? { last: raw.trim(), first: '' } : { last: raw.slice(0, c).trim(), first: raw.slice(c + 1).trim() };
+  };
+  const rec = (role, num, last, first, active, expiry) => {
+    const initial = ((first.match(/[A-Za-z]/) || [''])[0]).toUpperCase();
+    return { role, empNum: /^\d{2,7}$/.test(num) ? num : '', lastName: last, initial,
+      displayName: initial ? `${last} ${initial}` : last, active, isSen: false, firstName: first, toLndgExpiry: expiry };
+  };
+  const notCrew = {};
+  let lastPilot = null, blank = 0, star = 0;
+  const pilots = [];
+  for (let i = s + 1; i < e; i++) {
+    const l = lines[i].trim();
+    let m;
+    if ((m = PATTERNS.CREW_PILOT.exec(l))) {
+      const last = m[4].trim();
+      if (m[3]) star++;
+      lastPilot = rec(m[1], m[2], m[3] ? '* ' + last : last, m[5].trim(), true, null);
+      out.crewMembers.push(lastPilot);
+      pilots.push(lastPilot);
+    } else if ((m = PATTERNS.CREW_EXPIRY.exec(l))) {
+      if (!lastPilot || lastPilot.toLndgExpiry !== null) { add('WARN', 'crewMembers', 'TO/LNDG Expiry line without a pilot line above it'); continue; }
+      if (!m[1]) { lastPilot.toLndgExpiry = 'Not Reported'; blank++; }
+      else if (_isoReal(m[1])) lastPilot.toLndgExpiry = m[1];
+      else { lastPilot.toLndgExpiry = 'Not Reported'; add('WARN', 'crewMembers', `TO/LNDG Expiry "${m[1]}" is not a date: Not Reported`); }
+    } else if ((m = PATTERNS.CREW_OTHER.exec(l))) {
+      if (m[1] === 'DH' || m[1] === 'JS') {
+        const n = nameParts(m[3]);
+        out.crewMembers.push(rec(m[1], m[2], n.last, n.first, false, ''));
+      } else notCrew[m[1]] = (notCrew[m[1]] || 0) + 1;
+      lastPilot = null;
+    } else if (PATTERNS.CREW_ANY_ROLE.test(l) && !PATTERNS.CREW_HDR.test(l)) {
+      add('WARN', 'crewMembers', 'a crew line in the release was not read (unknown role or form)');
+    }
+  }
+  for (const p of pilots) if (p.toLndgExpiry === null) { p.toLndgExpiry = 'Not Reported'; add('WARN', 'crewMembers', 'pilot printed without a TO/LNDG Expiry line: Not Reported'); }
+  const nc = Object.keys(notCrew).sort().map(k => `${k} ${notCrew[k]}`);
+  if (nc.length) add('INFO', 'crewMembers', `crew lines not returned as crew (not shown): ${nc.join(', ')}`);
+  if (blank) add('INFO', 'crewMembers', `TO/LNDG Expiry blank for ${blank} pilot(s): "Not Reported" (SME-9)`);
+  if (star) add('INFO', 'crewMembers', `"*" printed for ${star} pilot(s): kept with the last name; not seniority (SME-3, SME-3a)`);
+  // D62: the number of operating pilots, for the crew rest module (no names).
+  if (pilots.length) {
+    ext.operatingPilots = pilots.length;
+    if (pilots.length < 2 || pilots.length > 4) add('WARN', 'operatingPilots', `${pilots.length} operating pilot(s) printed; 2, 3 or 4 expected`);
+  } else add('WARN', 'operatingPilots', 'no operating pilot found in the crew list');
+}
+
+// ── MEL / CDL / DDG block (row 25; SME-4) ───────────────────────────────
+// "MEL|CDL <code> - <title>" (title wraps onto the next line), notes "- …" /
+// "RMK - …" under the item (their wrapped lines join the note), until the next
+// item or the block end. "Dispatcher applied ADHOC penalty:" and its lines are
+// not item notes (kept in ofpRemarks). Indentation comes from the positioned
+// items (the text has none): a note further right than its item → indent 1.
+function _readMelBlock(ctx, from, to) {
+  const { out, ext, add, rel } = ctx;
+  const lines = rel.lines, pos = rel.pos;
+  const items = [];
+  const adhoc = [];
+  let cur = null, note = null, inAdhoc = false;
+  for (let i = from; i < to; i++) {
+    const l = lines[i].trim();
+    if (!l) continue;
+    let m;
+    if ((m = PATTERNS.MEL_ITEM.exec(l))) {
+      cur = { code: m[2], desc: m[3].trim(), tlr: '', type: m[1], notes: [], at: i };
+      items.push(cur); note = null; inAdhoc = false;
+    } else if (PATTERNS.ADHOC_PENALTY.test(l)) {
+      inAdhoc = true; cur = null; note = null; adhoc.push(i);
+    } else if (inAdhoc) {
+      adhoc.push(i);
+    } else if (!cur) {
+      add('WARN', 'ddgItems', 'a line in the MEL/CDL block before any item was not read');
+    } else if (PATTERNS.MEL_NOTE.test(l)) {
+      note = { text: l, indent: 1, at: i };
+      cur.notes.push(note);
+    } else if (note) note.text += ' ' + l;
+    else cur.desc = (cur.desc + ' ' + l).trim();
+  }
+  // Indentation from the positioned items (positions win over the text rule + WARN).
+  for (const it of items) {
+    const ix = _lineX(ctx, pos[it.at].page, lines[it.at]);
+    for (const n of it.notes) {
+      const nx = _lineX(ctx, pos[n.at].page, lines[n.at]);
+      if (ix === null || nx === null) continue;
+      const ind = nx > ix + 2 ? 1 : 0;
+      if (ind !== n.indent) { add('WARN', 'ddgItems', `${it.code}: a note is not indented in the positioned items; indent ${ind} used`); n.indent = ind; }
+    }
+  }
+  // CAT II/III restrictions printed by the MEL (SME-10): notes, else the item title.
+  for (const it of items) {
+    let found = false;
+    for (const n of it.notes) {
+      const cm = PATTERNS.CAT_MEL.exec(n.text);
+      if (!cm) continue;
+      found = true;
+      ext.catIiIiiRestrictions.push({ airport: null, category: cm[2] ? `${cm[1]}/${cm[2]}` : cm[1], runways: [],
+        text: n.text.replace(/^(?:RMK\s+-|-)\s*/, ''), source: `${it.type} ${it.code}` });
+    }
+    const tm = !found && PATTERNS.CAT_MEL.exec(it.desc);
+    if (tm) ext.catIiIiiRestrictions.push({ airport: null, category: tm[2] ? `${tm[1]}/${tm[2]}` : tm[1], runways: [],
+      text: it.desc, source: `${it.type} ${it.code}` });
+  }
+  ctx.adhocLines = adhoc;
+  ctx.melBlockItems = items;
+  if (!items.length) add('INFO', 'ddgItems', 'MEL/CDL block printed with no item');
+}
+
+// Finishes ddgItems: late additions (SME-19), NavBlue dedup, melItems (NavBlue form).
+function _finishDdg(ctx) {
+  const { out, add } = ctx;
+  const items = (ctx.melBlockItems || []).concat(ctx.lateMel || []);
+  // NavBlue rule: an item printed more than once is listed once (the last copy is
+  // kept, as NavBlue's loop does). Notes are part of the key so none is lost.
+  const keyOf = it => it.code + '|' + it.desc + '|' + it.notes.map(n => n.text).join('\n');
+  const seen = new Set();
+  let dup = 0;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const k = keyOf(items[i]);
+    if (seen.has(k)) { items.splice(i, 1); dup++; } else seen.add(k);
+  }
+  if (dup) add('INFO', 'ddgItems', `${dup} MEL/CDL item(s) printed more than once: listed once (NavBlue rule; SME-4)`);
+  out.ddgItems = items.map(it => ({ code: it.code, desc: it.desc, tlr: it.tlr, type: it.type,
+    notes: it.notes.map(n => ({ text: n.text, indent: n.indent })) }));
+  out.melItems = out.ddgItems.map(i => i.code + ' ' + i.desc).join(' | ').substring(0, 600);
+}
+
+// ── OFP Remarks (field map §2.4 categories; D34, D45, D39, SME-7, SME-10,
+//    SME-18, SME-18a, SME-19, SME-23) ─────────────────────────────────────
+// Every line from the dispatcher line to "MEL/CDL" becomes one ofpRemarks record
+// { text, category, airport, subHeading, page, line }. A line that starts no
+// category continues the remark above it when that remark can run over lines.
+// A station restriction block runs until a RAIM, CAT, exemption, fleet-note,
+// E-WINS line or another station heading (it has no end marker).
+const _RMK_HARD = new Set(['raim', 'catIiIii', 'stationRestriction', 'fleetNote', 'ewins', 'exemption']);
+const _RMK_INHERIT = new Set(['boilerplate', 'pcf', 'extraFuel', 'ballast', 'melChange', 'route', 'slot',
+  'weather', 'stationRestriction', 'exemption', 'fleetNote', 'other']);
+function _remarkStart(t, first) {
+  if (first && PATTERNS.RMK_DISPATCHER.test(t)) return 'dispatcher';
+  if (PATTERNS.RMK_BOILERPLATE.test(t)) return 'boilerplate';
+  if (PATTERNS.RMK_RAIM.test(t)) return 'raim';
+  if (PATTERNS.CAT_ANY.test(t)) return 'catIiIii';
+  if (PATTERNS.RMK_STATION.test(t)) return 'stationRestriction';
+  if (PATTERNS.RMK_FLEET_NOTE.test(t)) return 'fleetNote';
+  if (PATTERNS.RMK_EWINS.test(t)) return 'ewins';
+  if (PATTERNS.RMK_EXEMPTION.test(t)) return 'exemption';
+  if (PATTERNS.RMK_CARGO.test(t)) return 'cargoDeclaration';
+  if (PATTERNS.PERISHABLES_ONBOARD.test(t)) return 'perishables';
+  if (PATTERNS.RMK_SECURITY.test(t)) return 'security';
+  if (PATTERNS.PERMIT_ADC.test(t)) return 'permit';
+  if (PATTERNS.RMK_SLOT.test(t)) return 'slot';
+  if (PATTERNS.RMK_WEATHER.test(t)) return 'weather';
+  if (PATTERNS.RMK_MEL_CHANGE.test(t)) return 'melChange';
+  if (PATTERNS.RMK_PCF.test(t)) return 'pcf';
+  if (PATTERNS.RMK_EXTRA.test(t)) return 'extraFuel';
+  if (PATTERNS.RMK_BALLAST.test(t)) return 'ballast';
+  if (PATTERNS.RMK_ROUTE.test(t)) return 'route';
+  return null;
+}
+
+function _readRemarks(ctx, from, to) {
+  const { out, ext, add, rel } = ctx;
+  const lines = rel.lines, pos = rel.pos;
+  const acFleet = _fleetOf(out.acftType);
+  const entries = [];
+  let mode = null, boilerOpen = false, station = null, entry = null, fleetWarned = false;
+  for (let i = from; i < to; i++) {
+    const t = lines[i].trim();
+    if (!t) continue;
+    let c = _remarkStart(t, i === from);
+    if (c === null && PATTERNS.RMK_DASHES.test(t) && i + 1 < to && PATTERNS.RMK_STATION.test(lines[i + 1].trim())) c = 'dashes';
+    let cont = false;
+    if (mode === 'stationRestriction' && !(c && _RMK_HARD.has(c))) { c = 'stationRestriction'; cont = true; }
+    else if (c === 'dashes') { c = 'stationRestriction'; station = { icao: null, heading: '', fleet: null, subHeading: null, subFleet: null }; }
+    else if (c === null && mode && (mode !== 'boilerplate' || boilerOpen)) { c = mode; cont = true; }
+    else if (c === null) c = 'other';
+    // station block state
+    const isHeader = c === 'stationRestriction' && PATTERNS.RMK_STATION.test(t);
+    if (isHeader) {
+      const hm = PATTERNS.RMK_STATION.exec(t);
+      const prev = station && !station.icao ? station : null;   // a dashed line opened it
+      station = { icao: hm[1] || hm[2] || hm[3], heading: t, fleet: hm[4] || null, subHeading: null, subFleet: null };
+      cont = !!prev;
+    } else if (c !== 'stationRestriction') station = null;
+    if (c === 'boilerplate') boilerOpen = !PATTERNS.RMK_BOILER_END.test(t);
+    let airport = null, subHeading = null;
+    if (c === 'stationRestriction' && station) {
+      airport = station.icao;
+      let item = !isHeader && !PATTERNS.RMK_DASHES.test(t);
+      const fm = PATTERNS.RMK_FLEET_SUB.exec(t);
+      if (item && fm) { station.subHeading = t; station.subFleet = fm[1]; item = !!fm[2].trim(); }
+      else if (item && PATTERNS.RMK_SUBHEAD.test(t)) { station.subHeading = t.replace(/:\s*$/, ''); station.subFleet = null; item = false; }
+      subHeading = station.subHeading;
+      if (item && airport) {
+        const fleet = station.subFleet || station.fleet || null;
+        if (fleet && !acFleet && !fleetWarned) { add('WARN', 'airportData', `aircraft type ${out.acftType || '(none)'} has no known fleet: fleet restrictions attached unfiltered`); fleetWarned = true; }
+        const applies = !fleet || !acFleet || fleet === acFleet;
+        (station.items = station.items || []).push({ text: t, heading: station.heading, subHeading, fleet, applies, page: pos[i].page, line: pos[i].line });
+        if (station.items.length === 1) (ctx.stations = ctx.stations || []).push(station);
+      }
+    }
+    ext.ofpRemarks.push({ text: t, category: c, airport, subHeading, page: pos[i].page, line: pos[i].line });
+    if (cont && entry && entry.category === c) { entry.text += ' ' + t; entry.lines.push(i); }
+    else { entry = { category: c, text: t, lines: [i], page: pos[i].page, line: pos[i].line }; entries.push(entry); }
+    mode = _RMK_INHERIT.has(c) ? c : null;
+  }
+  // ADHOC penalty lines of the MEL/CDL block (not item notes): kept in order.
+  for (const i of ctx.adhocLines || []) ext.ofpRemarks.push({ text: lines[i].trim(), category: 'adhocPenalty', airport: null, subHeading: null, page: pos[i].page, line: pos[i].line });
+  ctx.remarkEntries = entries;
+  const remText = lines.slice(from, to).join('\n');
+
+  // Rows 27, 28 (D55): the NavBlue rules on the release Remarks; FlightKeys bare line.
+  out.hasPerishables = PATTERNS.PERISHABLE.test(remText) || entries.some(en => en.category === 'perishables');
+  out.hasTemperatureControl = PATTERNS.TEMPERATURE_CONTROL.test(remText);
+
+  // Row 24 (SC): authorisations (NavBlue form) and restrictions (never authorisations).
+  const cat = {};
+  for (const en of entries.filter(x => x.category === 'catIiIii')) {
+    const t = en.text, am = PATTERNS.CAT_ANY.exec(t);
+    if (PATTERNS.CAT_NEGATIVE.test(t)) {
+      const rm = PATTERNS.CAT_RWYS.exec(t.slice(am[0].length));
+      ext.catIiIiiRestrictions.push({ airport: am[1], category: am[2], runways: rm ? rm[1].split('/').map(r => r.trim()) : [],
+        text: t, source: 'OFP Remarks' });
+      continue;
+    }
+    const m = PATTERNS.CAT_AUTH.exec(t);
+    if (!m) { add('WARN', 'catIiIiiApproaches', `${am[1]}: CAT II/III line not read`); continue; }
+    (cat[m[1]] = cat[m[1]] || []).push({ cat: m[2], rwys: m[3] ? m[3].trim() : 'ALL RUNWAYS' });
+  }
+  out.catIiIiiApproaches = Object.keys(cat).length ? cat : null;
+
+  // Station restrictions → the airport's remarks (D34; SME-18, SME-18a fleet match).
+  let skipped = 0;
+  for (const st of ctx.stations || []) {
+    const apt = _airportEntry(ctx, st.icao, 'station restriction');
+    for (const it of st.items) {
+      if (!it.applies) { skipped++; continue; }
+      if (apt) apt.remarks.push({ text: it.text, heading: it.heading, subHeading: it.subHeading, fleet: it.fleet, page: it.page, line: it.line });
+    }
+    // SME-18: a takeoff alternate required (for this fleet) at the departure airport, none listed.
+    if (st.icao === out.origIcao && st.items.some(it => it.applies && PATTERNS.TKOF_ALT_REQ.test(it.text))
+        && !out.altData.some(a => a.role === 'TKOF ALT')) {
+      add('WARN', 'altData', `${st.icao}: the station restriction requires a takeoff alternate; the release lists none (SME-18)`);
+    }
+  }
+  if (skipped) add('INFO', 'airportData', `${skipped} station-restriction line(s) under another fleet's sub-heading not attached (aircraft ${out.acftType}; SME-18a)`);
+
+  // Remarks weather → the airport's remarksWeather (D34, D46; SME-23): never merged
+  // into the briefing weather. Source = the heading line right above the report.
+  let noApt = 0;
+  entries.forEach((en, k) => {
+    if (en.category !== 'weather') return;
+    const wm = PATTERNS.RMK_WX_REPORT.exec(en.text);
+    if (!wm) { if (!(entries[k + 1] && entries[k + 1].category === 'weather' && PATTERNS.RMK_WX_REPORT.test(entries[k + 1].text))) noApt++; return; }
+    const prev = entries[k - 1];
+    const source = prev && prev.category === 'weather' && !PATTERNS.RMK_WX_REPORT.test(prev.text) ? prev.text : 'OFP Remarks';
+    const apt = _airportEntry(ctx, wm[2], 'remarks weather');
+    if (apt) apt.remarksWeather.push({ source, type: wm[1], text: en.text, page: en.page, line: en.line });
+  });
+  if (noApt) add('INFO', 'remarksWeather', `${noApt} weather remark(s) name no airport (e.g. an area product): kept in ofpRemarks only`);
+
+  // D45: security messages.
+  for (const en of entries.filter(x => x.category === 'security')) ext.securityMessages.push({ text: en.text, page: en.page, line: en.line });
+  // E-WINS release line: no airport, no forecast — sets nothing (SME-17, SME-21).
+  if (entries.some(x => x.category === 'ewins')) add('INFO', 'ewins', 'E-WINS release line names no airport and no forecast: sets nothing here (the E-WINS forecast is the * PRIO * briefing TAF, read in 5d)');
+  // Air-defence clearances (row 35, permits[]).
+  ctx.adc = entries.filter(x => x.category === 'permit').map(x => { const m = PATTERNS.PERMIT_ADC.exec(x.text); return { country: m[1], adc: m[2] }; });
+
+  // SME-19: an MEL named only in a late-addition remark is added; one already in the block adds nothing.
+  const inBlock = new Set((ctx.melBlockItems || []).map(x => x.code));
+  ctx.lateMel = [];
+  for (const en of entries.filter(x => x.category === 'melChange')) {
+    const codes = [];
+    const am = PATTERNS.LATE_MEL_ADD.exec(lines[en.lines[0]].trim());
+    if (am) codes.push({ code: am[1], desc: (am[2] || '').trim() });
+    if (PATTERNS.LATE_MEL_ADDED.test(lines[en.lines[0]].trim()) && en.lines[1] !== undefined) {
+      const cm = PATTERNS.ATA_ALONE.exec(lines[en.lines[1]].trim());
+      if (cm) codes.push({ code: cm[1], desc: '' });
+    }
+    for (const c of codes) {
+      if (inBlock.has(c.code) || ctx.lateMel.some(x => x.code === c.code)) continue;
+      ctx.lateMel.push({ code: c.code, desc: c.desc, tlr: '', type: 'MEL', notes: [{ text: en.text, indent: 1 }] });
+      add('INFO', 'ddgItems', `MEL ${c.code} is named only in a late-addition remark: added to ddgItems (SME-19)`);
+    }
+  }
+}
+
+// ── Extra fuel and PCF (D39; SME-7) ─────────────────────────────────────
+// OFP p1 "EXTRA|PCF nnnnnn HH.MM" (first column) with the reasons the Remarks give.
+function _readFuelReasons(ctx) {
+  const { out, ext, add, p1 } = ctx;
+  const row = key => { for (const l of p1) { const m = PATTERNS.FUEL_ROW.exec(l); if (m && m[1] === key) return m; } return null; };
+  const mins = m => m && m[3] !== undefined && +m[4] < 60 ? (+m[3]) * 60 + (+m[4]) : null;
+  const entries = ctx.remarkEntries || [];
+  const ex = row('EXTRA');
+  if (ex) {
+    const reasons = entries.filter(x => x.category === 'extraFuel').map(x => x.text);
+    const tanker = reasons.some(r => PATTERNS.TANKER_FUEL.test(r) && !PATTERNS.NO_TANKER.test(r));
+    const type = tanker ? 'TANKER' : reasons.some(r => PATTERNS.EXTRA_PREFUEL.test(r)) ? 'PRE-FUELED'
+      : reasons.some(r => PATTERNS.EXTRA_CAPTAIN.test(r)) ? 'CAPTAIN' : '';
+    ext.extraFuel = { fuel: String(parseInt(ex[2], 10)), minutes: mins(ex), unit: out.weightUnit, type, tanker, reasons };
+  } else add('WARN', 'extraFuel', 'EXTRA row not found in the OFP page-1 fuel table');
+  const pc = row('PCF');
+  if (pc) {
+    const reasons = entries.filter(x => x.category === 'pcf').map(x => x.text);
+    ext.pcf = { fuel: String(parseInt(pc[2], 10)), minutes: mins(pc), unit: out.weightUnit, reasons };
+    if (+pc[2] > 0 && !reasons.length) add('INFO', 'pcf', 'PCF added with no reason printed in the Remarks');
+    if (+pc[2] === 0 && reasons.length) add('INFO', 'pcf', 'a PCF reason is printed but PCF is 0');
+  } else add('WARN', 'pcf', 'PCF row not found in the OFP page-1 fuel table');
+}
+
+// ── Permits (row 35; Appendix B permits[]) ──────────────────────────────
+// "Overflight/Landing Permits" … the nav-log header. overflightPerms = the block
+// as NavBlue gives it (white space collapsed, at most 300 characters).
+function _readPermits(ctx) {
+  const { out, ext, add, rel } = ctx;
+  const lines = rel ? rel.lines : [];
+  const s = _idx(lines, PATTERNS.PERMITS_START);
+  if (s === -1) { if (rel) add('INFO', 'overflightPerms', 'no "Overflight/Landing Permits" heading in the release'); }
+  else {
+    let e = _idx(lines, PATTERNS.NAVLOG_HDR1, s + 1);
+    if (e === -1) { add('WARN', 'overflightPerms', 'permits block has no end (nav-log header not found): 20 lines read'); e = Math.min(lines.length, s + 21); }
+    const body = lines.slice(s + 1, e).map(l => l.trim()).filter(Boolean);
+    const joined = body.join(' ').replace(/\s+/g, ' ').trim();
+    out.overflightPerms = joined ? joined.substring(0, 300) : '';
+    let group = '', cur = null;
+    for (const t of body) {
+      const g = PATTERNS.PERMIT_GROUP.exec(t);
+      if (g) { group = g[1]; cur = null; continue; }
+      const st = PERMIT_STATES.find(x => t === x || t.startsWith(x + ' '));
+      const ro = PATTERNS.PERMIT_REG_ONLY.exec(t);
+      if (st) {
+        cur = { type: group, country: st, reference: t.slice(st.length).trim(), route: '', restriction: '', adc: '', missing: PATTERNS.PERMIT_MISSING.test(t) };
+        ext.permits.push(cur);
+        if (cur.missing) add('WARN', 'permits', `${group.toLowerCase()} permit for ${st} printed as PERMIT MISSING`);
+        if (!group) add('WARN', 'permits', `${st}: permit printed before any group heading`);
+      } else if (cur && ro) cur.restriction = cur.restriction ? cur.restriction + ' ' + t : t;
+      else if (cur) cur.route = cur.route ? cur.route + ' ' + t : t;
+      else add('WARN', 'permits', 'a line in the permits block was not read');
+    }
+  }
+  // Air-defence clearances from the Remarks: with that state's permit, else on their own.
+  for (const a of ctx.adc || []) {
+    const p = ext.permits.find(x => x.country === a.country && !x.adc);
+    if (p) p.adc = a.adc;
+    else ext.permits.push({ type: 'ADC', country: a.country, reference: '', route: '', restriction: '', adc: a.adc, missing: false });
+  }
+}
+
+// ── TLR (rows 32, 32a) ──────────────────────────────────────────────────
+// The first TLR copy: pages headed "REL n/n …" with the footer "FUFI<uuid> PAGE
+// n/N", 1..N. The page header and footer and the repeated page title + "TLR-n
+// SEQ" lines are removed first, so a page break never leaks into a procedure
+// (field map §6). oeiData is then read by the NavBlue rule unchanged.
+function _tlrLines(ctx) {
+  const out = [];
+  let next = 1, of = null;
+  for (const ls of ctx.textPages) {
+    if (ls.length < 2 || !PATTERNS.TLR_PAGE_HDR.test(ls[0])) continue;
+    const fm = PATTERNS.TLR_PAGE_FOOTER.exec(ls[ls.length - 1]);
+    if (!fm || +fm[1] !== next || (of !== null && +fm[2] !== of)) { if (out.length) break; continue; }
+    of = +fm[2];
+    const body = ls.slice(1, -1);
+    for (let j = 0; j < body.length; j++) {
+      if (PATTERNS.TLR_PAGE_TITLE.test(body[j])) { if (body[j + 1] && PATTERNS.TLR_SEQ.test(body[j + 1])) j++; continue; }
+      out.push(body[j]);
+    }
+    if (++next > of) break;
+  }
+  return { lines: out, complete: of !== null && next > of, of };
+}
+
+function _readTlr(ctx) {
+  const { out, add } = ctx;
+  const tl = _tlrLines(ctx);
+  if (!tl.lines.length) { add('INFO', 'oeiData', 'no Takeoff and Landing Report in the package'); return; }
+  if (!tl.complete) add('WARN', 'oeiData', 'Takeoff and Landing Report incomplete');
+  const t = tl.lines.join('\n');
+  const sq = tl.lines.map(l => PATTERNS.TLR_SEQ.exec(l)).find(Boolean);
+  ctx.tlrNumber = sq ? 'TLR-' + sq[1] : null;
+  // NavBlue parseTLR(), unchanged.
+  (function parseTLR() {
+    const tlrStart = t.search(PATTERNS.TLR_SECTION_START);
+    if (tlrStart === -1) return;
+    const tlrBlock = t.slice(tlrStart, tlrStart + 15000);
+    const rwEfp = {};
+    const riM = tlrBlock.match(PATTERNS.TLR_RUNWAY_INFO_HDR);
+    if (riM) {
+      for (const line of riM[1].split('\n')) {
+        const m = line.match(PATTERNS.TLR_RUNWAY_INFO_LINE);
+        if (m) rwEfp[m[1].trim()] = m[2].trim();
+      }
+    }
+    const specProc = {};
+    const sfM = tlrBlock.match(PATTERNS.TLR_SPECIAL_EFP_HDR);
+    if (sfM) {
+      let curRwy = null, curParts = [];
+      for (const line of sfM[1].split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const rwM = trimmed.match(PATTERNS.TLR_SPECIAL_EFP_LINE);
+        if (rwM) {
+          if (curRwy) specProc[curRwy] = curParts.join(' ').trim();
+          curRwy = rwM[1].trim(); curParts = rwM[2].trim() ? [rwM[2].trim()] : [];
+        } else if (curRwy) curParts.push(trimmed);
+      }
+      if (curRwy) specProc[curRwy] = curParts.join(' ').trim();
+    }
+    const seen = new Set();
+    Object.keys(rwEfp).forEach(rwy => {
+      const base = rwy.replace(PATTERNS.TLR_SHIPS_SUFFIX, '').trim();
+      if (seen.has(base)) return;
+      seen.add(base);
+      const efp    = rwEfp[rwy] || rwEfp[base] || '';
+      const isSpec = efp === 'SPECIAL';
+      const proc   = specProc[base] || specProc[rwy] || '';
+      out.oeiData.push({ rwy: base, efp, special: isSpec, proc, coChart: isSpec && !proc, coChartNote: '' });
+    });
+  })();
+  // Row 32a: TLR cross-reference (NavBlue values 'takeoff' | 'landing' | 'both' | '').
+  // The codes are on the RMKS line and, in FlightKeys, on the lines below it.
+  const sectionCodes = (startRe, endRes) => {
+    const s = tl.lines.findIndex(l => startRe.test(l));
+    const codes = new Set();
+    if (s === -1) return codes;
+    for (let i = s + 1; i < tl.lines.length && !endRes.some(r => r.test(tl.lines[i])); i++) {
+      const m = PATTERNS.TLR_RMKS_LINE.exec(tl.lines[i]);
+      if (!m) continue;
+      codes.add(m[1]);
+      for (let j = i + 1; j < tl.lines.length && !PATTERNS.TLR_RMKS_END.test(tl.lines[j]); j++) {
+        const c = PATTERNS.TLR_ATA.exec(tl.lines[j]);
+        if (c) codes.add(c[1]);
+      }
+    }
+    return codes;
+  };
+  const tk = sectionCodes(PATTERNS.TLR_TKOFF_SECTION, [PATTERNS.TLR_LAND_SECTION, PATTERNS.TLR_SECTION_END]);
+  const ld = sectionCodes(PATTERNS.TLR_LAND_SECTION, [PATTERNS.TLR_SECTION_END]);
+  for (const it of (ctx.melBlockItems || []).concat(ctx.lateMel || [])) {
+    const a = tk.has(it.code), b = ld.has(it.code);
+    it.tlr = a && b ? 'both' : a ? 'takeoff' : b ? 'landing' : '';
+  }
+}
+
+// ── Revision (Appendix B; D14) ──────────────────────────────────────────
+function _readRevision(ctx) {
+  const { ext, add, rel, p1, copies } = ctx;
+  if (!rel) return;
+  const m = PATTERNS.RELEASE_KIND.exec(rel.pages[0].title || '');
+  const rv = p1.map(l => PATTERNS.REVISION_NO.exec(l)).find(Boolean) || null;
+  const vu = p1.map(l => PATTERNS.VALID_UNTIL.exec(l)).find(Boolean) || null;
+  const same = copies.every(c => c.lines.length === rel.lines.length && c.lines.every((l, i) => l === rel.lines[i]));
+  ext.revision = {
+    kind: m ? (m[5] ? 'NOT RELEASED' : m[1]) : '',
+    number: m && m[2] ? m[2] : null,
+    time: m && m[3] ? `${m[3]} ${m[4]}` : null,
+    revision: rv ? rv[1] : null,
+    validUntil: vu ? `${vu[1]} ${vu[2]}` : null,
+    tlr: ctx.tlrNumber || null,
+    copies: copies.length,
+    copiesIdentical: same,
+  };
+  if (!m) add('WARN', 'revision', 'release title line (RLS / REV / NOT RELEASED) not read');
+  if (m && m[2]) {
+    const n = String(+m[2]);
+    if (rv && rv[1] !== n + '.0') add('WARN', 'revision', `release number ${m[2]} and "Revision: ${rv[1]}" differ`);
+    if (ctx.tlrNumber && ctx.tlrNumber !== 'TLR-' + n) add('WARN', 'revision', `release number ${m[2]} and ${ctx.tlrNumber} differ`);
+  }
+}
+
+// The v0.2.0 readers, in order (each needs the ones above it).
+function _readReleasePages(ctx) {
+  const { rel } = ctx;
+  _readCrew(ctx);
+  if (rel) {
+    const lines = rel.lines;
+    const rs = _idx(lines, PATTERNS.REMARKS_START);
+    if (rs === -1) {
+      ctx.add('WARN', 'ofpRemarks', 'Remarks block not found in the release');
+    } else {
+      const fe0 = _idx(lines, PATTERNS.REMARKS_END, rs + 1);
+      const fe = fe0 === -1 ? lines.length : fe0;
+      const me0 = _idx(lines, PATTERNS.MEL_START, rs + 1);
+      const me = me0 !== -1 && me0 < fe ? me0 : -1;
+      if (me === -1) ctx.add('WARN', 'ddgItems', 'MEL/CDL heading not found in the Remarks page');
+      else _readMelBlock(ctx, me + 1, fe);
+      _readRemarks(ctx, rs + 1, me === -1 ? fe : me);
+    }
+  }
+  _readTlr(ctx);
+  _finishDdg(ctx);
+  _readFuelReasons(ctx);
+  _readPermits(ctx);
+  _readRevision(ctx);
+}
+
 // The readers that need the full release, in order.
 function _readPending(ctx) {
   _readFuel(ctx);
@@ -823,6 +1521,7 @@ function _readPending(ctx) {
   _buildAltData(ctx);
   _readCfs(ctx);
   _readAltRoutes(ctx);
+  _readReleasePages(ctx);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -834,7 +1533,8 @@ const REQUIRED_EXPORTS = {
   SCHEMA_VERSION: 'number', CONTRACT_VERSION: 'string', RULESET_SOURCE: 'string',
   validateSchema: 'function', parseFlightKeys: 'function', inputFromExtractor: 'function',
   PATTERNS: 'object', CORE_FIELDS: 'object', EXTENSION_FIELDS: 'object',
-  AIRPORT_EXTENSION_FIELDS: 'object', DDG_EXTENSION_FIELDS: 'object', DEFERRED_FIELDS: 'object',
+  AIRPORT_EXTENSION_FIELDS: 'object', DDG_EXTENSION_FIELDS: 'object', CREW_EXTENSION_FIELDS: 'object',
+  DEFERRED_FIELDS: 'object',
 };
 // App logic and other formats' parsers never belong to this module.
 const FORBIDDEN_EXPORTS = ['deriveCallsign', 'parseOFP', 'fuelK', 'parseNavBlue', '_ofpRulesetParse', 'parseIcaoFpl'];
@@ -870,9 +1570,10 @@ function validateSchema(ruleset) {
     if (new Set(v).size !== v.length || v.some(x => typeof x !== 'string' || !x)) errors.push(`${k} must be unique non-empty names`);
   };
   list('CORE_FIELDS', 57);
-  list('EXTENSION_FIELDS', 13);
+  list('EXTENSION_FIELDS', 14);
   list('AIRPORT_EXTENSION_FIELDS', 3);
   list('DDG_EXTENSION_FIELDS', 2);
+  list('CREW_EXTENSION_FIELDS', 2);
   if (Array.isArray(r.CORE_FIELDS) && Array.isArray(r.EXTENSION_FIELDS)) {
     for (const k of r.EXTENSION_FIELDS) if (r.CORE_FIELDS.includes(k)) errors.push(`${k} is both a core field and an extension`);
     if (r.EXTENSION_FIELDS[r.EXTENSION_FIELDS.length - 1] !== 'findings') errors.push('EXTENSION_FIELDS must end with findings');
@@ -882,7 +1583,7 @@ function validateSchema(ruleset) {
       const top = k.split('.')[0];
       const known = (Array.isArray(r.CORE_FIELDS) && r.CORE_FIELDS.includes(top)) || (Array.isArray(r.EXTENSION_FIELDS) && r.EXTENSION_FIELDS.includes(top));
       if (!known) errors.push(`DEFERRED_FIELDS.${k} is not a contract field`);
-      if (v !== '5b-2' && v !== '5d') errors.push(`DEFERRED_FIELDS.${k}: step '${v}' is not 5b-2 or 5d`);
+      if (v !== '5d' && v !== 'open') errors.push(`DEFERRED_FIELDS.${k}: step '${v}' is not 5d or open`);
     }
   }
   return { valid: errors.length === 0, errors };
@@ -899,6 +1600,7 @@ const API = {
   inputFromExtractor,       // (rawText, itemsDoc) → input (documented mapping)
   PATTERNS,
   CORE_FIELDS, EXTENSION_FIELDS, AIRPORT_EXTENSION_FIELDS, DDG_EXTENSION_FIELDS,
+  CREW_EXTENSION_FIELDS,
   DEFERRED_FIELDS,
 };
 return API;

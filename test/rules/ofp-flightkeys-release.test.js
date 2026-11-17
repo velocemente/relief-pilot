@@ -1,0 +1,606 @@
+'use strict';
+/**
+ * TC-161 — FlightKeys OFP parser v0.2.0 (rules/ofp-flightkeys, development version, D58):
+ * the release and remarks pages. TC-160 (test/rules/ofp-flightkeys.test.js) keeps testing the
+ * v0.1.0 fields; this battery tests what v0.2.0 adds.
+ *
+ *   TC-161-001  v0.1.0 fields byte-identical: v0.2.0 vs the recorded v0.1.0 output on all 26 FlightKeys
+ *               fixtures (SHA-256 per field, specialQualification, v0.1.0 findings in order); the only
+ *               airportData change is one entry added for a remarks-weather alternate (L15 PWAK)
+ *   TC-161-002  5b-1 QA F4: the FPL block is read from the release, never from an earlier "(FPL-"
+ *   TC-161-010  crew (row 26, SC) on 26 fixtures: values against the PRIVATE expected file in the
+ *               fixtures repo; public assertions are counts, roles and flags; operating pilots per package
+ *               (D62); "*" never seniority (SME-3/3a); blank expiry "Not Reported" (SME-9); FA/PU/MX/LM
+ *               not crew; DH/JS as NavBlue
+ *   TC-161-011  crew synthetic, positive and negative
+ *   TC-161-020  CAT II/III (row 24, SC) on 26 fixtures: authorisations (NavBlue form) and restrictions
+ *   TC-161-021  CAT II/III synthetic (SME-10), positive and negative
+ *   TC-161-030  MEL/CDL/DDG (row 25) on 26 fixtures: items, type, notes, TLR cross-reference (row 32a)
+ *   TC-161-031  MEL/CDL/DDG synthetic: wraps, notes with indentation (positions), ADHOC lines, dedup,
+ *               late addition (SME-19) positive and negative, TLR cross-reference
+ *   TC-161-032  TLR (row 32) on 26 fixtures = NavBlue, except the page-break leak NavBlue has (L10);
+ *               synthetic page-break case
+ *   TC-161-040  FK-P matched pair (FK UAAA-EHAM prototype vs EOFP matched pair) for every field in scope
+ *   TC-161-050  remarks on 26 fixtures: ofpRemarks and its categories; airport remarks (D34) incl. the
+ *               fleet rule (SME-18a); takeoff-alternate flag (SME-18); remarks weather (D34, D46, SME-23);
+ *               perishables (27); temperature control (28, D55); security (D45); extra fuel (D39); PCF
+ *               (SME-7); permits (35); revision
+ *   TC-161-051  remarks synthetic, a negative test per rule
+ *   TC-161-090  fixtures (or the private crew file) missing → FAIL, never skip (child run)
+ *
+ * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
+ * Messages name fixture labels and field names only; no crew data is printed. Synthetic packages use
+ * made-up identifiers and obviously fake names.
+ */
+const test   = require('node:test');
+const assert = require('node:assert/strict');
+const fs     = require('fs');
+const path   = require('path');
+const crypto = require('crypto');
+const { findFixtures, readManifest } = require('../lib/app-path');
+
+const ROOT     = path.resolve(__dirname, '..', '..');
+const RULES    = path.join(ROOT, 'rules');
+const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
+const mod      = require(path.join(RULES, MANIFEST['ofp-flightkeys'].file));
+const icaoFpl  = require(path.join(RULES, MANIFEST['icao-fpl'].file));
+const acProf   = require(path.join(RULES, MANIFEST['aircraft-profile'].file));
+const navblue  = require(path.join(RULES, MANIFEST['ofp-navblue'].file));
+const OPTS     = { icaoFpl, aircraftProfile: acProf };
+const BASELINE = require('./data/ofp-flightkeys-v0.1.0-baseline.json');
+const EXPECTED = require('./data/ofp-flightkeys-expected-v0.2.0.json').fixtures;
+const CREW_FILE = path.join('expected', 'ofp-flightkeys-v0.2.0', 'crew.json');
+
+const sha = s => crypto.createHash('sha256').update(s).digest('hex');
+const warns = (r, field) => r.findings.filter(f => f.level === 'WARN' && (!field || f.field === field));
+const infos = (r, field) => r.findings.filter(f => f.level === 'INFO' && (!field || f.field === field));
+
+// ── synthetic FlightKeys package (made-up identifiers, fake names; no fixture data) ──
+const HDR = 'TST0001/08MAR/KAAA-KBBB/N000ZZ';
+const CREW_DEFAULT = [
+  'CA 100001 Sample, Alpha .. .. .. .. ..', 'TO/LNDG Expiry: 2027-01-01',
+  'FO 100002 * Example, Bravo Q. .. .. .. .. ..', 'TO/LNDG Expiry:',
+  'TO/LNDG currency questions? contact Duty Pilot',
+  'FA 7000001 Cabin, Charlie (Chuck)', 'PU 7000002 Purser, Della', 'MX 20001 MECH DELTA', 'LM 20002 LOAD ECHO',
+  'JS 0 RIDER FOXTROT G', 'DH 100003 Dead, Golf',
+];
+function pkg(o = {}) {
+  const title = o.title || 'OPERATIONAL FLIGHT PLAN RLS 01 08MAR26 12:00';
+  const airports = o.airports || ['ORIG KAAA/AAA ALPHA INTL N40000W080000 1755Z', 'DEST KBBB/BBB BRAVO INTL N41000W081000 0328Z',
+    'PALT KCCC/CCC CHARLIE N42000W082000 0345Z'];
+  const fuel = o.fuel || ['TRIP 100000 09.33 4000', 'CONT 003000 00.10', 'ALT1 008000 00.25 0200', 'FRES 007000 00.30',
+    `PCF ${o.pcf || '002000'} 00.07`, 'MINF 120000 10.45 ....', `EXTRA ${o.extra || '001500'} 00.05`, 'TOF 121500 10.50',
+    'TAXI 001000 00.20', 'BLOCK 122500 11.10', 'REMF 020000 01.12'];
+  const p1 = ['TST0001/08 KAAA - KBBB 08 MAR 26 N000ZZ', 'COST INDEX 020 Revision: ' + (o.revision || '1.0'),
+    `${o.acftLine || 'B747-400F / CF6-80C2-B1F / KG'} / IFR / FF +4.0`, 'PROGS 081200 Release Valid Until 2300Z 08MAR26',
+    ...airports, ...fuel];
+  const p2 = ['Remarks', 'DISPATCHER DESK: 00', 'This OFP prepared with FlightKeys. Review Operations Bulletin',
+    'for FlightKeys OFP and procedure changes. Contact Dispatch with', 'questions.', ...(o.remarks || []),
+    'RAIM VALIDATION PASSED', ...(o.cat || []), 'MEL/CDL', ...(o.mel || []), 'Flight Release Authorization',
+    'Signed by Dispatcher: DISPATCHER', 'Fit for Duty Affirmation', 'By signing below, I affirm that I am fit for duty to operate this',
+    'flight.', 'FIT FOR DUTY/   RELIEF PIC', 'JS VERIFY   START-END(Z)', ...(o.crew || CREW_DEFAULT)];
+  const p3 = ['TIME FUEL', ...(o.fpl || ['(FPL-TST0001-IS', `-${o.fplType || 'B744/H'}-SDE1E2E3FGHIJ3J5M1P2RWXYZ/LB1D1`, '-KAAA1755',
+    '-N0481F320 DCT AAAAA DCT BBBBB', '-KBBB0933 KCCC', '-PBN/A1B1 DOF/260308 REG/N000ZZ SEL/ABCD RMK/TCAS II EQUIPPED)']),
+    'Overflight/Landing Permits', ...(o.permits || [])];
+  const p4 = ['AWY   WPT   MTK   NM   GS   TAS   LEG-T   ETA   MTRS   ISA   WC   REMF',
+    'MORA  TTK  MH  IAS  .M  TOT-T  ATA  FL  TEMP  WIND  AREM', 'SID TOC', 'N40 10.0 090 50 400 450 00.15', 'W079 50.0 090 090 300 .80 00.15 320',
+    'Destination Primary Alternate Route', 'KBBB DCT KCCC', 'KCCC/0100', 'GCD 50 GDIS 55 FUEL 8000 TIME 00.25', 'MORA 3000'];
+  const pages = [p1, p2, p3, p4];
+  const relPages = n => pages.map((b, i) => [HDR, title, ...b, `FUFI: 00000000-0000-0000-0000-00000000000${n} PAGE ${i + 1}/${pages.length}`].join('\n') + '\n\n').join('');
+  let copies = relPages(0);
+  for (let c = 1; c < (o.copies || 1); c++) copies += o.copyDiffers ? relPages(c).replace('DISPATCHER DESK: 00', 'DISPATCHER DESK: 01') : relPages(0);
+  const tlr = o.tlr ? o.tlr.map((b, i) => ['REL 1/1 08MAR26 1200Z TST0001 KAAA/KBBB 08MAR26', ...b,
+    `FUFI00000000-0000-0000-0000-000000000000 PAGE ${i + 1}/${o.tlr.length}`].join('\n') + '\n\n').join('') : '';
+  return (o.before || 'BRIEFING COVER PAGE') + '\n\n' + copies + (o.after || 'COMPANY NOTAMS\nGENERAL') + '\n\n' + tlr;
+}
+const parse = (text, opts = OPTS) => mod.parseFlightKeys({ text, pages: [] }, opts);
+
+// ══ TC-161-002 FPL from the release (QA F4) ══════════════════════════════════
+
+test('TC-161-002 5b-1 QA F4: the FPL is read from the release, never from an earlier "(FPL-" block', () => {
+  const quoted = 'HIGH SEVERITY COMPANY NOTAMS\n(FPL-TST9999-IS\n-B763/H-SDFGHIRWY/S\n-KZZZ0100\n-N0450F300 DCT\n-KYYY0500\n-DOF/260101 REG/N999ZZ)';
+  const r = parse(pkg({ before: quoted }));
+  assert.equal(r.acftType, 'B744', 'type from the release FPL, not the quoted one');
+  assert.equal(r.flightDateISO, '2026-03-08');
+  assert.deepEqual(warns(r, 'fltNum'), []);
+  // positive control: without the release FPL nothing is taken from the quoted one
+  const n = parse(pkg({ before: quoted, fpl: ['NO FLIGHT PLAN PRINTED'] }));
+  assert.equal(n.acftType, '', 'no FPL in the release → no type (the quoted FPL is never used)');
+  assert.ok(warns(n, 'icaoFpl').some(w => /no ICAO flight plan \(FPL\) block found in the release/.test(w.message)));
+});
+
+// ══ TC-161-011 crew synthetic ════════════════════════════════════════════════
+
+test('TC-161-011 crew synthetic (row 26, SC; SME-3/3a, SME-9; D62): positive and negative', () => {
+  const r = parse(pkg());
+  assert.deepEqual(r.crewMembers.map(c => c.role), ['CA', 'FO', 'JS', 'DH'], 'FA, PU, MX, LM are not returned as crew');
+  assert.deepEqual(Object.keys(r.crewMembers[0]), ['role', 'empNum', 'lastName', 'initial', 'displayName', 'active', 'isSen', ...mod.CREW_EXTENSION_FIELDS]);
+  assert.deepEqual(r.crewMembers[0], { role: 'CA', empNum: '100001', lastName: 'Sample', initial: 'A', displayName: 'Sample A',
+    active: true, isSen: false, firstName: 'Alpha', toLndgExpiry: '2027-01-01' });
+  // "*" kept with the last name and never seniority (SME-3, SME-3a); blank expiry → Not Reported (SME-9)
+  assert.deepEqual(r.crewMembers[1], { role: 'FO', empNum: '100002', lastName: '* Example', initial: 'B', displayName: '* Example B',
+    active: true, isSen: false, firstName: 'Bravo Q.', toLndgExpiry: 'Not Reported' });
+  // JS / DH as NavBlue: active false; the JS "0" is not an employee number
+  assert.deepEqual(r.crewMembers[2], { role: 'JS', empNum: '', lastName: 'RIDER FOXTROT G', initial: '', displayName: 'RIDER FOXTROT G',
+    active: false, isSen: false, firstName: '', toLndgExpiry: '' });
+  assert.deepEqual(r.crewMembers[3], { role: 'DH', empNum: '100003', lastName: 'Dead', initial: 'G', displayName: 'Dead G',
+    active: false, isSen: false, firstName: 'Golf', toLndgExpiry: '' });
+  assert.equal(r.operatingPilots, 2, 'D62: two operating pilots (DH and JS not counted)');
+  assert.ok(infos(r, 'crewMembers').some(f => f.message === 'crew lines not returned as crew (not shown): FA 1, LM 1, MX 1, PU 1'));
+  assert.ok(infos(r, 'crewMembers').some(f => /Expiry blank for 1 pilot/.test(f.message)));
+  assert.ok(infos(r, 'crewMembers').some(f => /"\*" printed for 1 pilot/.test(f.message)));
+  assert.deepEqual(warns(r).filter(f => /crew|operatingPilots/.test(f.field)), []);
+  // 3 and 4 pilots, a list crossing a page break (the repeated column headers are skipped)
+  const pilot = (role, n) => [`${role} 10000${n} Pilot${n}, Name .. .. ..`, 'TO/LNDG Expiry: 2027-02-02'];
+  const four = parse(pkg({ crew: [...pilot('CA', 1), ...pilot('FO', 2), 'FIT FOR DUTY/   RELIEF PIC', 'JS VERIFY   START-END(Z)',
+    ...pilot('FO', 3), ...pilot('FO', 4), 'TO/LNDG currency questions? contact Duty Pilot'] }));
+  assert.equal(four.operatingPilots, 4);
+  assert.deepEqual(four.crewMembers.map(c => c.role), ['CA', 'FO', 'FO', 'FO']);
+  assert.equal(parse(pkg({ crew: [...pilot('CA', 1), ...pilot('CA', 2), ...pilot('FO', 3)] })).operatingPilots, 3);
+  // negative: an impossible date is never shown as a currency date
+  const bad = parse(pkg({ crew: ['CA 100001 Sample, Alpha .. ..', 'TO/LNDG Expiry: 2027-02-30'] }));
+  assert.equal(bad.crewMembers[0].toLndgExpiry, 'Not Reported');
+  assert.ok(warns(bad, 'crewMembers').some(w => /not a date/.test(w.message)));
+  // negative: no expiry line at all → Not Reported + WARN
+  const none = parse(pkg({ crew: ['CA 100001 Sample, Alpha .. ..', 'FO 100002 Example, Bravo .. ..'] }));
+  assert.deepEqual(none.crewMembers.map(c => c.toLndgExpiry), ['Not Reported', 'Not Reported']);
+  assert.equal(warns(none, 'crewMembers').length, 2);
+  // 5 pilots → counted, WARN; no crew list → [] + null + WARN
+  const five = parse(pkg({ crew: [1, 2, 3, 4, 5].flatMap(n => pilot(n === 1 ? 'CA' : 'FO', n)) }));
+  assert.equal(five.operatingPilots, 5);
+  assert.ok(warns(five, 'operatingPilots').length === 1);
+  const noList = parse(pkg().replace('Fit for Duty Affirmation', 'Fit for Duty'));
+  assert.deepEqual(noList.crewMembers, []);
+  assert.equal(noList.operatingPilots, null);
+  assert.ok(warns(noList, 'crewMembers').length === 1);
+  // negative: crew lines outside the release are never read
+  const out = parse(pkg({ after: 'COMPANY NOTAMS\nCA 999999 Outside, Person .. ..\nTO/LNDG Expiry: 2027-01-01' }));
+  assert.equal(out.crewMembers.filter(c => c.empNum === '999999').length, 0);
+});
+
+// ══ TC-161-021 CAT II/III synthetic ═══════════════════════════════════════════
+
+test('TC-161-021 CAT II/III synthetic (row 24, SC; SME-10): authorisations, restrictions, never confused', () => {
+  const r = parse(pkg({ cat: ['EAAA CAT II - RWY 07L/25R', 'EAAA CAT III - RWY 25R', 'EBBB CAT II/III - ALL RWY',
+    'KAAA CAT II/III RWY 36C APPROACH NOT AUTHORIZED FOR B747', 'EAAA CAT II/III - RWY 07R NOT AUTHORIZED'] }));
+  assert.deepEqual(r.catIiIiiApproaches, { EAAA: [{ cat: 'II', rwys: '07L/25R' }, { cat: 'III', rwys: '25R' }],
+    EBBB: [{ cat: 'II/III', rwys: 'ALL RUNWAYS' }] }, 'authorisations only, NavBlue form');
+  assert.deepEqual(r.catIiIiiRestrictions, [
+    { airport: 'KAAA', category: 'II/III', runways: ['36C'], text: 'KAAA CAT II/III RWY 36C APPROACH NOT AUTHORIZED FOR B747', source: 'OFP Remarks' },
+    { airport: 'EAAA', category: 'II/III', runways: ['07R'], text: 'EAAA CAT II/III - RWY 07R NOT AUTHORIZED', source: 'OFP Remarks' },
+  ], 'a restriction (even with the dash of an authorisation) is never an authorisation; an authorised airport may carry one');
+  // US airport with only a restriction: no authorisation at all
+  const us = parse(pkg({ cat: ['KAAA CAT II/III RWY 36C APPROACH NOT AUTHORIZED FOR B747'] }));
+  assert.equal(us.catIiIiiApproaches, null);
+  assert.equal(us.catIiIiiRestrictions.length, 1);
+  // MEL restrictions: note under the item; the item title when no note says it
+  const m = parse(pkg({ mel: ['MEL 22-14-02-01 - Automatic Landing System (AUTOLAND) - Triple Channel', 'Autoland (LAND 3)',
+    '- CAT III Restricted', 'MEL 22-AA-01 - CAT II/III Restriction', 'MEL 34-31-01-01 - ILS - Left', '- CAT II / CAT III Restricted'] }));
+  assert.deepEqual(m.catIiIiiRestrictions, [
+    { airport: null, category: 'III', runways: [], text: 'CAT III Restricted', source: 'MEL 22-14-02-01' },
+    { airport: null, category: 'II/III', runways: [], text: 'CAT II/III Restriction', source: 'MEL 22-AA-01' },
+    { airport: null, category: 'II/III', runways: [], text: 'CAT II / CAT III Restricted', source: 'MEL 34-31-01-01' },
+  ]);
+  assert.equal(m.catIiIiiApproaches, null);
+  // negative: no CAT lines → null / []; CAT lines outside the release never read
+  const n = parse(pkg({ after: 'COMPANY NOTAMS\nEZZZ CAT II/III - RWY 09\nKZZZ CAT II/III RWY 01 APPROACH NOT AUTHORIZED' }));
+  assert.equal(n.catIiIiiApproaches, null);
+  assert.deepEqual(n.catIiIiiRestrictions, []);
+});
+
+// ══ TC-161-031 MEL/CDL/DDG synthetic ═════════════════════════════════════════
+
+test('TC-161-031 MEL/CDL/DDG synthetic (row 25, 32a; SME-4, SME-19): items, notes, dedup, late additions, TLR', () => {
+  const mel = ['MEL 21-61-03-01-01 - Trim Pressure Regulating Shutoff Valves (TPRSOVs) -', 'Left',
+    'MEL 23-15-01-01A - SATCOM Voice Systems - Alternate Procedures Required', '- ETOPS MDT 180', '- "M1" removed from ICAO FPL, field 10A.',
+    'MEL 36-11-08C - (PRV) Systems - PRV Open', 'RMK - The airplane must also be dispatched using DDG item 78-31-01,', '36-11-03 and 36-21-04.',
+    'MEL 25-20-01 - Non-Essential Equipment', 'MEL 25-20-01 - Non-Essential Equipment',
+    'CDL C27-51-02 - Flap Track (Canoe) Fairing', '- Enroute climb penalty 7779kg',
+    'Dispatcher applied ADHOC penalty:', '- All fuel flow values increased by 1.00 PCT'];
+  const tlr = [['TAKEOFF AND LANDING REPORT TST 1 KAAA-KBBB 08MAR26', 'TLR-1 SEQ-1 08MAR26 1200Z', '/// TAKEOFF DATA ///',
+    'RMKS 36-11-08C', 'C27-51-02', 'WET RUNWAY', '-------- ---- ----', '/// LANDING DATA ///', 'RMKS C27-51-02',
+    '---------------------------- RUNWAY INFO ----', 'END TAKEOFF AND LANDING REPORT TST 1 KAAA-KBBB 08MAR26']];
+  const remarks = ['1829Z STR ADD M33-44-01-02A', 'ADD MEL 25-20-01 NON-ESSENTIAL EQUIPMENT', 'MEL ADDED', '25-57-01', 'MD PDU 19 INOP'];
+  const r = parse(pkg({ mel, tlr, remarks }));
+  assert.deepEqual(r.ddgItems.map(d => [d.type, d.code, d.desc, d.tlr]), [
+    ['MEL', '21-61-03-01-01', 'Trim Pressure Regulating Shutoff Valves (TPRSOVs) - Left', ''],
+    ['MEL', '23-15-01-01A', 'SATCOM Voice Systems - Alternate Procedures Required', ''],
+    ['MEL', '36-11-08C', '(PRV) Systems - PRV Open', 'takeoff'],
+    ['MEL', '25-20-01', 'Non-Essential Equipment', ''],
+    ['CDL', 'C27-51-02', 'Flap Track (Canoe) Fairing', 'both'],
+    ['MEL', '33-44-01-02A', '', ''],
+    ['MEL', '25-57-01', '', ''],
+  ], 'wrapped title joined; duplicate listed once (NavBlue); late additions after the block; TLR codes on the RMKS line and below it');
+  assert.deepEqual(r.ddgItems[1].notes, [{ text: '- ETOPS MDT 180', indent: 1 }, { text: '- "M1" removed from ICAO FPL, field 10A.', indent: 1 }]);
+  assert.deepEqual(r.ddgItems[2].notes, [{ text: 'RMK - The airplane must also be dispatched using DDG item 78-31-01, 36-11-03 and 36-21-04.', indent: 1 }],
+    'the RMK line is kept with its item, its wrap joined');
+  assert.deepEqual(r.ddgItems[4].notes, [{ text: '- Enroute climb penalty 7779kg', indent: 1 }], 'ADHOC penalty lines are not item notes');
+  assert.deepEqual(r.ddgItems[5].notes, [{ text: '1829Z STR ADD M33-44-01-02A', indent: 1 }]);
+  assert.deepEqual(r.ofpRemarks.filter(x => x.category === 'adhocPenalty').map(x => x.text),
+    ['Dispatcher applied ADHOC penalty:', '- All fuel flow values increased by 1.00 PCT']);
+  assert.equal(r.melItems, r.ddgItems.map(d => d.code + ' ' + d.desc).join(' | ').substring(0, 600), 'melItems: the NavBlue form');
+  assert.equal(infos(r, 'ddgItems').filter(f => /late-addition/.test(f.message)).length, 2, 'SME-19: two added, the MEL quoted again (25-20-01) adds nothing');
+  assert.ok(infos(r, 'ddgItems').some(f => /1 MEL\/CDL item\(s\) printed more than once/.test(f.message)));
+  // negative (SME-19): codes quoted in RMK notes or remarks already in the block add nothing
+  const neg = parse(pkg({ mel: ['MEL 74-00-01 - Ignition Systems', 'RMK - Must also comply with DDG item 21-51-01 operational', 'requirements.'],
+    remarks: ['ADD MEL 74-00-01 IGNITION SYSTEMS', 'NO RESTRICTIONS'] }));
+  assert.deepEqual(neg.ddgItems.map(d => d.code), ['74-00-01']);
+  // empty block → [] and ''
+  const empty = parse(pkg({ mel: [] }));
+  assert.deepEqual(empty.ddgItems, []); assert.equal(empty.melItems, '');
+  // indentation from positions: a note at the item's x is indent 0 + WARN (positions win)
+  const text = pkg({ mel: ['MEL 33-42-02A - Landing Lights', '- Some note'] });
+  const textPages = text.split('\n\n');
+  const p2 = textPages.findIndex(t => t.includes('MEL 33-42-02A')) + 1;
+  const items = (x1, x2) => [{ str: 'MEL 33-42-02A - Landing Lights', x: x1, y: 100, w: 10, h: 8, font: 'f', order: 0 },
+    { str: '- Some note', x: x2, y: 113, w: 10, h: 8, font: 'f', order: 1 }];
+  const pages = (x1, x2) => textPages.filter(Boolean).map((_, i) => ({ page: i + 1, width: 612, height: 792, items: i + 1 === p2 ? items(x1, x2) : [] }));
+  const ok = mod.parseFlightKeys({ text, pages: pages(58.7, 69.9) }, OPTS);
+  assert.deepEqual(ok.ddgItems[0].notes, [{ text: '- Some note', indent: 1 }]);
+  assert.deepEqual(warns(ok, 'ddgItems'), []);
+  const flat = mod.parseFlightKeys({ text, pages: pages(58.7, 58.7) }, OPTS);
+  assert.deepEqual(flat.ddgItems[0].notes, [{ text: '- Some note', indent: 0 }]);
+  assert.equal(warns(flat, 'ddgItems').length, 1);
+});
+
+// ══ TC-161-032 TLR page breaks (synthetic) ═══════════════════════════════════
+
+test('TC-161-032a TLR synthetic (row 32): a page break never leaks into a special procedure', () => {
+  const tlr = [['TAKEOFF AND LANDING REPORT TST 1 KAAA-KBBB 08MAR26', 'TLR-1 SEQ-1 08MAR26 1200Z', '/// TAKEOFF DATA ///',
+    '---------------------------- RUNWAY INFO ----------------------------', 'RWY LENGTH EFP NOTES', '09 9000 DT H095 NOTAMS A0001/26',
+    '12 9355 SPECIAL NOTAMS A0002/26', '---------------- SPECIAL ENG FAIL TAKEOFF PROCEDURES ----------------',
+    'RWY CLB VIA REACHING OR TURN FRA HOLD', '12 1100 DT H127 1100'],
+  ['------------- DRY RWY - PTOW ----', 'TAKEOFF AND LANDING REPORT TST 1 KAAA-KBBB 08MAR26 PAGE 2', 'TLR-1 SEQ-1 08MAR26 1200Z',
+    'END TAKEOFF AND LANDING REPORT TST 1 KAAA-KBBB 08MAR26']];
+  const text = pkg({ tlr });
+  const r = parse(text);
+  // (order: the NavBlue rule unchanged — its runway map lists integer-like keys such as "12" before "09")
+  assert.deepEqual(r.oeiData, [
+    { rwy: '12', efp: 'SPECIAL', special: true, proc: '1100 DT H127 1100', coChart: false, coChartNote: '' },
+    { rwy: '09', efp: 'DT H095', special: false, proc: '', coChart: false, coChartNote: '' }]);
+  // NavBlue on the same text lets the footer and the next page header into the procedure
+  const nb = navblue._ofpRulesetParse(text).oeiData.find(o => o.rwy === '12');
+  assert.match(nb.proc, /FUFI.*PAGE 1\/2/, 'the NavBlue leak this rule removes');
+  assert.equal(r.revision.tlr, 'TLR-1');
+  // negative: no TLR → [] + INFO
+  const n = parse(pkg());
+  assert.deepEqual(n.oeiData, []);
+  assert.ok(infos(n, 'oeiData').length === 1);
+});
+
+// ══ TC-161-051 remarks synthetic ═════════════════════════════════════════════
+
+test('TC-161-051 remarks synthetic: categories, airport remarks, weather, flags — a negative per rule', () => {
+  const remarks = ['PERISHABLES ONBOARD', 'POS LAUNCH TO BBB APPROVED BY SECURITY', 'NOWHERE ADC NO-0001', 'CHINA ADC NO-0002',
+    'ECON TANKER FUEL ADDED', '- PCF FOR ENROUTE WX', 'GOV TAF UPDATED', 'TAF AMD KCCC 080500Z 0806/0912 05020KT 9999 SCT020',
+    'BECMG 0810/0812 09015KT', 'WSI FPG FOR AREA NEAR N40W080:', 'WSI TURBULENCE FPG 1 ISSUED',
+    'KAAA/AAA FLIGHT OPERATIONS RESTRICTIONS:', '747 Operations Prohibited', '767 Operations', '1. Check Captain Required',
+    '2. Takeoff alternate required for all Departures', '** KBBB FLIGHT OPS RESTRICTIONS **', 'ARRIVALS', 'RWY 30L NOT APPROVED',
+    'DEPARTURES', 'PLAN RWY 12L'];
+  const permits = ['--- OVERFLIGHT PERMITS', 'CHINA CAD/2026W0001', 'AAAAA A1 BBBBB', 'SAUDI ARABIA SGF-1', 'N000ZZ AUTH ONLY',
+    '--- LANDING PERMIT', 'TURKEY /////PERMIT MISSING/////'];
+  const r767 = parse(pkg({ remarks, permits, fplType: 'B763/H', acftLine: 'B767-300 / CF6-80C2-B6F / LB' }));
+  const cats = r767.ofpRemarks.map(x => x.category);
+  assert.deepEqual([...new Set(cats)], ['dispatcher', 'boilerplate', 'perishables', 'security', 'permit', 'extraFuel', 'pcf', 'weather',
+    'stationRestriction', 'raim']);
+  assert.equal(r767.ofpRemarks.length, 4 + remarks.length + 1, 'every line from the dispatcher line to MEL/CDL, in order');
+  assert.ok(r767.ofpRemarks.every(x => typeof x.page === 'number' && typeof x.line === 'number'), 'provenance');
+  assert.equal(r767.hasPerishables, true);
+  assert.deepEqual(r767.securityMessages.map(s => s.text), ['POS LAUNCH TO BBB APPROVED BY SECURITY']);
+  // airport remarks with sub-headings; the 767 OFP takes the 767 items only (SME-18a)
+  assert.deepEqual(r767.airportData.KAAA.remarks.map(x => [x.subHeading, x.fleet, x.text]), [
+    ['767 Operations', '767', '1. Check Captain Required'], ['767 Operations', '767', '2. Takeoff alternate required for all Departures']]);
+  assert.deepEqual(r767.airportData.KBBB.remarks.map(x => [x.subHeading, x.text]), [['ARRIVALS', 'RWY 30L NOT APPROVED'], ['DEPARTURES', 'PLAN RWY 12L']]);
+  assert.ok(warns(r767, 'altData').some(w => /KAAA: the station restriction requires a takeoff alternate; the release lists none \(SME-18\)/.test(w.message)));
+  // the same restriction on a 747 OFP: not this fleet → not attached, no flag (SME-18a negative)
+  const r747 = parse(pkg({ remarks, permits }));
+  assert.deepEqual(r747.airportData.KAAA.remarks.map(x => x.text), ['747 Operations Prohibited']);
+  assert.deepEqual(warns(r747, 'altData'), []);
+  // a takeoff alternate printed → no flag
+  const talt = parse(pkg({ remarks, fplType: 'B763/H', acftLine: 'B767-300 / CF6-80C2-B6F / LB',
+    airports: ['ORIG KAAA/AAA ALPHA N40000W080000 1755Z', 'DEST KBBB/BBB BRAVO N41000W081000 0328Z', 'PALT KCCC/CCC CHARLIE N42000W082000 0345Z',
+      'TALT KDDD/DDD DELTA N43000W083000 1830Z'] }));
+  assert.deepEqual(warns(talt, 'altData'), []);
+  // remarks weather: attached to its airport, never merged into the briefing weather (D34, D46); an area product is not attached
+  assert.deepEqual(r767.airportData.KCCC.remarksWeather.map(x => [x.source, x.type, x.text]),
+    [['GOV TAF UPDATED', 'TAF', 'TAF AMD KCCC 080500Z 0806/0912 05020KT 9999 SCT020 BECMG 0810/0812 09015KT']]);
+  assert.equal(r767.airportData.KCCC.weather, '');
+  assert.ok(infos(r767, 'remarksWeather').some(f => /name no airport/.test(f.message)));
+  // extra fuel (D39) and PCF (SME-7)
+  assert.deepEqual(r767.extraFuel, { fuel: '1500', minutes: 5, unit: 'LBS', type: 'TANKER', tanker: true, reasons: ['ECON TANKER FUEL ADDED'] });
+  assert.deepEqual(r767.pcf, { fuel: '2000', minutes: 7, unit: 'LBS', reasons: ['- PCF FOR ENROUTE WX'] });
+  // permits with routes, registration restriction, missing permit, ADC with its state's permit
+  assert.deepEqual(r767.permits, [
+    { type: 'OVERFLIGHT', country: 'CHINA', reference: 'CAD/2026W0001', route: 'AAAAA A1 BBBBB', restriction: '', adc: 'ADC NO-0002', missing: false },
+    { type: 'OVERFLIGHT', country: 'SAUDI ARABIA', reference: 'SGF-1', route: '', restriction: 'N000ZZ AUTH ONLY', adc: '', missing: false },
+    { type: 'LANDING', country: 'TURKEY', reference: '/////PERMIT MISSING/////', route: '', restriction: '', adc: '', missing: true },
+    { type: 'ADC', country: 'NOWHERE', reference: '', route: '', restriction: '', adc: 'ADC NO-0001', missing: false }]);
+  assert.equal(r767.overflightPerms, permits.join(' '), 'NavBlue form: the block, white space collapsed');
+  assert.ok(warns(r767, 'permits').some(w => /PERMIT MISSING/.test(w.message)));
+  assert.equal(r767.revision.kind, 'RLS');
+  // negatives
+  const n = parse(pkg({ remarks: ['NO TANKER FUEL THIS SECTOR', 'AIRCRAFT PRE-FUELED TO 50000', '*ANYTIME PERISHABLES OR LIVE ANIMALS ARE ON BOARD',
+    'TEMPERATURE REQUIREMENTS: NO', 'Released under EWINS Authority'],
+    after: 'COMPANY NOTAMS\nKBBB-TANKER ECON TANKER FUEL FOR MIN UPLIFT\nPERISHABLES ONBOARD\nPOS LAUNCH APPROVED BY SECURITY\nTEMPERATURE CONTROL REQUIRED: YES' }));
+  assert.equal(n.hasPerishables, false, 'Company NOTAM boilerplate never sets perishables; nothing outside the release is read');
+  assert.equal(n.hasTemperatureControl, false, 'D55 negative');
+  assert.equal(n.extraFuel.tanker, false, 'D39: no tanker without tanker fuel for this flight');
+  assert.equal(n.extraFuel.type, 'PRE-FUELED');
+  assert.deepEqual(n.securityMessages, []);
+  assert.ok(infos(n, 'ewins').length === 1 && Object.values(n.airportData).every(a => !a.remarksWeather.length), 'the E-WINS line alone sets nothing');
+  assert.deepEqual(n.permits, []); assert.equal(n.overflightPerms, '');
+  assert.deepEqual(n.pcf.reasons, []);
+  assert.ok(infos(n, 'pcf').some(f => /no reason/.test(f.message)), 'PCF without a reason → INFO');
+  // D55 positive (NavBlue rule, unseen in FlightKeys)
+  assert.equal(parse(pkg({ remarks: ['TEMPERATURE REQUIREMENTS: YES'] })).hasTemperatureControl, true);
+  assert.equal(parse(pkg({ remarks: ['PERISHABLES O/B - YES'] })).hasPerishables, true, 'the NavBlue form is kept');
+  // revision: REV, NOT RELEASED, copies identical / different
+  const rev = parse(pkg({ title: 'OPERATIONAL FLIGHT PLAN REV 02 08MAR26 12:00', revision: '2.0', copies: 3 }));
+  assert.deepEqual(rev.revision, { kind: 'REV', number: '02', time: '08MAR26 12:00', revision: '2.0', validUntil: '2300Z 08MAR26', tlr: null, copies: 3, copiesIdentical: true });
+  const nr = parse(pkg({ title: 'OPERATIONAL FLIGHT PLAN -- NOT RELEASED --', revision: '-.-' }));
+  assert.deepEqual([nr.revision.kind, nr.revision.number, nr.revision.revision], ['NOT RELEASED', null, '-.-']);
+  const diff = parse(pkg({ copies: 2, copyDiffers: true }));
+  assert.equal(diff.revision.copiesIdentical, false);
+  assert.ok(warns(diff, 'revision').length === 0 && warns(diff, 'release').length === 1);
+  assert.ok(warns(parse(pkg({ revision: '3.0' })), 'revision').some(w => /differ/.test(w.message)), 'RLS 01 with Revision 3.0 → WARN');
+});
+
+// ══ fixtures ═════════════════════════════════════════════════════════════════
+
+function fixturesDir() {
+  if (process.env.PB_FIXTURES) {
+    const d = path.resolve(process.env.PB_FIXTURES);
+    return fs.existsSync(path.join(d, 'manifest.json')) ? d : null;
+  }
+  return findFixtures();
+}
+const FIXTURES = fixturesDir();
+
+test('TC-161-090 fixtures missing → the fixture tests FAIL, none skipped (child run, empty PB_FIXTURES)', () => {
+  if (process.env.PB_FC_CHILD) return;
+  const os = require('os');
+  const { spawnSync } = require('child_process');
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'pb-nofix-'));
+  try {
+    const env = Object.assign({}, process.env, { PB_FIXTURES: empty, PB_FC_CHILD: '1' });
+    delete env.NODE_TEST_CONTEXT;
+    const run = spawnSync(process.execPath, ['--test', '--test-reporter=tap', __filename], { encoding: 'utf8', env });
+    assert.notEqual(run.status, 0, 'the child run fails');
+    assert.match(run.stdout, /not ok \d+ - TC-161-090 fixtures missing/);
+    assert.match(run.stdout, /# skipped 0/);
+  } finally {
+    fs.rmSync(empty, { recursive: true, force: true });
+  }
+});
+
+if (!FIXTURES) {
+  test('TC-161-090 fixtures missing → the fixture tests FAIL (never skip)', () => {
+    assert.fail('pilotbrief-fixtures not found (set PB_FIXTURES or clone it beside the repo): TC-161-001/010/020/030/032/040/050 cannot run');
+  });
+} else {
+  const manifest = readManifest(FIXTURES);
+  const fk = manifest.fixtures.filter(f => f.format === 'flightkeys');
+  const cache = new Map();
+  const text = fx => fs.readFileSync(path.join(FIXTURES, fx.files.text), 'utf8');
+  const run = fx => {
+    if (!cache.has(fx.id)) {
+      const items = JSON.parse(fs.readFileSync(path.join(FIXTURES, fx.files.items), 'utf8'));
+      cache.set(fx.id, mod.parseFlightKeys(mod.inputFromExtractor(text(fx), items), OPTS));
+    }
+    return cache.get(fx.id);
+  };
+  const L = id => EXPECTED[id].label;
+  const byLabel = lbl => fk.find(f => L(f.id) === lbl);
+  const labelsWhere = pred => fk.filter(fx => pred(run(fx), fx)).map(fx => L(fx.id)).sort();
+
+  test('TC-161-001 v0.1.0 fields byte-identical: v0.2.0 = recorded v0.1.0 output on all 26 fixtures', () => {
+    assert.equal(fk.length, 26);
+    assert.deepEqual(fk.map(f => f.id).sort(), Object.keys(BASELINE.fixtures).sort());
+    let n = 0;
+    for (const fx of fk) {
+      const r = run(fx), b = BASELINE.fixtures[fx.id];
+      for (const f of BASELINE.fields) { assert.equal(sha(JSON.stringify(r[f])), b.sha256[f], `${b.label}: ${f} unchanged`); n++; }
+      for (const [icao, q] of Object.entries(b.specialQualification)) assert.equal(r.airportData[icao].specialQualification, q, `${b.label}: ${icao} Q`);
+      const added = Object.keys(r.airportData).filter(k => !(k in b.specialQualification));
+      assert.deepEqual(added, b.label === 'L15' ? ['PWAK'] : [], `${b.label}: airportData entries added`);
+      assert.deepEqual(Object.keys(r.airportData).slice(0, Object.keys(b.specialQualification).length), Object.keys(b.specialQualification), `${b.label}: entry order kept`);
+      // the v0.1.0 findings, in order, inside the v0.2.0 findings
+      const all = r.findings.map(f => JSON.stringify(f));
+      let j = 0;
+      for (const f of all) if (j < b.findings.length && f === JSON.stringify(b.findings[j])) j++;
+      assert.equal(j, b.findings.length, `${b.label}: v0.1.0 findings kept`);
+    }
+    assert.equal(n, 26 * BASELINE.fields.length);
+  });
+
+  test('TC-161-010 crew on 26 fixtures (row 26, SC): private values; public counts, roles, flags; D62', () => {
+    const crewPath = path.join(FIXTURES, CREW_FILE);
+    assert.ok(fs.existsSync(crewPath), `private crew values missing: ${CREW_FILE} in the fixtures repo`);
+    const CREW = JSON.parse(fs.readFileSync(crewPath, 'utf8')).fixtures;
+    for (const fx of fk) {
+      const r = run(fx), e = EXPECTED[fx.id], lbl = e.label;
+      // values only from the private file; never printed (the message names the field)
+      const got = r.crewMembers.map(c => ({ role: c.role, empNum: c.empNum, lastName: c.lastName, firstName: c.firstName, toLndgExpiry: c.toLndgExpiry, active: c.active }));
+      assert.ok(JSON.stringify(got) === JSON.stringify(CREW[fx.id].crew), `${lbl}: crew values = private expected`);
+      for (const c of r.crewMembers) {
+        assert.equal(c.isSen, false, `${lbl}: isSen never set (SME-3)`);
+        assert.equal(c.displayName, c.initial ? `${c.lastName} ${c.initial}` : c.lastName, `${lbl}: displayName`);
+      }
+      assert.deepEqual(r.crewMembers.map(c => c.role), e.crewRoles, `${lbl}: roles`);
+      assert.equal(r.operatingPilots, e.operatingPilots, `${lbl}: operating pilots (D62)`);
+      assert.equal(r.crewMembers.filter(c => c.toLndgExpiry === 'Not Reported').length, e.notReported, `${lbl}: Not Reported (SME-9)`);
+      assert.equal(r.crewMembers.filter(c => c.lastName.startsWith('* ')).length, e.starPilots, `${lbl}: "*" kept with the last name`);
+      const nc = Object.keys(e.notCrew).sort().map(k => `${k} ${e.notCrew[k]}`).join(', ');
+      assert.equal(infos(r, 'crewMembers').filter(f => f.message === `crew lines not returned as crew (not shown): ${nc}`).length, nc ? 1 : 0, `${lbl}: not-crew INFO`);
+      assert.ok(r.crewMembers.every(c => ['CA', 'FO', 'DH', 'JS'].includes(c.role)), `${lbl}: FA/PU/MX/LM never crew`);
+      assert.deepEqual(warns(r).filter(f => /crew|operatingPilots/.test(f.field)), [], `${lbl}: no crew WARN`);
+    }
+    // D62: operating pilots per package (public)
+    const op = Object.fromEntries(fk.map(fx => [L(fx.id), run(fx).operatingPilots]));
+    assert.deepEqual(op, { T1: 4, T2: 4, T3: 4, L01: 2, L02: 4, L03: 3, L04: 2, L05: 2, L06: 3, L07: 3, L08: 3, L09: 3, L10: 3, L11: 3,
+      L12: 4, L13: 4, L14: 4, L15: 4, L16: 3, L17: 3, L18: 4, L19: 3, L20: 4, L21: 2, L22: 3, L23: 3 });
+    // field-map row 26 counts
+    assert.deepEqual(labelsWhere(r => r.crewMembers.some(c => c.toLndgExpiry === 'Not Reported')), ['L03', 'L14', 'L16', 'L17', 'L18', 'L19', 'T1', 'T2', 'T3'], 'SME-9: blank in 9');
+    assert.deepEqual(labelsWhere(r => r.crewMembers.some(c => c.lastName.startsWith('* '))), ['L01', 'L02', 'L15'], 'SME-3: "*" in 3');
+    assert.deepEqual(labelsWhere(r => r.crewMembers.some(c => c.role === 'DH')), ['L08', 'L12', 'L21'], 'DH in 3');
+    assert.equal(labelsWhere(r => r.crewMembers.some(c => c.role === 'JS')).length, 10, 'JS in 10');
+    assert.deepEqual(labelsWhere(r => r.crewMembers.filter(c => c.role === 'CA').length === 2), ['L05', 'L22'], 'two CA in L05, L22');
+  });
+
+  test('TC-161-020 CAT II/III on 26 fixtures (row 24, SC): authorisations and restrictions', () => {
+    for (const fx of fk) {
+      const r = run(fx), e = EXPECTED[fx.id];
+      assert.deepEqual(r.catIiIiiApproaches, e.catIiIiiApproaches, `${e.label}: authorisations`);
+      assert.deepEqual(r.catIiIiiRestrictions.map(x => x.airport || x.source), e.catRestrictions, `${e.label}: restrictions`);
+      for (const x of r.catIiIiiRestrictions) {
+        assert.ok(!(x.airport && r.catIiIiiApproaches && (r.catIiIiiApproaches[x.airport] || []).some(a => x.runways.some(rw => a.rwys.split('/').includes(rw)))),
+          `${e.label}: a restricted runway is never listed as authorised`);
+      }
+      assert.deepEqual(warns(r, 'catIiIiiApproaches'), []);
+    }
+    assert.deepEqual(labelsWhere(r => r.catIiIiiApproaches === null), ['L01', 'L05', 'L15', 'L19'], 'no authorisation in L01, L15, L19 (none printed) and L05 (restriction only)');
+    assert.deepEqual(labelsWhere(r => r.catIiIiiRestrictions.length > 0), ['L01', 'L04', 'L05', 'T1', 'T3'], 'restrictions in 5 (SME-10)');
+    assert.deepEqual(run(byLabel('L05')).catIiIiiRestrictions.map(x => [x.airport, x.category, x.runways]), [['KCVG', 'II/III', ['36C']]]);
+    assert.deepEqual(run(byLabel('L23')).catIiIiiApproaches.ETAR, [{ cat: 'II/III', rwys: 'ALL RUNWAYS' }], 'ALL RWY = an authorisation');
+  });
+
+  test('TC-161-030 MEL/CDL/DDG on 26 fixtures (row 25, 32a): items, type, notes, TLR cross-reference', () => {
+    for (const fx of fk) {
+      const r = run(fx), e = EXPECTED[fx.id];
+      assert.deepEqual(r.ddgItems.map(d => ({ type: d.type, code: d.code, tlr: d.tlr, notes: d.notes.length, descSha256: sha(d.desc) })), e.ddgItems, `${e.label}: ddgItems`);
+      assert.equal(r.melItems, r.ddgItems.map(d => d.code + ' ' + d.desc).join(' | ').substring(0, 600), `${e.label}: melItems`);
+      assert.ok(r.ddgItems.every(d => Object.keys(d).join() === 'code,desc,tlr,type,notes' && d.notes.every(n => n.indent === 1)), `${e.label}: shape; notes indented`);
+      assert.deepEqual(warns(r, 'ddgItems'), [], `${e.label}: no WARN`);
+    }
+    assert.equal(labelsWhere(r => r.ddgItems.length > 0).length, 25, 'items in 25');
+    assert.deepEqual(labelsWhere(r => r.ddgItems.length === 0), ['L15'], 'empty block in L15');
+    assert.deepEqual(labelsWhere(r => r.ddgItems.some(d => d.type === 'CDL')), ['L01', 'L16', 'L18'], 'CDL in 3');
+    assert.deepEqual(labelsWhere(r => r.ddgItems.some(d => d.tlr)), ['L10', 'L11', 'L12', 'L13', 'L16'], 'row 32a: 5');
+    assert.deepEqual(labelsWhere(r => infos(r, 'ddgItems').some(f => /printed more than once/.test(f.message))),
+      ['L08', 'L09', 'L10', 'L12', 'L13', 'L14', 'L16', 'L20', 'L23'], 'SME-4: duplicates in 9, listed once');
+    assert.deepEqual(labelsWhere(r => infos(r, 'ddgItems').some(f => /late-addition/.test(f.message))), ['L23'], 'SME-19: L23 only (L12, L13 quote MELs already in the block)');
+    assert.deepEqual(run(byLabel('L23')).ddgItems.slice(-1).map(d => [d.type, d.code]), [['MEL', '25-58-01A']]);
+    assert.deepEqual(run(byLabel('L11')).ddgItems.filter(d => d.tlr).map(d => [d.code, d.tlr]), [['36-11-01', 'takeoff'], ['36-12-02-01', 'both']],
+      'codes below the RMKS line are read (FlightKeys form)');
+  });
+
+  test('TC-161-032 TLR on 26 fixtures (row 32): oeiData = NavBlue, except the NavBlue page-break leak (L10)', () => {
+    for (const fx of fk) {
+      const r = run(fx), nb = navblue._ofpRulesetParse(text(fx)).oeiData, lbl = L(fx.id);
+      if (lbl === 'L10') {
+        assert.equal(r.oeiData.length, nb.length);
+        r.oeiData.forEach((o, i) => {
+          if (o.proc === nb[i].proc) assert.deepEqual(o, nb[i]);
+          else {
+            assert.match(nb[i].proc, /FUFI[0-9A-F-]+ PAGE \d+\/\d+/, 'NavBlue: footer in the procedure');
+            assert.ok(nb[i].proc.startsWith(o.proc + ' '), 'the module keeps the procedure, without the page furniture');
+            assert.deepEqual(Object.assign({}, o, { proc: nb[i].proc }), nb[i]);
+          }
+        });
+      } else assert.deepEqual(r.oeiData, nb, `${lbl}: oeiData = NavBlue`);
+      assert.ok(r.oeiData.every(o => !/FUFI|PAGE \d+\/\d+|^REL /.test(o.proc)), `${lbl}: no page furniture in a procedure`);
+    }
+    assert.equal(labelsWhere(r => r.oeiData.length > 0).length, 23, 'TLR in 23 (every live package)');
+    assert.deepEqual(labelsWhere(r => r.revision.tlr && r.revision.tlr !== 'TLR-' + String(+r.revision.number)), [], 'TLR-n = release number');
+  });
+
+  test('TC-161-040 FK-P matched pair: FK UAAA-EHAM prototype vs EOFP matched pair, every field in scope', () => {
+    const fkFx = fk.find(f => f.id === 'FK_UAAA-EHAM_27OCT26_prototype');
+    const nbFx = manifest.fixtures.find(f => f.id === 'EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11');
+    assert.ok(fkFx && nbFx);
+    const r = run(fkFx), nb = navblue._ofpRulesetParse(text(nbFx));
+    const core = c => ({ role: c.role, empNum: c.empNum, lastName: c.lastName, initial: c.initial, displayName: c.displayName, active: c.active, isSen: c.isSen });
+    // crew: the same four pilots; every NavBlue key equal person by person (the two plans print them in another order)
+    assert.equal(r.crewMembers.length, nb.crewMembers.length);
+    for (const c of r.crewMembers) {
+      const n = nb.crewMembers.find(x => x.empNum === c.empNum);
+      assert.ok(n && JSON.stringify(core(c)) === JSON.stringify(core(n)), 'crew: NavBlue keys equal for the same person');
+    }
+    assert.equal(r.hasTemperatureControl, nb.hasTemperatureControl, 'temperature control: equal (none in either)');
+    // CAT II/III: equal for every airport both packages list
+    const common = Object.keys(r.catIiIiiApproaches).filter(k => k in nb.catIiIiiApproaches);
+    assert.deepEqual(common.sort(), ['EBBR', 'EHAM', 'LTAC', 'UAAA']);
+    for (const k of common) assert.deepEqual(r.catIiIiiApproaches[k], nb.catIiIiiApproaches[k], `CAT ${k}`);
+    // DDG: the same items and TLR values; NavBlue's core keys only (code, desc, tlr) — desc is worded differently
+    assert.deepEqual(r.ddgItems.map(d => d.code).sort(), nb.ddgItems.map(d => d.code).sort());
+    assert.ok(r.ddgItems.every(d => Object.keys(d).slice(0, 3).join() === 'code,desc,tlr'), 'NavBlue keys first');
+    assert.deepEqual(r.ddgItems.map(d => d.tlr), nb.ddgItems.map(d => d.tlr));
+    // Content the two PDFs print differently (checked in both texts; EOFP release 11 vs an unreleased FK prototype):
+    const PLAN_DIFFERENCES = {
+      hasPerishables: 'the EOFP prints "PERISHABLES O/B - YES"; the FK prototype prints no perishables line',
+      catIiIiiApproaches: 'other airports listed: EOFP EDDB, EDDP (its redispatch airports); FK EBLG, EDDK, ELLX',
+      ddgItems: 'same codes; titles worded differently (EOFP abbreviated capitals) and printed in another order',
+      melItems: 'follows ddgItems',
+      overflightPerms: 'different permit lists (FK prototype: two permits MISSING)',
+      oeiData: 'the FK prototype has no TLR; the EOFP has one',
+      crewMembers: 'same people and values; printed in another order',
+    };
+    const differ = Object.keys(PLAN_DIFFERENCES).filter(f => JSON.stringify(r[f]) !== JSON.stringify(nb[f]));
+    assert.deepEqual(differ, Object.keys(PLAN_DIFFERENCES), 'exactly the listed differences differ');
+    assert.equal(JSON.stringify(r.hasTemperatureControl), JSON.stringify(nb.hasTemperatureControl));
+  });
+
+  test('TC-161-050 remarks on 26 fixtures: ofpRemarks, airport remarks, weather, flags, fuel, permits, revision', () => {
+    for (const fx of fk) {
+      const r = run(fx), e = EXPECTED[fx.id], lbl = e.label;
+      const rem = r.ofpRemarks.filter(x => x.category !== 'adhocPenalty');
+      assert.equal(rem.length, e.ofpRemarksLines, `${lbl}: every Remarks line`);
+      assert.equal(sha(rem.map(x => x.text).join('\n')), e.ofpRemarksSha, `${lbl}: Remarks text, in order`);
+      assert.equal(r.hasPerishables, e.perishables, `${lbl}: perishables`);
+      assert.equal(r.hasTemperatureControl, e.temperatureControl, `${lbl}: temperature control`);
+      assert.equal(r.securityMessages.length, e.securityMessages, `${lbl}: security`);
+      assert.deepEqual({ fuel: r.extraFuel.fuel, minutes: r.extraFuel.minutes, tanker: r.extraFuel.tanker }, e.extra, `${lbl}: extra fuel`);
+      assert.deepEqual({ fuel: r.pcf.fuel, minutes: r.pcf.minutes }, e.pcf, `${lbl}: PCF`);
+      assert.deepEqual(r.permits.map(x => x.type + ' ' + x.country).concat(r.permits.filter(x => x.adc && x.type !== 'ADC').map(x => 'ADC ' + x.country)), e.permits, `${lbl}: permits`);
+      assert.equal(sha(r.overflightPerms), e.overflightPermsSha, `${lbl}: overflightPerms`);
+      assert.deepEqual({ kind: r.revision.kind, number: r.revision.number }, e.revision, `${lbl}: revision`);
+      assert.deepEqual([...new Set(r.ofpRemarks.filter(x => x.category === 'stationRestriction' && x.airport).map(x => x.airport))], e.stationAirports, `${lbl}: station blocks`);
+      assert.deepEqual(Object.entries(r.airportData).flatMap(([k, v]) => v.remarksWeather.map(() => k)), e.remarksWeather, `${lbl}: remarks weather`);
+      assert.equal(r.findings.some(f => /\(SME-18\)$/.test(f.message)), e.takeoffAlternateFlag, `${lbl}: takeoff-alternate flag`);
+      for (const a of Object.values(r.airportData)) assert.equal(a.weather, '', `${lbl}: remarks weather never merged into the briefing weather`);
+      assert.deepEqual(warns(r).filter(f => !(lbl === 'L21' && /\(SME-18\)$/.test(f.message)) && !(lbl === 'T1' && f.field === 'permits')), [], `${lbl}: no other WARN`);
+    }
+    const has = cat => labelsWhere(r => r.ofpRemarks.some(x => x.category === cat));
+    assert.equal(has('raim').length, 26);
+    assert.equal(has('boilerplate').length, 23, 'FlightKeys boilerplate in every live package');
+    assert.deepEqual(has('cargoDeclaration'), ['L20']);
+    assert.deepEqual(has('perishables'), ['L03', 'L08', 'L10', 'L12', 'L13', 'L16', 'L17']);
+    assert.deepEqual(has('security'), ['L07']);
+    assert.deepEqual(has('permit'), ['L17']);
+    assert.deepEqual(has('slot'), ['L16']);
+    assert.deepEqual(has('ewins'), ['L22']);
+    assert.deepEqual(has('stationRestriction'), ['L01', 'L06', 'L09', 'L21', 'L22']);
+    assert.deepEqual(has('weather'), ['L15', 'T3']);
+    assert.deepEqual(has('route'), ['L03', 'L12', 'L14', 'L23']);
+    assert.deepEqual(has('melChange'), ['L12', 'L13', 'L23']);
+    assert.deepEqual(has('fleetNote'), ['L03', 'L14', 'L17', 'L20']);
+    assert.deepEqual(has('exemption'), ['L08', 'L11', 'L13', 'L15', 'L21', 'L22']);
+    assert.deepEqual(has('extraFuel'), ['L05', 'L15', 'L23']);
+    assert.deepEqual(labelsWhere(r => r.hasPerishables), ['L03', 'L08', 'L10', 'L12', 'L13', 'L16', 'L17'], 'row 27: 7');
+    assert.deepEqual(labelsWhere(r => r.hasTemperatureControl), [], 'row 28: none (L20 declares NO)');
+    assert.deepEqual(labelsWhere(r => r.extraFuel.tanker), ['L15'], 'D39: tanker in L15 only');
+    assert.deepEqual(labelsWhere(r => +r.pcf.fuel > 0).length, 17, 'non-zero PCF in 17');
+    assert.deepEqual(labelsWhere(r => +r.pcf.fuel > 0 && !r.pcf.reasons.length), ['L01'], 'PCF reason in 16 of 17 (none in L01)');
+    assert.deepEqual(labelsWhere(r => r.permits.some(p => p.type === 'OVERFLIGHT')), ['L01', 'L07', 'L09', 'L10', 'L13', 'L17', 'L22', 'T1'], 'overflight 8');
+    assert.deepEqual(labelsWhere(r => r.permits.some(p => p.type === 'LANDING')), ['L03', 'L06', 'L07', 'L11', 'L15'], 'landing 5');
+    assert.deepEqual(labelsWhere(r => r.permits.some(p => p.type === 'TAKEOFF')), ['L16', 'T2'], 'takeoff 2');
+    assert.deepEqual(labelsWhere(r => r.permits.some(p => p.restriction)), ['L07'], 'registration restriction in L07');
+    assert.deepEqual(labelsWhere(r => r.permits.some(p => p.adc)), ['L17'], 'ADC with its permit');
+    assert.deepEqual(labelsWhere(r => r.findings.some(f => /\(SME-18\)$/.test(f.message))), ['L21'], 'SME-18: L21 only');
+    // SME-18a: L21 (B763) takes the 767 items; the 747 line is not attached
+    const l21 = run(byLabel('L21'));
+    assert.equal(l21.airportData.NZWN.remarks.length, 5);
+    assert.ok(l21.airportData.NZWN.remarks.every(x => x.fleet === '767'));
+    assert.ok(infos(l21, 'airportData').some(f => /1 station-restriction line\(s\) under another fleet's sub-heading not attached/.test(f.message)));
+    assert.deepEqual(Object.entries(run(byLabel('L06')).airportData.LEZG.remarks.reduce((a, x) => (a[x.subHeading] = (a[x.subHeading] || 0) + 1, a), {})),
+      [['null', 3], ['ARRIVALS', 1], ['DEPARTURES', 6]].map(([k, v]) => [k, v]), 'L06 sub-cards ARRIVALS / DEPARTURES (D34)');
+    // SME-23: L15's dispatcher TAF for PWAK is attached to PWAK, raw only
+    const l15 = run(byLabel('L15'));
+    assert.deepEqual(l15.airportData.PWAK.remarksWeather.map(x => [x.source, x.type]), [['GOV TAF UPDATED', 'TAF']]);
+    assert.equal(run(byLabel('L23')).extraFuel.type, 'CAPTAIN');
+    assert.equal(run(byLabel('L05')).extraFuel.type, 'PRE-FUELED');
+    assert.deepEqual(labelsWhere(r => r.revision.kind === 'REV'), ['L20', 'L21', 'L22', 'L23']);
+    assert.deepEqual(labelsWhere(r => r.revision.kind === 'NOT RELEASED'), ['T1', 'T2', 'T3']);
+    assert.deepEqual(labelsWhere(r => r.revision.copies === 3 && r.revision.copiesIdentical), ['L02', 'L20', 'L21', 'L22', 'L23']);
+  });
+}
