@@ -176,6 +176,36 @@ const PATTERNS = {
   SLOT_TIME_AT:         /\bWHEELS\s+UP\s+(\d{4}Z?)\b(?!\s*(?:MUST|NOT|BEFORE|BETWEEN))/i,
   // Row 31: the NavBlue verbal callsign remark, unchanged
   VERBAL_CALLSIGN: /VERBAL\s+CALLSIGN\s*[-\u2013]\s*([A-Z]+)/i,
+  // Nav log (rows 33, 34, 39–41): column headers repeated on every page, then
+  // three lines per fix — "AWY WPT [name] [freq]" / "[^MORA] Nnn nn.n MTK NM …"
+  // / "Ennn nn.n TTK MH IAS .M TOT-T [ATA] FL …". TOT-T is HH.MM (not decimal).
+  NAVLOG_HDR1:     /^AWY\s+WPT\s+MTK\b/,
+  NAVLOG_HDR2:     /^MORA\s+TTK\s+MH\b/,
+  NAVLOG_LAT:      /^(?:\^\d+\s+)?([NS]\d{2} \d{2}\.\d)(?=\s|$)/,
+  NAVLOG_LON:      /^([EW]\d{3} \d{2}\.\d)(?=\s|$)(.*)$/,
+  NAVLOG_TOT:      /(?:^|\s)(\d{2})\.(\d{2})(?=\s|$)/,
+  NAVLOG_TOC:      /(?:^|\s)TOC$/,
+  NAVLOG_EENT:     /\(E\.ENT\)$/,
+  NAVLOG_EEXT:     /\(E\.EXT\)$/,
+  NAVLOG_ETP:      /\(GO([A-Z]{4})\)\s+(ETP\d+)$/,
+  NAVLOG_POR:      /\(POR\)\s+AT\s+(\S+)/,
+  // Row 39: type line "… FF +n.n ETOPS Entry HH.MM" (dot); an exit on the type line is unseen
+  ETOPS_ENTRY:     /\bETOPS\s+Entry\s+(\d{2})[.:](\d{2})\b/,
+  ETOPS_EXIT:      /\bETOPS\s+Exit\s+(\d{2})[.:](\d{2})\b/,
+  ETOPS_SPEC:      /^Critical Fuel Scenario\s+ETOPS\s+(\d{2,3}\/\d{2,3})\b/,
+  // Row 40: OFP p1 "… ADIS: nnnn POR: <WPT>[+nnNM] HH.MM"
+  POR_P1:          /\bPOR:\s+(\S+)\s+(\d{2})\.(\d{2})\b/,
+  // Row 41: Critical Fuel Scenario block
+  CFS_START:       /^Critical Fuel Scenario\b/,
+  CFS_ETP:         /^\(GO([A-Z]{4})\)\s+(ETP\d+)\s+([A-Z]{4})-([A-Z]{4})\s+([NS]\d{2} \d{1,2}\.\d)\s+([EW]\d{3} \d{1,2}\.\d)\s*$/,
+  CFS_EENT:        /^\(GO([A-Z]{4})\)\s+E\.ENT\s+([A-Z]{4})\s+([NS]\d{2} \d{1,2}\.\d)\s+([EW]\d{3} \d{1,2}\.\d)\s*$/,
+  CFS_EEXIT:       /^(?:\(GO([A-Z]{4})\)\s+)?E\.EXIT\s+([A-Z]{4})\s+([NS]\d{2} \d{1,2}\.\d)\s+([EW]\d{3} \d{1,2}\.\d)\s*$/,
+  // Table row "IIII GCD HH:MM A/I REMF PAD MINF HH:MM-HH:MM" (window without Z)
+  CFS_ROW:         /^([A-Z]{4})\s+\d+\s+\d{2}:\d{2}\s+\S+\s+\d+\s+\d+\s+\d+\s+(\d{2}):(\d{2})-(\d{2}):(\d{2})\s*$/,
+  // Row 36: alternate route blocks on the last OFP page
+  ALT_ROUTE_TITLE: /^(Destination Primary Alternate Route|Initial Airport Route|Initial Alternate Route)\s*$/,
+  ALT_ROUTE_END:   /^(?:[A-Z]{4}\/\d{3,4}\s*$|GCD\s+\d+\s+GDIS\b|MORA\s+\d+)/,
+  ALT_ROUTE_MORA:  /^MORA\s+(\d+)\s*$/,
 };
 
 // Alternate keywords → crew roles: the NavBlue rule (ALT_PATTERNS), unchanged
@@ -596,12 +626,203 @@ function _readRemarksItems(ctx) {
   if (vc) out.parsedVerbalCallsign = vc[1].toUpperCase();
 }
 
-// Fields of the v0.1.0 scope still being built on this branch.
+// ── Nav log (rows 33, 34) ───────────────────────────────────────────────
+// The nav log of the first release copy, from the first column header to the
+// alternate routes. Page headers, footers and the repeated column headers are
+// already out (release body lines) or skipped here, so a fix split by a page
+// break is read whole. navLog itself stays [] — what the NavBlue parser gives
+// on every NavBlue package (FK-P, field map row 33): a filled navLog would
+// change the en-route screen. The rows feed TOC, ETOPS, ETP and POR.
+function _readNavLog(ctx) {
+  const lines = (ctx.rel ? ctx.rel.lines : []).filter(l => !PATTERNS.NAVLOG_HDR2.test(l));
+  const start = lines.findIndex(l => PATTERNS.NAVLOG_HDR1.test(l));
+  const rows = [];
+  if (start === -1) return rows;
+  let end = lines.findIndex((l, i) => i > start && (PATTERNS.ALT_ROUTE_TITLE.test(l) || PATTERNS.CFS_START.test(l)));
+  if (end === -1) end = lines.length;
+  const body = lines.slice(start, end).filter(l => !PATTERNS.NAVLOG_HDR1.test(l));
+  for (let i = 0; i + 2 < body.length; i++) {
+    const la = PATTERNS.NAVLOG_LAT.exec(body[i + 1]);
+    const lo = la && PATTERNS.NAVLOG_LON.exec(body[i + 2]);
+    if (!lo) continue;
+    const tm = PATTERNS.NAVLOG_TOT.exec(lo[2]);
+    const tot = tm && +tm[2] < 60 ? (+tm[1]) * 60 + (+tm[2]) : null;
+    rows.push({ label: body[i].trim(), lat: la[1], lon: lo[1], tot, totStr: tm ? tm[1] + ':' + tm[2] : '' });
+    i += 2;
+  }
+  return rows;
+}
+
+const _hhmm = mins => `${_pad2(Math.floor(mins / 60))}:${_pad2(mins % 60)}`;
+
+// ── TOC, ETOPS, POR (rows 34, 39, 40; SME-11) ───────────────────────────
+function _readRoutePoints(ctx) {
+  const { out, add, p1, rel } = ctx;
+  const nav = ctx.nav;
+  if (rel && !nav.length) add('WARN', 'navLog', 'nav log not found in the release');
+  const find = re => nav.find(r => re.test(r.label)) || null;
+
+  // Row 34: TOC — TOT-T of the first "<AWY> TOC" row.
+  const toc = find(PATTERNS.NAVLOG_TOC);
+  if (toc && toc.tot !== null) out.tocOffsetMins = toc.tot;
+  else if (nav.length) add('WARN', 'tocOffsetMins', 'no TOC row with a TOT-T in the nav log');
+
+  // Row 39 (SC): ETOPS entry from the OFP p1 type line (HH.MM → "HH:MM", the
+  // NavBlue form); cross-checked with the nav-log (E.ENT) TOT-T.
+  const typeLine = p1.find(l => PATTERNS.TYPE_LINE.test(l)) || '';
+  const ee = PATTERNS.ETOPS_ENTRY.exec(typeLine);
+  const eent = find(PATTERNS.NAVLOG_EENT);
+  if (ee && +ee[2] < 60) {
+    out.etopsEntryMins = (+ee[1]) * 60 + (+ee[2]);
+    out.etopsEntry = ee[1] + ':' + ee[2];
+    if (eent && eent.tot !== null && eent.tot !== out.etopsEntryMins) add('WARN', 'etopsEntry', 'ETOPS entry on OFP page 1 and the nav-log (E.ENT) time differ; page 1 is used');
+    if (!eent) add('WARN', 'etopsEntry', 'ETOPS entry on OFP page 1 but no (E.ENT) row in the nav log');
+  } else if (eent && eent.tot !== null) {
+    out.etopsEntryMins = eent.tot;
+    out.etopsEntry = _hhmm(eent.tot);
+    add('WARN', 'etopsEntry', 'no ETOPS entry on OFP page 1; the nav-log (E.ENT) time is used');
+  }
+  // Exit: the type line if it ever carries it, else the nav-log (E.EXT) TOT-T (as NavBlue).
+  const ex = PATTERNS.ETOPS_EXIT.exec(typeLine);
+  const eext = find(PATTERNS.NAVLOG_EEXT);
+  if (ex && +ex[2] < 60) { out.etopsExitMins = (+ex[1]) * 60 + (+ex[2]); out.etopsExit = ex[1] + ':' + ex[2]; }
+  else if (eext && eext.tot !== null) { out.etopsExitMins = eext.tot; out.etopsExit = _hhmm(eext.tot); }
+  if (out.etopsEntry && !out.etopsExit) add('WARN', 'etopsExit', 'ETOPS entry without an exit');
+  // Spec: "Critical Fuel Scenario ETOPS 60/nnn".
+  for (const l of rel ? rel.lines : []) { const m = PATTERNS.ETOPS_SPEC.exec(l); if (m) { out.etopsSpec = m[1]; break; } }
+  if (out.etopsEntry && !out.etopsSpec) add('WARN', 'etopsSpec', 'ETOPS entry without a "Critical Fuel Scenario ETOPS" spec');
+
+  // Row 40: POR — OFP p1 "POR: <WPT>[+nnNM] HH.MM"; the nav-log row
+  // "(POR) AT <WPT>[+nnNM]" gives its lat/long. A fix-plus-distance POR is
+  // shown "(<WPT>+nnNM) <lat> <lon>" (SME-11); a plain fix as its name.
+  let pp = null;
+  for (const l of p1) { pp = PATTERNS.POR_P1.exec(l); if (pp) break; }
+  const pr = nav.find(r => PATTERNS.NAVLOG_POR.test(r.label)) || null;
+  const prTok = pr ? PATTERNS.NAVLOG_POR.exec(pr.label)[1] : '';
+  let tok = '', mins = null;
+  if (pp && +pp[3] < 60) {
+    tok = pp[1]; mins = (+pp[2]) * 60 + (+pp[3]);
+    if (!pr) add('WARN', 'porWpt', 'POR on OFP page 1 but no (POR) row in the nav log');
+    else {
+      if (prTok !== tok) add('WARN', 'porWpt', 'POR on OFP page 1 and in the nav log differ; page 1 is used');
+      if (pr.tot !== null && pr.tot !== mins) add('WARN', 'porOffsetMins', 'POR time on OFP page 1 and the nav-log TOT-T differ; page 1 is used');
+    }
+  } else if (pr) {
+    tok = prTok; mins = pr.tot;
+    add('WARN', 'porWpt', 'no POR on OFP page 1; the nav-log (POR) row is used');
+  }
+  if (tok) {
+    out.porOffsetMins = mins;
+    if (/\+\d+NM$/.test(tok)) {
+      out.porWpt = pr && prTok === tok ? `(${tok}) ${pr.lat} ${pr.lon}` : `(${tok})`;
+      if (!(pr && prTok === tok)) add('WARN', 'porWpt', 'POR lat/long not found in the nav log');
+    } else out.porWpt = tok;
+  }
+}
+
+// ── ETP points and CFS alternates (row 41; SME-13) ──────────────────────
+function _readCfs(ctx) {
+  const { out, add, rel } = ctx;
+  const lines = rel ? rel.lines : [];
+  const s = lines.findIndex(l => PATTERNS.CFS_START.test(l));
+  if (s === -1) return;
+  let e = lines.findIndex((l, i) => i > s && PATTERNS.ALT_ROUTE_TITLE.test(l));
+  if (e === -1) e = lines.length;
+  // Scenarios: each starts at an ETP / E.ENT / E.EXIT line; its table rows follow.
+  const scen = [];
+  for (const l of lines.slice(s, e)) {
+    let m;
+    if ((m = PATTERNS.CFS_ETP.exec(l))) scen.push({ kind: 'ETP', name: m[2], apts: [m[3], m[4]], lat: m[5], lon: m[6], win: {} });
+    else if ((m = PATTERNS.CFS_EENT.exec(l))) scen.push({ kind: 'E.ENT', name: 'E.ENT', apts: [m[2]], win: {} });
+    else if ((m = PATTERNS.CFS_EEXIT.exec(l))) scen.push({ kind: 'E.EXIT', name: 'E.EXIT', apts: [m[2]], win: {} });
+    else if ((m = PATTERNS.CFS_ROW.exec(l)) && scen.length) {
+      const sc = scen[scen.length - 1];
+      const ok = +m[2] < 24 && +m[3] < 60 && +m[4] < 24 && +m[5] < 60;
+      if (ok && !sc.win[m[1]]) sc.win[m[1]] = `${m[2]}${m[3]}Z-${m[4]}${m[5]}Z`;
+    }
+  }
+  // ETP points: name, lat, lon (+ elapsedMins from the nav-log ETP row, the
+  // NavBlue rule: first row, 0 < elapsed, hours ≤ 23).
+  for (const sc of scen.filter(x => x.kind === 'ETP')) {
+    if (out.etpPoints.find(p => p.name === sc.name)) continue;
+    const pt = { name: sc.name, lat: sc.lat, lon: sc.lon };
+    const nr = ctx.nav.find(r => { const m = PATTERNS.NAVLOG_ETP.exec(r.label); return m && m[2] === sc.name; });
+    if (nr && nr.tot !== null && nr.tot > 0 && nr.tot < 24 * 60) pt.elapsedMins = nr.tot;
+    else add('WARN', 'etpPoints', `${sc.name}: no nav-log TOT-T found`);
+    out.etpPoints.push(pt);
+  }
+  // CFS alternates: the ETP airports first (NavBlue order: return, continue),
+  // then the E.ENT / E.EXIT airports (SME-13: alternates for consideration).
+  const cfs = [];
+  for (const kind of ['ETP', 'E.ENT', 'E.EXIT']) {
+    for (const sc of scen.filter(x => x.kind === kind)) {
+      for (const icao of sc.apts) {
+        if (cfs.find(c => c.icao === icao)) continue;
+        const wxWindow = sc.win[icao] || null;
+        if (!wxWindow) add('WARN', 'altData', `${icao} (${sc.name}): no weather window in its scenario table`);
+        cfs.push({ icao, wxWindow, etpName: sc.name });
+      }
+    }
+  }
+  for (const c of cfs) {
+    if (out.altData.find(a => a.icao === c.icao)) continue;
+    let currentEta = null;
+    const wm = c.wxWindow && /^(\d{4})Z-(\d{4})Z$/.exec(c.wxWindow);
+    if (wm) currentEta = _wxWindowMidpoint(wm[1], wm[2]);
+    out.altData.push({ icao: c.icao, role: 'CFS ALT', ofpEta: currentEta, ofpOffsetMins: null, currentEta,
+      wxWindow: c.wxWindow, etpName: c.etpName });
+  }
+}
+
+// NavBlue wxWindowMidpoint(): midpoint of a HHMM–HHMM window, over midnight.
+function _wxWindowMidpoint(a, b) {
+  const s = (+a.slice(0, 2)) * 60 + (+a.slice(2, 4));
+  const e = (+b.slice(0, 2)) * 60 + (+b.slice(2, 4));
+  let mid = s + Math.round((e >= s ? e - s : e + 1440 - s) / 2);
+  if (mid >= 1440) mid -= 1440;
+  return _pad2(Math.floor(mid / 60)) + _pad2(mid % 60);
+}
+
+// ── Alternate routes (row 36) ───────────────────────────────────────────
+// Each block: title · route (one or more lines) · [IIII/nnn] · [GCD … TIME …]
+// · [MORA nnnn]. route = the route lines only, as NavBlue (spaces collapsed).
+function _readAltRoutes(ctx) {
+  const { out, rel } = ctx;
+  const lines = rel ? rel.lines : [];
+  const seen = new Set();
+  for (let i = 0; i < lines.length; i++) {
+    const t = PATTERNS.ALT_ROUTE_TITLE.exec(lines[i]);
+    if (!t) continue;
+    const routeLines = [];
+    let mora = '', inRoute = true;
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j];
+      if (PATTERNS.ALT_ROUTE_TITLE.test(l) || PATTERNS.CFS_START.test(l)) break;
+      const mm = PATTERNS.ALT_ROUTE_MORA.exec(l);
+      if (mm) { mora = mm[1]; break; }
+      if (PATTERNS.ALT_ROUTE_END.test(l)) { inRoute = false; continue; }
+      if (inRoute) routeLines.push(l);
+      else break;
+    }
+    const route = routeLines.join(' ').replace(/\s+/g, ' ').trim();
+    if (!route) continue;
+    const key = t[1] + '|' + route;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.altRoutes.push({ title: t[1], route, mora });
+  }
+}
+
+// The readers that need the full release, in order.
 function _readPending(ctx) {
   _readFuel(ctx);
   _readWeights(ctx);
   _readRemarksItems(ctx);
+  ctx.nav = _readNavLog(ctx);
+  _readRoutePoints(ctx);
   _buildAltData(ctx);
+  _readCfs(ctx);
+  _readAltRoutes(ctx);
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -31,6 +31,11 @@
  *               wrapped exemption, DOT-SP form, every NavBlue slot form; text outside the release
  *               Remarks (Company NOTAMs, briefing) never read
  *   TC-160-017  rows 29–31 on all 26 fixtures (exemption 6 incl. L08 wrapped, slot 1, callsign 0)
+ *   TC-160-018  route, synthetic (SC ETOPS entry/exit, ETP/CFS: positive and negative): nav log with a
+ *               fix split by a page break; TOC; ETOPS entry HH.MM and its cross-check; exit from (E.EXT);
+ *               POR plain and "(<WPT>+nnNM) lat lon" (SME-11); ETP points; CFS windows without Z;
+ *               E.ENT/E.EXIT-only airports as CFS alternates (SME-13); alternate routes; navLog [] (FK-P)
+ *   TC-160-019  rows 33, 34, 36, 39–41 on all 26 fixtures; field-map counts
  *   TC-160-020  where the field map says today's NavBlue parser already reads FlightKeys right (✅
  *               rows), the module gives exactly the NavBlue value on all 26 fixtures
  *   TC-160-030  fixtures missing → the fixture tests FAIL (never skip)
@@ -409,6 +414,70 @@ test('TC-160-016 rows 29–31 synthetic: DOT exemption (wrapped), slot forms, ve
   }
 });
 
+test('TC-160-018 route synthetic: nav log, TOC, ETOPS, POR, ETP/CFS, alternate routes (SC positive and negative)', () => {
+  const HDR = ['AWY   WPT MTK  NM  GS  TAS LEG-T ETA  MTRS  ISA   WC   REMF', 'MORA   TTK  MH  IAS .M  TOT-T ATA  FL   TEMP   WIND  AREM'];
+  const fix = (l1, lat, lon, tot) => [l1, `${lat}  315  004 379 481 00:01   P01   H102   0906`, `${lon} 311  310 278 834 ${tot} F360  -55   285/111`];
+  const page = (n, of, body) => [REL_HDR, 'OPERATIONAL FLIGHT PLAN RLS 01 08MAR26 12:00', ...body, `FUFI: 00000000-0000-0000-0000-000000000000 PAGE ${n}/${of}`].join('\n') + '\n\n';
+  const build = ({ typeExtra = ' ETOPS Entry 02.08', por = 'POR: AAAAA+119NM 03.10', navA, navB, cfs, routes }) => {
+    const p1 = ['TST0001/08 KAAA - KBBB 08 MAR 26 N000ZZ', `B777F / GE90-110BL / KG / IFR / FF +2.6${typeExtra}`,
+      'ORIG KAAA/AAA ALPHA INTL N40000W080000 1000Z', 'DEST KBBB/BBB BRAVO INTL N41000W081000 2000Z',
+      'PALT KCCC/CCC CHARLIE N42000W082000 2030Z', `FMC Reserves: 9.6 ADIS: 4105 ${por}`];
+    const p2 = ['TIME FUEL', ...fplBlock({ type: 'B77L/H' }), 'Overflight/Landing Permits', ...HDR, ...navA];
+    const p3 = [...HDR, ...navB, ...routes, ...cfs];
+    return 'COVER\n\n' + page(1, 3, p1) + page(2, 3, p2) + page(3, 3, p3) + 'NOTAM PAGE\n\n';
+  };
+  const navA = [...fix('J70 TOC', 'N43 09.8', 'W088 21.3', '00.15'), ...fix('J120 (E.ENT)', 'N50 00.0', 'W150 00.0', '02.08'),
+    'DCT (GOKEEE) ETP1'];                                           // the ETP fix is split by the page break
+  const navB = ['N46 45.2   139 416 483 00:20   P09   0276', 'E166 28.3   251 826 04.07 F400  -47 248/067',
+    ...fix('DCT (E.EXT)', 'N45 00.0', 'E160 00.0', '06.14'), ...fix('DCT (POR) AT AAAAA+119NM', '^177   N46 01.2', 'W076 30.5', '03.10'),
+    ...fix('Y685 TOD', 'N36 39.4', 'E128 16.8', '09.59')];
+  const routes = ['Destination Primary Alternate Route', 'KBBB R16R EGOBA G597 KARBU DCT LANAT Y597 MIHOU', 'ATMUGC KCCC', 'KBBB/0390',
+    'GCD 465 GDIS 536 FUEL 9950 TIME 01.07', 'MORA 6700', 'Initial Airport Route', 'AAAAA DCT KDDD', 'MORA 4400'];
+  const cfs = ['Critical Fuel Scenario ETOPS 60/180', 'DEPRESS/1EO', '(GOKEEE) E.ENT KEEE N50 00.0 W150 00.0',
+    'GCD TIME A/I REMF PAD MINF WX WINDOW', 'KEEE 438 01:23 3-078PC 31646 21771 009875 20:40-00:37', 'RMK MIN INCL APU / 5PC WIND',
+    'DEPRESS/1EO', '(GOKFFF) ETP1 KEEE-KFFF N46 45.2 E166 28.3', 'GCD TIME A/I REMF PAD MINF WX WINDOW',
+    'KEEE 720 02:08 3-056PC 27638 12314 015324 20:40-00:37', 'KFFF 708 02:08 3-013PC 27638 12539 015099 22:03-00:37',
+    'DEPRESS/1EO', 'E.EXIT KGGG N45 06.2 E151 16.6', 'GCD TIME A/I REMF PAD MINF WX WINDOW',
+    'KGGG 438 01:22 3-009PC 23665 14009 009656 23:50-00:10', 'Last Adequate: KEEE', 'First Adequate: KHHH'];
+  const r = parseText(build({ navA, navB, cfs, routes }));
+  assert.equal(r.tocOffsetMins, 15);
+  assert.deepEqual([r.etopsEntry, r.etopsEntryMins, r.etopsExit, r.etopsExitMins, r.etopsSpec], ['02:08', 128, '06:14', 374, '60/180']);
+  assert.deepEqual([r.porWpt, r.porOffsetMins], ['(AAAAA+119NM) N46 01.2 W076 30.5', 190]);
+  assert.deepEqual(r.etpPoints, [{ name: 'ETP1', lat: 'N46 45.2', lon: 'E166 28.3', elapsedMins: 247 }]);
+  assert.deepEqual(r.altData.filter(a => a.role === 'CFS ALT'), [
+    { icao: 'KEEE', role: 'CFS ALT', ofpEta: '2239', ofpOffsetMins: null, currentEta: '2239', wxWindow: '2040Z-0037Z', etpName: 'ETP1' },
+    { icao: 'KFFF', role: 'CFS ALT', ofpEta: '2320', ofpOffsetMins: null, currentEta: '2320', wxWindow: '2203Z-0037Z', etpName: 'ETP1' },
+    { icao: 'KGGG', role: 'CFS ALT', ofpEta: '0000', ofpOffsetMins: null, currentEta: '0000', wxWindow: '2350Z-0010Z', etpName: 'E.EXIT' }]);
+  assert.deepEqual(r.altRoutes, [
+    { title: 'Destination Primary Alternate Route', route: 'KBBB R16R EGOBA G597 KARBU DCT LANAT Y597 MIHOU ATMUGC KCCC', mora: '6700' },
+    { title: 'Initial Airport Route', route: 'AAAAA DCT KDDD', mora: '4400' }]);
+  assert.deepEqual(r.navLog, [], 'navLog [] as NavBlue (FK-P)');
+  assert.deepEqual(warns(r).filter(f => /^(navLog|toc|etops|por|etp|altData)/.test(f.field)), []);
+  // plain-fix POR; ETOPS entry differing from the nav log → page 1 + WARN
+  const p = parseText(build({ typeExtra: ' ETOPS Entry 02.10', por: 'POR: AAAAA+119NM 03.10', navA, navB: navB.map(l => l.replace('(POR) AT AAAAA+119NM', '(POR) AT BBBBB')), cfs, routes }));
+  assert.equal(p.etopsEntry, '02:10');
+  assert.ok(warns(p, 'etopsEntry').some(f => /differ/.test(f.message)));
+  assert.ok(warns(p, 'porWpt').some(f => /differ/.test(f.message)));
+  assert.equal(p.porWpt, '(AAAAA+119NM)', 'no lat/long taken from another point');
+  const plainPor = parseText(build({ por: 'POR: BBBBB 03.10', navA, navB: navB.map(l => l.replace('(POR) AT AAAAA+119NM', '(POR) AT BBBBB')), cfs, routes }));
+  assert.deepEqual([plainPor.porWpt, plainPor.porOffsetMins], ['BBBBB', 190]);
+  // negative: a non-ETOPS release → every ETOPS/ETP/POR field empty, no CFS alternate; no WARN on them
+  const n = parseText(build({ typeExtra: '', por: '', navA: fix('J70 TOC', 'N43 09.8', 'W088 21.3', '00.15'), navB: fix('Y685 TOD', 'N36 39.4', 'E128 16.8', '09.59'), cfs: [], routes }));
+  assert.deepEqual([n.etopsEntry, n.etopsEntryMins, n.etopsExit, n.etopsExitMins, n.etopsSpec, n.porWpt, n.porOffsetMins], ['', null, '', null, '', '', null]);
+  assert.deepEqual(n.etpPoints, []);
+  assert.deepEqual(n.altData.map(a => a.role), ['DEST ALT']);
+  assert.deepEqual(warns(n).filter(f => /etops|por|etp|altData/i.test(f.field)), []);
+  // 747 2EO scenario (no ETOPS spec, E.ENT/E.EXIT only) → its airport is still a CFS alternate (SME-13)
+  const twoEo = parseText(build({ typeExtra: '', por: '', navA: fix('J70 TOC', 'N43 09.8', 'W088 21.3', '00.15'), navB: [], routes: [],
+    cfs: ['Critical Fuel Scenario', '2EO', '(GOKEEE) E.ENT KEEE N42 34.2 E158 39.8', 'GCD TIME A/I REMF PAD MINF WX WINDOW',
+      'KEEE 870 02:05 5-010PC 57946 37742 020204 02:24-04:27', '2EO', 'E.EXIT KEEE N43 35.6 E161 16.6'] }));
+  assert.equal(twoEo.etopsSpec, '');
+  assert.deepEqual(twoEo.altData.filter(a => a.role === 'CFS ALT').map(a => [a.icao, a.etpName, a.wxWindow]), [['KEEE', 'E.ENT', '0224Z-0427Z']]);
+  // a CFS block printed outside the release (e.g. in the briefing) is never read
+  const outside = parseText(build({ typeExtra: '', por: '', navA: [], navB: [], routes: [], cfs: [] }).replace('NOTAM PAGE', cfs.join('\n')));
+  assert.deepEqual([outside.etpPoints, outside.etopsSpec, outside.altData.filter(a => a.role === 'CFS ALT')], [[], '', []]);
+});
+
 // ══ fixtures ═════════════════════════════════════════════════════════════════
 
 const FIXTURES = findFixtures();
@@ -476,8 +545,10 @@ if (!FIXTURES) {
         assert.deepEqual(r[f], e[f], `${e.label}: ${f}`);
         tally[f] = (tally[f] || 0) + 1;
       }
-      assert.deepEqual(r.altData.map(a => ({ icao: a.icao, role: a.role, ofpEta: a.ofpEta })), e.altData, `${e.label}: altData (OFP p1 order)`);
-      for (const a of r.altData) {
+      const p1Alts = r.altData.filter(a => a.role !== 'CFS ALT');
+      assert.deepEqual(p1Alts.map(a => ({ icao: a.icao, role: a.role, ofpEta: a.ofpEta })), e.altData, `${e.label}: altData (OFP p1 order)`);
+      assert.ok(r.altData.findIndex(a => a.role === 'CFS ALT') === -1 || r.altData.findIndex(a => a.role === 'CFS ALT') === p1Alts.length, `${e.label}: CFS alternates after the page-1 alternates`);
+      for (const a of p1Alts) {
         const exp = (a.ofpEta.slice(0, 2) * 60 + +a.ofpEta.slice(2) - (r.offFromOFP.slice(0, 2) * 60 + +r.offFromOFP.slice(2)) + 1440) % 1440;
         assert.equal(a.ofpOffsetMins, exp, `${e.label}: ${a.icao} offset`);
         assert.equal(a.currentEta, a.ofpEta);
@@ -545,9 +616,39 @@ if (!FIXTURES) {
     assert.equal(navblue._ofpRulesetParse(fs.readFileSync(path.join(FIXTURES, l08.files.text), 'utf8')).dotExemption.altRequired, false);
   });
 
+  test('TC-160-019 rows 33, 34, 36, 39–41 on 26 fixtures; field-map counts', () => {
+    const fields = ['tocOffsetMins', 'etopsEntry', 'etopsEntryMins', 'etopsExit', 'etopsExitMins', 'etopsSpec', 'porWpt', 'porOffsetMins', 'etpPoints'];
+    for (const fx of fkFixtures) {
+      const r = runFixture(fx), e = EXPECTED[fx.id];
+      for (const f of fields) assert.deepEqual(r[f], e[f], `${e.label}: ${f}`);
+      assert.deepEqual(r.navLog, [], `${e.label}: navLog [] (FK-P)`);
+      assert.deepEqual(r.altData.filter(a => a.role === 'CFS ALT').map(a => ({ icao: a.icao, etpName: a.etpName, wxWindow: a.wxWindow })),
+        e.cfsAlternates, `${e.label}: CFS alternates`);
+      assert.deepEqual(r.altRoutes.map(a => ({ title: a.title, mora: a.mora, routeWords: a.route.split(' ').length,
+        routeSha256: crypto.createHash('sha256').update(a.route).digest('hex') })), e.altRoutes, `${e.label}: altRoutes`);
+      assert.deepEqual(warns(r).filter(f => /^(navLog|toc|etops|por|etp|altData)/.test(f.field)), [], `${e.label}: no WARN on the route`);
+    }
+    const labelsWhere = pred => fkFixtures.filter(fx => pred(runFixture(fx))).map(fx => EXPECTED[fx.id].label).sort();
+    const ETOPS = ['L03', 'L14', 'L15', 'L20', 'L21', 'L22', 'L23'];
+    assert.deepEqual(labelsWhere(r => r.etopsEntry !== ''), ETOPS, 'row 39 entry 7');
+    assert.deepEqual(labelsWhere(r => r.etopsExit !== ''), ETOPS, 'row 39 exit 7');
+    assert.deepEqual(labelsWhere(r => r.etopsSpec === '60/180'), ['L03', 'L15']);
+    assert.deepEqual(labelsWhere(r => r.etopsSpec === '60/120'), ['L14', 'L20', 'L21', 'L22', 'L23']);
+    assert.deepEqual(labelsWhere(r => r.porWpt !== ''), ['L02', 'L08', 'L11', 'L12', 'L13', 'L14', 'L18', 'L19', 'L20', 'T3'], 'row 40: 10');
+    assert.deepEqual(labelsWhere(r => r.porWpt.startsWith('(')), ['L08', 'L12', 'L13'], 'row 40: +nnNM in 3 (SME-11)');
+    assert.deepEqual(labelsWhere(r => r.etpPoints.length > 0), ['L03', 'L14', 'L15', 'L20', 'L21', 'L22', 'T3'], 'row 41: ETP 7');
+    assert.deepEqual(labelsWhere(r => r.altData.some(a => a.role === 'CFS ALT')), ['L03', 'L09', 'L11', 'L14', 'L15', 'L20', 'L21', 'L22', 'L23', 'T3'], 'row 41: CFS 10 (SME-13)');
+    assert.ok(fkFixtures.every(fx => runFixture(fx).altData.filter(a => a.role === 'CFS ALT').every(a => /^\d{4}Z-\d{4}Z$/.test(a.wxWindow))), 'every CFS window read');
+    assert.equal(labelsWhere(r => r.tocOffsetMins !== null).length, 26, 'row 34: 26/26');
+    assert.equal(labelsWhere(r => r.altRoutes.some(a => a.title === 'Destination Primary Alternate Route')).length, 26, 'row 36: 26/26');
+    assert.deepEqual(labelsWhere(r => r.altRoutes.some(a => a.title === 'Initial Airport Route')), ['L02', 'L08', 'L11', 'L12', 'L13', 'L14', 'L18', 'L19', 'L20', 'T3']);
+    assert.deepEqual(labelsWhere(r => r.altRoutes.some(a => a.mora === '')), ['L07', 'T1'], 'no MORA line in T1, L07');
+    assert.equal(labelsWhere(r => r.etpPoints.length === 2).length, 4);
+  });
+
   test('TC-160-020 the ✅ rows of the field map: module value = NavBlue value on all 26 fixtures', () => {
     // Field map v1.1 rows marked ✅ (today's NavBlue parser reads FlightKeys right) plus rows 5–6 outside L22.
-    const SAME = ['slotTime', 'parsedVerbalCallsign', 'fltNum', 'acftType', 'weightUnit', 'isHeavy', 'dateStr', 'flightDateISO', 'blockFuelRaw',
+    const SAME = ['tocOffsetMins', 'etopsExit', 'etopsExitMins', 'etopsSpec', 'porOffsetMins', 'slotTime', 'parsedVerbalCallsign', 'fltNum', 'acftType', 'weightUnit', 'isHeavy', 'dateStr', 'flightDateISO', 'blockFuelRaw',
       'minfFuelRaw', 'fresFuelRaw', 'taxiFuelRaw', 'taxiMins', 'tripMinutes', 'alt1Fuel', 'destRemf', 'porMinf',
       'zfwActual', 'zfwLimit', 'togwActual', 'togwLimit', 'ldgwActual', 'ldgwLimit'];
     let n = 0;

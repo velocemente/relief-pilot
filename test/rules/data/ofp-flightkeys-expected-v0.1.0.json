@@ -45,7 +45,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "",
+    "routeWords": 5,
+    "routeSha256": "15349861658d493a988b9573777f83eb3587740af59f50c233af6274a6084dd8"
+   }
+  ]
  },
  "FK_ZUCK-UAAA_27OCT26_prototype": {
   "label": "T2",
@@ -95,7 +113,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 18,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "9900",
+    "routeWords": 9,
+    "routeSha256": "c7bb7264e41d07a0bb23a098e53f26f0e9819fdad1090983f22748f851247fe1"
+   }
+  ]
  },
  "FK_KLAX-RKSI_31OCT26_rda-etp_prototype": {
   "label": "T3",
@@ -151,7 +187,66 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 17,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 603,
+  "porWpt": "EMRON",
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N39 04.3",
+    "lon": "W147 53.0",
+    "elapsedMins": 193
+   },
+   {
+    "name": "ETP2",
+    "lat": "N39 51.0",
+    "lon": "E167 42.5",
+    "elapsedMins": 478
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "KSFO",
+    "etpName": "ETP1",
+    "wxWindow": "0628Z-1031Z"
+   },
+   {
+    "icao": "PACD",
+    "etpName": "ETP1",
+    "wxWindow": "0830Z-1555Z"
+   },
+   {
+    "icao": "RJCC",
+    "etpName": "ETP2",
+    "wxWindow": "1342Z-1555Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "6700",
+    "routeWords": 15,
+    "routeSha256": "1cc0c09e7fc4b78b66f8ddeed897247b6083695379bf4899fa5ac77132773e7e"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "12500",
+    "routeWords": 11,
+    "routeSha256": "c9c7e8a0026f17308f77da3fbe14cc991ab2e2ded95118a35e9014fbf517626a"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "12500",
+    "routeWords": 11,
+    "routeSha256": "4e22475935bd81fa6f0bb46ec0298cf64dff676809220cee31396db9d122bd51"
+   }
+  ]
  },
  "FK_MKJP-KMIA_03NOV26_caribbean-callsign_live": {
   "label": "L01",
@@ -197,7 +292,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2300",
+    "routeWords": 7,
+    "routeSha256": "3343323e420da738153ef308e79030eb4a417e4ac2d9d6020747f43cf9a337d6"
+   }
+  ]
  },
  "FK_KORD-RKSI_05NOV26_crew-ballast-rda_live": {
   "label": "L02",
@@ -253,7 +366,37 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 17,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 727,
+  "porWpt": "SDE",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3600",
+    "routeWords": 3,
+    "routeSha256": "d0df96b6c1068dc2ce214a3440a1cec23fe276c6f5564e2db3f0f885be969a81"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2400",
+    "routeWords": 5,
+    "routeSha256": "6a69376a28aa597549f38e28e62b70087b2dcbc009c17f23366ea24d16f74d6e"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2400",
+    "routeWords": 9,
+    "routeSha256": "74f1635adcf15d899a4aecbd2e50dee037c04c280847eb3f2da1ad1c57ce730f"
+   }
+  ]
  },
  "FK_PANC-ZHEC_04NOV26_etops-ddg_live": {
   "label": "L03",
@@ -302,7 +445,43 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 18,
+  "etopsEntry": "02:08",
+  "etopsEntryMins": 128,
+  "etopsExitMins": 374,
+  "etopsExit": "06:14",
+  "etopsSpec": "60/180",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N46 45.2",
+    "lon": "E166 28.3",
+    "elapsedMins": 247
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "PACD",
+    "etpName": "ETP1",
+    "wxWindow": "1043Z-1710Z"
+   },
+   {
+    "icao": "RJCC",
+    "etpName": "ETP1",
+    "wxWindow": "1449Z-1709Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3800",
+    "routeWords": 7,
+    "routeSha256": "184fb53bcdc67ba3b9d20a4a802d1ea18dbc06f56538ed125fb87f51a6bfe34d"
+   }
+  ]
  },
  "FK_RCTP-RJGG_03NOV26_lcf-lbs_live": {
   "label": "L04",
@@ -348,7 +527,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3200",
+    "routeWords": 9,
+    "routeSha256": "9555dd7edf6529c28425f547091844ccac97fc031370ae996740900e1645de65"
+   }
+  ]
  },
  "FK_KCVG-KSEA_04NOV26_pax-catiii_live": {
   "label": "L05",
@@ -397,7 +594,25 @@
   },
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3200",
+    "routeWords": 3,
+    "routeSha256": "5db1318878c4e959ba28c2001b7b33232044f3a4e0e4adda287afdd613140c28"
+   }
+  ]
  },
  "FK_LEZG-LLBG_04NOV26_remarks-subcards_live": {
   "label": "L06",
@@ -443,7 +658,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 15,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "4600",
+    "routeWords": 7,
+    "routeSha256": "e455f2db019f8053c1e44ff0121a8fc98171fdcacac45964861a123476bd11d0"
+   }
+  ]
  },
  "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live": {
   "label": "L07",
@@ -489,7 +722,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "",
+    "routeWords": 5,
+    "routeSha256": "9f1ba78d55568694c18d394a9fd7590ce38553b9a6b32b3dfa416589f8abf595"
+   }
+  ]
  },
  "FK_KMIA-EHBK_03NOV26_polar-callsign_live": {
   "label": "L08",
@@ -549,7 +800,37 @@
    "altRequired": true
   },
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 24,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 305,
+  "porWpt": "(H4340+300NM) N46 04.7 W033 58.9",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2600",
+    "routeWords": 3,
+    "routeSha256": "34b64e1742a3c2d8da4f161a09ce564193907c074369c006df3a7a1ba27aaa1f"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "3100",
+    "routeWords": 11,
+    "routeSha256": "e8639c31c67fe450b5ca729bbe50d4973844b04c1811ba90984a19f1d2e7e1e7"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "3100",
+    "routeWords": 9,
+    "routeSha256": "4632054c9b370bb34da7fa90e0be842f7b151908a90599f081facba3ad22792d"
+   }
+  ]
  },
  "FK_VHHH-PANC_02NOV26_mtow-equipcode_live": {
   "label": "L09",
@@ -597,7 +878,31 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 23,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [
+   {
+    "icao": "PASY",
+    "etpName": "E.ENT",
+    "wxWindow": "0224Z-0427Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "6300",
+    "routeWords": 5,
+    "routeSha256": "0e9e8eed96b56bcd314fa6dd6c762d583c70699ad576e499c8f078ec78a548c9"
+   }
+  ]
  },
  "FK_KMIA-SBGL_03NOV26_perishables-ddg_live": {
   "label": "L10",
@@ -645,7 +950,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 20,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "8400",
+    "routeWords": 7,
+    "routeSha256": "2fe555cfcff0ea6cde221e5e96c8926b979ceae494ed797aa247a62f27f63596"
+   }
+  ]
  },
  "FK_KGSP-EPWA_03NOV26_nat-track-ddg_live": {
   "label": "L11",
@@ -705,7 +1028,43 @@
    "altRequired": true
   },
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 18,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 494,
+  "porWpt": "ROBEG",
+  "etpPoints": [],
+  "cfsAlternates": [
+   {
+    "icao": "BIKF",
+    "etpName": "E.ENT",
+    "wxWindow": "0717Z-0927Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2100",
+    "routeWords": 7,
+    "routeSha256": "65cf9d3c0223b88972cb436ed64f5ac21572af19bb100421715e0a582aa88f44"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2300",
+    "routeWords": 11,
+    "routeSha256": "2042503c9c75abfc51a6ee7f3c34d44290541e4e4450b2fe14ceea94a4adccd2"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2300",
+    "routeWords": 3,
+    "routeSha256": "266d84b5d1fb6a04d9a2137f7fe1b9db1cb1cbca8178719e9948ed8201d66c63"
+   }
+  ]
  },
  "FK_EBLG-KORD_03NOV26_nat-random_live": {
   "label": "L12",
@@ -761,7 +1120,37 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 13,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 409,
+  "porWpt": "(IKNAR+119NM) N46 01.2 W076 30.5",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2800",
+    "routeWords": 7,
+    "routeSha256": "64f8384803331b09a62fd86f3b9b04f91bf45bf1fe47bf04326ef00cd13848c1"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2400",
+    "routeWords": 5,
+    "routeSha256": "2dab6128c7b73c8e5591ea3630d504827148f8cc43f3a61c3dd30aeea056eaf8"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2400",
+    "routeWords": 5,
+    "routeSha256": "2e5ec70260e6e0f696d81330d782a9137c8f1e59e7944333a961d257f8d13052"
+   }
+  ]
  },
  "FK_UBBB-RJFK_03NOV26_bcf-multicrew_live": {
   "label": "L13",
@@ -823,7 +1212,37 @@
    "altRequired": true
   },
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 450,
+  "porWpt": "(VMB+60NM) N31 19.1 E121 15.1",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "4400",
+    "routeWords": 7,
+    "routeSha256": "1fc8117608c0dc1039c3fc909fe1db511da426f06a765f6b36bd6731dee3a8a5"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2500",
+    "routeWords": 5,
+    "routeSha256": "cdacb8c113fdcbdd10db0bf81952d2ee0a6fa48866d48f01da6bcf919847e0bf"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2500",
+    "routeWords": 7,
+    "routeSha256": "30997bbaed834b78a7cd27a185ba56fc66ecf43e1876df4d762962a3b27aa601"
+   }
+  ]
  },
  "FK_KORD-RKSI_03NOV26_etops-rda-dateline_live": {
   "label": "L14",
@@ -879,7 +1298,66 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 16,
+  "etopsEntry": "06:39",
+  "etopsEntryMins": 399,
+  "etopsExitMins": 619,
+  "etopsExit": "10:19",
+  "etopsSpec": "60/120",
+  "porOffsetMins": 725,
+  "porWpt": "ELDAK",
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N59 00.2",
+    "lon": "W174 26.0",
+    "elapsedMins": 414
+   },
+   {
+    "name": "ETP2",
+    "lat": "N47 50.9",
+    "lon": "E155 46.8",
+    "elapsedMins": 582
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "PAKN",
+    "etpName": "ETP1",
+    "wxWindow": "0431Z-0720Z"
+   },
+   {
+    "icao": "PASY",
+    "etpName": "ETP1",
+    "wxWindow": "0457Z-1038Z"
+   },
+   {
+    "icao": "RJCC",
+    "etpName": "ETP2",
+    "wxWindow": "0816Z-1039Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3500",
+    "routeWords": 3,
+    "routeSha256": "d0df96b6c1068dc2ce214a3440a1cec23fe276c6f5564e2db3f0f885be969a81"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2400",
+    "routeWords": 5,
+    "routeSha256": "712fbc7a3db9ff856654b535f88ecce3a78e6b9c75731a4d57970a62f9b3d686"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2400",
+    "routeWords": 9,
+    "routeSha256": "8a3f9de7fb4c9452292c999e001a204ffb4c38d2e7d9d787fe944ee282d04111"
+   }
+  ]
  },
  "FK_PHNL-WIHH_03NOV26_pax-etops-tanker_live": {
   "label": "L15",
@@ -932,7 +1410,54 @@
    "altRequired": true
   },
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "01:07",
+  "etopsEntryMins": 67,
+  "etopsExitMins": 452,
+  "etopsExit": "07:32",
+  "etopsSpec": "60/180",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N14 04.9",
+    "lon": "W174 51.5",
+    "elapsedMins": 139
+   },
+   {
+    "name": "ETP2",
+    "lat": "N02 48.9",
+    "lon": "E159 32.2",
+    "elapsedMins": 356
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "PHLI",
+    "etpName": "ETP1",
+    "wxWindow": "2114Z-0234Z"
+   },
+   {
+    "icao": "PWAK",
+    "etpName": "ETP1",
+    "wxWindow": "2352Z-0613Z"
+   },
+   {
+    "icao": "PGUA",
+    "etpName": "ETP2",
+    "wxWindow": "0328Z-0723Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2000",
+    "routeWords": 3,
+    "routeSha256": "bf45b53402a8aa680edb288164e522a6783695db535e5d494fe6bc946c2a25b2"
+   }
+  ]
  },
  "FK_ZHEC-PANC_02NOV26_wheelsup-penalty_live": {
   "label": "L16",
@@ -980,7 +1505,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": "NOT BEFORE 1627Z",
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "6300",
+    "routeWords": 5,
+    "routeSha256": "0e9e8eed96b56bcd314fa6dd6c762d583c70699ad576e499c8f078ec78a548c9"
+   }
+  ]
  },
  "FK_OMAA-VHHH_03NOV26_etihad-permits_live": {
   "label": "L17",
@@ -1028,7 +1571,25 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "4100",
+    "routeWords": 3,
+    "routeSha256": "4280396aba331e415cee6a475c204ce424b657a5fbf35f13c45e749909087734"
+   }
+  ]
  },
  "FK_KORD-RJAA_03NOV26_intl-redispatch_live": {
   "label": "L18",
@@ -1084,7 +1645,37 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 16,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 497,
+  "porWpt": "NIKLL",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2400",
+    "routeWords": 9,
+    "routeSha256": "02a4f321060cc2c74d597710e0714dbcc558702600151898d83066908f7851f8"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "6300",
+    "routeWords": 9,
+    "routeSha256": "65290bbcc8a4c71ef6a86c571a821f4e0e35cb83121c7e03a26af1796a4cc790"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "6300",
+    "routeWords": 5,
+    "routeSha256": "0e9e8eed96b56bcd314fa6dd6c762d583c70699ad576e499c8f078ec78a548c9"
+   }
+  ]
  },
  "FK_PANC-KMIA_03NOV26_dom-redispatch-mel_live": {
   "label": "L19",
@@ -1140,7 +1731,37 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 368,
+  "porWpt": "DGESS",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2300",
+    "routeWords": 7,
+    "routeSha256": "3343323e420da738153ef308e79030eb4a417e4ac2d9d6020747f43cf9a337d6"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "3200",
+    "routeWords": 3,
+    "routeSha256": "fd5e64679ff816da2e7bce4eaab073d29bfa4fba4fc356a4a2a9eb2f0bf6ae0c"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "3200",
+    "routeWords": 7,
+    "routeSha256": "bfb6a62413d3524e9b066b11966b51158b5cbdfce83d60d825f4f0f10e7ee43d"
+   }
+  ]
  },
  "FK_KORD-RKSI_10NOV26_nopac-etops-remarks_live": {
   "label": "L20",
@@ -1196,7 +1817,55 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 15,
+  "etopsEntry": "09:28",
+  "etopsEntryMins": 568,
+  "etopsExitMins": 653,
+  "etopsExit": "10:53",
+  "etopsSpec": "60/120",
+  "porOffsetMins": 730,
+  "porWpt": "ASTER",
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N48 17.0",
+    "lon": "E156 34.4",
+    "elapsedMins": 610
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "PASY",
+    "etpName": "ETP1",
+    "wxWindow": "2040Z-0037Z"
+   },
+   {
+    "icao": "RJCC",
+    "etpName": "ETP1",
+    "wxWindow": "2203Z-0037Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3600",
+    "routeWords": 3,
+    "routeSha256": "d0df96b6c1068dc2ce214a3440a1cec23fe276c6f5564e2db3f0f885be969a81"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "4400",
+    "routeWords": 5,
+    "routeSha256": "6431107dca9bd6d290ad7dd2b1a6082523f037e3d683e5ece53afcef559c1c1e"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "4400",
+    "routeWords": 3,
+    "routeSha256": "ee6f3a06d4c5fa3cdb6f251dbb512eea3a75f3142d4eb62bb8fa64a68f34e6bf"
+   }
+  ]
  },
  "FK_NZWN-NFFN_10NOV26_pax-remarks_live": {
   "label": "L21",
@@ -1249,7 +1918,43 @@
    "altRequired": true
   },
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "01:38",
+  "etopsEntryMins": 98,
+  "etopsExitMins": 136,
+  "etopsExit": "02:16",
+  "etopsSpec": "60/120",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "S27 24.0",
+    "lon": "E176 16.5",
+    "elapsedMins": 117
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "NZAA",
+    "etpName": "ETP1",
+    "wxWindow": "2154Z-0055Z"
+   },
+   {
+    "icao": "NFFN",
+    "etpName": "ETP1",
+    "wxWindow": "2231Z-0055Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2700",
+    "routeWords": 7,
+    "routeSha256": "adf8397e1f84f51ca573617c420fa28b5665f15d179dacdd2641d96d26d927a6"
+   }
+  ]
  },
  "FK_EPPW-KPSM_10NOV26_nat-random-callsign_live": {
   "label": "L22",
@@ -1302,7 +2007,54 @@
    "altRequired": true
   },
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 17,
+  "etopsEntry": "03:13",
+  "etopsEntryMins": 193,
+  "etopsExitMins": 309,
+  "etopsExit": "05:09",
+  "etopsSpec": "60/120",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N56 29.8",
+    "lon": "W020 17.7",
+    "elapsedMins": 195
+   },
+   {
+    "name": "ETP2",
+    "lat": "N55 04.7",
+    "lon": "W039 26.8",
+    "elapsedMins": 278
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "EINN",
+    "etpName": "ETP1",
+    "wxWindow": "0146Z-0403Z"
+   },
+   {
+    "icao": "BIKF",
+    "etpName": "ETP1",
+    "wxWindow": "0153Z-0610Z"
+   },
+   {
+    "icao": "CYYR",
+    "etpName": "ETP2",
+    "wxWindow": "0353Z-0611Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3400",
+    "routeWords": 9,
+    "routeSha256": "e869d950587fc010549b82dfa7c62d81006ec5643ef67da30fb140e14a6895ab"
+   }
+  ]
  },
  "FK_KDOV-ETAR_03NOV26_pax-nat-random_live": {
   "label": "L23",
@@ -1348,6 +2100,30 @@
   "swa": null,
   "dotExemption": null,
   "slotTime": null,
-  "parsedVerbalCallsign": null
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "03:01",
+  "etopsEntryMins": 181,
+  "etopsExitMins": 317,
+  "etopsExit": "05:17",
+  "etopsSpec": "60/120",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [
+   {
+    "icao": "LPLA",
+    "etpName": "E.ENT",
+    "wxWindow": "0217Z-0644Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "4300",
+    "routeWords": 7,
+    "routeSha256": "2f47f9030b7d68fc61cf652c11ed01b98a2e6e3dc29ae3376f1155d79f23d690"
+   }
+  ]
  }
 }
