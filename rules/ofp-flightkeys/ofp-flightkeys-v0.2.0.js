@@ -288,6 +288,9 @@ const PATTERNS = {
   RMK_DASHES:      /^-{10,}\s*$/,
   RMK_SUBHEAD:     /^(ARRIVALS|DEPARTURES)\s*$|^[A-Za-z][A-Za-z ,]*:\s*$/,
   RMK_FLEET_SUB:   /^B?(7\d7)\s+Operations\b(.*)$/i,
+  // D63: the item markers of a marked block (a sub-heading is the third marker)
+  RMK_ITEM_DASH:   /^-\s+\S/,
+  RMK_ITEM_NUMBER: /^\d{1,2}[.)]\s+\S/,
   RMK_WEATHER:     /^(?:GOV\s+)?TAF\s+UPDATED\b|^(?:WSI|TWC)\b|^(?:TAF|METAR|SPECI)\s+(?:AMD\s+|COR\s+)?[A-Z]{4}\s+\d{6}Z\b/,
   RMK_WX_REPORT:   /^(TAF|METAR|SPECI)\s+(?:AMD\s+|COR\s+)?([A-Z]{4})\s+\d{6}Z\b/,
   RMK_MEL_CHANGE:  /^MEL\s+ADDED\b|\bADD\s+M(?:EL)?\s*C?\d{2}-/,
@@ -1139,13 +1142,25 @@ function _finishDdg(ctx) {
   out.melItems = out.ddgItems.map(i => i.code + ' ' + i.desc).join(' | ').substring(0, 600);
 }
 
-// ── OFP Remarks (field map §2.4 categories; D34, D45, D39, SME-7, SME-10,
+// ── OFP Remarks (field map §2.4 categories; D34, D45, D39, D63, SME-7, SME-10,
 //    SME-18, SME-18a, SME-19, SME-23) ─────────────────────────────────────
-// Every line from the dispatcher line to "MEL/CDL" becomes one ofpRemarks record
-// { text, category, airport, subHeading, page, line }. A line that starts no
-// category continues the remark above it when that remark can run over lines.
+// Every line from the dispatcher line to "MEL/CDL" goes into ofpRemarks
+// { text, category, airport, subHeading, page, line }, one record per line,
+// except inside a station restriction block. A line that starts no category
+// continues the remark above it when that remark can run over lines.
 // A station restriction block runs until a RAIM, CAT, exemption, fleet-note,
 // E-WINS line or another station heading (it has no end marker).
+// D63 (Exec, 17 Nov): in a station block a new remark starts ONLY at the block's
+// own item marker — the first of "- " (dash) or "n." / "n)" (number) the block
+// uses — or after a sub-heading. Any other line continues the remark above it;
+// the joined remark keeps its printed line breaks ("\n"; nothing reflowed). The
+// heading, a sub-heading and a dashed rule line are records of their own.
+// page/line are those of the remark's first line.
+function _itemMarker(t) {
+  if (PATTERNS.RMK_ITEM_DASH.test(t)) return 'dash';
+  if (PATTERNS.RMK_ITEM_NUMBER.test(t)) return 'number';
+  return null;
+}
 const _RMK_HARD = new Set(['raim', 'catIiIii', 'stationRestriction', 'fleetNote', 'ewins', 'exemption']);
 const _RMK_INHERIT = new Set(['boilerplate', 'pcf', 'extraFuel', 'ballast', 'melChange', 'route', 'slot',
   'weather', 'stationRestriction', 'exemption', 'fleetNote', 'other']);
@@ -1185,7 +1200,7 @@ function _readRemarks(ctx, from, to) {
     if (c === null && PATTERNS.RMK_DASHES.test(t) && i + 1 < to && PATTERNS.RMK_STATION.test(lines[i + 1].trim())) c = 'dashes';
     let cont = false;
     if (mode === 'stationRestriction' && !(c && _RMK_HARD.has(c))) { c = 'stationRestriction'; cont = true; }
-    else if (c === 'dashes') { c = 'stationRestriction'; station = { icao: null, heading: '', fleet: null, subHeading: null, subFleet: null }; }
+    else if (c === 'dashes') { c = 'stationRestriction'; station = { icao: null, heading: '', fleet: null, subHeading: null, subFleet: null, marker: null, cur: null }; }
     else if (c === null && mode && (mode !== 'boilerplate' || boilerOpen)) { c = mode; cont = true; }
     else if (c === null) c = 'other';
     // station block state
@@ -1193,33 +1208,63 @@ function _readRemarks(ctx, from, to) {
     if (isHeader) {
       const hm = PATTERNS.RMK_STATION.exec(t);
       const prev = station && !station.icao ? station : null;   // a dashed line opened it
-      station = { icao: hm[1] || hm[2] || hm[3], heading: t, fleet: hm[4] || null, subHeading: null, subFleet: null };
+      station = { icao: hm[1] || hm[2] || hm[3], heading: t, fleet: hm[4] || null, subHeading: null, subFleet: null, marker: null, cur: null };
       cont = !!prev;
     } else if (c !== 'stationRestriction') station = null;
     if (c === 'boilerplate') boilerOpen = !PATTERNS.RMK_BOILER_END.test(t);
-    let airport = null, subHeading = null;
+    let airport = null, subHeading = null, joined = false;
     if (c === 'stationRestriction' && station) {
       airport = station.icao;
-      let item = !isHeader && !PATTERNS.RMK_DASHES.test(t);
+      let item = !isHeader && !PATTERNS.RMK_DASHES.test(t), startsItem = true;
       const fm = PATTERNS.RMK_FLEET_SUB.exec(t);
       if (item && fm) { station.subHeading = t; station.subFleet = fm[1]; item = !!fm[2].trim(); }
       else if (item && PATTERNS.RMK_SUBHEAD.test(t)) { station.subHeading = t.replace(/:\s*$/, ''); station.subFleet = null; item = false; }
+      else if (item) {
+        // D63: a new remark only at the block's own item marker; otherwise it continues
+        const mk = _itemMarker(t);
+        if (mk && !station.marker) station.marker = mk;
+        startsItem = !station.cur || (mk !== null && mk === station.marker);
+      }
       subHeading = station.subHeading;
-      if (item && airport) {
-        const fleet = station.subFleet || station.fleet || null;
-        if (fleet && !acFleet && !fleetWarned) { add('WARN', 'airportData', `aircraft type ${out.acftType || '(none)'} has no known fleet: fleet restrictions attached unfiltered`); fleetWarned = true; }
-        const applies = !fleet || !acFleet || fleet === acFleet;
-        (station.items = station.items || []).push({ text: t, heading: station.heading, subHeading, fleet, applies, page: pos[i].page, line: pos[i].line });
-        if (station.items.length === 1) (ctx.stations = ctx.stations || []).push(station);
+      if (item && !startsItem) {
+        const cur = station.cur;
+        cur.text += '\n' + t;
+        if (cur.item) cur.item.text = cur.text;
+        cur.record.text = cur.text;
+        joined = true;
+      } else {
+        station.cur = null;
+        if (item) station.cur = { text: t, item: null, record: null };
+        if (item && airport) {
+          const fleet = station.subFleet || station.fleet || null;
+          if (fleet && !acFleet && !fleetWarned) { add('WARN', 'airportData', `aircraft type ${out.acftType || '(none)'} has no known fleet: fleet restrictions attached unfiltered`); fleetWarned = true; }
+          const applies = !fleet || !acFleet || fleet === acFleet;
+          station.cur.item = { text: t, heading: station.heading, subHeading, fleet, applies, page: pos[i].page, line: pos[i].line };
+          (station.items = station.items || []).push(station.cur.item);
+          if (station.items.length === 1) (ctx.stations = ctx.stations || []).push(station);
+        }
       }
     }
-    ext.ofpRemarks.push({ text: t, category: c, airport, subHeading, page: pos[i].page, line: pos[i].line });
+    if (!joined) {
+      const rec = { text: t, category: c, airport, subHeading, page: pos[i].page, line: pos[i].line };
+      ext.ofpRemarks.push(rec);
+      if (station && station.cur && !station.cur.record) station.cur.record = rec;
+    }
     if (cont && entry && entry.category === c) { entry.text += ' ' + t; entry.lines.push(i); }
     else { entry = { category: c, text: t, lines: [i], page: pos[i].page, line: pos[i].line }; entries.push(entry); }
     mode = _RMK_INHERIT.has(c) ? c : null;
   }
-  // ADHOC penalty lines of the MEL/CDL block (not item notes): kept in order.
-  for (const i of ctx.adhocLines || []) ext.ofpRemarks.push({ text: lines[i].trim(), category: 'adhocPenalty', airport: null, subHeading: null, page: pos[i].page, line: pos[i].line });
+  // ADHOC penalty lines of the MEL/CDL block (not item notes): kept in order. The
+  // block marks its items with "- " (D63): the heading line is a record of its own,
+  // each dash item starts a record, and an unmarked line continues the item above.
+  let adhocItem = null;
+  for (const i of ctx.adhocLines || []) {
+    const t = lines[i].trim();
+    if (adhocItem && !PATTERNS.ADHOC_PENALTY.test(t) && !PATTERNS.RMK_ITEM_DASH.test(t)) { adhocItem.text += '\n' + t; continue; }
+    const rec = { text: t, category: 'adhocPenalty', airport: null, subHeading: null, page: pos[i].page, line: pos[i].line };
+    ext.ofpRemarks.push(rec);
+    adhocItem = PATTERNS.ADHOC_PENALTY.test(t) ? null : rec;
+  }
   ctx.remarkEntries = entries;
   const remText = lines.slice(from, to).join('\n');
 
@@ -1248,7 +1293,7 @@ function _readRemarks(ctx, from, to) {
   for (const st of ctx.stations || []) {
     const apt = _airportEntry(ctx, st.icao, 'station restriction');
     for (const it of st.items) {
-      if (!it.applies) { skipped++; continue; }
+      if (!it.applies) { skipped += it.text.split('\n').length; continue; }
       if (apt) apt.remarks.push({ text: it.text, heading: it.heading, subHeading: it.subHeading, fleet: it.fleet, page: it.page, line: it.line });
     }
     // SME-18: a takeoff alternate required (for this fleet) at the departure airport, none listed.

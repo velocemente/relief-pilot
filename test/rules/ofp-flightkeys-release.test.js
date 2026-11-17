@@ -26,6 +26,12 @@
  *               perishables (27); temperature control (28, D55); security (D45); extra fuel (D39); PCF
  *               (SME-7); permits (35); revision
  *   TC-161-051  remarks synthetic, a negative test per rule
+ *   TC-161-100  D63 on the fixtures: a wrapped airport remark is ONE remark (L21 NFFN, L06 LEZG, L09 VHHH), with
+ *               its printed line breaks; adjacent marked items stay separate (L21 NZWN, NFFN); counts per package
+ *   TC-161-101  D63 synthetic: a new remark only at the block's own marker; adjacent marked items stay two; a
+ *               sub-heading always starts a new item; a remark across a page break; the SME-18 flag on a wrapped item
+ *   TC-161-102  D63 scope: the ADHOC block (dash items) joins its wraps; outside the marked blocks ofpRemarks stays
+ *               one record per printed line
  *   TC-161-090  fixtures (or the private crew file) missing → FAIL, never skip (child run)
  *
  * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
@@ -74,8 +80,10 @@ function pkg(o = {}) {
   const p1 = ['TST0001/08 KAAA - KBBB 08 MAR 26 N000ZZ', 'COST INDEX 020 Revision: ' + (o.revision || '1.0'),
     `${o.acftLine || 'B747-400F / CF6-80C2-B1F / KG'} / IFR / FF +4.0`, 'PROGS 081200 Release Valid Until 2300Z 08MAR26',
     ...airports, ...fuel];
-  const p2 = ['Remarks', 'DISPATCHER DESK: 00', 'This OFP prepared with FlightKeys. Review Operations Bulletin',
-    'for FlightKeys OFP and procedure changes. Contact Dispatch with', 'questions.', ...(o.remarks || []),
+  // o.remarksNextPage: remark lines printed at the top of the next release page (a page break inside the Remarks)
+  const p2a = ['Remarks', 'DISPATCHER DESK: 00', 'This OFP prepared with FlightKeys. Review Operations Bulletin',
+    'for FlightKeys OFP and procedure changes. Contact Dispatch with', 'questions.', ...(o.remarks || [])];
+  const p2 = [...(o.remarksNextPage || []),
     'RAIM VALIDATION PASSED', ...(o.cat || []), 'MEL/CDL', ...(o.mel || []), 'Flight Release Authorization',
     'I certify that this flight has been dispatched in accordance with', ...(o.afterAuth || []),
     'Signed by PIC .. .. .. .. (Circle name below)', 'Signed by Dispatcher: DISPATCHER', 'Fit for Duty Affirmation', 'By signing below, I affirm that I am fit for duty to operate this',
@@ -86,7 +94,7 @@ function pkg(o = {}) {
   const p4 = ['AWY   WPT   MTK   NM   GS   TAS   LEG-T   ETA   MTRS   ISA   WC   REMF',
     'MORA  TTK  MH  IAS  .M  TOT-T  ATA  FL  TEMP  WIND  AREM', 'SID TOC', 'N40 10.0 090 50 400 450 00.15', 'W079 50.0 090 090 300 .80 00.15 320',
     'Destination Primary Alternate Route', 'KBBB DCT KCCC', 'KCCC/0100', 'GCD 50 GDIS 55 FUEL 8000 TIME 00.25', 'MORA 3000'];
-  const pages = [p1, p2, p3, p4];
+  const pages = o.remarksNextPage ? [p1, p2a, p2, p3, p4] : [p1, [...p2a, ...p2], p3, p4];
   const relPages = n => pages.map((b, i) => [HDR, title, ...b, `FUFI: 00000000-0000-0000-0000-00000000000${n} PAGE ${i + 1}/${pages.length}`].join('\n') + '\n\n').join('');
   let copies = relPages(0);
   for (let c = 1; c < (o.copies || 1); c++) copies += o.copyDiffers ? relPages(c).replace('DISPATCHER DESK: 00', 'DISPATCHER DESK: 01') : relPages(0);
@@ -353,6 +361,82 @@ test('TC-161-051 remarks synthetic: categories, airport remarks, weather, flags 
   assert.equal(parse(pkg()).ofpRemarks.filter(x => x.category === 'cdcAttestation').length, 0);
 });
 
+// ══ TC-161-101 / 102 D63 synthetic ═══════════════════════════════════════════
+// D63 (Exec, 17 Nov): in a remark block that marks its items, a new remark starts ONLY at the
+// block's own item marker (dash, number or sub-heading); any other line continues the remark above
+// it, which keeps its printed line breaks.
+
+const B767 = { fplType: 'B763/H', acftLine: 'B767-300 / CF6-80C2-B6F / LB' };
+const aptRemarks = (r, icao) => r.airportData[icao].remarks.map(x => x.text);
+
+test('TC-161-101 D63 synthetic: a new remark only at the block marker; marked items stay apart; sub-headings; page break', () => {
+  const remarks = ['** KBBB FLIGHT OPS RESTRICTIONS **',
+    '- NIGHT LANDING NOT PERMITTED ON RWY 12.', '- NIGHT TAKE-OFF NOT PERMITTED ON RWY 30.',
+    '- CIRCLING FOR RWY 30 IS AUTHORIZED PROVIDED THE FOLLOWING', 'MINIMA ARE OBSERVED: DAY ONLY.',
+    '- RWY 12 RESTRICTIONS FOR THIS STATION:', '1. NO TRAINING', '2. NO OE',
+    'DEPARTURES', 'PLAN RWY 12', 'DO NOT LIMIT PAYLOAD',
+    'ARRIVALS', 'RWY 30 NOT APPROVED'];
+  const r = parse(pkg({ remarks }));
+  // positive: the unmarked line joins the item above, line break kept; another marker kind ("1.") in a dash block continues
+  assert.deepEqual(aptRemarks(r, 'KBBB'), [
+    '- NIGHT LANDING NOT PERMITTED ON RWY 12.',
+    '- NIGHT TAKE-OFF NOT PERMITTED ON RWY 30.',
+    '- CIRCLING FOR RWY 30 IS AUTHORIZED PROVIDED THE FOLLOWING\nMINIMA ARE OBSERVED: DAY ONLY.',
+    '- RWY 12 RESTRICTIONS FOR THIS STATION:\n1. NO TRAINING\n2. NO OE',
+    'PLAN RWY 12\nDO NOT LIMIT PAYLOAD',
+    'RWY 30 NOT APPROVED']);
+  // negative: a sub-heading always starts a new item (never joined to the item above it)
+  assert.deepEqual(r.airportData.KBBB.remarks.map(x => x.subHeading), [null, null, null, null, 'DEPARTURES', 'ARRIVALS']);
+  // the joined remark keeps the provenance of its first line
+  const circ = r.airportData.KBBB.remarks[2], first = r.ofpRemarks.find(x => x.text.startsWith('- CIRCLING'));
+  assert.deepEqual([first.page, first.line], [circ.page, circ.line]);
+  // ofpRemarks: the same remarks, plus the heading and the sub-headings as records of their own; every line kept, in order
+  const st = r.ofpRemarks.filter(x => x.category === 'stationRestriction');
+  assert.deepEqual(st.map(x => x.text), [remarks[0], ...aptRemarks(r, 'KBBB').slice(0, 4), 'DEPARTURES', aptRemarks(r, 'KBBB')[4], 'ARRIVALS', aptRemarks(r, 'KBBB')[5]]);
+  assert.deepEqual(st.flatMap(x => x.text.split('\n')), remarks);
+
+  // numbered block with fleet sub-headings: adjacent numbers stay two; a wrapped number item is one;
+  // the next fleet sub-heading starts a new item; a wrapped takeoff-alternate requirement still raises SME-18
+  const nb = ['KAAA/AAA FLIGHT OPERATIONS RESTRICTIONS:', '767 Operations', '1. Check Captain Required', '2. No Training/OE Allowed',
+    '3. Takeoff alternate', 'required for all Departures', '747 Operations', '1. Brakes must be', 'Operational'];
+  const r767 = parse(pkg({ remarks: nb, ...B767 }));
+  assert.deepEqual(aptRemarks(r767, 'KAAA'), ['1. Check Captain Required', '2. No Training/OE Allowed', '3. Takeoff alternate\nrequired for all Departures']);
+  assert.ok(warns(r767, 'altData').some(w => /KAAA: the station restriction requires a takeoff alternate/.test(w.message)), 'SME-18 on a wrapped item');
+  assert.ok(infos(r767, 'airportData').some(f => /^2 station-restriction line\(s\) under another fleet's sub-heading not attached/.test(f.message)),
+    'SME-18a: the 747 item (two lines) is not attached');
+  const r747 = parse(pkg({ remarks: nb }));
+  assert.deepEqual(aptRemarks(r747, 'KAAA'), ['1. Brakes must be\nOperational'], 'the 747 item, joined; never joined to the 767 item above the sub-heading');
+  assert.deepEqual(warns(r747, 'altData'), []);
+
+  // page break: a remark that ends exactly at the bottom of a page continues correctly on the next page
+  const head = ['** KBBB FLIGHT OPS RESTRICTIONS **', '- CIRCLING FOR RWY 30 IS AUTHORIZED PROVIDED THE FOLLOWING'];
+  const pb = parse(pkg({ remarks: head, remarksNextPage: ['MINIMA ARE OBSERVED: DAY ONLY.', '- NIGHT LANDING NOT PERMITTED ON RWY 12.'] }));
+  assert.deepEqual(aptRemarks(pb, 'KBBB'), ['- CIRCLING FOR RWY 30 IS AUTHORIZED PROVIDED THE FOLLOWING\nMINIMA ARE OBSERVED: DAY ONLY.',
+    '- NIGHT LANDING NOT PERMITTED ON RWY 12.'], 'the wrap on the next page joins; the next marked item stays apart');
+  const [a, b] = pb.airportData.KBBB.remarks;
+  assert.ok(b.page === a.page + 1 && b.line === 4, 'the joined remark keeps its first page; the next item is on the next page');
+  const pe = parse(pkg({ remarks: [...head, 'MINIMA ARE OBSERVED: DAY ONLY.'], remarksNextPage: ['- NIGHT LANDING NOT PERMITTED ON RWY 12.', 'RWY 12 ONLY.'] }));
+  assert.deepEqual(aptRemarks(pe, 'KBBB'), ['- CIRCLING FOR RWY 30 IS AUTHORIZED PROVIDED THE FOLLOWING\nMINIMA ARE OBSERVED: DAY ONLY.',
+    '- NIGHT LANDING NOT PERMITTED ON RWY 12.\nRWY 12 ONLY.'], 'a remark ending at the page end is not joined to the marked item that opens the next page');
+  assert.ok(pe.airportData.KBBB.remarks[1].page === pe.airportData.KBBB.remarks[0].page + 1);
+});
+
+test('TC-161-102 D63 scope: the ADHOC block joins its wraps; outside the marked blocks one record per printed line', () => {
+  const mel = ['MEL 21-00-01 - SAMPLE ITEM', 'Dispatcher applied ADHOC penalty:', '- All fuel flow values increased by 1.00 PCT',
+    'FOR THE WHOLE FLIGHT', '- Ballast fuel added = 1000kg'];
+  const r = parse(pkg({ mel, remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', 'BTWN TWO POINTS', 'FLIGHT RELEASED UNDER EXEMPTION NO 00000Z. ALTERNATE AIRPORT',
+    'REQUIRED.REFER TO FOM FOR ADDITIONAL INFORMATION.'] }));
+  assert.deepEqual(r.ofpRemarks.filter(x => x.category === 'adhocPenalty').map(x => x.text),
+    ['Dispatcher applied ADHOC penalty:', '- All fuel flow values increased by 1.00 PCT\nFOR THE WHOLE FLIGHT', '- Ballast fuel added = 1000kg'],
+    'heading on its own, each dash item a record, the unmarked line joins the item above');
+  // the general Remarks run does not mark its items: unchanged, one record per printed line (D63 covers marked blocks)
+  assert.deepEqual(r.ofpRemarks.filter(x => x.category === 'pcf' || x.category === 'exemption').map(x => x.text),
+    ['- PCF FOR ENROUTE WX DEVIATIONS', 'BTWN TWO POINTS', 'FLIGHT RELEASED UNDER EXEMPTION NO 00000Z. ALTERNATE AIRPORT',
+      'REQUIRED.REFER TO FOM FOR ADDITIONAL INFORMATION.']);
+  assert.ok(r.ofpRemarks.every(x => x.category === 'adhocPenalty' || !x.text.includes('\n')), 'no joined record outside a marked block');
+  assert.deepEqual(r.pcf.reasons, ['- PCF FOR ENROUTE WX DEVIATIONS BTWN TWO POINTS'], 'the PCF reason is unchanged');
+});
+
 // ══ fixtures ═════════════════════════════════════════════════════════════════
 
 function fixturesDir() {
@@ -556,7 +640,7 @@ if (!FIXTURES) {
     for (const fx of fk) {
       const r = run(fx), e = EXPECTED[fx.id], lbl = e.label;
       const rem = r.ofpRemarks.filter(x => x.category !== 'adhocPenalty' && x.category !== 'cdcAttestation');
-      assert.equal(rem.length, e.ofpRemarksLines, `${lbl}: every Remarks line`);
+      assert.equal(rem.flatMap(x => x.text.split('\n')).length, e.ofpRemarksLines, `${lbl}: every Remarks line (a D63 remark keeps its lines)`);
       assert.equal(sha(rem.map(x => x.text).join('\n')), e.ofpRemarksSha, `${lbl}: Remarks text, in order`);
       const cdc = r.ofpRemarks.filter(x => x.category === 'cdcAttestation');
       assert.equal(cdc.length, e.cdcLines, `${lbl}: CDC attestation lines`);
@@ -616,7 +700,7 @@ if (!FIXTURES) {
     assert.ok(l21.airportData.NZWN.remarks.every(x => x.fleet === '767'));
     assert.ok(infos(l21, 'airportData').some(f => /1 station-restriction line\(s\) under another fleet's sub-heading not attached/.test(f.message)));
     assert.deepEqual(Object.entries(run(byLabel('L06')).airportData.LEZG.remarks.reduce((a, x) => (a[x.subHeading] = (a[x.subHeading] || 0) + 1, a), {})),
-      [['null', 3], ['ARRIVALS', 1], ['DEPARTURES', 6]].map(([k, v]) => [k, v]), 'L06 sub-cards ARRIVALS / DEPARTURES (D34)');
+      [['null', 1], ['ARRIVALS', 1], ['DEPARTURES', 1]], 'L06 sub-cards ARRIVALS / DEPARTURES (D34); one remark each (D63)');
     // SME-23: L15's dispatcher TAF for PWAK is attached to PWAK, raw only
     const l15 = run(byLabel('L15'));
     assert.deepEqual(l15.airportData.PWAK.remarksWeather.map(x => [x.source, x.type]), [['GOV TAF UPDATED', 'TAF']]);
@@ -625,5 +709,32 @@ if (!FIXTURES) {
     assert.deepEqual(labelsWhere(r => r.revision.kind === 'REV'), ['L20', 'L21', 'L22', 'L23']);
     assert.deepEqual(labelsWhere(r => r.revision.kind === 'NOT RELEASED'), ['T1', 'T2', 'T3']);
     assert.deepEqual(labelsWhere(r => r.revision.copies === 3 && r.revision.copiesIdentical), ['L02', 'L20', 'L21', 'L22', 'L23']);
+  });
+
+  test('TC-161-100 D63 on the fixtures: a wrapped airport remark is one remark; marked items stay apart', () => {
+    // airport remarks per package (station blocks in L01, L06, L09, L21, L22 only; field map §2.4)
+    const want = { L01: { MKJP: 1 }, L06: { LEZG: 3 }, L09: { VHHH: 1 }, L21: { NZWN: 5, NFFN: 3 }, L22: { EPPW: 1 } };
+    const joinedLines = { L06: 7, L09: 1, L21: 1 };   // lines that continue the remark above them (D63)
+    for (const fx of fk) {
+      const r = run(fx), e = EXPECTED[fx.id], lbl = e.label;
+      const got = Object.fromEntries(Object.entries(r.airportData).filter(([, v]) => v.remarks.length).map(([k, v]) => [k, v.remarks.length]));
+      assert.deepEqual(got, want[lbl] || {}, `${lbl}: airport remarks per airport`);
+      const rem = r.ofpRemarks.filter(x => x.category !== 'adhocPenalty' && x.category !== 'cdcAttestation');
+      assert.equal(rem.length, e.ofpRemarksLines - (joinedLines[lbl] || 0), `${lbl}: ofpRemarks records`);
+      assert.ok(r.ofpRemarks.every(x => !x.text.includes('\n') || x.category === 'stationRestriction'), `${lbl}: joined only in a station block`);
+    }
+    // L21 NFFN (positive): the circling condition and its minima are ONE remark, its line break kept
+    const l21 = run(byLabel('L21'));
+    assert.deepEqual(l21.airportData.NFFN.remarks.map(x => x.text), ['- NIGHT TAKE-OFF NOT PERMITTED ON RWY 09.',
+      '- NIGHT LANDING NOT PERMITTED ON RWYS 20 & 27.', '- CIRCLING FOR RWY 20 IS AUTHORIZED PROVIDED THE FOLLOWING\nMINIMA ARE OBSERVED: DAY ONLY.']);
+    // L21 NZWN (negative): five adjacent numbered items stay five
+    assert.deepEqual(l21.airportData.NZWN.remarks.map(x => x.text.slice(0, 3)), ['1. ', '2. ', '3. ', '4. ', '5. ']);
+    assert.ok(l21.airportData.NZWN.remarks.every(x => !x.text.includes('\n')));
+    // L06 LEZG (positive): the caution (3 lines) is one remark; each sub-heading starts one remark (no item marker in the block)
+    const lezg = run(byLabel('L06')).airportData.LEZG.remarks;
+    assert.deepEqual(lezg.map(x => [x.subHeading, x.text.split('\n').length]), [[null, 3], ['ARRIVALS', 1], ['DEPARTURES', 6]]);
+    assert.ok(lezg[0].text.startsWith('***USE EXTREME CAUTION') && lezg[0].text.endsWith('PROCEDURES***'));
+    // L09 VHHH (positive): one dash item over two lines
+    assert.deepEqual(run(byLabel('L09')).airportData.VHHH.remarks.map(x => x.text.split('\n').length), [2]);
   });
 }

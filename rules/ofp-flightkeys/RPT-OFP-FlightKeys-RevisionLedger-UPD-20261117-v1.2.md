@@ -1,10 +1,10 @@
 # FlightKeys OFP Parser — Revision Ledger
 
-**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261117-v1.1.md` (supersedes ledger v1.0 of the same date)
+**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261117-v1.2.md` (supersedes ledger v1.1 of the same date)
 **Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v0.2.0.js`
 **Current Version:** 0.2.0 (development version, D58)
 **Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1. Contract 2.2.
-**QA Status:** TC-160 20/20 and TC-161 14/14 PASS on the 26 FlightKeys fixtures; independent QA pending
+**QA Status:** TC-160 20/20 and TC-161 17/17 PASS on the 26 FlightKeys fixtures; independent QA of PR #62: CHANGES-REQUESTED (F1), F1 fixed under D63 (K-03), re-review pending
 **Last Updated:** 2026-11-17
 
 ---
@@ -13,9 +13,9 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 2 (K-01, K-02) |
+| Total entries | 3 (K-01, K-02, K-03) |
 | Current Version | 0.2.0 |
-| Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1` (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); the Exec's 8 truth sheets (Rev 00) |
+| Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1` (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decision D63; the Exec's 8 truth sheets (Rev 00) |
 | Masters reconciled | none: no master exists; v0.2.0 is not published to Drive (D58) |
 | Gate Status | development version; not gated |
 | Integration | none; must not be integrated (step 5d fields are explicit empties) |
@@ -23,6 +23,16 @@
 ---
 
 ## History
+
+### K-03 — v0.2.0: one remark per item in a marked block (D63) (2026-11-17)
+
+**Type:** UPD (same development version, before merge) · **Brief:** Exec prompt, 17 Nov (QA F1 on PR #62; D63)
+- **D63:** in airport remarks and in any remark block that marks its items, a new remark starts only at the block's own item marker (dash, number or sub-heading); any other line continues the remark above it, with its printed line breaks kept (`"\n"`, nothing reflowed). Applied to `airportData[icao].remarks[]` and to the station-block and ADHOC-block records of `ofpRemarks[]` (SPEC §5.12, markers per block layout from the field map v1.1 §2.4).
+- **Changed on the 26:** 4 remarks in 3 packages (13 printed lines): L06 2 (LEZG caution, `DEPARTURES`), L09 1 (VHHH), L21 1 (NFFN circling + minima). Every other package and field unchanged; v0.1.0 fields byte-identical (TC-161-001); findings unchanged on all 26.
+- The SME-18a INFO counts printed lines, as before (unchanged message); SME-18 is read on the joined remark, so a wrapped `Takeoff alternate` / `required` is flagged (synthetic).
+- Outside a marked block `ofpRemarks` stays one record per printed line (open item O-9).
+- Tests: TC-161-100 (fixtures), 101 (synthetic positive and negative, page break), 102 (scope); TC-161-050 changed (lines counted inside joined records; L06 sub-cards one remark each). The new tests fail on `1a96479`; mutants of each part of the rule are caught.
+- Exec, 17 Nov, also: a blank TO/LNDG expiry stays an INFO (QA F4); non-crew remark text may be quoted in the public SPEC and tests after `tools/redact` (QA F2; every quoted remark checked, no change needed). The STATUS 1 wording "listed once" is superseded (QA F3; the current rule is §5.7: every printed copy kept).
 
 ### K-02 — v0.2.0: release and remarks pages (2026-11-17)
 
@@ -74,3 +84,4 @@
 | O-6 | ~~Duplicate MEL items~~ **Closed (Exec, 17 Nov): keep all items**, a repeat is not an anomaly | — |
 | O-7 | `fplEquipment` (D41: filed 10a and the codes the MEL notes remove) has no brief. **Exec, 17 Nov: a later issue** | Exec (later brief) |
 | O-8 | ~~Truth sheets are drafts~~ **Closed (Exec, 17 Nov): OK** | — |
+| O-9 | D63 outside a marked block: `ofpRemarks` keeps one record per printed line in the general Remarks run (2-line exemption, 3-line fleet note, wrapped PCF reason, CDC attestation). Apply D63 there too? | Exec |

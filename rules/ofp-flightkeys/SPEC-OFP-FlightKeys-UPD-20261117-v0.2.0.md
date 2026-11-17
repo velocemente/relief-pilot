@@ -6,7 +6,7 @@
 **Module file:** `rules/ofp-flightkeys/ofp-flightkeys-v0.2.0.js` (SHA-256 in `rules/manifest.json`)
 **Architecture:** ADR-005 §2.1 (module catalogue: "FlightKeys OFP parser"), §2.2 (module standard), §2.4 (output contract, FK-P)
 **Field reference:** `docs/SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1-FieldMap.md` (rows, SME answers); `docs/ADR-005-AppendixB-Addendum-NEW-20261117-v1.0.md` (contract 2.1: `specialQualification`, `swa`); `docs/ADR-005-AppendixB-Addendum2-NEW-20261117-v1.0.md` (contract 2.2: `operatingPilots`, crew-record extensions)
-**Ledger:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261117-v1.1.md` (beside this file)
+**Ledger:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261117-v1.2.md` (beside this file)
 **Supersedes:** SPEC v0.1.0 (same folder; history in §10 and the ledger). The ADR-004 FlightKeys profile (`src/import/atlas-fk.js`) is retired only after this parser is gated and integrated (ADR-005 §2.7).
 
 ---
@@ -99,7 +99,7 @@ Nothing is read from the High Severity Company NOTAMs, Company NOTAMs, NOTAM / W
 | Line form | Result |
 | :--- | :--- |
 | `CA\|FO\|FO1\|FO2\|SO\|AO\|RO <EMPNO> [*] <LAST>, <FIRST …> .. .. ..` | a pilot: `{ role, empNum, lastName, initial, displayName, active: true, isSen: false, firstName, toLndgExpiry }` |
-| `TO/LNDG Expiry: [YYYY-MM-DD]` (under its pilot) | `toLndgExpiry` = the date when it is a real date; blank → **`"Not Reported"`** (SME-9) + one INFO with the count; not a date → `"Not Reported"` + WARN; no expiry line → `"Not Reported"` + WARN |
+| `TO/LNDG Expiry: [YYYY-MM-DD]` (under its pilot) | `toLndgExpiry` = the date when it is a real date; blank → **`"Not Reported"`** (SME-9) + one INFO with the count (INFO confirmed by the Exec, 17 Nov); not a date → `"Not Reported"` + WARN; no expiry line → `"Not Reported"` + WARN |
 | `DH <EMPNO> <NAME>`, `JS 0 <NAME>` | returned as NavBlue returns DH/JS: `active: false`; `empNum` only when it has 2–7 digits (NavBlue rule, so the JS `0` gives `''`); `toLndgExpiry ''` |
 | `MX`, `LM`, `FA`, `PU` lines | **not crew** for the briefing. One INFO with the counts, e.g. `FA 9, MX 2, PU 2` |
 | `FIT FOR DUTY/ RELIEF PIC`, `JS VERIFY START-END(Z)` (repeated at a page break) | skipped |
@@ -143,9 +143,9 @@ The Company NOTAM boilerplate `*ANYTIME PERISHABLES OR LIVE ANIMALS ARE ON BOARD
 - `permits[] = { type: 'OVERFLIGHT'|'LANDING'|'TAKEOFF'|'ADC', country, reference, route, restriction, adc, missing }`, in print order. An entry line starts with a state name (an embedded list, `PERMIT_STATES`, longest first). A following `<REG> [AUTH] ONLY` line is its `restriction`. Any other following line is its `route`. `/////PERMIT MISSING/////` gives `missing: true` + WARN.
 - **ADC numbers:** a Remarks line `<STATE> ADC NO-nnnn` is attached as `adc` to that state's permit (L17 BANGLADESH). With no permit for that state it becomes its own `ADC` entry.
 
-### 5.11 OFP Remarks and what they feed (Appendix B; D34, D39, D45, D46; SME-7, SME-17, SME-18, SME-18a, SME-21, SME-23)
+### 5.11 OFP Remarks and what they feed (Appendix B; D34, D39, D45, D46, D63; SME-7, SME-17, SME-18, SME-18a, SME-21, SME-23)
 
-- **`ofpRemarks[]`:** every line from the dispatcher line to `MEL/CDL`, in order, as `{ text, category, airport, subHeading, page, line }`. Then the MEL-block ADHOC penalty lines (`adhocPenalty`) and the CDC attestation (`cdcAttestation`) follow, in release order. A line that starts no category continues the remark above it when that remark can run over several lines (fuel reasons, route notes, weather, MEL changes, station blocks, the exemption, the fleet note, the boilerplate up to its `questions.` line). Single-line categories never take a continuation.
+- **`ofpRemarks[]`:** every line from the dispatcher line to `MEL/CDL`, in order, as `{ text, category, airport, subHeading, page, line }`, one record per printed line, **except in a block that marks its items** (a station restriction block, the ADHOC penalty block): there a record is one remark under D63 (§5.12). Then the MEL-block ADHOC penalty lines (`adhocPenalty`) and the CDC attestation (`cdcAttestation`) follow, in release order. Every printed line is in `ofpRemarks` exactly once, in order: joining the `text` of all records with a line break gives the printed lines. A line that starts no category continues the remark above it when that remark can run over several lines (fuel reasons, route notes, weather, MEL changes, station blocks, the exemption, the fleet note, the boilerplate up to its `questions.` line); this sets the category of the line and the reasons the module reads (`pcf`, `extraFuel`, …), and outside a marked block the line stays a record of its own. Single-line categories never take a continuation.
 
 | Category | Start line (structure) | Packages (of 26) |
 |---|---|---|
@@ -168,7 +168,7 @@ The Company NOTAM boilerplate `*ANYTIME PERISHABLES OR LIVE ANIMALS ARE ON BOARD
 | `adhocPenalty`, `cdcAttestation` | MEL-block penalty lines; `*** CDC ATTESTATION …` to `Signed by PIC` | 3, 5 |
 | `other` | none of the above (e.g. T3 test lines) | 1 |
 
-- **Station restrictions → `airportData[icao].remarks[]`** (D34): each item line of the block, `{ text, heading, subHeading, fleet, page, line }`. A block has no end marker; it runs until a RAIM, CAT, exemption, fleet-note or E-WINS line, or the next station heading. Sub-headings are `ARRIVALS`, `DEPARTURES`, a line ending in `:` such as `Restrictions, Limitations and Conditions`, and the fleet sub-headings `NNN Operations …`. A fleet sub-heading with words after it (`747 Operations Prohibited`) is itself a remark. **Fleet rule (SME-18a, as SME-12):** a line under a fleet sub-heading, or under a heading that names a fleet (`VHHH B747 DEPARTURES:`), is attached only when the OFP aircraft type is that fleet (`B744/B748/BLCF` → 747, `B763` → 767, `B77L` → 777). Lines for other fleets are not attached, and one INFO is raised; they stay in `ofpRemarks`. If the type has no known fleet, everything is attached + WARN. An airport the release does not list is not attached (INFO).
+- **Station restrictions → `airportData[icao].remarks[]`** (D34): each remark of the block (D63, §5.12), `{ text, heading, subHeading, fleet, page, line }`. A block has no end marker; it runs until a RAIM, CAT, exemption, fleet-note or E-WINS line, or the next station heading. Sub-headings are `ARRIVALS`, `DEPARTURES`, a line ending in `:` such as `Restrictions, Limitations and Conditions`, and the fleet sub-headings `NNN Operations …`. A fleet sub-heading with words after it (`747 Operations Prohibited`) is itself a remark. **Fleet rule (SME-18a, as SME-12):** a line under a fleet sub-heading, or under a heading that names a fleet (`VHHH B747 DEPARTURES:`), is attached only when the OFP aircraft type is that fleet (`B744/B748/BLCF` → 747, `B763` → 767, `B77L` → 777). Lines for other fleets are not attached, and one INFO is raised; they stay in `ofpRemarks`. If the type has no known fleet, everything is attached + WARN. An airport the release does not list is not attached (INFO). The INFO counts the printed lines not attached.
 - **Takeoff alternate (SME-18):** when an applicable restriction of the **departure** airport says `Takeoff alternate required` and the release lists no `TALT` (`altData` role `TKOF ALT`), a **WARN** finding is raised (field `altData`). The app must flag it to the crew.
 - **`airportData[icao].remarksWeather[]`** (D34, D46, SME-23): a `TAF|METAR|SPECI [AMD|COR] IIII …` report in the Remarks, with its continuation lines, gives `{ source, type, text, page, line }` on that airport. `source` is the heading line right above it (e.g. `GOV TAF UPDATED`), else `'OFP Remarks'`. It is **never merged** into `airportData[icao].weather`; under D46 the E-WINS (`* PRIO *`) briefing TAF stays controlling (read in 5d). An airport that is in the release but not on page 1 (L15 PWAK, a CFS alternate) gets an airport entry of the same shape (INFO). A weather remark naming no airport (T3, a WSI area product) is not attached (INFO). The NavBlue-style E-WINS remark (`WSITAF` / TWC, D56) is unseen in FlightKeys and not read (§9).
 - **`securityMessages[]`** (D45): `{ text, page, line }` for each security remark (L07 `POS LAUNCH TO DWC APPROVED BY SECURITY`), for the Preflight card.
@@ -176,6 +176,33 @@ The Company NOTAM boilerplate `*ANYTIME PERISHABLES OR LIVE ANIMALS ARE ON BOARD
 - **`extraFuel`** (D39): `{ fuel, minutes, unit, type, tanker, reasons[] }` from the `EXTRA` row (first column, NavBlue number form) and the `extraFuel` remarks. `tanker` is `true` only when a reason says the extra is tanker fuel for this flight (`ECON TANKER FUEL`, `TANKER FUEL`, `TANKERING`, and not `NO TANKER`). `type` is `'TANKER'`, `'PRE-FUELED'`, `'CAPTAIN'` or `''`. A Company NOTAM `IIII-TANKER` is station information and is never used.
 - **`pcf`** (SME-7): `{ fuel, minutes, unit, reasons[] }` from the `PCF` row and the `pcf` remarks (PCF, CF, `ADDITIONAL FUEL …`). A non-zero PCF with no reason, or a reason with PCF 0, gives an INFO.
 - **`revision`:** `{ kind: 'RLS'|'REV'|'NOT RELEASED', number (as printed, e.g. '01'), time ('03NOV26 15:39'), revision ('1.0' / '-.-'), validUntil ('0055Z 04NOV26'), tlr ('TLR-1'), copies, copiesIdentical }`. If the release number, `Revision: n.0` and `TLR-n` disagree → WARN.
+
+### 5.12 One remark per item in a marked block (D63, Exec 17 Nov)
+
+**Rule (D63).** In airport remarks, and in any remark block that marks its items, a new remark starts **only** at the block's own item marker: a dash, a number or a sub-heading. Any line without a marker continues the remark above it. The joined remark keeps its printed line breaks (`"\n"` between the lines, D54-style: nothing reflowed), and its `page` / `line` are those of its first line.
+
+- **The block's own marker** is the first of `- ` (dash and a space) or `n.` / `n)` (a number of one or two digits and a space) that the block uses after its heading. A line with the other marker kind does not start a remark in that block (e.g. `1.` lines under a dash item continue that item). `-T-` or `10-10` inside a line is no marker: a marker is at the start of the line.
+- **A sub-heading always starts a new remark:** the next line opens a remark even without a marker, and it is never joined to the remark above the sub-heading. Sub-headings are those of §5.11 (`ARRIVALS`, `DEPARTURES`, a line ending in `:`, `NNN Operations …`). A fleet sub-heading with words after it (`747 Operations Prohibited`) is itself a remark.
+- **The first line after the heading** opens a remark, with or without a marker. In a block with no dash or number (L06), each sub-heading section is therefore one remark.
+- The heading, a sub-heading and a dashed rule line are `ofpRemarks` records of their own and never part of a remark.
+- **Page breaks** do not end a remark: the release pages are read without their running header, title and footer (§4), so a remark that ends at the bottom of a page and a line that opens the next page follow the same rule.
+- The station block still ends where §5.11 says (RAIM, CAT, exemption, fleet-note, E-WINS line, next station heading).
+- **ADHOC penalty block** (MEL/CDL block): `Dispatcher applied ADHOC penalty:` is a record of its own; each `- ` line starts a record; an unmarked line continues the item above it.
+- **Not changed:** outside a marked block `ofpRemarks` keeps one record per printed line (the general Remarks run prints no item markers; its categories are found by their start forms). MEL/CDL titles and notes are joined as before (§5.7). `remarksWeather`, `pcf.reasons`, `extraFuel.reasons` and `securityMessages` keep their joined form (§5.11).
+
+**Block layouts and their markers** (field map v1.1 §2.4, "Station / airport restrictions": *"headed blocks with no end marker (they run until the CAT II/III lines): `** IIII FLIGHT OPS RESTRICTIONS **` + numbered items (L01), + dash items (L21, NFFN), + `Restrictions, Limitations and Conditions:` and `1)` items (L22, **new**); `**IIII/AAA FLIGHT OPS RESTRICTION **` + `ARRIVALS` / `DEPARTURES` sub-headings (L06); `IIII/AAA FLIGHT OPERATIONS RESTRICTIONS:` + fleet sub-headings `747 Operations Prohibited` / `767 Operations` + numbered items (L21, NZWN, **new**); dashed block `IIII B747 DEPARTURES:` (L09)."* and §3 `airportData[icao].remarks[]`: *"sub-headings by flow (`ARRIVALS` / `DEPARTURES`, L06) or by fleet (`747 Operations Prohibited` / `767 Operations`, L21); items numbered `1.` / `1)` or dashed. The block has no explicit end (it runs until the CAT II/III lines)."*):
+
+| Package | Block (heading) | Markers | Printed item lines → remarks |
+|---|---|---|---|
+| L01 | `** MKJP FLIGHT OPS RESTRICTIONS **` | number `1.` | 1 → 1 |
+| L06 | `**LEZG/ZAZ FLIGHT OPS RESTRICTION **` | sub-headings `ARRIVALS` / `DEPARTURES` only (no dash or number; the caution opens with `***`) | 10 → 3: the 3-line caution; `ARRIVALS` 1; `DEPARTURES` 6 lines as one |
+| L09 | dashed line + `VHHH B747 DEPARTURES:` | dash | 2 → 1 (`- REFER TO FLEET CAPTAIN BULLETIN - CHANGE NOTICE -` + its second line) |
+| L21 | `NZWN/WLG FLIGHT OPERATIONS RESTRICTIONS:` | fleet sub-headings + number `1.` | 6 → 6 (the 747 one not attached for the 767, SME-18a) |
+| L21 | `** NFFN FLIGHT OPS RESTRICTIONS **` | dash | 4 → 3: `- CIRCLING FOR RWY 20 IS AUTHORIZED PROVIDED THE FOLLOWING` + `MINIMA ARE OBSERVED: DAY ONLY.` is one remark |
+| L22 | `** EPPW FLIGHT OPS RESTRICTIONS **` | sub-heading `Restrictions, Limitations and Conditions:` + number `1)` | 1 → 1 |
+| T1, T3, L02 | `Dispatcher applied ADHOC penalty:` (MEL/CDL block) | dash | 1 → 1 each |
+
+**Changed by D63 on the 26:** 4 remarks in 3 packages, made of 13 printed lines that were 13 records: L06 2 (the caution, `DEPARTURES`), L09 1, L21 1 (NFFN). Airport remarks 10 → 3 (L06), 2 → 1 (L09), 9 → 8 (L21); `ofpRemarks` records 21 → 14, 19 → 18, 21 → 20. Every other package and every other field is unchanged (TC-161-100).
 
 ---
 
@@ -192,6 +219,9 @@ The Company NOTAM boilerplate `*ANYTIME PERISHABLES OR LIVE ANIMALS ARE ON BOARD
 | TC-161-032 / 032a | TLR on 26 (= NavBlue except L10) / synthetic page break | PASS |
 | TC-161-040 | **FK-P matched pair** (§7) | PASS |
 | TC-161-050 / 051 | remarks and everything they feed, on 26 / synthetic with a negative per rule | PASS |
+| TC-161-100 | **D63 on 26:** L21 NFFN circling + minima = one remark, L06 LEZG, L09 VHHH (positive); L21 NZWN five numbered items stay five, NFFN items 1 and 2 stay apart (negative); airport remarks and `ofpRemarks` records per package; joins only in station blocks | PASS |
+| TC-161-101 | **D63 synthetic:** unmarked line joins; two adjacent marked items stay two; another marker kind continues; a sub-heading always starts a new item (flow and fleet); a remark across a page break joins, and one that ends at the page end stays apart from the marked item opening the next page; SME-18 on a wrapped item; the SME-18a INFO counts lines | PASS |
+| TC-161-102 | **D63 scope:** ADHOC block joins its wraps; outside marked blocks one record per printed line; PCF reason unchanged | PASS |
 | TC-161-090 | fixtures missing → FAIL, none skipped (child run) | PASS |
 
 Expected values (`test/rules/data/ofp-flightkeys-expected-v0.2.0.json`) were taken from the release text by a separate, simpler extraction (one pattern per field) and checked against the field map v1.1 counts. They hold no crew data, and free text (MEL titles, Remarks, the permits block) only as SHA-256.
@@ -215,7 +245,7 @@ Every row in scope is ✅ on every package that carries it, with the field-map c
 - crew: pilots 2 in 4 packages, 3 in 12, 4 in 10; DH in 3; JS in 10; blank expiry in 9; `*` in 3.
 - CAT: authorisations in 22, restrictions in 5. MEL: items in 25 (CDL in 3), an item printed twice in 9 (every copy kept), late addition only in L23. TLR cross-reference in 5.
 - perishables 7, temperature 0. Permits: overflight 8, landing 5, takeoff 2. Security 1, tanker 1, PCF reason in 16 of 17.
-- station blocks 5 (SME-18 flag only in L21; the 747 line not attached for its 767); remarks weather 1 (L15 PWAK); CDC attestation 5.
+- station blocks 5 (SME-18 flag only in L21; the 747 line not attached for its 767); airport remarks after D63: L01 1, L06 3, L09 1, L21 8 (NZWN 5, NFFN 3), L22 1; remarks weather 1 (L15 PWAK); CDC attestation 5.
 
 The module raises no WARN on the 26 except two kinds, both intended: the L21 takeoff-alternate flag (SME-18) and the two T1 `PERMIT MISSING` permits.
 
@@ -236,6 +266,10 @@ Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) 
 | NavBlue-style E-WINS remark (`WSITAF` / TWC, D56) | unseen in FlightKeys; not read in the Remarks. The FlightKeys E-WINS is the `* PRIO *` TAF (5d). |
 | `fplEquipment` (D41) | not in the v0.2.0 brief: `null` with an INFO (step `open`). **Exec, 17 Nov: a later issue.** |
 | Truth sheets | drafts (the "Exec checked" column is empty). **Exec, 17 Nov: OK** as the comparison basis for now. |
+| Wrapped remarks (QA F1) | **Exec D63, 17 Nov:** one remark per item in a marked block (§5.12). Applied. |
+| `ofpRemarks` outside a marked block | still one record per printed line (§5.12): the 2-line exemption, the 3-line fleet note, a wrapped PCF reason and the CDC attestation are several records. D63 is about blocks that mark their items; joining these too is a one-rule change. **Exec to say** whether D63 should also apply here. |
+| Blank TO/LNDG expiry | **Exec, 17 Nov: stays an INFO** (QA F4; §5.5). |
+| Quoted remark text | **Exec, 17 Nov:** non-crew remark text may be quoted in the public SPEC and tests after `tools/redact` (QA F2). Every quoted remark was run through `tools/redact`: no change needed. |
 | SALT/TALT, temperature control positive | unseen (D55); rules in place, synthetic tests only. |
 | v0.1.0 open items | unchanged: `porWpt` `+nnNM` form (SME-11), `navLog` `[]` (FK-P), date fallback. |
 
@@ -246,4 +280,4 @@ Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) 
 | Version | Date | Status | Changes |
 | :--- | :--- | :--- | :--- |
 | 0.1.0 | 2026-11-17 | NEW (development, D58) | First version: contract 2.1 shape; release rows 1–23, 29–31, 33, 34, 36, 39–41; extensions `designator`, `swa`, `airportData[].specialQualification`; deferred fields explicit empties + INFO. |
-| **0.2.0** | 2026-11-17 | UPD (development, D58) | Release and remarks pages: rows 24–28, 32, 32a, 35; extensions `revision`, `ofpRemarks`, `airportData[].remarks` / `remarksWeather`, `catIiIiiRestrictions`, `securityMessages`, `extraFuel`, `pcf`, `permits`, `operatingPilots` (D62), crew-record `firstName` / `toLndgExpiry`; SME-18 flag; FPL from the release (QA F4); SPEC wording for curfew/opsNotes (QA F3). Contract 2.2. v0.1.0 fields byte-identical. |
+| **0.2.0** | 2026-11-17 | UPD (development, D58) | Release and remarks pages: rows 24–28, 32, 32a, 35; extensions `revision`, `ofpRemarks`, `airportData[].remarks` / `remarksWeather`, `catIiIiiRestrictions`, `securityMessages`, `extraFuel`, `pcf`, `permits`, `operatingPilots` (D62), crew-record `firstName` / `toLndgExpiry`; SME-18 flag; FPL from the release (QA F4); SPEC wording for curfew/opsNotes (QA F3). Contract 2.2. v0.1.0 fields byte-identical. QA F1 → **D63**: one remark per item in a marked block (§5.12; airport remarks and `ofpRemarks`; 4 remarks changed in L06, L09, L21). |
