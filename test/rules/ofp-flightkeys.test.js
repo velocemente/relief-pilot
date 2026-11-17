@@ -23,6 +23,12 @@
  *   TC-160-011  date (D57): DOF present / OFP header only / neither → '' + WARN / impossible → '' + WARN
  *   TC-160-012  airport line without a 3-letter code (L22, and synthetic on every line keyword)
  *   TC-160-013  Q token (SME-2): positive and negative; text and positions disagree → positions + WARN
+ *   TC-160-014  fuel and weights, synthetic (rows 9–23, SC block/min fuel): positive and negative;
+ *               BALST, ZFW INC, ADDL FF ADJ as printed, VZFW/CK inline and NavBlue form, SWA
+ *   TC-160-015  rows 9–23 + SWA on all 26 fixtures; field-map counts (ballast 4, FF ADJ 10, VZFW 9,
+ *               POR MINF 10, SWA 4)
+ *   TC-160-020  where the field map says today's NavBlue parser already reads FlightKeys right (✅
+ *               rows), the module gives exactly the NavBlue value on all 26 fixtures
  *   TC-160-030  fixtures missing → the fixture tests FAIL (never skip)
  *
  * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
@@ -324,6 +330,39 @@ test('TC-160-013 Q token = Special Qualification (SME-2): text, positions, negat
   assert.deepEqual(warns(q, 'specialQualification'), []);
 });
 
+test('TC-160-014 fuel and weights, synthetic (rows 9–23; SC block/min fuel positive and negative)', () => {
+  const fuel = ['UAAA-EHAM', 'ALT1/2 KCCC/', 'FUEL TIME GDIS',
+    'TRIP 085879 07.26 3395', 'CONT 007479 00.44', 'ALT1 005424 00.27 0118', 'FRES 004587 00.30',
+    'PCF 000000 00.00', 'BALST 002500 00.00', 'MINF 103369 09.08 ....', 'EXTRA 002831 00.14', 'TOF 106200',
+    'TAXI 000900 00.20', 'BLOCK 107100 09.43', 'REMF 020321 02.12 ....', '*ADDL FF ADJ -0.25 *',
+    'Weight Actual Limit', 'DOW 161416', 'SWA (003718)', 'PYLD 109500',
+    'ZFW 270916 ...... S284110 ZFW INC/1000 X 191 MINF ADJ', 'RAMP 378016 S397800',
+    'TOGW 377116 ...... L377116 MTOW LTD BY VZFW/CK LIMITS', 'LDGW 291237 P302092'];
+  const r = parseText(release({ extraP1: fuel }));
+  assert.deepEqual(
+    [r.blockFuelRaw, r.minfFuelRaw, r.fresFuelRaw, r.taxiFuelRaw, r.taxiMins, r.tripMinutes, r.alt1Fuel, r.destRemf, r.porMinf, r.ballastFuel, r.addlFfAdj, r.zfwIncrFactor],
+    ['107100', '103369', '4587', '900', 20, 446, '5424', '20321', '', 2500, '-0.25', 191]);
+  assert.deepEqual([r.zfwActual, r.zfwLimit, r.togwActual, r.togwLimit, r.ldgwActual, r.ldgwLimit, r.hasVzfwCkLimit],
+    [270916, 284110, 377116, 377116, 291237, 302092, true]);
+  assert.deepEqual(r.swa, { value: 3718, unit: 'KGS' });
+  // redispatch three-column table: first column for the core fields, second column = porMinf
+  const rd = parseText(release({ extraP1: ['TRIP 088113 14.26 6180 009645 02.15 0892 081286 13.01 5599',
+    'MINF 094677 15.39 .... 016209 03.29 092098 15.05', 'BLOCK 096200 16.15', 'REMF 007097 01.24 .... 007097 01.24 013924 02.45',
+    'BALST 001860 00.00 001860 00.00 001860 00.00'] }));
+  assert.deepEqual([rd.minfFuelRaw, rd.porMinf, rd.tripMinutes, rd.blockFuelRaw, rd.destRemf, rd.ballastFuel], ['94677', '16209', 866, '96200', '7097', 1860]);
+  // NavBlue form of the VZFW alert (own line, asterisks) is accepted too
+  assert.equal(parseText(release({ extraP1: ['TOGW 377116 S377116', '*MTOW LTD BY VZFW/CK LIMITS*'] })).hasVzfwCkLimit, true);
+  // negative: nothing printed → explicit empties + WARN for the SC fuel rows; no alert, no ballast, no SWA
+  const n = parseText(release({ extraP1: ['TOGW 377116 ...... S377116', 'COMPANY NOTE: BLOCK 999999 MINF 999999 ADDL FF ADJ +9.99'] }));
+  assert.deepEqual([n.blockFuelRaw, n.minfFuelRaw, n.ballastFuel, n.addlFfAdj, n.zfwIncrFactor, n.hasVzfwCkLimit, n.swa, n.porMinf],
+    ['', '', null, null, null, false, null, '']);
+  assert.ok(warns(n, 'blockFuelRaw').length === 1 && warns(n, 'minfFuelRaw').length === 1);
+  // fuel and weights printed outside OFP page 1 (e.g. in the briefing) are never read
+  const elsewhere = release() + 'BLOCK 107100 09.43\nMINF 103369 09.08 ....\nTOGW 377116 ...... S377116 MTOW LTD BY VZFW/CK LIMITS\n\n';
+  const e = parseText(elsewhere);
+  assert.deepEqual([e.blockFuelRaw, e.minfFuelRaw, e.togwActual, e.hasVzfwCkLimit], ['', '', 0, false]);
+});
+
 // ══ fixtures ═════════════════════════════════════════════════════════════════
 
 const FIXTURES = findFixtures();
@@ -422,5 +461,39 @@ if (!FIXTURES) {
     // date: the DOF, not the release print date (L11 printed the day before)
     assert.equal(runFixture(fkFixtures.find(f => f.id === byLabel.L11)).flightDateISO, '2026-11-04');
     assert.equal(Object.keys(tally).length, fields.length);
+  });
+
+  test('TC-160-015 rows 9–23 + SWA on 26 fixtures; field-map counts', () => {
+    const fields = ['blockFuelRaw', 'minfFuelRaw', 'fresFuelRaw', 'taxiFuelRaw', 'taxiMins', 'tripMinutes', 'alt1Fuel',
+      'destRemf', 'porMinf', 'ballastFuel', 'addlFfAdj', 'zfwIncrFactor', 'zfwActual', 'zfwLimit', 'togwActual',
+      'togwLimit', 'ldgwActual', 'ldgwLimit', 'hasVzfwCkLimit', 'swa'];
+    for (const fx of fkFixtures) {
+      const r = runFixture(fx), e = EXPECTED[fx.id];
+      for (const f of fields) assert.deepEqual(r[f], e[f], `${e.label}: ${f}`);
+      assert.deepEqual(warns(r).filter(f => fields.includes(f.field)), [], `${e.label}: no WARN on rows 9–23`);
+    }
+    const labelsWhere = pred => fkFixtures.filter(fx => pred(runFixture(fx))).map(fx => EXPECTED[fx.id].label).sort();
+    assert.deepEqual(labelsWhere(r => r.ballastFuel !== null), ['L02', 'L04', 'L12', 'L18'], 'row 16: BALST in 4');
+    assert.deepEqual(labelsWhere(r => r.addlFfAdj !== null), ['L03', 'L08', 'L10', 'L12', 'L13', 'L16', 'L17', 'L18', 'T1', 'T3'], 'row 19: 10');
+    assert.deepEqual(labelsWhere(r => r.hasVzfwCkLimit), ['L02', 'L09', 'L10', 'L11', 'L12', 'L19', 'T1', 'T2', 'T3'], 'row 23: 9');
+    assert.deepEqual(labelsWhere(r => r.porMinf !== ''), ['L02', 'L08', 'L11', 'L12', 'L13', 'L14', 'L18', 'L19', 'L20', 'T3'], 'row 17: 10');
+    assert.deepEqual(labelsWhere(r => r.swa !== null), ['L05', 'L15', 'L21', 'L22'], 'SME-8: SWA in 4');
+    assert.deepEqual(labelsWhere(r => r.zfwIncrFactor !== null).length, 26, 'row 18: 26/26');
+    assert.equal(runFixture(fkFixtures.find(f => f.id === byLabel.L16)).addlFfAdj, '+4.30', 'SME-6: as printed');
+  });
+
+  test('TC-160-020 the ✅ rows of the field map: module value = NavBlue value on all 26 fixtures', () => {
+    // Field map v1.1 rows marked ✅ (today's NavBlue parser reads FlightKeys right) plus rows 5–6 outside L22.
+    const SAME = ['fltNum', 'acftType', 'weightUnit', 'isHeavy', 'dateStr', 'flightDateISO', 'blockFuelRaw',
+      'minfFuelRaw', 'fresFuelRaw', 'taxiFuelRaw', 'taxiMins', 'tripMinutes', 'alt1Fuel', 'destRemf', 'porMinf',
+      'zfwActual', 'zfwLimit', 'togwActual', 'togwLimit', 'ldgwActual', 'ldgwLimit'];
+    let n = 0;
+    for (const fx of fkFixtures) {
+      const text = fs.readFileSync(path.join(FIXTURES, fx.files.text), 'utf8');
+      const nb = navblue._ofpRulesetParse(text), r = runFixture(fx), lbl = EXPECTED[fx.id].label;
+      const fields = lbl === 'L22' ? SAME : SAME.concat(['origIcao', 'offFromOFP', 'destIcao', 'etaDest', 'destEtaOffsetMins']);
+      for (const f of fields) { assert.deepEqual(r[f], nb[f], `${lbl}: ${f} = NavBlue`); n++; }
+    }
+    assert.ok(n >= 26 * 21);
   });
 }

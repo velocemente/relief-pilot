@@ -142,6 +142,22 @@ const PATTERNS = {
   // the 3-letter code may be absent ("IIII/ NAME", L22) — the correct rule,
   // not the NavBlue template (NB-F1).
   APT_LINE:        /^(ORIG|DEST|PALT|SALT|RAPT|RALT|TALT)\s+([A-Z]{4})\/([A-Z0-9]{3})?(?:\s+(.*?))?\s+([NS]\d{5}[EW]\d{6})\s+(\d{4})Z\s*$/,
+  // Fuel table row, first column (rows 9–16): "NAME nnnnnn [HH.MM] …"
+  FUEL_ROW:        /^(TRIP|CONT|ALT1|FRES|ADD\.AL|ADD\.LD|PCF|BALST|MINF|EXTRA|TOF|TAXI|BLOCK|REMF)\s+(\d{3,7})(?:\s+(\d{2})\.(\d{2}))?(?=\s|$)/,
+  // Row 17: MINF second column (POR)-DEST — "MINF nnnnnn HH.MM .... nnnnnn HH.MM …"
+  POR_MINF:        /^MINF\s+\d{3,7}\s+\d{2}\.\d{2}\s+\.+\s+(\d{3,7})\s+\d{2}\.\d{2}/,
+  // Row 19: "*ADDL FF ADJ +n.nn *" (space before the closing asterisk allowed)
+  ADDL_FF_ADJ:     /^\*\s*ADDL\s+FF\s+ADJ\s+([+\-]\d+(?:\.\d+)?)\s*\*\s*$/,
+  // Rows 20–22: "ZFW|TOGW|LDGW actual [......] Llimit" (L = limit code S/P/L/I)
+  ZFW:             /^ZFW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})\b/,
+  TOGW:            /^TOGW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})\b/,
+  LDGW:            /^LDGW\s+(\d{5,7})\s*(?:\.+\s*)?[SPLI](\d{5,7})\b/,
+  // Row 18: "ZFW INC/1000 X nnn MINF ADJ" (FlightKeys "INC"; NavBlue "INCR")
+  ZFW_INC:         /\bZFW\s+INCR?\/1000\s+X\s+(\d+)\s+MINF\s+ADJ\b/,
+  // Row 23: inline on the TOGW row, with or without the NavBlue asterisks
+  VZFW_CK_LIMIT:   /\*?MTOW\s+LTD\s+BY\s+VZFW\/CK\s+LIMITS\*?/,
+  // SME-8: service weight adjustment between DOW and PYLD
+  SWA:             /^SWA\s+\((\d{3,7})\)\s*$/,
 };
 
 // Alternate keywords → crew roles: the NavBlue rule (ALT_PATTERNS), unchanged
@@ -463,8 +479,64 @@ function _buildAltData(ctx) {
   }
 }
 
+// ── Fuel (rows 9–19; SME-6, SME-7) ─────────────────────────────────────
+// OFP p1 fuel table: "NAME nnnnnn [HH.MM] [GDIS] …" — the first column is
+// ORIG-DEST; redispatch packages add (POR)-DEST and ORIG-RAPT columns.
+function _readFuel(ctx) {
+  const { out, add, p1 } = ctx;
+  const rows = {};
+  for (const l of p1) {
+    const m = PATTERNS.FUEL_ROW.exec(l);
+    if (m && !rows[m[1]]) rows[m[1]] = { fuel: m[2], hh: m[3], mm: m[4], line: l };
+  }
+  const num = r => String(parseInt(r.fuel, 10));   // NavBlue form: leading zeros dropped
+  const mins = r => (r && r.hh !== undefined && +r.mm < 60) ? (+r.hh) * 60 + (+r.mm) : null;
+  const need = (key, field) => { if (!rows[key]) add('WARN', field, `${key} row not found in the OFP page-1 fuel table`); return rows[key]; };
+  let r;
+  if ((r = need('BLOCK', 'blockFuelRaw'))) out.blockFuelRaw = num(r);
+  if ((r = need('MINF', 'minfFuelRaw'))) {
+    out.minfFuelRaw = num(r);
+    const pm = PATTERNS.POR_MINF.exec(r.line);    // row 17: second column (POR)-DEST
+    if (pm) out.porMinf = String(parseInt(pm[1], 10));
+  }
+  if ((r = need('FRES', 'fresFuelRaw'))) out.fresFuelRaw = num(r);
+  if ((r = need('TAXI', 'taxiFuelRaw'))) { out.taxiFuelRaw = num(r); out.taxiMins = mins(r); }
+  if ((r = need('TRIP', 'tripMinutes'))) out.tripMinutes = mins(r);
+  if ((r = need('ALT1', 'alt1Fuel'))) out.alt1Fuel = num(r);
+  if ((r = need('REMF', 'destRemf'))) out.destRemf = num(r);
+  if (rows.BALST) out.ballastFuel = parseInt(rows.BALST.fuel, 10);   // row 16: FlightKeys "BALST"
+  for (const l of p1) {
+    const m = PATTERNS.ADDL_FF_ADJ.exec(l);                          // row 19, as printed (SME-6)
+    if (m) { out.addlFfAdj = m[1]; break; }
+  }
+}
+
+// ── Weights (rows 20–23; SME-8) ─────────────────────────────────────────
+function _readWeights(ctx) {
+  const { out, ext, add, p1 } = ctx;
+  const first = re => { for (const l of p1) { const m = re.exec(l); if (m) return m; } return null; };
+  const w = (re, a, b, field) => {
+    const m = first(re);
+    if (m) { out[a] = parseInt(m[1], 10); out[b] = parseInt(m[2], 10); }
+    else add('WARN', field, `${field.replace(/Actual$/, '').toUpperCase()} row not found in the OFP page-1 weight table`);
+    return m;
+  };
+  w(PATTERNS.ZFW, 'zfwActual', 'zfwLimit', 'zfwActual');
+  w(PATTERNS.LDGW, 'ldgwActual', 'ldgwLimit', 'ldgwActual');
+  const tm = w(PATTERNS.TOGW, 'togwActual', 'togwLimit', 'togwActual');
+  // Row 23: "MTOW LTD BY VZFW/CK LIMITS" inline on the TOGW row (no asterisks
+  // in FlightKeys), or on its own line with asterisks (the NavBlue form).
+  out.hasVzfwCkLimit = !!(tm && PATTERNS.VZFW_CK_LIMIT.test(tm.input)) || p1.some(l => PATTERNS.VZFW_CK_LIMIT.test(l));
+  const zi = first(PATTERNS.ZFW_INC);                                // row 18: "ZFW INC/1000 X nnn MINF ADJ"
+  if (zi) out.zfwIncrFactor = parseInt(zi[1], 10);
+  const sw = first(PATTERNS.SWA);                                    // SME-8: "SWA (nnnnnn)"
+  if (sw) ext.swa = { value: parseInt(sw[1], 10), unit: out.weightUnit };
+}
+
 // Fields of the v0.1.0 scope still being built on this branch.
 function _readPending(ctx) {
+  _readFuel(ctx);
+  _readWeights(ctx);
   _buildAltData(ctx);
 }
 

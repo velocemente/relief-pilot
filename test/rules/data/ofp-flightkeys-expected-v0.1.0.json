@@ -22,7 +22,27 @@
   ],
   "specialQualification": [
    "UAAA"
-  ]
+  ],
+  "blockFuelRaw": "107100",
+  "minfFuelRaw": "103369",
+  "fresFuelRaw": "4587",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 446,
+  "alt1Fuel": "5424",
+  "destRemf": "20321",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 191,
+  "zfwActual": 270916,
+  "zfwLimit": 284110,
+  "togwActual": 377116,
+  "togwLimit": 377116,
+  "ldgwActual": 291237,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_ZUCK-UAAA_27OCT26_prototype": {
   "label": "T2",
@@ -49,7 +69,27 @@
    "ZUCK",
    "UAAA",
    "UCFM"
-  ]
+  ],
+  "blockFuelRaw": "78200",
+  "minfFuelRaw": "64387",
+  "fresFuelRaw": "4496",
+  "taxiFuelRaw": "1350",
+  "taxiMins": 30,
+  "tripMinutes": 268,
+  "alt1Fuel": "4811",
+  "destRemf": "26266",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 122,
+  "zfwActual": 270718,
+  "zfwLimit": 288031,
+  "togwActual": 347568,
+  "togwLimit": 352676,
+  "ldgwActual": 296984,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_KLAX-RKSI_31OCT26_rda-etp_prototype": {
   "label": "T3",
@@ -82,7 +122,27 @@
     "ofpEta": "1528"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "162900",
+  "minfFuelRaw": "160968",
+  "fresFuelRaw": "3589",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 801,
+  "alt1Fuel": "9950",
+  "destRemf": "20125",
+  "porMinf": "47516",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 289,
+  "zfwActual": 207945,
+  "zfwLimit": 287149,
+  "togwActual": 369945,
+  "togwLimit": 369945,
+  "ldgwActual": 228070,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_MKJP-KMIA_03NOV26_caribbean-callsign_live": {
   "label": "L01",
@@ -105,7 +165,27 @@
     "ofpEta": "2258"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "28100",
+  "minfFuelRaw": "27111",
+  "fresFuelRaw": "4178",
+  "taxiFuelRaw": "900",
+  "taxiMins": 19,
+  "tripMinutes": 81,
+  "alt1Fuel": "3912",
+  "destRemf": "13860",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 32,
+  "zfwActual": 233940,
+  "zfwLimit": 309000,
+  "togwActual": 261140,
+  "togwLimit": 339340,
+  "ldgwActual": 247800,
+  "ldgwLimit": 326000,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_KORD-RKSI_05NOV26_crew-ballast-rda_live": {
   "label": "L02",
@@ -138,7 +218,27 @@
     "ofpEta": "1111"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "134000",
+  "minfFuelRaw": "131347",
+  "fresFuelRaw": "2928",
+  "taxiFuelRaw": "1575",
+  "taxiMins": 35,
+  "tripMinutes": 865,
+  "alt1Fuel": "2526",
+  "destRemf": "12104",
+  "porMinf": "26297",
+  "ballastFuel": 2500,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 302,
+  "zfwActual": 161675,
+  "zfwLimit": 288031,
+  "togwActual": 294100,
+  "togwLimit": 367863,
+  "ldgwActual": 173779,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_PANC-ZHEC_04NOV26_etops-ddg_live": {
   "label": "L03",
@@ -164,7 +264,27 @@
   "specialQualification": [
    "ZHEC",
    "ZHCC"
-  ]
+  ],
+  "blockFuelRaw": "110300",
+  "minfFuelRaw": "109405",
+  "fresFuelRaw": "3167",
+  "taxiFuelRaw": "858",
+  "taxiMins": 26,
+  "tripMinutes": 664,
+  "alt1Fuel": "6801",
+  "destRemf": "17692",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+0.50",
+  "zfwIncrFactor": 192,
+  "zfwActual": 211336,
+  "zfwLimit": 248115,
+  "togwActual": 320778,
+  "togwLimit": 347451,
+  "ldgwActual": 229028,
+  "ldgwLimit": 260815,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_RCTP-RJGG_03NOV26_lcf-lbs_live": {
   "label": "L04",
@@ -187,7 +307,27 @@
     "ofpEta": "1312"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "102100",
+  "minfFuelRaw": "99367",
+  "fresFuelRaw": "8164",
+  "taxiFuelRaw": "2700",
+  "taxiMins": 25,
+  "tripMinutes": 128,
+  "alt1Fuel": "16551",
+  "destRemf": "51650",
+  "porMinf": "",
+  "ballastFuel": 18192,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 76,
+  "zfwActual": 408808,
+  "zfwLimit": 535000,
+  "togwActual": 508208,
+  "togwLimit": 622750,
+  "ldgwActual": 460458,
+  "ldgwLimit": 575000,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_KCVG-KSEA_04NOV26_pax-catiii_live": {
   "label": "L05",
@@ -210,7 +350,30 @@
     "ofpEta": "1319"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "56000",
+  "minfFuelRaw": "40391",
+  "fresFuelRaw": "5417",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 229,
+  "alt1Fuel": "2233",
+  "destRemf": "23709",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 106,
+  "zfwActual": 186703,
+  "zfwLimit": 251743,
+  "togwActual": 241803,
+  "togwLimit": 317154,
+  "ldgwActual": 210412,
+  "ldgwLimit": 285763,
+  "hasVzfwCkLimit": false,
+  "swa": {
+   "value": 3718,
+   "unit": "KGS"
+  }
  },
  "FK_LEZG-LLBG_04NOV26_remarks-subcards_live": {
   "label": "L06",
@@ -233,7 +396,27 @@
     "ofpEta": "0844"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "53200",
+  "minfFuelRaw": "52291",
+  "fresFuelRaw": "4745",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 223,
+  "alt1Fuel": "5034",
+  "destRemf": "14313",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 92,
+  "zfwActual": 314371,
+  "zfwLimit": 334297,
+  "togwActual": 366671,
+  "togwLimit": 371487,
+  "ldgwActual": 328684,
+  "ldgwLimit": 333500,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live": {
   "label": "L07",
@@ -256,7 +439,27 @@
     "ofpEta": "1405"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "35500",
+  "minfFuelRaw": "33934",
+  "fresFuelRaw": "3435",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 154,
+  "alt1Fuel": "3846",
+  "destRemf": "15439",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 49,
+  "zfwActual": 205736,
+  "zfwLimit": 334297,
+  "togwActual": 240336,
+  "togwLimit": 369787,
+  "ldgwActual": 221175,
+  "ldgwLimit": 350626,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_KMIA-EHBK_03NOV26_polar-callsign_live": {
   "label": "L08",
@@ -289,7 +492,27 @@
     "ofpEta": "1823"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "100400",
+  "minfFuelRaw": "98202",
+  "fresFuelRaw": "4288",
+  "taxiFuelRaw": "1125",
+  "taxiMins": 25,
+  "tripMinutes": 524,
+  "alt1Fuel": "3152",
+  "destRemf": "13965",
+  "porMinf": "43479",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 185,
+  "zfwActual": 269212,
+  "zfwLimit": 329761,
+  "togwActual": 368487,
+  "togwLimit": 421310,
+  "ldgwActual": 283177,
+  "ldgwLimit": 336000,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_VHHH-PANC_02NOV26_mtow-equipcode_live": {
   "label": "L09",
@@ -314,7 +537,27 @@
   ],
   "specialQualification": [
    "VHHH"
-  ]
+  ],
+  "blockFuelRaw": "123300",
+  "minfFuelRaw": "121812",
+  "fresFuelRaw": "4441",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 541,
+  "alt1Fuel": "3110",
+  "destRemf": "16967",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 241,
+  "zfwActual": 265251,
+  "zfwLimit": 279645,
+  "togwActual": 387651,
+  "togwLimit": 387651,
+  "ldgwActual": 282218,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_KMIA-SBGL_03NOV26_perishables-ddg_live": {
   "label": "L10",
@@ -339,7 +582,27 @@
   ],
   "specialQualification": [
    "SBGL"
-  ]
+  ],
+  "blockFuelRaw": "116700",
+  "minfFuelRaw": "115086",
+  "fresFuelRaw": "4405",
+  "taxiFuelRaw": "1575",
+  "taxiMins": 35,
+  "tripMinutes": 461,
+  "alt1Fuel": "9765",
+  "destRemf": "23882",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 226,
+  "zfwActual": 259688,
+  "zfwLimit": 285086,
+  "togwActual": 374813,
+  "togwLimit": 374813,
+  "ldgwActual": 283570,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_KGSP-EPWA_03NOV26_nat-track-ddg_live": {
   "label": "L11",
@@ -372,7 +635,27 @@
     "ofpEta": "1039"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "120600",
+  "minfFuelRaw": "118647",
+  "fresFuelRaw": "4289",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 571,
+  "alt1Fuel": "5156",
+  "destRemf": "14142",
+  "porMinf": "23052",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 255,
+  "zfwActual": 254844,
+  "zfwLimit": 285200,
+  "togwActual": 374544,
+  "togwLimit": 374545,
+  "ldgwActual": 268986,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_EBLG-KORD_03NOV26_nat-random_live": {
   "label": "L12",
@@ -405,7 +688,27 @@
     "ofpEta": "0115"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "78100",
+  "minfFuelRaw": "76152",
+  "fresFuelRaw": "2930",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 500,
+  "alt1Fuel": "5501",
+  "destRemf": "15909",
+  "porMinf": "23774",
+  "ballastFuel": 1860,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 184,
+  "zfwActual": 161978,
+  "zfwLimit": 288031,
+  "togwActual": 239178,
+  "togwLimit": 331291,
+  "ldgwActual": 177887,
+  "ldgwLimit": 270000,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_UBBB-RJFK_03NOV26_bcf-multicrew_live": {
   "label": "L13",
@@ -440,7 +743,27 @@
   ],
   "specialQualification": [
    "ZSNB"
-  ]
+  ],
+  "blockFuelRaw": "120000",
+  "minfFuelRaw": "116733",
+  "fresFuelRaw": "4500",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 521,
+  "alt1Fuel": "4228",
+  "destRemf": "20345",
+  "porMinf": "27746",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 222,
+  "zfwActual": 259684,
+  "zfwLimit": 276691,
+  "togwActual": 378784,
+  "togwLimit": 394497,
+  "ldgwActual": 280029,
+  "ldgwLimit": 295742,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_KORD-RKSI_03NOV26_etops-rda-dateline_live": {
   "label": "L14",
@@ -473,7 +796,27 @@
     "ofpEta": "1030"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "101700",
+  "minfFuelRaw": "100043",
+  "fresFuelRaw": "2707",
+  "taxiFuelRaw": "1155",
+  "taxiMins": 35,
+  "tripMinutes": 845,
+  "alt1Fuel": "1389",
+  "destRemf": "7260",
+  "porMinf": "15810",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 245,
+  "zfwActual": 172903,
+  "zfwLimit": 248115,
+  "togwActual": 273448,
+  "togwLimit": 347451,
+  "ldgwActual": 180163,
+  "ldgwLimit": 260815,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_PHNL-WIHH_03NOV26_pax-etops-tanker_live": {
   "label": "L15",
@@ -496,7 +839,30 @@
     "ofpEta": "0856"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "153000",
+  "minfFuelRaw": "147448",
+  "fresFuelRaw": "3780",
+  "taxiFuelRaw": "1125",
+  "taxiMins": 25,
+  "tripMinutes": 779,
+  "alt1Fuel": "2335",
+  "destRemf": "20902",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 278,
+  "zfwActual": 223281,
+  "zfwLimit": 298300,
+  "togwActual": 375156,
+  "togwLimit": 408000,
+  "ldgwActual": 244183,
+  "ldgwLimit": 320000,
+  "hasVzfwCkLimit": false,
+  "swa": {
+   "value": 4793,
+   "unit": "LBS"
+  }
  },
  "FK_ZHEC-PANC_02NOV26_wheelsup-penalty_live": {
   "label": "L16",
@@ -521,7 +887,27 @@
   ],
   "specialQualification": [
    "ZHEC"
-  ]
+  ],
+  "blockFuelRaw": "120000",
+  "minfFuelRaw": "119060",
+  "fresFuelRaw": "5161",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 498,
+  "alt1Fuel": "3364",
+  "destRemf": "17159",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+4.30",
+  "zfwIncrFactor": 203,
+  "zfwActual": 328560,
+  "zfwLimit": 329761,
+  "togwActual": 447660,
+  "togwLimit": 447695,
+  "ldgwActual": 345719,
+  "ldgwLimit": 346090,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_OMAA-VHHH_03NOV26_etihad-permits_live": {
   "label": "L17",
@@ -546,7 +932,27 @@
   ],
   "specialQualification": [
    "VHHH"
-  ]
+  ],
+  "blockFuelRaw": "44400",
+  "minfFuelRaw": "43648",
+  "fresFuelRaw": "2448",
+  "taxiFuelRaw": "700",
+  "taxiMins": 21,
+  "tripMinutes": 424,
+  "alt1Fuel": "1348",
+  "destRemf": "7770",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+0.50",
+  "zfwIncrFactor": 126,
+  "zfwActual": 145448,
+  "zfwLimit": 248115,
+  "togwActual": 189148,
+  "togwLimit": 296745,
+  "ldgwActual": 153218,
+  "ldgwLimit": 260815,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_KORD-RJAA_03NOV26_intl-redispatch_live": {
   "label": "L18",
@@ -579,7 +985,27 @@
     "ofpEta": "0735"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "115000",
+  "minfFuelRaw": "113022",
+  "fresFuelRaw": "2876",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 753,
+  "alt1Fuel": "3419",
+  "destRemf": "15241",
+  "porMinf": "42638",
+  "ballastFuel": 2244,
+  "addlFfAdj": "+0.30",
+  "zfwIncrFactor": 263,
+  "zfwActual": 161594,
+  "zfwLimit": 276691,
+  "togwActual": 275694,
+  "togwLimit": 394601,
+  "ldgwActual": 176835,
+  "ldgwLimit": 295742,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_PANC-KMIA_03NOV26_dom-redispatch-mel_live": {
   "label": "L19",
@@ -612,7 +1038,27 @@
     "ofpEta": "0618"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "102500",
+  "minfFuelRaw": "100272",
+  "fresFuelRaw": "4628",
+  "taxiFuelRaw": "1170",
+  "taxiMins": 26,
+  "tripMinutes": 449,
+  "alt1Fuel": "4937",
+  "destRemf": "14874",
+  "porMinf": "25229",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 203,
+  "zfwActual": 277752,
+  "zfwLimit": 283277,
+  "togwActual": 379082,
+  "togwLimit": 379082,
+  "ldgwActual": 292626,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null
  },
  "FK_KORD-RKSI_10NOV26_nopac-etops-remarks_live": {
   "label": "L20",
@@ -645,7 +1091,27 @@
     "ofpEta": "0016"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "96200",
+  "minfFuelRaw": "94677",
+  "fresFuelRaw": "2530",
+  "taxiFuelRaw": "990",
+  "taxiMins": 30,
+  "tripMinutes": 866,
+  "alt1Fuel": "1265",
+  "destRemf": "7097",
+  "porMinf": "16209",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 240,
+  "zfwActual": 155203,
+  "zfwLimit": 248115,
+  "togwActual": 250413,
+  "togwLimit": 347451,
+  "ldgwActual": 162300,
+  "ldgwLimit": 260815,
+  "hasVzfwCkLimit": false,
+  "swa": null
  },
  "FK_NZWN-NFFN_10NOV26_pax-remarks_live": {
   "label": "L21",
@@ -668,7 +1134,30 @@
     "ofpEta": "0037"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "48200",
+  "minfFuelRaw": "47220",
+  "fresFuelRaw": "3778",
+  "taxiFuelRaw": "900",
+  "taxiMins": 19,
+  "tripMinutes": 206,
+  "alt1Fuel": "10417",
+  "destRemf": "16945",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 86,
+  "zfwActual": 223018,
+  "zfwLimit": 298300,
+  "togwActual": 270318,
+  "togwLimit": 350355,
+  "ldgwActual": 239963,
+  "ldgwLimit": 320000,
+  "hasVzfwCkLimit": false,
+  "swa": {
+   "value": 4793,
+   "unit": "LBS"
+  }
  },
  "FK_EPPW-KPSM_10NOV26_nat-random-callsign_live": {
   "label": "L22",
@@ -691,7 +1180,30 @@
     "ofpEta": "0645"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "119100",
+  "minfFuelRaw": "118167",
+  "fresFuelRaw": "5086",
+  "taxiFuelRaw": "900",
+  "taxiMins": 19,
+  "tripMinutes": 479,
+  "alt1Fuel": "5025",
+  "destRemf": "20341",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 186,
+  "zfwActual": 289800,
+  "zfwLimit": 295000,
+  "togwActual": 408000,
+  "togwLimit": 408000,
+  "ldgwActual": 310141,
+  "ldgwLimit": 320000,
+  "hasVzfwCkLimit": false,
+  "swa": {
+   "value": 5099,
+   "unit": "LBS"
+  }
  },
  "FK_KDOV-ETAR_03NOV26_pax-nat-random_live": {
   "label": "L23",
@@ -714,6 +1226,26 @@
     "ofpEta": "0623"
    }
   ],
-  "specialQualification": []
+  "specialQualification": [],
+  "blockFuelRaw": "123000",
+  "minfFuelRaw": "101291",
+  "fresFuelRaw": "4345",
+  "taxiFuelRaw": "900",
+  "taxiMins": 19,
+  "tripMinutes": 455,
+  "alt1Fuel": "4570",
+  "destRemf": "38598",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 191,
+  "zfwActual": 234760,
+  "zfwLimit": 309000,
+  "togwActual": 356860,
+  "togwLimit": 409502,
+  "ldgwActual": 273358,
+  "ldgwLimit": 326000,
+  "hasVzfwCkLimit": false,
+  "swa": null
  }
 }
