@@ -1,0 +1,719 @@
+{
+ "FK_UAAA-EHAM_27OCT26_prototype": {
+  "label": "T1",
+  "fltNum": "GTI8153/27",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-10-27",
+  "dateStr": "27 OCT 26",
+  "origIcao": "UAAA",
+  "offFromOFP": "0920",
+  "destIcao": "EHAM",
+  "etaDest": "1706",
+  "destEtaOffsetMins": 466,
+  "altData": [
+   {
+    "icao": "EBBR",
+    "role": "DEST ALT",
+    "ofpEta": "1733"
+   }
+  ],
+  "specialQualification": [
+   "UAAA"
+  ]
+ },
+ "FK_ZUCK-UAAA_27OCT26_prototype": {
+  "label": "T2",
+  "fltNum": "GTI8153/26",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-10-27",
+  "dateStr": "27 OCT 26",
+  "origIcao": "ZUCK",
+  "offFromOFP": "0200",
+  "destIcao": "UAAA",
+  "etaDest": "0658",
+  "destEtaOffsetMins": 298,
+  "altData": [
+   {
+    "icao": "UCFM",
+    "role": "DEST ALT",
+    "ofpEta": "0726"
+   }
+  ],
+  "specialQualification": [
+   "ZUCK",
+   "UAAA",
+   "UCFM"
+  ]
+ },
+ "FK_KLAX-RKSI_31OCT26_rda-etp_prototype": {
+  "label": "T3",
+  "fltNum": "GTI8274/31",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-10-31",
+  "dateStr": "31 OCT 26",
+  "origIcao": "KLAX",
+  "offFromOFP": "0252",
+  "destIcao": "RKSI",
+  "etaDest": "1633",
+  "destEtaOffsetMins": 821,
+  "altData": [
+   {
+    "icao": "RJBB",
+    "role": "DEST ALT",
+    "ofpEta": "1740"
+   },
+   {
+    "icao": "RJTT",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1448"
+   },
+   {
+    "icao": "RJGG",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1528"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_MKJP-KMIA_03NOV26_caribbean-callsign_live": {
+  "label": "L01",
+  "fltNum": "BWA8047/03",
+  "designator": "BWA",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "MKJP",
+  "offFromOFP": "2055",
+  "destIcao": "KMIA",
+  "etaDest": "2236",
+  "destEtaOffsetMins": 101,
+  "altData": [
+   {
+    "icao": "KRSW",
+    "role": "DEST ALT",
+    "ofpEta": "2258"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_KORD-RKSI_05NOV26_crew-ballast-rda_live": {
+  "label": "L02",
+  "fltNum": "GTI4226/05",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-05",
+  "dateStr": "05 NOV 26",
+  "origIcao": "KORD",
+  "offFromOFP": "2130",
+  "destIcao": "RKSI",
+  "etaDest": "1230",
+  "destEtaOffsetMins": 900,
+  "altData": [
+   {
+    "icao": "RKSS",
+    "role": "DEST ALT",
+    "ofpEta": "1242"
+   },
+   {
+    "icao": "RJAA",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1046"
+   },
+   {
+    "icao": "RJTT",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1111"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_PANC-ZHEC_04NOV26_etops-ddg_live": {
+  "label": "L03",
+  "fltNum": "GTI8608/04",
+  "designator": "GTI",
+  "acftType": "B77L",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "PANC",
+  "offFromOFP": "0800",
+  "destIcao": "ZHEC",
+  "etaDest": "1930",
+  "destEtaOffsetMins": 690,
+  "altData": [
+   {
+    "icao": "ZHCC",
+    "role": "DEST ALT",
+    "ofpEta": "2028"
+   }
+  ],
+  "specialQualification": [
+   "ZHEC",
+   "ZHCC"
+  ]
+ },
+ "FK_RCTP-RJGG_03NOV26_lcf-lbs_live": {
+  "label": "L04",
+  "fltNum": "GTI4366/03",
+  "designator": "GTI",
+  "acftType": "BLCF",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "RCTP",
+  "offFromOFP": "1000",
+  "destIcao": "RJGG",
+  "etaDest": "1233",
+  "destEtaOffsetMins": 153,
+  "altData": [
+   {
+    "icao": "RJBB",
+    "role": "DEST ALT",
+    "ofpEta": "1312"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_KCVG-KSEA_04NOV26_pax-catiii_live": {
+  "label": "L05",
+  "fltNum": "GTI8200/04",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "KCVG",
+  "offFromOFP": "0900",
+  "destIcao": "KSEA",
+  "etaDest": "1309",
+  "destEtaOffsetMins": 249,
+  "altData": [
+   {
+    "icao": "KBFI",
+    "role": "DEST ALT",
+    "ofpEta": "1319"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_LEZG-LLBG_04NOV26_remarks-subcards_live": {
+  "label": "L06",
+  "fltNum": "GTI568/04",
+  "designator": "GTI",
+  "acftType": "B748",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "LEZG",
+  "offFromOFP": "0420",
+  "destIcao": "LLBG",
+  "etaDest": "0823",
+  "destEtaOffsetMins": 243,
+  "altData": [
+   {
+    "icao": "OJAI",
+    "role": "DEST ALT",
+    "ofpEta": "0844"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live": {
+  "label": "L07",
+  "fltNum": "GTI568/04",
+  "designator": "GTI",
+  "acftType": "B748",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "LLBG",
+  "offFromOFP": "1050",
+  "destIcao": "OMDW",
+  "etaDest": "1344",
+  "destEtaOffsetMins": 174,
+  "altData": [
+   {
+    "icao": "OMAA",
+    "role": "DEST ALT",
+    "ofpEta": "1405"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_KMIA-EHBK_03NOV26_polar-callsign_live": {
+  "label": "L08",
+  "fltNum": "GTI8414/03",
+  "designator": "GTI",
+  "acftType": "B748",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "KMIA",
+  "offFromOFP": "0947",
+  "destIcao": "EHBK",
+  "etaDest": "1856",
+  "destEtaOffsetMins": 549,
+  "altData": [
+   {
+    "icao": "EBLG",
+    "role": "DEST ALT",
+    "ofpEta": "1909"
+   },
+   {
+    "icao": "CYQX",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1719"
+   },
+   {
+    "icao": "CYYR",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1823"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_VHHH-PANC_02NOV26_mtow-equipcode_live": {
+  "label": "L09",
+  "fltNum": "GTI8692/02",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "VHHH",
+  "offFromOFP": "2010",
+  "destIcao": "PANC",
+  "etaDest": "0531",
+  "destEtaOffsetMins": 561,
+  "altData": [
+   {
+    "icao": "PAED",
+    "role": "DEST ALT",
+    "ofpEta": "0543"
+   }
+  ],
+  "specialQualification": [
+   "VHHH"
+  ]
+ },
+ "FK_KMIA-SBGL_03NOV26_perishables-ddg_live": {
+  "label": "L10",
+  "fltNum": "GTI031/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "KMIA",
+  "offFromOFP": "2123",
+  "destIcao": "SBGL",
+  "etaDest": "0539",
+  "destEtaOffsetMins": 496,
+  "altData": [
+   {
+    "icao": "SBGR",
+    "role": "DEST ALT",
+    "ofpEta": "0630"
+   }
+  ],
+  "specialQualification": [
+   "SBGL"
+  ]
+ },
+ "FK_KGSP-EPWA_03NOV26_nat-track-ddg_live": {
+  "label": "L11",
+  "fltNum": "GTI8019/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "KGSP",
+  "offFromOFP": "0125",
+  "destIcao": "EPWA",
+  "etaDest": "1116",
+  "destEtaOffsetMins": 591,
+  "altData": [
+   {
+    "icao": "EPLB",
+    "role": "DEST ALT",
+    "ofpEta": "1142"
+   },
+   {
+    "icao": "EDDK",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1024"
+   },
+   {
+    "icao": "EDDL",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1039"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_EBLG-KORD_03NOV26_nat-random_live": {
+  "label": "L12",
+  "fltNum": "GTI6083/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "EBLG",
+  "offFromOFP": "1700",
+  "destIcao": "KORD",
+  "etaDest": "0140",
+  "destEtaOffsetMins": 520,
+  "altData": [
+   {
+    "icao": "KIND",
+    "role": "DEST ALT",
+    "ofpEta": "0215"
+   },
+   {
+    "icao": "KBOS",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0103"
+   },
+   {
+    "icao": "KPSM",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0115"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_UBBB-RJFK_03NOV26_bcf-multicrew_live": {
+  "label": "L13",
+  "fltNum": "GTI8922/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "UBBB",
+  "offFromOFP": "1700",
+  "destIcao": "RJFK",
+  "etaDest": "0201",
+  "destEtaOffsetMins": 541,
+  "altData": [
+   {
+    "icao": "RJFT",
+    "role": "DEST ALT",
+    "ofpEta": "0221"
+   },
+   {
+    "icao": "ZSHC",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0115"
+   },
+   {
+    "icao": "ZSNB",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0135"
+   }
+  ],
+  "specialQualification": [
+   "ZSNB"
+  ]
+ },
+ "FK_KORD-RKSI_03NOV26_etops-rda-dateline_live": {
+  "label": "L14",
+  "fltNum": "GTI8527/03",
+  "designator": "GTI",
+  "acftType": "B77L",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "KORD",
+  "offFromOFP": "2056",
+  "destIcao": "RKSI",
+  "etaDest": "1136",
+  "destEtaOffsetMins": 880,
+  "altData": [
+   {
+    "icao": "RKSS",
+    "role": "DEST ALT",
+    "ofpEta": "1149"
+   },
+   {
+    "icao": "RJAA",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1009"
+   },
+   {
+    "icao": "RJTT",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1030"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_PHNL-WIHH_03NOV26_pax-etops-tanker_live": {
+  "label": "L15",
+  "fltNum": "GTI8752/03",
+  "designator": "GTI",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "PHNL",
+  "offFromOFP": "1920",
+  "destIcao": "WIHH",
+  "etaDest": "0844",
+  "destEtaOffsetMins": 804,
+  "altData": [
+   {
+    "icao": "WIII",
+    "role": "DEST ALT",
+    "ofpEta": "0856"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_ZHEC-PANC_02NOV26_wheelsup-penalty_live": {
+  "label": "L16",
+  "fltNum": "GTI874/02",
+  "designator": "GTI",
+  "acftType": "B748",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "ZHEC",
+  "offFromOFP": "1550",
+  "destIcao": "PANC",
+  "etaDest": "0028",
+  "destEtaOffsetMins": 518,
+  "altData": [
+   {
+    "icao": "PAED",
+    "role": "DEST ALT",
+    "ofpEta": "0041"
+   }
+  ],
+  "specialQualification": [
+   "ZHEC"
+  ]
+ },
+ "FK_OMAA-VHHH_03NOV26_etihad-permits_live": {
+  "label": "L17",
+  "fltNum": "ETD933/03",
+  "designator": "ETD",
+  "acftType": "B77L",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "OMAA",
+  "offFromOFP": "1835",
+  "destIcao": "VHHH",
+  "etaDest": "0200",
+  "destEtaOffsetMins": 445,
+  "altData": [
+   {
+    "icao": "ZGSZ",
+    "role": "DEST ALT",
+    "ofpEta": "0213"
+   }
+  ],
+  "specialQualification": [
+   "VHHH"
+  ]
+ },
+ "FK_KORD-RJAA_03NOV26_intl-redispatch_live": {
+  "label": "L18",
+  "fltNum": "GTI7147/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "KORD",
+  "offFromOFP": "1950",
+  "destIcao": "RJAA",
+  "etaDest": "0843",
+  "destEtaOffsetMins": 773,
+  "altData": [
+   {
+    "icao": "RJTT",
+    "role": "DEST ALT",
+    "ofpEta": "0900"
+   },
+   {
+    "icao": "PANC",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0724"
+   },
+   {
+    "icao": "PAED",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0735"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_PANC-KMIA_03NOV26_dom-redispatch-mel_live": {
+  "label": "L19",
+  "fltNum": "GTI847/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "PANC",
+  "offFromOFP": "2250",
+  "destIcao": "KMIA",
+  "etaDest": "0645",
+  "destEtaOffsetMins": 475,
+  "altData": [
+   {
+    "icao": "KRSW",
+    "role": "DEST ALT",
+    "ofpEta": "0706"
+   },
+   {
+    "icao": "KATL",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0551"
+   },
+   {
+    "icao": "KHSV",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0618"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_KORD-RKSI_10NOV26_nopac-etops-remarks_live": {
+  "label": "L20",
+  "fltNum": "GTI543/10",
+  "designator": "GTI",
+  "acftType": "B77L",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-10",
+  "dateStr": "10 NOV 26",
+  "origIcao": "KORD",
+  "offFromOFP": "1030",
+  "destIcao": "RKSI",
+  "etaDest": "0126",
+  "destEtaOffsetMins": 896,
+  "altData": [
+   {
+    "icao": "RKSS",
+    "role": "DEST ALT",
+    "ofpEta": "0137"
+   },
+   {
+    "icao": "RJTT",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0001"
+   },
+   {
+    "icao": "RJTY",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0016"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_NZWN-NFFN_10NOV26_pax-remarks_live": {
+  "label": "L21",
+  "fltNum": "GTI8753/10",
+  "designator": "GTI",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-10",
+  "dateStr": "10 NOV 26",
+  "origIcao": "NZWN",
+  "offFromOFP": "1940",
+  "destIcao": "NFFN",
+  "etaDest": "2326",
+  "destEtaOffsetMins": 226,
+  "altData": [
+   {
+    "icao": "NFTF",
+    "role": "DEST ALT",
+    "ofpEta": "0037"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_EPPW-KPSM_10NOV26_nat-random-callsign_live": {
+  "label": "L22",
+  "fltNum": "CMB550/10",
+  "designator": "CMB",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-10",
+  "dateStr": "10 NOV 26",
+  "origIcao": "EPPW",
+  "offFromOFP": "2200",
+  "destIcao": "KPSM",
+  "etaDest": "0619",
+  "destEtaOffsetMins": 499,
+  "altData": [
+   {
+    "icao": "KBOS",
+    "role": "DEST ALT",
+    "ofpEta": "0645"
+   }
+  ],
+  "specialQualification": []
+ },
+ "FK_KDOV-ETAR_03NOV26_pax-nat-random_live": {
+  "label": "L23",
+  "fltNum": "GTI8550/03",
+  "designator": "GTI",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-10",
+  "dateStr": "10 NOV 26",
+  "origIcao": "KDOV",
+  "offFromOFP": "2200",
+  "destIcao": "ETAR",
+  "etaDest": "0555",
+  "destEtaOffsetMins": 475,
+  "altData": [
+   {
+    "icao": "EDDK",
+    "role": "DEST ALT",
+    "ofpEta": "0623"
+   }
+  ],
+  "specialQualification": []
+ }
+}

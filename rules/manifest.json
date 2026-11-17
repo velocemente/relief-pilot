@@ -18,5 +18,10 @@
     "version": "1.0.0",
     "file": "icao-fpl/icao-fpl-v1.0.0.js",
     "sha256": "d7b432506f32a3675ce3ffa68a07b7e194ed523c9e8dcbd3177f78da36d49ad2"
+  },
+  "ofp-flightkeys": {
+    "version": "0.1.0",
+    "file": "ofp-flightkeys/ofp-flightkeys-v0.1.0.js",
+    "sha256": "14e60d9dd1e9ce65499f2a253fd7639fb7c446d9d193b0534ca48cfee3f303de"
   }
 }
