@@ -1145,9 +1145,13 @@ function _finishDdg(ctx) {
 // ── OFP Remarks (field map §2.4 categories; D34, D45, D39, D63, SME-7, SME-10,
 //    SME-18, SME-18a, SME-19, SME-23) ─────────────────────────────────────
 // Every line from the dispatcher line to "MEL/CDL" goes into ofpRemarks
-// { text, category, airport, subHeading, page, line }, one record per line,
-// except inside a station restriction block. A line that starts no category
-// continues the remark above it when that remark can run over lines.
+// { text, category, airport, subHeading, page, line }, one record per remark.
+// D63a (Exec, 17 Nov) for the unmarked run: a remark runs until a blank line, a
+// sub-heading, or the start of a recognised item (a line that starts a category,
+// _remarkStart); a fixed-form item also ends where its form ends (a one-line
+// category; the boilerplate at its "questions." line). Its lines are joined with
+// their printed line breaks ("\n"); nothing is added, removed or reflowed. A
+// sub-heading is a record of its own and opens a new remark.
 // A station restriction block runs until a RAIM, CAT, exemption, fleet-note,
 // E-WINS line or another station heading (it has no end marker).
 // D63 (Exec, 17 Nov): in a station block a new remark starts ONLY at the block's
@@ -1193,16 +1197,23 @@ function _readRemarks(ctx, from, to) {
   const acFleet = _fleetOf(out.acftType);
   const entries = [];
   let mode = null, boilerOpen = false, station = null, entry = null, fleetWarned = false;
+  let blank = false, afterSub = false, genSub = null;   // D63a paragraph state (unmarked run)
   for (let i = from; i < to; i++) {
     const t = lines[i].trim();
-    if (!t) continue;
+    if (!t) { blank = true; continue; }
     let c = _remarkStart(t, i === from);
     if (c === null && PATTERNS.RMK_DASHES.test(t) && i + 1 < to && PATTERNS.RMK_STATION.test(lines[i + 1].trim())) c = 'dashes';
-    let cont = false;
+    let cont = false, isSub = false;
     if (mode === 'stationRestriction' && !(c && _RMK_HARD.has(c))) { c = 'stationRestriction'; cont = true; }
     else if (c === 'dashes') { c = 'stationRestriction'; station = { icao: null, heading: '', fleet: null, subHeading: null, subFleet: null, marker: null, cur: null }; }
-    else if (c === null && mode && (mode !== 'boilerplate' || boilerOpen)) { c = mode; cont = true; }
+    else if (c === null && PATTERNS.RMK_SUBHEAD.test(t)) { c = 'other'; isSub = true; }   // D63a: a sub-heading
+    else if (c === null && mode && (mode !== 'boilerplate' || boilerOpen) && !blank && !afterSub) { c = mode; cont = true; }
     else if (c === null) c = 'other';
+    if (c !== 'stationRestriction') {
+      if (isSub) genSub = t.replace(/:\s*$/, '');
+      else if (!cont && (blank || !afterSub)) genSub = null;
+    }
+    blank = false; afterSub = isSub;
     // station block state
     const isHeader = c === 'stationRestriction' && PATTERNS.RMK_STATION.test(t);
     if (isHeader) {
@@ -1245,13 +1256,20 @@ function _readRemarks(ctx, from, to) {
         }
       }
     }
+    const general = c !== 'stationRestriction';
+    let newRec = null;
+    if (general && cont && entry && entry.category === c && entry.rec) {
+      entry.rec.text += '\n' + t; joined = true;   // D63a: the paragraph continues
+    }
     if (!joined) {
-      const rec = { text: t, category: c, airport, subHeading, page: pos[i].page, line: pos[i].line };
+      const rec = { text: t, category: c, airport, subHeading: general ? genSub : subHeading, page: pos[i].page, line: pos[i].line };
       ext.ofpRemarks.push(rec);
       if (station && station.cur && !station.cur.record) station.cur.record = rec;
+      if (general) entry = null;
+      newRec = general ? rec : null;
     }
-    if (cont && entry && entry.category === c) { entry.text += ' ' + t; entry.lines.push(i); }
-    else { entry = { category: c, text: t, lines: [i], page: pos[i].page, line: pos[i].line }; entries.push(entry); }
+    if (cont && entry && entry.category === c) { entry.text += '\n' + t; entry.lines.push(i); }
+    else { entry = { category: c, text: t, lines: [i], page: pos[i].page, line: pos[i].line, rec: newRec || null }; entries.push(entry); }
     mode = _RMK_INHERIT.has(c) ? c : null;
   }
   // ADHOC penalty lines of the MEL/CDL block (not item notes): kept in order. The
@@ -1551,9 +1569,16 @@ function _readReleasePages(ctx) {
         const stop = _idx(lines, PATTERNS.CREW_START, fe0 + 1);
         if (cs !== -1 && (stop === -1 || cs < stop)) {
           const end = ce === -1 ? (stop === -1 ? lines.length : stop) : ce;
+          // D63a: the attestation is one remark; a blank line, a sub-heading or another
+          // "*** CDC ATTESTATION" heading (the block's only recognised item) starts a new one.
+          let rec = null, afterSub = false;
           for (let i = cs; i < end; i++) {
             const t = lines[i].trim();
-            if (t) ctx.ext.ofpRemarks.push({ text: t, category: 'cdcAttestation', airport: null, subHeading: null, page: rel.pos[i].page, line: rel.pos[i].line });
+            if (!t) { rec = null; continue; }
+            const isSub = PATTERNS.RMK_SUBHEAD.test(t);
+            if (rec && !isSub && !afterSub && !PATTERNS.CDC_START.test(t)) rec.text += '\n' + t;
+            else ctx.ext.ofpRemarks.push(rec = { text: t, category: 'cdcAttestation', airport: null, subHeading: null, page: rel.pos[i].page, line: rel.pos[i].line });
+            afterSub = isSub;
           }
         }
       }

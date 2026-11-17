@@ -4,7 +4,7 @@
 **Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v0.2.0.js`
 **Current Version:** 0.2.0 (development version, D58)
 **Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1. Contract 2.2.
-**QA Status:** TC-160 20/20 and TC-161 17/17 PASS on the 26 FlightKeys fixtures; independent QA of PR #62: CHANGES-REQUESTED (F1), F1 fixed under D63 (K-03), re-review pending
+**QA Status:** TC-160 20/20 and TC-161 19/19 PASS on the 26 FlightKeys fixtures; independent QA of PR #62: CHANGES-REQUESTED (F1), F1 fixed under D63 (K-03), O-9 under D63a (K-04), re-review pending
 **Last Updated:** 2026-11-17
 
 ---
@@ -13,9 +13,9 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 3 (K-01, K-02, K-03) |
+| Total entries | 4 (K-01 … K-04) |
 | Current Version | 0.2.0 |
-| Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1` (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decision D63; the Exec's 8 truth sheets (Rev 00) |
+| Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1` (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
 | Masters reconciled | none: no master exists; v0.2.0 is not published to Drive (D58) |
 | Gate Status | development version; not gated |
 | Integration | none; must not be integrated (step 5d fields are explicit empties) |
@@ -23,6 +23,15 @@
 ---
 
 ## History
+
+### K-04 — v0.2.0: paragraph grouping in unmarked remark blocks (D63a) (2026-11-17)
+
+**Type:** UPD (same development version, before merge) · **Brief:** Exec prompt, 17 Nov (O-9 → D63a)
+- **D63a:** in a remark block that does not mark its items, a remark runs until a blank line, a sub-heading, or the start of a recognised item; its lines are joined with their printed line breaks, nothing added, removed or reflowed. Marked blocks keep D63. Applied to the general Remarks run and the CDC attestation of `ofpRemarks[]`, and to every list built from those remarks (`pcf.reasons`, `extraFuel.reasons`, `securityMessages`, `remarksWeather[].text`, the late-addition MEL note), which no longer join wraps with a space. SPEC §5.12 gives the rule per block and the list of recognised items.
+- Applied as v0.2.0 already read them: fixed-form items (one-line items, the boilerplate to `questions.`) end where their form ends; a page break is not a blank line (Exec to confirm, O-10).
+- **Changed on the 26:** 46 remarks in 24 packages (159 printed lines); T1 and T2 unchanged. Reason lists with line breaks now: `pcf.reasons` L13, T3; `extraFuel.reasons` L23; `remarksWeather` L15. Findings unchanged on all 26; v0.1.0 fields byte-identical.
+- Tests: TC-161-200 (fixtures), TC-161-201 (synthetic positive and negative); TC-161-050, 051, 100 and 102 changed (they asserted the per-line form). The new and changed tests fail on `df1bdeb`; a mutant of each part of the rule is caught.
+- Truth sheets: re-compared; no new difference (3 found, 3 decided, 0 open).
 
 ### K-03 — v0.2.0: one remark per item in a marked block (D63) (2026-11-17)
 
@@ -84,4 +93,5 @@
 | O-6 | ~~Duplicate MEL items~~ **Closed (Exec, 17 Nov): keep all items**, a repeat is not an anomaly | — |
 | O-7 | `fplEquipment` (D41: filed 10a and the codes the MEL notes remove) has no brief. **Exec, 17 Nov: a later issue** | Exec (later brief) |
 | O-8 | ~~Truth sheets are drafts~~ **Closed (Exec, 17 Nov): OK** | — |
-| O-9 | D63 outside a marked block: `ofpRemarks` keeps one record per printed line in the general Remarks run (2-line exemption, 3-line fleet note, wrapped PCF reason, CDC attestation). Apply D63 there too? | Exec |
+| O-9 | ~~D63 outside a marked block~~ **Closed (Exec D63a, 17 Nov): paragraph grouping** (K-04) | — |
+| O-10 | D63a as applied: a fixed-form item (one-line items; the boilerplate to `questions.`) ends where its form ends, and a page break is not a blank line. Confirm | Exec |
