@@ -1,0 +1,2129 @@
+{
+ "FK_UAAA-EHAM_27OCT26_prototype": {
+  "label": "T1",
+  "fltNum": "GTI8153/27",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-10-27",
+  "dateStr": "27 OCT 26",
+  "origIcao": "UAAA",
+  "offFromOFP": "0920",
+  "destIcao": "EHAM",
+  "etaDest": "1706",
+  "destEtaOffsetMins": 466,
+  "altData": [
+   {
+    "icao": "EBBR",
+    "role": "DEST ALT",
+    "ofpEta": "1733"
+   }
+  ],
+  "specialQualification": [
+   "UAAA"
+  ],
+  "blockFuelRaw": "107100",
+  "minfFuelRaw": "103369",
+  "fresFuelRaw": "4587",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 446,
+  "alt1Fuel": "5424",
+  "destRemf": "20321",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 191,
+  "zfwActual": 270916,
+  "zfwLimit": 284110,
+  "togwActual": 377116,
+  "togwLimit": 377116,
+  "ldgwActual": 291237,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "",
+    "routeWords": 5,
+    "routeSha256": "15349861658d493a988b9573777f83eb3587740af59f50c233af6274a6084dd8"
+   }
+  ]
+ },
+ "FK_ZUCK-UAAA_27OCT26_prototype": {
+  "label": "T2",
+  "fltNum": "GTI8153/26",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-10-27",
+  "dateStr": "27 OCT 26",
+  "origIcao": "ZUCK",
+  "offFromOFP": "0200",
+  "destIcao": "UAAA",
+  "etaDest": "0658",
+  "destEtaOffsetMins": 298,
+  "altData": [
+   {
+    "icao": "UCFM",
+    "role": "DEST ALT",
+    "ofpEta": "0726"
+   }
+  ],
+  "specialQualification": [
+   "ZUCK",
+   "UAAA",
+   "UCFM"
+  ],
+  "blockFuelRaw": "78200",
+  "minfFuelRaw": "64387",
+  "fresFuelRaw": "4496",
+  "taxiFuelRaw": "1350",
+  "taxiMins": 30,
+  "tripMinutes": 268,
+  "alt1Fuel": "4811",
+  "destRemf": "26266",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 122,
+  "zfwActual": 270718,
+  "zfwLimit": 288031,
+  "togwActual": 347568,
+  "togwLimit": 352676,
+  "ldgwActual": 296984,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 18,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "9900",
+    "routeWords": 9,
+    "routeSha256": "c7bb7264e41d07a0bb23a098e53f26f0e9819fdad1090983f22748f851247fe1"
+   }
+  ]
+ },
+ "FK_KLAX-RKSI_31OCT26_rda-etp_prototype": {
+  "label": "T3",
+  "fltNum": "GTI8274/31",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-10-31",
+  "dateStr": "31 OCT 26",
+  "origIcao": "KLAX",
+  "offFromOFP": "0252",
+  "destIcao": "RKSI",
+  "etaDest": "1633",
+  "destEtaOffsetMins": 821,
+  "altData": [
+   {
+    "icao": "RJBB",
+    "role": "DEST ALT",
+    "ofpEta": "1740"
+   },
+   {
+    "icao": "RJTT",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1448"
+   },
+   {
+    "icao": "RJGG",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1528"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "162900",
+  "minfFuelRaw": "160968",
+  "fresFuelRaw": "3589",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 801,
+  "alt1Fuel": "9950",
+  "destRemf": "20125",
+  "porMinf": "47516",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 289,
+  "zfwActual": 207945,
+  "zfwLimit": 287149,
+  "togwActual": 369945,
+  "togwLimit": 369945,
+  "ldgwActual": 228070,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 17,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 603,
+  "porWpt": "EMRON",
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N39 04.3",
+    "lon": "W147 53.0",
+    "elapsedMins": 193
+   },
+   {
+    "name": "ETP2",
+    "lat": "N39 51.0",
+    "lon": "E167 42.5",
+    "elapsedMins": 478
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "KSFO",
+    "etpName": "ETP1",
+    "wxWindow": "0628Z-1031Z"
+   },
+   {
+    "icao": "PACD",
+    "etpName": "ETP1",
+    "wxWindow": "0830Z-1555Z"
+   },
+   {
+    "icao": "RJCC",
+    "etpName": "ETP2",
+    "wxWindow": "1342Z-1555Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "6700",
+    "routeWords": 15,
+    "routeSha256": "1cc0c09e7fc4b78b66f8ddeed897247b6083695379bf4899fa5ac77132773e7e"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "12500",
+    "routeWords": 11,
+    "routeSha256": "c9c7e8a0026f17308f77da3fbe14cc991ab2e2ded95118a35e9014fbf517626a"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "12500",
+    "routeWords": 11,
+    "routeSha256": "4e22475935bd81fa6f0bb46ec0298cf64dff676809220cee31396db9d122bd51"
+   }
+  ]
+ },
+ "FK_MKJP-KMIA_03NOV26_caribbean-callsign_live": {
+  "label": "L01",
+  "fltNum": "BWA8047/03",
+  "designator": "BWA",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "MKJP",
+  "offFromOFP": "2055",
+  "destIcao": "KMIA",
+  "etaDest": "2236",
+  "destEtaOffsetMins": 101,
+  "altData": [
+   {
+    "icao": "KRSW",
+    "role": "DEST ALT",
+    "ofpEta": "2258"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "28100",
+  "minfFuelRaw": "27111",
+  "fresFuelRaw": "4178",
+  "taxiFuelRaw": "900",
+  "taxiMins": 19,
+  "tripMinutes": 81,
+  "alt1Fuel": "3912",
+  "destRemf": "13860",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 32,
+  "zfwActual": 233940,
+  "zfwLimit": 309000,
+  "togwActual": 261140,
+  "togwLimit": 339340,
+  "ldgwActual": 247800,
+  "ldgwLimit": 326000,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2300",
+    "routeWords": 7,
+    "routeSha256": "3343323e420da738153ef308e79030eb4a417e4ac2d9d6020747f43cf9a337d6"
+   }
+  ]
+ },
+ "FK_KORD-RKSI_05NOV26_crew-ballast-rda_live": {
+  "label": "L02",
+  "fltNum": "GTI4226/05",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-05",
+  "dateStr": "05 NOV 26",
+  "origIcao": "KORD",
+  "offFromOFP": "2130",
+  "destIcao": "RKSI",
+  "etaDest": "1230",
+  "destEtaOffsetMins": 900,
+  "altData": [
+   {
+    "icao": "RKSS",
+    "role": "DEST ALT",
+    "ofpEta": "1242"
+   },
+   {
+    "icao": "RJAA",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1046"
+   },
+   {
+    "icao": "RJTT",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1111"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "134000",
+  "minfFuelRaw": "131347",
+  "fresFuelRaw": "2928",
+  "taxiFuelRaw": "1575",
+  "taxiMins": 35,
+  "tripMinutes": 865,
+  "alt1Fuel": "2526",
+  "destRemf": "12104",
+  "porMinf": "26297",
+  "ballastFuel": 2500,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 302,
+  "zfwActual": 161675,
+  "zfwLimit": 288031,
+  "togwActual": 294100,
+  "togwLimit": 367863,
+  "ldgwActual": 173779,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 17,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 727,
+  "porWpt": "SDE",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3600",
+    "routeWords": 3,
+    "routeSha256": "d0df96b6c1068dc2ce214a3440a1cec23fe276c6f5564e2db3f0f885be969a81"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2400",
+    "routeWords": 5,
+    "routeSha256": "6a69376a28aa597549f38e28e62b70087b2dcbc009c17f23366ea24d16f74d6e"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2400",
+    "routeWords": 9,
+    "routeSha256": "74f1635adcf15d899a4aecbd2e50dee037c04c280847eb3f2da1ad1c57ce730f"
+   }
+  ]
+ },
+ "FK_PANC-ZHEC_04NOV26_etops-ddg_live": {
+  "label": "L03",
+  "fltNum": "GTI8608/04",
+  "designator": "GTI",
+  "acftType": "B77L",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "PANC",
+  "offFromOFP": "0800",
+  "destIcao": "ZHEC",
+  "etaDest": "1930",
+  "destEtaOffsetMins": 690,
+  "altData": [
+   {
+    "icao": "ZHCC",
+    "role": "DEST ALT",
+    "ofpEta": "2028"
+   }
+  ],
+  "specialQualification": [
+   "ZHEC",
+   "ZHCC"
+  ],
+  "blockFuelRaw": "110300",
+  "minfFuelRaw": "109405",
+  "fresFuelRaw": "3167",
+  "taxiFuelRaw": "858",
+  "taxiMins": 26,
+  "tripMinutes": 664,
+  "alt1Fuel": "6801",
+  "destRemf": "17692",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+0.50",
+  "zfwIncrFactor": 192,
+  "zfwActual": 211336,
+  "zfwLimit": 248115,
+  "togwActual": 320778,
+  "togwLimit": 347451,
+  "ldgwActual": 229028,
+  "ldgwLimit": 260815,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 18,
+  "etopsEntry": "02:08",
+  "etopsEntryMins": 128,
+  "etopsExitMins": 374,
+  "etopsExit": "06:14",
+  "etopsSpec": "60/180",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N46 45.2",
+    "lon": "E166 28.3",
+    "elapsedMins": 247
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "PACD",
+    "etpName": "ETP1",
+    "wxWindow": "1043Z-1710Z"
+   },
+   {
+    "icao": "RJCC",
+    "etpName": "ETP1",
+    "wxWindow": "1449Z-1709Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3800",
+    "routeWords": 7,
+    "routeSha256": "184fb53bcdc67ba3b9d20a4a802d1ea18dbc06f56538ed125fb87f51a6bfe34d"
+   }
+  ]
+ },
+ "FK_RCTP-RJGG_03NOV26_lcf-lbs_live": {
+  "label": "L04",
+  "fltNum": "GTI4366/03",
+  "designator": "GTI",
+  "acftType": "BLCF",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "RCTP",
+  "offFromOFP": "1000",
+  "destIcao": "RJGG",
+  "etaDest": "1233",
+  "destEtaOffsetMins": 153,
+  "altData": [
+   {
+    "icao": "RJBB",
+    "role": "DEST ALT",
+    "ofpEta": "1312"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "102100",
+  "minfFuelRaw": "99367",
+  "fresFuelRaw": "8164",
+  "taxiFuelRaw": "2700",
+  "taxiMins": 25,
+  "tripMinutes": 128,
+  "alt1Fuel": "16551",
+  "destRemf": "51650",
+  "porMinf": "",
+  "ballastFuel": 18192,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 76,
+  "zfwActual": 408808,
+  "zfwLimit": 535000,
+  "togwActual": 508208,
+  "togwLimit": 622750,
+  "ldgwActual": 460458,
+  "ldgwLimit": 575000,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3200",
+    "routeWords": 9,
+    "routeSha256": "9555dd7edf6529c28425f547091844ccac97fc031370ae996740900e1645de65"
+   }
+  ]
+ },
+ "FK_KCVG-KSEA_04NOV26_pax-catiii_live": {
+  "label": "L05",
+  "fltNum": "GTI8200/04",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "KCVG",
+  "offFromOFP": "0900",
+  "destIcao": "KSEA",
+  "etaDest": "1309",
+  "destEtaOffsetMins": 249,
+  "altData": [
+   {
+    "icao": "KBFI",
+    "role": "DEST ALT",
+    "ofpEta": "1319"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "56000",
+  "minfFuelRaw": "40391",
+  "fresFuelRaw": "5417",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 229,
+  "alt1Fuel": "2233",
+  "destRemf": "23709",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 106,
+  "zfwActual": 186703,
+  "zfwLimit": 251743,
+  "togwActual": 241803,
+  "togwLimit": 317154,
+  "ldgwActual": 210412,
+  "ldgwLimit": 285763,
+  "hasVzfwCkLimit": false,
+  "swa": {
+   "value": 3718,
+   "unit": "KGS"
+  },
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3200",
+    "routeWords": 3,
+    "routeSha256": "5db1318878c4e959ba28c2001b7b33232044f3a4e0e4adda287afdd613140c28"
+   }
+  ]
+ },
+ "FK_LEZG-LLBG_04NOV26_remarks-subcards_live": {
+  "label": "L06",
+  "fltNum": "GTI568/04",
+  "designator": "GTI",
+  "acftType": "B748",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "LEZG",
+  "offFromOFP": "0420",
+  "destIcao": "LLBG",
+  "etaDest": "0823",
+  "destEtaOffsetMins": 243,
+  "altData": [
+   {
+    "icao": "OJAI",
+    "role": "DEST ALT",
+    "ofpEta": "0844"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "53200",
+  "minfFuelRaw": "52291",
+  "fresFuelRaw": "4745",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 223,
+  "alt1Fuel": "5034",
+  "destRemf": "14313",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 92,
+  "zfwActual": 314371,
+  "zfwLimit": 334297,
+  "togwActual": 366671,
+  "togwLimit": 371487,
+  "ldgwActual": 328684,
+  "ldgwLimit": 333500,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 15,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "4600",
+    "routeWords": 7,
+    "routeSha256": "e455f2db019f8053c1e44ff0121a8fc98171fdcacac45964861a123476bd11d0"
+   }
+  ]
+ },
+ "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live": {
+  "label": "L07",
+  "fltNum": "GTI568/04",
+  "designator": "GTI",
+  "acftType": "B748",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "LLBG",
+  "offFromOFP": "1050",
+  "destIcao": "OMDW",
+  "etaDest": "1344",
+  "destEtaOffsetMins": 174,
+  "altData": [
+   {
+    "icao": "OMAA",
+    "role": "DEST ALT",
+    "ofpEta": "1405"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "35500",
+  "minfFuelRaw": "33934",
+  "fresFuelRaw": "3435",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 154,
+  "alt1Fuel": "3846",
+  "destRemf": "15439",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 49,
+  "zfwActual": 205736,
+  "zfwLimit": 334297,
+  "togwActual": 240336,
+  "togwLimit": 369787,
+  "ldgwActual": 221175,
+  "ldgwLimit": 350626,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "",
+    "routeWords": 5,
+    "routeSha256": "9f1ba78d55568694c18d394a9fd7590ce38553b9a6b32b3dfa416589f8abf595"
+   }
+  ]
+ },
+ "FK_KMIA-EHBK_03NOV26_polar-callsign_live": {
+  "label": "L08",
+  "fltNum": "GTI8414/03",
+  "designator": "GTI",
+  "acftType": "B748",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "KMIA",
+  "offFromOFP": "0947",
+  "destIcao": "EHBK",
+  "etaDest": "1856",
+  "destEtaOffsetMins": 549,
+  "altData": [
+   {
+    "icao": "EBLG",
+    "role": "DEST ALT",
+    "ofpEta": "1909"
+   },
+   {
+    "icao": "CYQX",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1719"
+   },
+   {
+    "icao": "CYYR",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1823"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "100400",
+  "minfFuelRaw": "98202",
+  "fresFuelRaw": "4288",
+  "taxiFuelRaw": "1125",
+  "taxiMins": 25,
+  "tripMinutes": 524,
+  "alt1Fuel": "3152",
+  "destRemf": "13965",
+  "porMinf": "43479",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 185,
+  "zfwActual": 269212,
+  "zfwLimit": 329761,
+  "togwActual": 368487,
+  "togwLimit": 421310,
+  "ldgwActual": 283177,
+  "ldgwLimit": 336000,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": {
+   "number": "Exemption 18486C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 24,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 305,
+  "porWpt": "(H4340+300NM) N46 04.7 W033 58.9",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2600",
+    "routeWords": 3,
+    "routeSha256": "34b64e1742a3c2d8da4f161a09ce564193907c074369c006df3a7a1ba27aaa1f"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "3100",
+    "routeWords": 11,
+    "routeSha256": "e8639c31c67fe450b5ca729bbe50d4973844b04c1811ba90984a19f1d2e7e1e7"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "3100",
+    "routeWords": 9,
+    "routeSha256": "4632054c9b370bb34da7fa90e0be842f7b151908a90599f081facba3ad22792d"
+   }
+  ]
+ },
+ "FK_VHHH-PANC_02NOV26_mtow-equipcode_live": {
+  "label": "L09",
+  "fltNum": "GTI8692/02",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "VHHH",
+  "offFromOFP": "2010",
+  "destIcao": "PANC",
+  "etaDest": "0531",
+  "destEtaOffsetMins": 561,
+  "altData": [
+   {
+    "icao": "PAED",
+    "role": "DEST ALT",
+    "ofpEta": "0543"
+   }
+  ],
+  "specialQualification": [
+   "VHHH"
+  ],
+  "blockFuelRaw": "123300",
+  "minfFuelRaw": "121812",
+  "fresFuelRaw": "4441",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 541,
+  "alt1Fuel": "3110",
+  "destRemf": "16967",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 241,
+  "zfwActual": 265251,
+  "zfwLimit": 279645,
+  "togwActual": 387651,
+  "togwLimit": 387651,
+  "ldgwActual": 282218,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 23,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [
+   {
+    "icao": "PASY",
+    "etpName": "E.ENT",
+    "wxWindow": "0224Z-0427Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "6300",
+    "routeWords": 5,
+    "routeSha256": "0e9e8eed96b56bcd314fa6dd6c762d583c70699ad576e499c8f078ec78a548c9"
+   }
+  ]
+ },
+ "FK_KMIA-SBGL_03NOV26_perishables-ddg_live": {
+  "label": "L10",
+  "fltNum": "GTI031/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "KMIA",
+  "offFromOFP": "2123",
+  "destIcao": "SBGL",
+  "etaDest": "0539",
+  "destEtaOffsetMins": 496,
+  "altData": [
+   {
+    "icao": "SBGR",
+    "role": "DEST ALT",
+    "ofpEta": "0630"
+   }
+  ],
+  "specialQualification": [
+   "SBGL"
+  ],
+  "blockFuelRaw": "116700",
+  "minfFuelRaw": "115086",
+  "fresFuelRaw": "4405",
+  "taxiFuelRaw": "1575",
+  "taxiMins": 35,
+  "tripMinutes": 461,
+  "alt1Fuel": "9765",
+  "destRemf": "23882",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 226,
+  "zfwActual": 259688,
+  "zfwLimit": 285086,
+  "togwActual": 374813,
+  "togwLimit": 374813,
+  "ldgwActual": 283570,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 20,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "8400",
+    "routeWords": 7,
+    "routeSha256": "2fe555cfcff0ea6cde221e5e96c8926b979ceae494ed797aa247a62f27f63596"
+   }
+  ]
+ },
+ "FK_KGSP-EPWA_03NOV26_nat-track-ddg_live": {
+  "label": "L11",
+  "fltNum": "GTI8019/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-04",
+  "dateStr": "04 NOV 26",
+  "origIcao": "KGSP",
+  "offFromOFP": "0125",
+  "destIcao": "EPWA",
+  "etaDest": "1116",
+  "destEtaOffsetMins": 591,
+  "altData": [
+   {
+    "icao": "EPLB",
+    "role": "DEST ALT",
+    "ofpEta": "1142"
+   },
+   {
+    "icao": "EDDK",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1024"
+   },
+   {
+    "icao": "EDDL",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1039"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "120600",
+  "minfFuelRaw": "118647",
+  "fresFuelRaw": "4289",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 571,
+  "alt1Fuel": "5156",
+  "destRemf": "14142",
+  "porMinf": "23052",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 255,
+  "zfwActual": 254844,
+  "zfwLimit": 285200,
+  "togwActual": 374544,
+  "togwLimit": 374545,
+  "ldgwActual": 268986,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 18,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 494,
+  "porWpt": "ROBEG",
+  "etpPoints": [],
+  "cfsAlternates": [
+   {
+    "icao": "BIKF",
+    "etpName": "E.ENT",
+    "wxWindow": "0717Z-0927Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2100",
+    "routeWords": 7,
+    "routeSha256": "65cf9d3c0223b88972cb436ed64f5ac21572af19bb100421715e0a582aa88f44"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2300",
+    "routeWords": 11,
+    "routeSha256": "2042503c9c75abfc51a6ee7f3c34d44290541e4e4450b2fe14ceea94a4adccd2"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2300",
+    "routeWords": 3,
+    "routeSha256": "266d84b5d1fb6a04d9a2137f7fe1b9db1cb1cbca8178719e9948ed8201d66c63"
+   }
+  ]
+ },
+ "FK_EBLG-KORD_03NOV26_nat-random_live": {
+  "label": "L12",
+  "fltNum": "GTI6083/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "EBLG",
+  "offFromOFP": "1700",
+  "destIcao": "KORD",
+  "etaDest": "0140",
+  "destEtaOffsetMins": 520,
+  "altData": [
+   {
+    "icao": "KIND",
+    "role": "DEST ALT",
+    "ofpEta": "0215"
+   },
+   {
+    "icao": "KBOS",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0103"
+   },
+   {
+    "icao": "KPSM",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0115"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "78100",
+  "minfFuelRaw": "76152",
+  "fresFuelRaw": "2930",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 500,
+  "alt1Fuel": "5501",
+  "destRemf": "15909",
+  "porMinf": "23774",
+  "ballastFuel": 1860,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 184,
+  "zfwActual": 161978,
+  "zfwLimit": 288031,
+  "togwActual": 239178,
+  "togwLimit": 331291,
+  "ldgwActual": 177887,
+  "ldgwLimit": 270000,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 13,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 409,
+  "porWpt": "(IKNAR+119NM) N46 01.2 W076 30.5",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2800",
+    "routeWords": 7,
+    "routeSha256": "64f8384803331b09a62fd86f3b9b04f91bf45bf1fe47bf04326ef00cd13848c1"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2400",
+    "routeWords": 5,
+    "routeSha256": "2dab6128c7b73c8e5591ea3630d504827148f8cc43f3a61c3dd30aeea056eaf8"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2400",
+    "routeWords": 5,
+    "routeSha256": "2e5ec70260e6e0f696d81330d782a9137c8f1e59e7944333a961d257f8d13052"
+   }
+  ]
+ },
+ "FK_UBBB-RJFK_03NOV26_bcf-multicrew_live": {
+  "label": "L13",
+  "fltNum": "GTI8922/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "UBBB",
+  "offFromOFP": "1700",
+  "destIcao": "RJFK",
+  "etaDest": "0201",
+  "destEtaOffsetMins": 541,
+  "altData": [
+   {
+    "icao": "RJFT",
+    "role": "DEST ALT",
+    "ofpEta": "0221"
+   },
+   {
+    "icao": "ZSHC",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0115"
+   },
+   {
+    "icao": "ZSNB",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0135"
+   }
+  ],
+  "specialQualification": [
+   "ZSNB"
+  ],
+  "blockFuelRaw": "120000",
+  "minfFuelRaw": "116733",
+  "fresFuelRaw": "4500",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 521,
+  "alt1Fuel": "4228",
+  "destRemf": "20345",
+  "porMinf": "27746",
+  "ballastFuel": null,
+  "addlFfAdj": "+1.00",
+  "zfwIncrFactor": 222,
+  "zfwActual": 259684,
+  "zfwLimit": 276691,
+  "togwActual": 378784,
+  "togwLimit": 394497,
+  "ldgwActual": 280029,
+  "ldgwLimit": 295742,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 450,
+  "porWpt": "(VMB+60NM) N31 19.1 E121 15.1",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "4400",
+    "routeWords": 7,
+    "routeSha256": "1fc8117608c0dc1039c3fc909fe1db511da426f06a765f6b36bd6731dee3a8a5"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2500",
+    "routeWords": 5,
+    "routeSha256": "cdacb8c113fdcbdd10db0bf81952d2ee0a6fa48866d48f01da6bcf919847e0bf"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2500",
+    "routeWords": 7,
+    "routeSha256": "30997bbaed834b78a7cd27a185ba56fc66ecf43e1876df4d762962a3b27aa601"
+   }
+  ]
+ },
+ "FK_KORD-RKSI_03NOV26_etops-rda-dateline_live": {
+  "label": "L14",
+  "fltNum": "GTI8527/03",
+  "designator": "GTI",
+  "acftType": "B77L",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "KORD",
+  "offFromOFP": "2056",
+  "destIcao": "RKSI",
+  "etaDest": "1136",
+  "destEtaOffsetMins": 880,
+  "altData": [
+   {
+    "icao": "RKSS",
+    "role": "DEST ALT",
+    "ofpEta": "1149"
+   },
+   {
+    "icao": "RJAA",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1009"
+   },
+   {
+    "icao": "RJTT",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "1030"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "101700",
+  "minfFuelRaw": "100043",
+  "fresFuelRaw": "2707",
+  "taxiFuelRaw": "1155",
+  "taxiMins": 35,
+  "tripMinutes": 845,
+  "alt1Fuel": "1389",
+  "destRemf": "7260",
+  "porMinf": "15810",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 245,
+  "zfwActual": 172903,
+  "zfwLimit": 248115,
+  "togwActual": 273448,
+  "togwLimit": 347451,
+  "ldgwActual": 180163,
+  "ldgwLimit": 260815,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 16,
+  "etopsEntry": "06:39",
+  "etopsEntryMins": 399,
+  "etopsExitMins": 619,
+  "etopsExit": "10:19",
+  "etopsSpec": "60/120",
+  "porOffsetMins": 725,
+  "porWpt": "ELDAK",
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N59 00.2",
+    "lon": "W174 26.0",
+    "elapsedMins": 414
+   },
+   {
+    "name": "ETP2",
+    "lat": "N47 50.9",
+    "lon": "E155 46.8",
+    "elapsedMins": 582
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "PAKN",
+    "etpName": "ETP1",
+    "wxWindow": "0431Z-0720Z"
+   },
+   {
+    "icao": "PASY",
+    "etpName": "ETP1",
+    "wxWindow": "0457Z-1038Z"
+   },
+   {
+    "icao": "RJCC",
+    "etpName": "ETP2",
+    "wxWindow": "0816Z-1039Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3500",
+    "routeWords": 3,
+    "routeSha256": "d0df96b6c1068dc2ce214a3440a1cec23fe276c6f5564e2db3f0f885be969a81"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "2400",
+    "routeWords": 5,
+    "routeSha256": "712fbc7a3db9ff856654b535f88ecce3a78e6b9c75731a4d57970a62f9b3d686"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "2400",
+    "routeWords": 9,
+    "routeSha256": "8a3f9de7fb4c9452292c999e001a204ffb4c38d2e7d9d787fe944ee282d04111"
+   }
+  ]
+ },
+ "FK_PHNL-WIHH_03NOV26_pax-etops-tanker_live": {
+  "label": "L15",
+  "fltNum": "GTI8752/03",
+  "designator": "GTI",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "PHNL",
+  "offFromOFP": "1920",
+  "destIcao": "WIHH",
+  "etaDest": "0844",
+  "destEtaOffsetMins": 804,
+  "altData": [
+   {
+    "icao": "WIII",
+    "role": "DEST ALT",
+    "ofpEta": "0856"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "153000",
+  "minfFuelRaw": "147448",
+  "fresFuelRaw": "3780",
+  "taxiFuelRaw": "1125",
+  "taxiMins": 25,
+  "tripMinutes": 779,
+  "alt1Fuel": "2335",
+  "destRemf": "20902",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 278,
+  "zfwActual": 223281,
+  "zfwLimit": 298300,
+  "togwActual": 375156,
+  "togwLimit": 408000,
+  "ldgwActual": 244183,
+  "ldgwLimit": 320000,
+  "hasVzfwCkLimit": false,
+  "swa": {
+   "value": 4793,
+   "unit": "LBS"
+  },
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "01:07",
+  "etopsEntryMins": 67,
+  "etopsExitMins": 452,
+  "etopsExit": "07:32",
+  "etopsSpec": "60/180",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N14 04.9",
+    "lon": "W174 51.5",
+    "elapsedMins": 139
+   },
+   {
+    "name": "ETP2",
+    "lat": "N02 48.9",
+    "lon": "E159 32.2",
+    "elapsedMins": 356
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "PHLI",
+    "etpName": "ETP1",
+    "wxWindow": "2114Z-0234Z"
+   },
+   {
+    "icao": "PWAK",
+    "etpName": "ETP1",
+    "wxWindow": "2352Z-0613Z"
+   },
+   {
+    "icao": "PGUA",
+    "etpName": "ETP2",
+    "wxWindow": "0328Z-0723Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2000",
+    "routeWords": 3,
+    "routeSha256": "bf45b53402a8aa680edb288164e522a6783695db535e5d494fe6bc946c2a25b2"
+   }
+  ]
+ },
+ "FK_ZHEC-PANC_02NOV26_wheelsup-penalty_live": {
+  "label": "L16",
+  "fltNum": "GTI874/02",
+  "designator": "GTI",
+  "acftType": "B748",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "ZHEC",
+  "offFromOFP": "1550",
+  "destIcao": "PANC",
+  "etaDest": "0028",
+  "destEtaOffsetMins": 518,
+  "altData": [
+   {
+    "icao": "PAED",
+    "role": "DEST ALT",
+    "ofpEta": "0041"
+   }
+  ],
+  "specialQualification": [
+   "ZHEC"
+  ],
+  "blockFuelRaw": "120000",
+  "minfFuelRaw": "119060",
+  "fresFuelRaw": "5161",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 498,
+  "alt1Fuel": "3364",
+  "destRemf": "17159",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+4.30",
+  "zfwIncrFactor": 203,
+  "zfwActual": 328560,
+  "zfwLimit": 329761,
+  "togwActual": 447660,
+  "togwLimit": 447695,
+  "ldgwActual": 345719,
+  "ldgwLimit": 346090,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": "NOT BEFORE 1627Z",
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "6300",
+    "routeWords": 5,
+    "routeSha256": "0e9e8eed96b56bcd314fa6dd6c762d583c70699ad576e499c8f078ec78a548c9"
+   }
+  ]
+ },
+ "FK_OMAA-VHHH_03NOV26_etihad-permits_live": {
+  "label": "L17",
+  "fltNum": "ETD933/03",
+  "designator": "ETD",
+  "acftType": "B77L",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "OMAA",
+  "offFromOFP": "1835",
+  "destIcao": "VHHH",
+  "etaDest": "0200",
+  "destEtaOffsetMins": 445,
+  "altData": [
+   {
+    "icao": "ZGSZ",
+    "role": "DEST ALT",
+    "ofpEta": "0213"
+   }
+  ],
+  "specialQualification": [
+   "VHHH"
+  ],
+  "blockFuelRaw": "44400",
+  "minfFuelRaw": "43648",
+  "fresFuelRaw": "2448",
+  "taxiFuelRaw": "700",
+  "taxiMins": 21,
+  "tripMinutes": 424,
+  "alt1Fuel": "1348",
+  "destRemf": "7770",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": "+0.50",
+  "zfwIncrFactor": 126,
+  "zfwActual": 145448,
+  "zfwLimit": 248115,
+  "togwActual": 189148,
+  "togwLimit": 296745,
+  "ldgwActual": 153218,
+  "ldgwLimit": 260815,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "4100",
+    "routeWords": 3,
+    "routeSha256": "4280396aba331e415cee6a475c204ce424b657a5fbf35f13c45e749909087734"
+   }
+  ]
+ },
+ "FK_KORD-RJAA_03NOV26_intl-redispatch_live": {
+  "label": "L18",
+  "fltNum": "GTI7147/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "KORD",
+  "offFromOFP": "1950",
+  "destIcao": "RJAA",
+  "etaDest": "0843",
+  "destEtaOffsetMins": 773,
+  "altData": [
+   {
+    "icao": "RJTT",
+    "role": "DEST ALT",
+    "ofpEta": "0900"
+   },
+   {
+    "icao": "PANC",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0724"
+   },
+   {
+    "icao": "PAED",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0735"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "115000",
+  "minfFuelRaw": "113022",
+  "fresFuelRaw": "2876",
+  "taxiFuelRaw": "900",
+  "taxiMins": 20,
+  "tripMinutes": 753,
+  "alt1Fuel": "3419",
+  "destRemf": "15241",
+  "porMinf": "42638",
+  "ballastFuel": 2244,
+  "addlFfAdj": "+0.30",
+  "zfwIncrFactor": 263,
+  "zfwActual": 161594,
+  "zfwLimit": 276691,
+  "togwActual": 275694,
+  "togwLimit": 394601,
+  "ldgwActual": 176835,
+  "ldgwLimit": 295742,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 16,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 497,
+  "porWpt": "NIKLL",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2400",
+    "routeWords": 9,
+    "routeSha256": "02a4f321060cc2c74d597710e0714dbcc558702600151898d83066908f7851f8"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "6300",
+    "routeWords": 9,
+    "routeSha256": "65290bbcc8a4c71ef6a86c571a821f4e0e35cb83121c7e03a26af1796a4cc790"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "6300",
+    "routeWords": 5,
+    "routeSha256": "0e9e8eed96b56bcd314fa6dd6c762d583c70699ad576e499c8f078ec78a548c9"
+   }
+  ]
+ },
+ "FK_PANC-KMIA_03NOV26_dom-redispatch-mel_live": {
+  "label": "L19",
+  "fltNum": "GTI847/03",
+  "designator": "GTI",
+  "acftType": "B744",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-03",
+  "dateStr": "03 NOV 26",
+  "origIcao": "PANC",
+  "offFromOFP": "2250",
+  "destIcao": "KMIA",
+  "etaDest": "0645",
+  "destEtaOffsetMins": 475,
+  "altData": [
+   {
+    "icao": "KRSW",
+    "role": "DEST ALT",
+    "ofpEta": "0706"
+   },
+   {
+    "icao": "KATL",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0551"
+   },
+   {
+    "icao": "KHSV",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0618"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "102500",
+  "minfFuelRaw": "100272",
+  "fresFuelRaw": "4628",
+  "taxiFuelRaw": "1170",
+  "taxiMins": 26,
+  "tripMinutes": 449,
+  "alt1Fuel": "4937",
+  "destRemf": "14874",
+  "porMinf": "25229",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 203,
+  "zfwActual": 277752,
+  "zfwLimit": 283277,
+  "togwActual": 379082,
+  "togwLimit": 379082,
+  "ldgwActual": 292626,
+  "ldgwLimit": 302092,
+  "hasVzfwCkLimit": true,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "",
+  "etopsEntryMins": null,
+  "etopsExitMins": null,
+  "etopsExit": "",
+  "etopsSpec": "",
+  "porOffsetMins": 368,
+  "porWpt": "DGESS",
+  "etpPoints": [],
+  "cfsAlternates": [],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2300",
+    "routeWords": 7,
+    "routeSha256": "3343323e420da738153ef308e79030eb4a417e4ac2d9d6020747f43cf9a337d6"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "3200",
+    "routeWords": 3,
+    "routeSha256": "fd5e64679ff816da2e7bce4eaab073d29bfa4fba4fc356a4a2a9eb2f0bf6ae0c"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "3200",
+    "routeWords": 7,
+    "routeSha256": "bfb6a62413d3524e9b066b11966b51158b5cbdfce83d60d825f4f0f10e7ee43d"
+   }
+  ]
+ },
+ "FK_KORD-RKSI_10NOV26_nopac-etops-remarks_live": {
+  "label": "L20",
+  "fltNum": "GTI543/10",
+  "designator": "GTI",
+  "acftType": "B77L",
+  "isHeavy": true,
+  "weightUnit": "KGS",
+  "flightDateISO": "2026-11-10",
+  "dateStr": "10 NOV 26",
+  "origIcao": "KORD",
+  "offFromOFP": "1030",
+  "destIcao": "RKSI",
+  "etaDest": "0126",
+  "destEtaOffsetMins": 896,
+  "altData": [
+   {
+    "icao": "RKSS",
+    "role": "DEST ALT",
+    "ofpEta": "0137"
+   },
+   {
+    "icao": "RJTT",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0001"
+   },
+   {
+    "icao": "RJTY",
+    "role": "EN ROUTE ALT",
+    "ofpEta": "0016"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "96200",
+  "minfFuelRaw": "94677",
+  "fresFuelRaw": "2530",
+  "taxiFuelRaw": "990",
+  "taxiMins": 30,
+  "tripMinutes": 866,
+  "alt1Fuel": "1265",
+  "destRemf": "7097",
+  "porMinf": "16209",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 240,
+  "zfwActual": 155203,
+  "zfwLimit": 248115,
+  "togwActual": 250413,
+  "togwLimit": 347451,
+  "ldgwActual": 162300,
+  "ldgwLimit": 260815,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 15,
+  "etopsEntry": "09:28",
+  "etopsEntryMins": 568,
+  "etopsExitMins": 653,
+  "etopsExit": "10:53",
+  "etopsSpec": "60/120",
+  "porOffsetMins": 730,
+  "porWpt": "ASTER",
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N48 17.0",
+    "lon": "E156 34.4",
+    "elapsedMins": 610
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "PASY",
+    "etpName": "ETP1",
+    "wxWindow": "2040Z-0037Z"
+   },
+   {
+    "icao": "RJCC",
+    "etpName": "ETP1",
+    "wxWindow": "2203Z-0037Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3600",
+    "routeWords": 3,
+    "routeSha256": "d0df96b6c1068dc2ce214a3440a1cec23fe276c6f5564e2db3f0f885be969a81"
+   },
+   {
+    "title": "Initial Airport Route",
+    "mora": "4400",
+    "routeWords": 5,
+    "routeSha256": "6431107dca9bd6d290ad7dd2b1a6082523f037e3d683e5ece53afcef559c1c1e"
+   },
+   {
+    "title": "Initial Alternate Route",
+    "mora": "4400",
+    "routeWords": 3,
+    "routeSha256": "ee6f3a06d4c5fa3cdb6f251dbb512eea3a75f3142d4eb62bb8fa64a68f34e6bf"
+   }
+  ]
+ },
+ "FK_NZWN-NFFN_10NOV26_pax-remarks_live": {
+  "label": "L21",
+  "fltNum": "GTI8753/10",
+  "designator": "GTI",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-10",
+  "dateStr": "10 NOV 26",
+  "origIcao": "NZWN",
+  "offFromOFP": "1940",
+  "destIcao": "NFFN",
+  "etaDest": "2326",
+  "destEtaOffsetMins": 226,
+  "altData": [
+   {
+    "icao": "NFTF",
+    "role": "DEST ALT",
+    "ofpEta": "0037"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "48200",
+  "minfFuelRaw": "47220",
+  "fresFuelRaw": "3778",
+  "taxiFuelRaw": "900",
+  "taxiMins": 19,
+  "tripMinutes": 206,
+  "alt1Fuel": "10417",
+  "destRemf": "16945",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 86,
+  "zfwActual": 223018,
+  "zfwLimit": 298300,
+  "togwActual": 270318,
+  "togwLimit": 350355,
+  "ldgwActual": 239963,
+  "ldgwLimit": 320000,
+  "hasVzfwCkLimit": false,
+  "swa": {
+   "value": 4793,
+   "unit": "LBS"
+  },
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 14,
+  "etopsEntry": "01:38",
+  "etopsEntryMins": 98,
+  "etopsExitMins": 136,
+  "etopsExit": "02:16",
+  "etopsSpec": "60/120",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "S27 24.0",
+    "lon": "E176 16.5",
+    "elapsedMins": 117
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "NZAA",
+    "etpName": "ETP1",
+    "wxWindow": "2154Z-0055Z"
+   },
+   {
+    "icao": "NFFN",
+    "etpName": "ETP1",
+    "wxWindow": "2231Z-0055Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "2700",
+    "routeWords": 7,
+    "routeSha256": "adf8397e1f84f51ca573617c420fa28b5665f15d179dacdd2641d96d26d927a6"
+   }
+  ]
+ },
+ "FK_EPPW-KPSM_10NOV26_nat-random-callsign_live": {
+  "label": "L22",
+  "fltNum": "CMB550/10",
+  "designator": "CMB",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-10",
+  "dateStr": "10 NOV 26",
+  "origIcao": "EPPW",
+  "offFromOFP": "2200",
+  "destIcao": "KPSM",
+  "etaDest": "0619",
+  "destEtaOffsetMins": 499,
+  "altData": [
+   {
+    "icao": "KBOS",
+    "role": "DEST ALT",
+    "ofpEta": "0645"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "119100",
+  "minfFuelRaw": "118167",
+  "fresFuelRaw": "5086",
+  "taxiFuelRaw": "900",
+  "taxiMins": 19,
+  "tripMinutes": 479,
+  "alt1Fuel": "5025",
+  "destRemf": "20341",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 186,
+  "zfwActual": 289800,
+  "zfwLimit": 295000,
+  "togwActual": 408000,
+  "togwLimit": 408000,
+  "ldgwActual": 310141,
+  "ldgwLimit": 320000,
+  "hasVzfwCkLimit": false,
+  "swa": {
+   "value": 5099,
+   "unit": "LBS"
+  },
+  "dotExemption": {
+   "number": "Exemption 18169C",
+   "restrictions": "ALT REQ'D",
+   "altRequired": true
+  },
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 17,
+  "etopsEntry": "03:13",
+  "etopsEntryMins": 193,
+  "etopsExitMins": 309,
+  "etopsExit": "05:09",
+  "etopsSpec": "60/120",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [
+   {
+    "name": "ETP1",
+    "lat": "N56 29.8",
+    "lon": "W020 17.7",
+    "elapsedMins": 195
+   },
+   {
+    "name": "ETP2",
+    "lat": "N55 04.7",
+    "lon": "W039 26.8",
+    "elapsedMins": 278
+   }
+  ],
+  "cfsAlternates": [
+   {
+    "icao": "EINN",
+    "etpName": "ETP1",
+    "wxWindow": "0146Z-0403Z"
+   },
+   {
+    "icao": "BIKF",
+    "etpName": "ETP1",
+    "wxWindow": "0153Z-0610Z"
+   },
+   {
+    "icao": "CYYR",
+    "etpName": "ETP2",
+    "wxWindow": "0353Z-0611Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "3400",
+    "routeWords": 9,
+    "routeSha256": "e869d950587fc010549b82dfa7c62d81006ec5643ef67da30fb140e14a6895ab"
+   }
+  ]
+ },
+ "FK_KDOV-ETAR_03NOV26_pax-nat-random_live": {
+  "label": "L23",
+  "fltNum": "GTI8550/03",
+  "designator": "GTI",
+  "acftType": "B763",
+  "isHeavy": true,
+  "weightUnit": "LBS",
+  "flightDateISO": "2026-11-10",
+  "dateStr": "10 NOV 26",
+  "origIcao": "KDOV",
+  "offFromOFP": "2200",
+  "destIcao": "ETAR",
+  "etaDest": "0555",
+  "destEtaOffsetMins": 475,
+  "altData": [
+   {
+    "icao": "EDDK",
+    "role": "DEST ALT",
+    "ofpEta": "0623"
+   }
+  ],
+  "specialQualification": [],
+  "blockFuelRaw": "123000",
+  "minfFuelRaw": "101291",
+  "fresFuelRaw": "4345",
+  "taxiFuelRaw": "900",
+  "taxiMins": 19,
+  "tripMinutes": 455,
+  "alt1Fuel": "4570",
+  "destRemf": "38598",
+  "porMinf": "",
+  "ballastFuel": null,
+  "addlFfAdj": null,
+  "zfwIncrFactor": 191,
+  "zfwActual": 234760,
+  "zfwLimit": 309000,
+  "togwActual": 356860,
+  "togwLimit": 409502,
+  "ldgwActual": 273358,
+  "ldgwLimit": 326000,
+  "hasVzfwCkLimit": false,
+  "swa": null,
+  "dotExemption": null,
+  "slotTime": null,
+  "parsedVerbalCallsign": null,
+  "tocOffsetMins": 19,
+  "etopsEntry": "03:01",
+  "etopsEntryMins": 181,
+  "etopsExitMins": 317,
+  "etopsExit": "05:17",
+  "etopsSpec": "60/120",
+  "porWpt": "",
+  "porOffsetMins": null,
+  "etpPoints": [],
+  "cfsAlternates": [
+   {
+    "icao": "LPLA",
+    "etpName": "E.ENT",
+    "wxWindow": "0217Z-0644Z"
+   }
+  ],
+  "altRoutes": [
+   {
+    "title": "Destination Primary Alternate Route",
+    "mora": "4300",
+    "routeWords": 7,
+    "routeSha256": "2f47f9030b7d68fc61cf652c11ed01b98a2e6e3dc29ae3376f1155d79f23d690"
+   }
+  ]
+ }
+}
