@@ -2166,21 +2166,26 @@ function _readSections(ctx) {
       const b = d.blocks || { airports: [] };
       const hz = b.fir ? b.fir.line.page : null;
       if (b.airports.length) sec('weatherBriefing', 'Weather Briefing', b.airports[0].firstLine.page, hz || d.last, 'APT' + b.airports[0].hdr.icao);
-      if (hz) sec('hazardBriefing', 'Hazard Briefing', hz, d.last, 'FIR' + b.fir.icao);
+      if (hz) sec('hazardBriefing', 'Hazard Briefing', hz, d.last, b.fir.line.text.trim());   // the first FIR block's name line
     } else if (d.kind === 'VA') sec('va', 'Volcanic Ash Advisories', d.first, d.last, 'VOLCANIC ASH');
   }
   // Text pages identified by their first line: NAT track message, charts (Jeppesen
   // attachments), TLR (first copy, as _tlrLines reads it).
-  const runs = (re, id, title, anchor) => {
+  // The anchor is the heading that opens the run's first page ("NAT-TRACKS", "Chart Alert" / "+ JEPPESEN").
+  const runs = (re, id, title) => {
     let s = null;
     ctx.textPages.forEach((ls, i) => {
       const hit = ls.length && re.test(ls[0]);
       if (hit && s === null) s = i;
-      if ((!hit || i === ctx.textPages.length - 1) && s !== null) { const e = hit ? i : i - 1; sec(id, title, s + 1, e + 1, anchor); s = null; }
+      if ((!hit || i === ctx.textPages.length - 1) && s !== null) {
+        const e = hit ? i : i - 1;
+        sec(id, title, s + 1, e + 1, re.exec(ctx.textPages[s][0])[0]);
+        s = null;
+      }
     });
   };
-  runs(PATTERNS.SEC_NAT_PAGE, 'nat', 'NAT Tracks', 'NAT-TRACKS');
-  runs(PATTERNS.SEC_CHART_PAGE, 'charts', 'Charts', 'JEPPESEN');
+  runs(PATTERNS.SEC_NAT_PAGE, 'nat', 'NAT Tracks');
+  runs(PATTERNS.SEC_CHART_PAGE, 'charts', 'Charts');
   const tlr = _tlrPages(ctx);
   if (tlr) sec('tlr', 'Takeoff/Landing Report', tlr[0], tlr[1], 'TAKEOFF AND LANDING REPORT');
   secs.sort((a, b) => a.startPage - b.startPage || a.endPage - b.endPage);

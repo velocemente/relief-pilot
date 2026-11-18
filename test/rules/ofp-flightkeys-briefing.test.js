@@ -757,6 +757,87 @@ if (!FIXTURES) {
     const win = got.sort().map(k => { const [lbl, icao] = k.split(' '); return run(fk.find(f => L(f) === lbl)).airportData[icao].ewinsWindow; });
     assert.deepEqual(win, ['0400Z-0400Z', '0500Z-0500Z', '1300Z-1300Z']);
   });
+
+  // ── parts 5–6: airports, card order, sections ──────────────────────────────
+  test('TC-162-040 card order (SME-1): 6 packages in full; the rule on all 26', () => {
+    // OFP page-1 airports in line order, then briefing airports with a role other than IA/TA/EA (briefing
+    // order), then the IA/TA/EA-only airports (briefing order). Lists checked against the PDFs' page 1 and
+    // briefing block order.
+    const want = {
+      L01: 'MKJP KMIA KRSW KFLL KDJT MYNN KMLB',
+      L02: 'KORD RKSI RKSS RJAA RJTT RKSO RKJK RKPK RKPC RJGG RJCC PAEI CYOD PASY',
+      L09: 'VHHH PANC PAED PAFA PAEI PACD PASY RJCC ZSNB',
+      L15: 'PHNL WIHH WIII WIPP WARR WBGG WSAP PGUA PHLI PWAK WAJJ WAPP WAAA',
+      L22: 'EPPW KPSM KBOS KBDL KBGR KSWF KJFK EINN BIKF CYYR CYQX EDDH',
+      T3:  'KLAX RKSI RJBB RJTT RJGG RKJK RKPC RJSM RJCC KSFO PACD',
+    };
+    for (const [lbl, order] of Object.entries(want)) assert.equal(Object.keys(run(fk.find(f => L(f) === lbl)).airportData).join(' '), order, `${lbl}: card order`);
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx), keys = Object.keys(r.airportData);
+      const p1 = Object.keys(BASELINE.fixtures[fx.id].airportData).filter(k => k !== 'PWAK' || lbl !== 'L15');
+      assert.deepEqual(keys.slice(0, p1.length), p1, `${lbl}: the OFP page-1 airports first, in line order`);
+      const rest = keys.slice(p1.length);
+      const lastOnly = k => r.airportData[k].briefing && r.airportData[k].briefing.roles.every(x => ROLES_LAST.includes(x.role));
+      const firstLast = rest.findIndex(lastOnly);
+      if (firstLast >= 0) assert.ok(rest.slice(firstLast).every(lastOnly), `${lbl}: IA/TA/EA-only airports last`);
+      const wx = oracle(fx).wxBlocks;
+      for (const part of [rest.filter(k => !lastOnly(k)), rest.filter(lastOnly)]) {
+        const inWx = part.filter(k => wx.includes(k));
+        assert.deepEqual(inWx, wx.filter(k => inWx.includes(k)), `${lbl}: briefing order within each group`);
+      }
+    }
+  });
+
+  test('TC-162-041 an airportData entry for every airport in either briefing, incl. alternates (rows 43–45)', () => {
+    let n = 0, altn = 0;
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx), o = oracle(fx);
+      const all = [...new Set([...o.wxBlocks, ...o.notamBlocks])];
+      for (const icao of all) {
+        const a = r.airportData[icao];
+        assert.ok(a && a.briefing, `${lbl} ${icao}: entry with its briefing record`);
+        assert.deepEqual(Object.keys(a).slice(0, 8), ['weather', 'notams', 'remarks', 'remarksWeather', 'specialQualification', 'notamItems', 'notamsRaw', 'briefing'], `${lbl} ${icao}: entry shape`);
+        if (a.briefing.roles.some(x => x.role === 'ALTN')) altn++;
+        n++;
+      }
+      // the OFP page-1 airports are all in the briefing (no WARN), and nothing else has an entry
+      assert.deepEqual(Object.keys(r.airportData).filter(k => !all.includes(k)), [], `${lbl}: every entry is a briefing airport`);
+    }
+    assert.equal(n, 285); assert.equal(altn, 101, 'the 101 weather-only ALTN airports have an entry');
+  });
+
+  test('TC-162-050 sections on all 26 = field map §1.1 page ranges; each anchor on its start page', () => {
+    const fm = fieldMapSections();
+    const MAP = { HSCN: ['hscn'], OFP: ['ofp'], VA: ['va'], TLR: ['tlr'], NAT: ['nat'], Jepp: ['charts'] };
+    // Corrections to field map §1.1 (O-5): the two packages with image-only pages have more of them than §1.1
+    // counts — L16 four (PDF 32–35), L18 six (PDF 41–46), pages with no items — so their TLR is on PDF pages
+    // 36–38 and 47–50 (the items' own page numbers; checked below by the anchor in the items).
+    const CORR = { L16: { 'tlr 34-36': 'tlr 36-38' }, L18: { 'tlr 44-47': 'tlr 47-50' } };
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx), text = load(fx).text.replace(/\r\n?/g, '\n').split('\n\n');
+      const want = [];
+      let ofpSeen = false;
+      for (const p of fm[lbl]) {
+        if (p.part === 'OFP') { if (ofpSeen) continue; ofpSeen = true; }   // bookmarks point to the first copy (ADR-005 §2.6.3)
+        if (p.part === 'blank') continue;
+        if (MAP[p.part]) { const w = `${MAP[p.part][0]} ${p.start}-${p.end}`; want.push((CORR[lbl] || {})[w] || w); }
+      }
+      const got = r.sections.filter(s => !['companyNotams', 'notamBriefing', 'weatherBriefing', 'hazardBriefing'].includes(s.id)).map(s => `${s.id} ${s.startPage}-${s.endPage}`);
+      assert.deepEqual(got, want, `${lbl}: sections = field map §1.1`);
+      const s = id => r.sections.find(x => x.id === id);
+      assert.equal(s('notamBriefing').startPage, Math.min(...Object.values(r.airportData).flatMap(a => (a.notamItems || []).map(i => i.source[0].page)).concat([s('notamBriefing').startPage])), `${lbl}: NOTAM Briefing starts at its first airport block`);
+      assert.ok(s('companyNotams').endPage === s('notamBriefing').startPage && s('weatherBriefing').endPage === s('hazardBriefing').startPage, `${lbl}: the parts of one document meet`);
+      for (const x of r.sections) {
+        assert.deepEqual(Object.keys(x), ['id', 'title', 'startPage', 'endPage', 'anchor'], `${lbl}: ADR-005 §2.6 section shape`);
+        assert.ok(x.title && x.startPage <= x.endPage, `${lbl} ${x.id}`);
+        assert.ok(text[x.startPage - 1].replace(/\s+/g, '').includes(x.anchor.replace(/\s+/g, '')), `${lbl} ${x.id}: anchor on its start page (text)`);
+        const ip = load(fx).items.pages.find(pg => pg.n === x.startPage);
+        assert.ok(ip.items.map(i => i.str).join('').replace(/\s+/g, '').includes(x.anchor.replace(/\s+/g, '')), `${lbl} ${x.id}: anchor on its start page (items)`);
+      }
+      const order = r.sections.map(x => x.startPage);
+      assert.deepEqual(order, order.slice().sort((a, b) => a - b), `${lbl}: page order`);
+    }
+  });
 }
 
 // ── TC-162-090: a missing fixtures repo is a FAILURE (child run) ──
