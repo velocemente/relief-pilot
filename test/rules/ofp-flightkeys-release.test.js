@@ -31,6 +31,7 @@
  *   TC-161-101  D63 synthetic: a new remark only at the block's own marker; adjacent marked items stay two; a
  *               sub-heading always starts a new item; a remark across a page break; the SME-18 flag on a wrapped item
  *   TC-161-102  D63 on the ADHOC block (dash items): wraps join the item above
+ *   TC-161-103  O-11 (Exec, 18 Nov): a marked item printed across a blank line stays one remark; the next marker splits
  *   TC-161-200  D63a on the fixtures: the 2-line exemption, the 3-line fleet note, the CDC attestation (and the
  *               boilerplate, MEL-change and weather paragraphs) are ONE remark each; records per package
  *   TC-161-201  D63a synthetic: a blank line, a sub-heading or a recognised item ends a remark; a one-line item never
@@ -512,6 +513,29 @@ test('TC-161-101 D63 synthetic: a new remark only at the block marker; marked it
   assert.deepEqual(aptRemarks(pe, 'KBBB'), ['- CIRCLING FOR RWY 30 IS AUTHORIZED PROVIDED THE FOLLOWING\nMINIMA ARE OBSERVED: DAY ONLY.',
     '- NIGHT LANDING NOT PERMITTED ON RWY 12.\nRWY 12 ONLY.'], 'a remark ending at the page end is not joined to the marked item that opens the next page');
   assert.ok(pe.airportData.KBBB.remarks[1].page === pe.airportData.KBBB.remarks[0].page + 1);
+});
+
+// O-11 (Exec, 18 Nov): D63 stands as written. In a marked block ONLY the marker starts a new remark; a blank
+// line (a gap in the positions) inside a marked item stays part of that item, its line breaks kept.
+test('TC-161-103 O-11: a marked item printed across a blank line stays ONE remark; the next marker still starts a new one', () => {
+  const remarks = ['** KBBB FLIGHT OPS RESTRICTIONS **', 'DEPARTURES',
+    'IF PERFORMANCE ALLOWS, PLAN RWY 12', BL, 'DO NOT LIMIT PAYLOAD DUE TO RWY', BL, 'CREW - CONFIRM WITH DISPATCH',
+    'ARRIVALS', '- RWY 30 NOT APPROVED', BL, 'AT NIGHT', BL, '- CIRCLING NOT AUTHORIZED'];
+  const r = parse(pkg({ remarks }));
+  // positive: the sub-heading section item and the dash item each run across their blank lines (two gaps each)
+  assert.deepEqual(aptRemarks(r, 'KBBB'), [
+    'IF PERFORMANCE ALLOWS, PLAN RWY 12\nDO NOT LIMIT PAYLOAD DUE TO RWY\nCREW - CONFIRM WITH DISPATCH',
+    '- RWY 30 NOT APPROVED\nAT NIGHT',
+    '- CIRCLING NOT AUTHORIZED'], 'blank lines inside a marked item stay part of it; line breaks kept');
+  assert.deepEqual(r.airportData.KBBB.remarks.map(x => x.subHeading), ['DEPARTURES', 'ARRIVALS', 'ARRIVALS']);
+  // negative: after a blank line, the block's marker still starts a new remark (the third item stays apart)
+  assert.equal(r.ofpRemarks.filter(x => x.category === 'stationRestriction' && x.text.startsWith('- ')).length, 2);
+  // every printed line kept once, in order (the blank lines are not text)
+  assert.deepEqual(r.ofpRemarks.filter(x => x.category === 'stationRestriction').flatMap(x => x.text.split('\n')), remarks.filter(l => l !== BL));
+  // control: the same lines in the unmarked run (no station heading) split at the blank lines (D63a)
+  const un = parse(pkg({ remarks: remarks.slice(2, 7) }));
+  assert.deepEqual(un.ofpRemarks.filter(x => remarks.slice(2, 7).some(l => x.text.startsWith(l))).map(x => x.text),
+    ['IF PERFORMANCE ALLOWS, PLAN RWY 12', 'DO NOT LIMIT PAYLOAD DUE TO RWY', 'CREW - CONFIRM WITH DISPATCH']);
 });
 
 test('TC-161-102 D63 on the ADHOC block (dash items): wraps join the item above', () => {

@@ -4,7 +4,7 @@
 **Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v0.2.0.js`
 **Current Version:** 0.2.0 (development version, D58)
 **Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1. Contract 2.2.
-**QA Status:** TC-160 20/20 and TC-161 26/26 PASS on the 26 FlightKeys fixtures; independent QA of PR #62: CHANGES-REQUESTED (F1), F1 fixed under D63 (K-03), O-9 under D63a (K-04), O-10 confirmed (K-05); re-review CHANGES-REQUESTED (F1–F4), fixed (K-06); re-review pending
+**QA Status:** TC-160 20/20 and TC-161 27/27 PASS on the 26 FlightKeys fixtures; independent QA of PR #62: CHANGES-REQUESTED (F1), F1 fixed under D63 (K-03), O-9 under D63a (K-04), O-10 confirmed (K-05); re-review CHANGES-REQUESTED (F1–F4), fixed (K-06); O-11 confirmed (K-07); re-review pending
 **Last Updated:** 2026-11-18
 
 ---
@@ -13,7 +13,7 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 6 (K-01 … K-06) |
+| Total entries | 7 (K-01 … K-07) |
 | Current Version | 0.2.0 |
 | Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1` (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
 | Masters reconciled | none: no master exists; v0.2.0 is not published to Drive (D58) |
@@ -23,6 +23,13 @@
 ---
 
 ## History
+
+### K-07 — v0.2.0: blank lines inside a marked item (O-11 confirmed) (2026-11-18)
+
+**Type:** UPD (SPEC and tests only; the module is unchanged, SHA-256 as K-06) · **Brief:** Exec confirmation O-11, 18 Nov
+- **D63 stands as written.** In a block that marks its items (dash, number or sub-heading), only the marker starts a new remark. A blank line (a gap in the positions) inside a marked item stays part of that item, with the line breaks kept for display. L06 LEZG `DEPARTURES` = one remark (correct). SPEC §5.12 (D63) records it.
+- Test TC-161-103: two marked items each printed across two blank lines stay one remark each; the next marker after a blank line starts a new one; control: the same lines in an unmarked run split (D63a). A mutant that splits a marked item at a blank line fails TC-161-103 (and TC-161-050, 100, 200, 303 on the fixtures).
+- No output change on any package.
 
 ### K-06 — v0.2.0: D63a blank lines from the positions; MEL notes keep their line breaks (QA re-review F1–F4) (2026-11-18)
 
@@ -111,4 +118,4 @@
 | O-8 | ~~Truth sheets are drafts~~ **Closed (Exec, 17 Nov): OK** | — |
 | O-9 | ~~D63 outside a marked block~~ **Closed (Exec D63a, 17 Nov): paragraph grouping** (K-04) | — |
 | O-10 | ~~D63a readings~~ **Closed (Exec, 17 Nov): both confirmed** (K-05; TC-161-202, 203) | — |
-| O-11 | A blank line inside a **marked** block does not start a remark (D63: only the block's marker does). L06 LEZG `DEPARTURES` is one item across 2 printed blank lines. Confirm D63 here, or a rule for blank lines in marked blocks | Exec |
+| O-11 | ~~Blank line inside a marked block~~ **Closed (Exec, 18 Nov): D63 stands as written**; only the marker starts a new remark, a blank line inside a marked item stays part of it (K-07; TC-161-103) | — |
