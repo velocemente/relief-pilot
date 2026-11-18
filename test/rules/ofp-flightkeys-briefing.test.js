@@ -32,8 +32,11 @@
  *               printed text kept in notamsRaw; weather-only airport → INFO; no NOTAM ruleset → WARN
  *   TC-162-030  weather on all 26: TAF / METAR / ATIS counts per airport = an independent count, totals = the
  *               grammar doc §A.9; reports as printed; NavBlue order METAR → ATIS → TAF; no hazard product
- *   TC-162-031  E-WINS (row 48; D46, D55, SME-17/21/23): the 3 "* PRIO *" airports (L15 PWAK, L20 CYXY,
- *               L22 EPPW) and no other; fields as NavBlue sets them (FK-P); prefix never shown; negatives
+ *   TC-162-031  E-WINS (row 48; D46, D55, SME-17/21/23; D66): the 3 "* PRIO *" airports (L15 PWAK, L20 CYXY,
+ *               L22 EPPW) and no other; ewinsWindow '' (fails if a validity window comes back); ewinsRole = the
+ *               airport's role codes (EPPW departure); NavBlue's faults NB-F6 / NB-F7 logged, not copied
+ *   TC-162-034  D66 in the app: src/airports.html line 297 and the app's extractEtaWindow (harness) read the
+ *               E-WINS forecast in the airport's normal window; control: the NB-F6 window would not
  *   TC-162-032  weather synthetic: report split by indent + keyword; wrapped TAF groups kept; empty state;
  *               PRIO positive and negative; weatherRaw (D65) as printed
  *   TC-162-033  D65 weatherRaw on every airport of all 26: the block as printed (independent reading), TAF →
@@ -275,8 +278,8 @@ test('TC-162-032 weather synthetic: indent + keyword; order METAR → ATIS → T
   assert.ok(!('ewinsWeather' in a), 'NEGATIVE: a TAF without "* PRIO *" is not E-WINS');
   const p = synth(smallBriefing({ prio: true })).airportData.KAAA;
   assert.equal(p.ewinsWeather, 'TAF KAAA 040500Z 0406/0512 27010KT P6SM SCT030\n' + pad(5, 'FM041200 30012KT P6SM BKN040'), 'E-WINS forecast, prefix not shown');
-  assert.equal(p.ewinsWindow, '0600Z-1200Z', 'NavBlue rule: DDHH/DDHH → HH00Z-HH00Z');
-  assert.equal(p.ewinsRole, 'ALT', 'NavBlue rule: no ALTERNATE / DEST word → ALT');
+  assert.equal(p.ewinsWindow, '', 'D66: no window from the validity 0406/0512 (NB-F6 would give 0600Z-1200Z)');
+  assert.equal(p.ewinsRole, 'DEPARTURE/IA', 'D66: the airport\'s roles in printed order (NB-F7 would give ALT)');
   assert.ok(!/PRIO/.test(p.weather) && p.weather.includes('TAF KAAA 040500Z'), 'the TAF stays in weather (D46: both kept), prefix not shown');
   // D65: weatherRaw = the block as printed (TAF, METAR, ATIS; sub-headings; empty state), prefix removed only
   const rawLines = [pad(38, 'TAF'), 'TAF KAAA 040500Z 0406/0512 27010KT P6SM SCT030', pad(5, 'FM041200 30012KT P6SM BKN040'),
@@ -788,8 +791,8 @@ if (!FIXTURES) {
     console.log(`TC-162-033: weatherRaw on ${airports} airports = the blocks as printed; ${reports} reports once each in printed order; "* PRIO *" removed from ${prio}`);
   });
 
-  test('TC-162-031 E-WINS: the 3 "* PRIO *" airports and no other; fields as NavBlue sets them (FK-P); negatives', () => {
-    const got = [];
+  test('TC-162-031 E-WINS (D66): the 3 "* PRIO *" airports and no other; window \'\', the airport\'s own role; negatives', () => {
+    const got = [], nbFaults = [];
     for (const fx of fk) {
       const r = run(fx), lbl = L(fx);
       for (const [icao, a] of Object.entries(r.airportData)) {
@@ -803,12 +806,18 @@ if (!FIXTURES) {
         const tafs = reportsOf(a.weather).filter(x => x.type === 'TAF').map(x => x.lines.join('\n'));
         assert.equal(tafs[0], a.ewinsWeather, `${lbl} ${icao}: the PRIO TAF also kept in weather`);
         assert.ok(!/\* PRIO \*/.test(a.ewinsWeather), `${lbl} ${icao}: prefix not shown`);
-        // FK-P: the locked NavBlue parser, given the same forecast in its own E-WINS form, sets the same window and role
-        const roleText = a.briefing.roles.map(x => x.role).join(' ');
-        const nbText = ['HEADER', `***FLIGHT RELEASED UNDER E-WINS AUTHORITY FOR TAF (${icao})`, roleText,
+        // D66: no window from the forecast's validity — a validity window coming back fails here
+        assert.equal(a.ewinsWindow, '', `${lbl} ${icao}: ewinsWindow '' (D66)`);
+        assert.doesNotMatch(String(a.ewinsWindow), /\d{4}Z/, `${lbl} ${icao}: no validity window`);
+        // D66: the airport's actual role = its briefing role codes in printed order, each once, joined by "/"
+        assert.equal(a.ewinsRole, [...new Set(a.briefing.roles.map(x => x.role))].join('/'), `${lbl} ${icao}: ewinsRole = its briefing roles`);
+        // FK-P does not copy a logged NavBlue fault: the locked NavBlue parser, given the same forecast in its own
+        // E-WINS form, still builds the validity window (NB-F6, G-NB-6) and the free-text role (NB-F7, G-NB-7)
+        const nbText = ['HEADER', `***FLIGHT RELEASED UNDER E-WINS AUTHORITY FOR TAF (${icao})`, a.briefing.roles.map(x => x.role).join(' '),
           ...a.ewinsWeather.split('\n').map((l, k) => k ? l.trim() : l.replace(/^TAF /, 'WSITAF ')), '', 'END'].join('\n');
         const nb = navblue.parseNavBlue(nbText).airportData[icao];
-        assert.deepEqual([a.ewinsWindow, a.ewinsRole], [nb.ewinsWindow, nb.ewinsRole], `${lbl} ${icao}: ewinsWindow / ewinsRole = NavBlue's`);
+        assert.match(nb.ewinsWindow, /^\d{4}Z-\d{4}Z$/, `${lbl} ${icao}: NavBlue still builds a window (G-NB-6, NavBlue not changed, D47)`);
+        nbFaults.push(`${lbl} ${icao} NavBlue ${nb.ewinsWindow} ${nb.ewinsRole}`);
         assert.equal(infos(r, /^ewins$/).filter(f => f.message.startsWith(`${icao}: "* PRIO *" TAF`)).length, 1);
       }
     }
@@ -825,9 +834,42 @@ if (!FIXTURES) {
     assert.deepEqual(pwTafs, ['TAF PWAK 030400Z 0304/0404', 'TAF AMD PWAK 031520Z'], 'L15 PWAK: both briefing TAFs, as printed');
     assert.ok(pw.ewinsWeather.startsWith('TAF PWAK 030400Z'), 'L15 PWAK: the PRIO TAF is the E-WINS');
     assert.equal(pw.remarksWeather.length, 1, 'L15 PWAK: the Remarks copy stays in remarksWeather');
-    // As NavBlue: a TAF valid 24 h or more gives an E-WINS window with equal hours (O-14)
-    const win = got.sort().map(k => { const [lbl, icao] = k.split(' '); return run(fk.find(f => L(f) === lbl)).airportData[icao].ewinsWindow; });
-    assert.deepEqual(win, ['0400Z-0400Z', '0500Z-0500Z', '1300Z-1300Z']);
+    // D66 per airport: window '' and the airport's role; L22 EPPW is the departure (origIcao of the release)
+    const ew = got.sort().map(k => { const [lbl, icao] = k.split(' '); const a = run(fk.find(f => L(f) === lbl)).airportData[icao]; return [k, a.ewinsWindow, a.ewinsRole]; });
+    assert.deepEqual(ew, [['L15 PWAK', '', 'EA'], ['L20 CYXY', '', 'TA/IA'], ['L22 EPPW', '', 'DEPARTURE/IA']]);
+    assert.equal(l22.origIcao, 'EPPW', 'L22 EPPW is the departure');
+    // the NavBlue faults are logged as open gaps (test/known-gaps.json "navblue-parser"), NavBlue unchanged
+    const gaps = JSON.parse(fs.readFileSync(path.join(ROOT, 'test', 'known-gaps.json'), 'utf8'))['navblue-parser'].gaps;
+    assert.deepEqual(gaps.filter(g => g.id === 'G-NB-6' || g.id === 'G-NB-7').map(g => [g.id, g.status, g.lines]), [['G-NB-6', 'open', '1320-1321'], ['G-NB-7', 'open', '1316-1318']]);
+    console.log('TC-162-031: ' + ew.map(x => `${x[0]} window '${x[1]}' role ${x[2]}`).join('; ') + ' | NavBlue on the same forecast: ' + nbFaults.join('; '));
+  });
+
+  test('TC-162-034 D66 in the app: line 297 + the app\'s TAF window reader give the E-WINS forecast the airport\'s normal window', () => {
+    // src/airports.html line 297 (evalAirport): the window for an E-WINS airport
+    const line297 = fs.readFileSync(path.join(ROOT, 'src', 'airports.html'), 'utf8').split('\n')[296];
+    assert.match(line297, /var effectiveWin = isEwins \? \(_ewRef\.ewinsWindow\s+\|\| wxWindowOverride\) : wxWindowOverride;/, 'line 297 as cited');
+    const effectiveWin = (a, override) => a.ewinsWindow || override;      // that expression, for an E-WINS airport
+    const app = require('../harness').loadApp();
+    let n = 0, differOld = 0;
+    for (const [lbl, icao] of [['L15', 'PWAK'], ['L20', 'CYXY'], ['L22', 'EPPW']]) {
+      const fx = fk.find(f => L(f) === lbl), r = run(fx), a = r.airportData[icao];
+      // the airport's windows: none (ETA ± 60) and each role window as the app's "HHMMZ-HHMMZ"
+      const overrides = [null, ...a.briefing.roles.map(x => `${x.start.slice(3).replace(':', '')}Z-${x.end.slice(3).replace(':', '')}Z`)];
+      // the NB-F6 window (NavBlue's rule, G-NB-6) for the same forecast, as a control
+      const vm = /\d{6}Z\s+(\d{2})(\d{2})\/(\d{2})(\d{2})/.exec(a.ewinsWeather);
+      const old = vm[2] + '00Z-' + vm[4] + '00Z';
+      for (const ov of overrides) for (let eta = 0; eta < 1440; eta += 30) {
+        const iso = fx.date;
+        const withEwins = app.extractEtaWindow(a.ewinsWeather, eta, effectiveWin(a, ov), iso);
+        const normal = app.extractEtaWindow(a.ewinsWeather, eta, ov, iso);
+        assert.equal(withEwins, normal, `${lbl} ${icao} ETA ${eta} window ${ov}: the E-WINS forecast is read in the airport's normal window`);
+        if (app.extractEtaWindow(a.ewinsWeather, eta, old, iso) !== normal) differOld++;
+        n++;
+      }
+    }
+    // control: the NavBlue-style window (NB-F6) would have changed what is read
+    assert.ok(differOld > 0, 'control: a validity window gives other TAF groups');
+    console.log(`TC-162-034: ${n} evaluations (3 airports × windows × ETA every 30 min): E-WINS window = normal window; the NB-F6 window would differ in ${differOld}`);
   });
 
   // ── parts 5–6: airports, card order, sections ──────────────────────────────
@@ -914,7 +956,7 @@ if (!FIXTURES) {
   // ── D65 / D66: everything else byte-identical to the PR head before the Exec answers (e96ed88) ──
   const HEAD = require('./data/ofp-flightkeys-v0.3.0-e96ed88-baseline.json');
   // The values D65 / D66 change on purpose: airport → keys (weatherRaw is added on every entry).
-  const CHANGED_AT_HEAD = {};
+  const CHANGED_AT_HEAD = { 'L15 PWAK': ['ewinsRole', 'ewinsWindow'], 'L20 CYXY': ['ewinsRole', 'ewinsWindow'], 'L22 EPPW': ['ewinsRole', 'ewinsWindow'] };
 
   test('TC-162-060 v0.3.0 at e96ed88 byte-identical except weatherRaw (D65, added) and the D66 E-WINS fields', () => {
     assert.deepEqual(fk.map(f => f.id).sort(), Object.keys(HEAD.fixtures).sort());

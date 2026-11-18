@@ -352,11 +352,6 @@ const PATTERNS = {
   BR_METAR_START:  /^METAR\b/,
   BR_ATIS_START:   /^AD\s+\S+\s+\/OS\b/,
   BR_PRIO_PREFIX:  /^\* PRIO \* /,
-  // NavBlue extractEwins(), unchanged (row 48, FK-P): the window from the TAF's
-  // "DDHHmmZ DDHH/DDHH" and the role from the role text
-  EWINS_VALID:     /\d{6}Z\s+(\d{2})(\d{2})\/(\d{2})(\d{2})/,
-  EWINS_ROLE_ALT:  /ALTERNATE/i,
-  EWINS_ROLE_DEST: /DESTINATION|DEST/i,
   // Sections (rows 37, 38): pages identified by content (text pages)
   SEC_NAT_PAGE:    /^NAT-TRACKS\b/,
   SEC_CHART_PAGE:  /^(?:Chart Alert\b|\+ JEPPESEN\b)/,
@@ -2113,17 +2108,21 @@ function _readBriefing(ctx) {
     e.notamsRaw = nt.notamsRaw;
     e.briefing = { iata: a.iata, name: a.name, roles: a.roles, notamBlock: !!a.notam, weatherBlock: !!a.wx };
     nItems += nt.items.length;
-    // E-WINS (row 48; D55, SME-17/21/23; D46): the "* PRIO *" TAF is the E-WINS
-    // forecast. The fields are set as NavBlue sets them (FK-P): ewinsWeather = the
-    // forecast (prefix not shown), ewinsRole by NavBlue's rule on the role text,
-    // ewinsWindow from its validity. The TAF stays in weather too (both kept, D46).
+    // E-WINS (row 48; D55, SME-17/21/23; D46; Exec D66, 18 Nov): the "* PRIO *" TAF
+    // is the E-WINS forecast. ewinsWeather = the forecast, prefix not shown; the TAF
+    // stays in weather too (both kept, D46).
+    // ewinsWindow = '' (D66): no window is built from the forecast's validity, so the
+    // app (src/airports.html line 297, `ewinsWindow || wxWindowOverride`) uses the
+    // airport's normal window, as for any TAF.
+    // ewinsRole = the airport's actual role (D66): its briefing role codes (§A.4) in
+    // printed order, each once, joined by "/" (e.g. "DEPARTURE/IA", "EA").
+    // FK-P does not copy a logged NavBlue fault: NavBlue's extractEwins() builds
+    // "HH00Z-HH00Z" from DDHH/DDHH, dropping the days (NB-F6, test/known-gaps.json
+    // G-NB-6), and takes the role from free text with ALT by default (NB-F7, G-NB-7).
     if (wx.prio.length) {
-      const fc = wx.prio[0];
-      const roleText = a.roles.map(r => r.role).join(' ');
-      const vm = PATTERNS.EWINS_VALID.exec(fc);
-      e.ewinsWeather = fc;
-      e.ewinsRole = PATTERNS.EWINS_ROLE_ALT.test(roleText) ? 'ALT' : PATTERNS.EWINS_ROLE_DEST.test(roleText) ? 'DEST' : 'ALT';
-      e.ewinsWindow = vm ? (vm[2] + '00Z-' + vm[4] + '00Z') : '';
+      e.ewinsWeather = wx.prio[0];
+      e.ewinsRole = [...new Set(a.roles.map(r => r.role))].join('/');
+      e.ewinsWindow = '';
       add('INFO', 'ewins', `${a.icao}: "* PRIO *" TAF in the Weather Briefing = the E-WINS forecast (SME-17/21); sets the airport's E-WINS fields`);
       if (wx.prio.length > 1) add('WARN', 'ewins', `${a.icao}: ${wx.prio.length} "* PRIO *" TAFs; the first is the E-WINS forecast`);
     }
