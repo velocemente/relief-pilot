@@ -20,8 +20,8 @@
     "sha256": "d7b432506f32a3675ce3ffa68a07b7e194ed523c9e8dcbd3177f78da36d49ad2"
   },
   "ofp-flightkeys": {
-    "version": "0.2.0",
-    "file": "ofp-flightkeys/ofp-flightkeys-v0.2.0.js",
-    "sha256": "13cb8544182931bc6433894bf4db63e19382cb0df92f460b16aed60b5193df39"
+    "version": "0.3.0",
+    "file": "ofp-flightkeys/ofp-flightkeys-v0.3.0.js",
+    "sha256": "02694cd7e6088628e4cdfd6df3f87f05bee124639d8233738eb8530ebfb42e2c"
   }
 }

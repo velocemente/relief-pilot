@@ -1,5 +1,5 @@
 /**
- * ofp-flightkeys.js — FlightKeys OFP Parser  (v0.2.0, development version, contract v2.2)
+ * ofp-flightkeys.js — FlightKeys OFP Parser  (v0.3.0, development version, contract v2.3)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.4): the FlightKeys OFP parser. It reads
  * an Atlas Air / Polar Air Cargo package in the FlightKeys format and returns
@@ -7,8 +7,9 @@
  * and meanings, as the locked NavBlue parser (FK-P), plus the Appendix B
  * extensions and findings[].
  *
- * v0.2.0 (D58) is a DEVELOPMENT version. It is not built into index.html, not
- * used by the app and not published to the master folder. It reads the OFP
+ * v0.3.0 (D58 amended) is a DEVELOPMENT version. It is not built into
+ * index.html, not used by the app and not published to the master folder.
+ * v0.2.0 read the OFP
  * release: identity and header, airports and times, fuel, weights, DOT
  * exemption, slot, ETOPS, POR, ETP/CFS, nav log (for TOC and the ETOPS/ETP/POR
  * times) and alternate routes (v0.1.0: field map v1.1 rows 1–23, 29–31, 33,
@@ -17,9 +18,16 @@
  * restrictions (24), MEL/CDL/DDG items (25), perishables (27), temperature
  * control (28), permits (35), the TLR (32, 32a), the OFP Remarks with their
  * categories and sub-headings, airport remarks and remarks weather, security
- * messages, extra fuel, PCF and the revision. The briefing package (NOTAMs,
- * weather, curfew, Company NOTAMs, NAT, sections) is returned as an explicit
- * empty value with one INFO finding ("read in 5d"). v0.2.0 must not be
+ * messages, extra fuel, PCF and the revision. New in v0.3.0 (step 5d, D64):
+ * the BRIEFING READER (§ 7) reads the briefing documents from the positioned
+ * items only — never from the joined text — and returns, per airport, the
+ * NOTAM items in the form NOTAM ruleset v1.13.0 splits (notams), each item's
+ * ID, printed type and source positions (notamItems), the NOTAM section as
+ * printed (notamsRaw), the TAF / METAR / ATIS reports (weather) with the
+ * * PRIO * TAF as the E-WINS (ewins*), the role windows (briefing), an entry
+ * for every briefing airport in card order (SME-1), and sections[]. Curfew,
+ * ops notes, Company NOTAMs, en-route NOTAMs and NAT are still an explicit
+ * empty value with one INFO finding ("read in 5d"). v0.3.0 must not be
  * integrated: an explicit empty is not a value.
  *
  * INPUT  parseFlightKeys(input, options)
@@ -31,9 +39,12 @@
  *             from the TOP of the page); order = the item's index in its
  *             page's items array (pdf.js source order). inputFromExtractor()
  *             does exactly this.
- *   options { icaoFpl, aircraftProfile, parseNatTrack } — the shared modules,
- *             passed in. The module never reads window, document, storage,
- *             the clock or any app global.
+ *   options { icaoFpl, aircraftProfile, notamRules, parseNatTrack } — the
+ *             shared modules, passed in. notamRules (v0.3.0) is the NOTAM
+ *             ruleset: its _splitNotams / _fkHeader cut an airport's NOTAM
+ *             text into items and read each item's ID, so the NOTAM grammar
+ *             exists once (ADR-005 §2.5). The module never reads window,
+ *             document, storage, the clock or any app global.
  *
  * DUAL CONTEXT
  *   Node / rules-loader: module.exports = the API object below.
@@ -59,14 +70,15 @@
 
 const RULESET_TYPE     = 'ofp';
 const OFP_FORMAT       = 'flightkeys';
-const RULESET_VERSION  = '0.2.0';
+const RULESET_VERSION  = '0.3.0';
 const SCHEMA_VERSION   = 2;
 // Contract v2.0 (ADR-005 Appendix A + B) plus the extension fields of the
 // Appendix B addenda: specialQualification, swa (Exec SME answers 13 Nov,
 // contract 2.1); operatingPilots (D62) and the crew-record extensions
-// firstName, toLndgExpiry (SME-9) (contract 2.2). Adding fields is a minor
-// contract version (ADR-005 §2.4).
-const CONTRACT_VERSION = '2.2';
+// firstName, toLndgExpiry (SME-9) (contract 2.2); the airport extensions
+// notamItems, notamsRaw (D64) and briefing (SME-1) (contract 2.3, addendum 3).
+// Adding fields is a minor contract version (ADR-005 §2.4).
+const CONTRACT_VERSION = '2.3';
 const RULESET_SOURCE   = 'FlightKeys OFP issued by Atlas Air / Polar Air Cargo dispatch (release, ICAO FPL and briefing package); field map SPRINT-OFP-FlightKeysMigration v1.1; ICAO Doc 4444 App 2/3 through icao-fpl';
 
 // ═══════════════════════════════════════════════════════════════
@@ -97,27 +109,27 @@ const EXTENSION_FIELDS = Object.freeze([
   'designator', 'swa', 'operatingPilots', 'sections', 'findings',
 ]);
 // Extensions on core records. specialQualification: addendum (SME-2).
-const AIRPORT_EXTENSION_FIELDS = Object.freeze(['remarks', 'remarksWeather', 'specialQualification']);
+// notamItems, notamsRaw (D64) and briefing (SME-1): addendum 3 (v0.3.0).
+const AIRPORT_EXTENSION_FIELDS = Object.freeze(['remarks', 'remarksWeather', 'specialQualification',
+  'notamItems', 'notamsRaw', 'briefing']);
 const DDG_EXTENSION_FIELDS     = Object.freeze(['type', 'notes']);
 // Extensions on crewMembers[i] (addendum 2): the full first name as printed and
 // the TO/LNDG currency expiry ("Not Reported" when blank, SME-9).
 const CREW_EXTENSION_FIELDS    = Object.freeze(['firstName', 'toLndgExpiry']);
 
-// Fields v0.2.0 does not read: the explicit empty is returned and one INFO
+// Fields v0.3.0 does not read: the explicit empty is returned and one INFO
 // finding names the step that reads the field (field map v1.1 rows). Step
 // 'open' = in no brief yet. The airportData entries carry no curfew / opsNotes
-// keys until 5d (NavBlue also leaves them out when nothing is printed); the
-// INFO names them (QA F3).
+// keys until they are read (NavBlue also leaves them out when nothing is
+// printed); the INFO names them (QA F3). airportData.weather, .notams and
+// sections are read since v0.3.0.
 const DEFERRED_FIELDS = Object.freeze({
   enrouteNotams:          '5d',    // row 49
   natTrack:               '5d',    // row 42
-  'airportData.weather':  '5d',    // rows 43, 45, 48
-  'airportData.notams':   '5d',    // rows 44, 45
   'airportData.curfew':   '5d',    // row 46
   'airportData.opsNotes': '5d',    // row 47
   companyNotams:          '5d',
   fplEquipment:           'open',  // D41 field 10a + MEL removals: not in the v0.2.0 brief (icao-fpl reads field 10)
-  sections:               '5d',
 });
 const DEFERRED_STEPS = Object.freeze({ '5d': 'read in 5d', open: 'not in any brief yet (open item)' });
 
@@ -305,6 +317,49 @@ const PATTERNS = {
   NO_TANKER:       /\bNO\s+TANKER/,
   EXTRA_PREFUEL:   /\bPRE-?FUELED\b/,
   EXTRA_CAPTAIN:   /\bCAPT(?:AIN)?\b/,
+
+  // ── Briefing documents (v0.3.0, § 7; grammar §A.2–§A.9). Each pattern is
+  // matched against ONE line rebuilt from the positioned items of ONE column
+  // (never against the joined text, grammar §A.3).
+  // §A.3: running header (shape only — the briefing callsign can differ from the
+  // release, L22) and footer "Page n of N <uuid>" / VA "Page1of1 <uuid>".
+  BR_RUNNING_HDR:  /^\S+?\s*\/\s*[A-Z0-9]{3,4}\s*-\s*[A-Z0-9]{3,4}\s*\/\s*\d{4}-\d{2}-\d{2}\s*\/\s*\S+\s+\d{4}-[A-Z][a-z]{2}-\d{2} \d{2}:\d{2}$/,
+  BR_FOOTER:       /^Page\s*(\d+)\s*of\s*(\d+)\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
+  // §A.2: the document headings that identify a document by content
+  BR_HSCN_HEAD:    /^HIGH SEVERITY COMPANY NOTAMS$/,
+  BR_CN_HEAD:      /^COMPANY NOTAMS$/,
+  BR_VA_TEXT:      /\bVOLCANIC ASH\b/,
+  // §A.4: airport block. Name cell "[<IATA>] - <NAME>" (clipped by FlightKeys,
+  // may be glued to the role) and the role cell "<ROLE> DD HH:MM - DD HH:MM".
+  // The role is taken from the closed list, anchored to the window at the end of
+  // the line (never split on spaces); the longest names are tried first.
+  BR_APT_NAME:     /^\s*(?:([A-Z0-9]{3})\s+)?-\s+(.*?)\s*(dest2AltnPlanned|dest2Altn|dest2|DESTINATION|DEPARTURE|ALTN 1|ALTN|IA|TA|EA)\s*(\d{2} \d{2}:\d{2})\s*-\s*(\d{2} \d{2}:\d{2})\s*$/,
+  BR_APT_LINE:     /^\s*APT([A-Z0-9]{4})(?=RWYS:|\s|$)(.*)$/,
+  BR_ROLE_TAIL:    /(dest2AltnPlanned|dest2Altn|dest2|DESTINATION|DEPARTURE|ALTN 1|ALTN|IA|TA|EA)\s*(\d{2} \d{2}:\d{2})\s*-\s*(\d{2} \d{2}:\d{2})\s*$/,
+  BR_RWY_CELL:     /^\s*(?:RWYS:\s*)?((?:[0-9A-Z]{1,3}\/[0-9A-Z]{1,3}\s*)*)$/,
+  // §A.8: FIR block "<NAME> FIR|UIR|…" + "FIR<ICAO>" (glued)
+  BR_FIR_CODE:     /^\s*FIR([A-Z0-9]{4})\s*$/,
+  // §A.6 / §A.9: centred headings (indent >= BRIEF.HEADING_MIN_INDENT characters)
+  BR_WX_HEAD:      /^(TAF|METAR|ATIS|SIGMET)$/,
+  // §A.6, §A.8, §A.9: the empty-state box: "THERE ARE NO ACTIVE …", "NIL" (between
+  // its two lines in reading order) and the closing line
+  BR_EMPTY_START:  /^THERE ARE NO ACTIVE (NOTAMS|ATIS|METAR|TAF|SIGMET)\b/,
+  BR_EMPTY_NIL:    /^NIL$/,
+  BR_EMPTY_END:    /^(?:(?:GIVEN\s+)?TIME\s+)?PERIOD\b.*\.$/,
+  // §A.9: report starts (indent 0–2): TAF [AMD|COR] / "* PRIO * TAF" (E-WINS,
+  // D55, SME-17/21) / METAR [SPECI|COR] / ATIS "AD <AAA> /OS"
+  BR_TAF_START:    /^(\* PRIO \* )?TAF\b/,
+  BR_METAR_START:  /^METAR\b/,
+  BR_ATIS_START:   /^AD\s+\S+\s+\/OS\b/,
+  BR_PRIO_PREFIX:  /^\* PRIO \* /,
+  // NavBlue extractEwins(), unchanged (row 48, FK-P): the window from the TAF's
+  // "DDHHmmZ DDHH/DDHH" and the role from the role text
+  EWINS_VALID:     /\d{6}Z\s+(\d{2})(\d{2})\/(\d{2})(\d{2})/,
+  EWINS_ROLE_ALT:  /ALTERNATE/i,
+  EWINS_ROLE_DEST: /DESTINATION|DEST/i,
+  // Sections (rows 37, 38): pages identified by content (text pages)
+  SEC_NAT_PAGE:    /^NAT-TRACKS\b/,
+  SEC_CHART_PAGE:  /^(?:Chart Alert\b|\+ JEPPESEN\b)/,
 };
 
 // Alternate keywords → crew roles: the NavBlue rule (ALT_PATTERNS), unchanged
@@ -501,11 +556,13 @@ function parseFlightKeys(input, options) {
     }
   }
   const p1 = rel ? rel.pages[0].body : [];
-  const ctx = { out, ext, add, fpl, acp, rel, p1, pagesIn, textPages, copies };
+  const ctx = { out, ext, add, fpl, acp, rel, p1, pagesIn, textPages, copies, opts, p1Icaos: [] };
 
   _readIdentity(ctx);
   _readAirports(ctx);
   _readPending(ctx);
+  _readBriefing(ctx);      // § 7 (v0.3.0): airportData weather / notams, card order
+  _readSections(ctx);      // § 7 (v0.3.0): sections[] (rows 37, 38)
 
   // ── Deferred fields: explicit empties, one INFO each ───────────────
   for (const f of Object.keys(DEFERRED_FIELDS)) add('INFO', f, `not read in v${RULESET_VERSION}: ${DEFERRED_STEPS[DEFERRED_FIELDS[f]]}`);
@@ -622,6 +679,7 @@ function _readAirports(ctx) {
     let hhmm = m[6];
     if (_hhmmToMins(hhmm) === null) { add('WARN', m[1], `${m[2]}: time ${hhmm}Z is not a clock time`); hhmm = ''; }
     lines.push({ kw: m[1], icao: m[2], iata: m[3] || '', q, hhmm });
+    if (!ctx.p1Icaos.includes(m[2])) ctx.p1Icaos.push(m[2]);
   }
   const first = kw => lines.find(a => a.kw === kw) || null;
   const orig = first('ORIG'), dest = first('DEST');
@@ -1679,6 +1737,473 @@ function _readPending(ctx) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// § 7 · BRIEFING READER (v0.3.0, step 5d; grammar §A.1–§A.11; D54, D64)
+// ═══════════════════════════════════════════════════════════════
+//
+// The briefing documents are read from the POSITIONED ITEMS only. The joined text
+// cannot be segmented: one line from each column is joined in it (grammar §A.3,
+// 9,132 lines). Reading order per page (§A.1): running header, left column top to
+// bottom, right column top to bottom, footer. The running header and footer are
+// removed by position AND shape (§A.3, §A.10 row 10); a row in the header or
+// footer band that does not have the shape is kept as text (fail-safe) with a WARN.
+// Items within Y_TOL of the same y form one line, sorted by x; indentation and
+// gaps are kept as spaces on the 4.8 pt grid of the monospaced briefing font
+// (8 pt Courier), counted from the column's left edge (D54).
+//
+// Thresholds, measured on the 567 briefing pages of the 26 FlightKeys packages
+// (541 briefing pages + 26 VA pages; every page 841.9 x 595.3 pt, y from the top):
+//   running header row y = 19.88 on every page; first body row y >= 35.03
+//     → HEADER_MAX_Y 27.5 (the middle of the gap)
+//   footer row y = 579.40 on every page; last body row y <= 563.88
+//     → FOOTER_MIN_Y 571.6 (the middle of the gap)
+//   left-column items start at x 30.35 … 404.75, right-column items at x >= 430.03
+//     → the column split is the page middle (width / 2 = 420.9 pt), inside the gap
+//   column edges (smallest x): left 30.35, right 430.03 → LEFT_X0, RIGHT_X0
+const BRIEF = Object.freeze({
+  HEADER_MAX_Y: 27.5,
+  FOOTER_MIN_Y: 571.6,
+  LEFT_X0: 30.35,
+  RIGHT_X0: 430.03,
+  CHAR_W: 4.8,
+  Y_TOL: 2,
+  // Centred headings (§A.6 category headings, §A.9 TAF/METAR/ATIS/SIGMET): indent
+  // >= 100 pt in every package (§A.6) = 21 characters. Body lines are at indent
+  // 0–2; the 12 body lines at 87–89 pt (18 characters) are wraps of centred text.
+  HEADING_MIN_INDENT: 21,
+  // Report starts (§A.9) and NOTAM item text sit at indent 0–2.
+  REPORT_MAX_INDENT: 2,
+});
+
+// §A.6: the closed list of the 17 category (type) headings.
+const BRIEF_CATEGORIES = Object.freeze(['RUNWAY', 'TAXIWAY', 'APPROACH AND LANDING', 'AIRPORT', 'OBSTACLE',
+  'NAVIGATION', 'COMMUNICATION', 'AIRSPACE', 'WARNING', 'GENERAL', 'RAMP', 'DEPARTURE PROCEDURES',
+  'ARRIVAL PROCEDURES', 'FACILITIES', 'N/A', 'HAZARD', 'SERVICE']);
+// §A.4 / SME-1: the roles that make an airport an intermediate / terrain /
+// en-route alternate only. Briefing-only airports with any other role come first.
+const BRIEF_LAST_ROLES = Object.freeze(['IA', 'TA', 'EA']);
+
+// One band of one page → lines [{ page, col, y, yMax, indent, text }].
+function _briefLines(items, x0, page, col) {
+  const its = items.slice().sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows = [];
+  for (const it of its) {
+    const r = rows.length ? rows[rows.length - 1] : null;
+    if (r && Math.abs(it.y - r.y) <= BRIEF.Y_TOL) { r.items.push(it); r.yMax = Math.max(r.yMax, it.y); }
+    else rows.push({ y: it.y, yMax: it.y, items: [it] });
+  }
+  return rows.map(r => {
+    r.items.sort((a, b) => a.x - b.x);
+    const indent = Math.max(0, Math.round((r.items[0].x - x0) / BRIEF.CHAR_W));
+    let s = ' '.repeat(indent), right = null;
+    for (const it of r.items) {
+      if (right !== null) {
+        const gap = it.x - right;
+        s += gap <= 1 ? '' : ' '.repeat(Math.max(1, Math.round(gap / BRIEF.CHAR_W)));
+      }
+      s += it.str;
+      right = it.x + (it.w || it.str.length * BRIEF.CHAR_W);
+    }
+    return { page, col, y: r.y, yMax: r.yMax, indent, text: s.replace(/\s+$/, '') };
+  });
+}
+
+// One PDF page → { page, header[], footer[], left[], right[], footerM }.
+function _briefPage(pg) {
+  const bands = { header: [], footer: [], left: [], right: [] };
+  const mid = (pg.width || 841.89) / 2;
+  for (const it of pg.items || []) {
+    if (!it || typeof it.str !== 'string' || !it.str.trim()) continue;
+    const b = it.y < BRIEF.HEADER_MAX_Y ? 'header' : it.y > BRIEF.FOOTER_MIN_Y ? 'footer' : it.x < mid ? 'left' : 'right';
+    bands[b].push(it);
+  }
+  const p = {
+    page: pg.page,
+    header: _briefLines(bands.header, BRIEF.LEFT_X0, pg.page, 'H'),
+    footer: _briefLines(bands.footer, BRIEF.LEFT_X0, pg.page, 'F'),
+    left:   _briefLines(bands.left, BRIEF.LEFT_X0, pg.page, 'L'),
+    right:  _briefLines(bands.right, BRIEF.RIGHT_X0, pg.page, 'R'),
+  };
+  p.footerM = p.footer.length === 1 ? PATTERNS.BR_FOOTER.exec(p.footer[0].text.trim()) : null;
+  return p;
+}
+
+// §A.2: briefing documents — runs of pages whose footer counts "Page 1 of N" …
+// "Page N of N" with one uuid. Each document's lines in reading order, with the
+// running header and footer removed by shape.
+function _briefDocs(ctx) {
+  const { add } = ctx;
+  const docs = [];
+  let cur = null;
+  for (const pg of ctx.pagesIn) {
+    if (!pg || !Array.isArray(pg.items)) { cur = null; continue; }
+    const p = _briefPage(pg);
+    const m = p.footerM;
+    if (!m) { if (cur) { add('WARN', 'briefing', `briefing document from PDF p${cur.pages[0].page} ends at p${cur.pages[cur.pages.length - 1].page} before its page ${cur.N}`); cur = null; } continue; }
+    const n = +m[1], N = +m[2], uuid = m[3];
+    if (n === 1) {
+      if (cur) add('WARN', 'briefing', `briefing document from PDF p${cur.pages[0].page} ends at p${cur.pages[cur.pages.length - 1].page} before its page ${cur.N}`);
+      cur = { N, uuid, pages: [], vaFooter: /^Page\d+of\d+/.test(p.footer[0].text.trim()) };
+      docs.push(cur);
+    } else if (!cur || cur.N !== N || cur.uuid !== uuid || cur.pages.length !== n - 1) {
+      add('WARN', 'briefing', `PDF p${p.page}: footer "Page ${n} of ${N}" does not continue a briefing document; page not read`);
+      cur = null; continue;
+    }
+    cur.pages.push(p);
+    if (n === N) cur = null;
+  }
+  if (cur) add('WARN', 'briefing', `briefing document from PDF p${cur.pages[0].page} ends before its page ${cur.N}`);
+  for (const d of docs) {
+    d.lines = [];
+    for (const p of d.pages) {
+      const keep = (ls, what) => {
+        for (const l of ls) {
+          const ok = what === 'header' ? PATTERNS.BR_RUNNING_HDR.test(l.text.trim()) : PATTERNS.BR_FOOTER.test(l.text.trim());
+          if (ok) continue;
+          add('WARN', 'briefing', `PDF p${p.page}: a line in the page ${what} band is not the running ${what}; kept as text`);
+          d.lines.push(Object.assign({}, l, { col: 'L' }));
+        }
+      };
+      keep(p.header, 'header');
+      d.lines.push(...p.left, ...p.right);
+      keep(p.footer, 'footer');
+    }
+    d.first = d.pages[0].page;
+    d.last = d.pages[d.pages.length - 1].page;
+    const t0 = d.lines.length ? d.lines[0].text.trim() : '';
+    d.kind = PATTERNS.BR_HSCN_HEAD.test(t0) ? 'HSCN'
+      : PATTERNS.BR_CN_HEAD.test(t0) ? 'NOTAM'
+      : d.vaFooter && d.lines.some(l => PATTERNS.BR_VA_TEXT.test(l.text)) ? 'VA'
+      : _briefBlockAt(d.lines, 0) && d.lines.some(_isWxHeading) ? 'WX'
+      : _briefBlockAt(d.lines, 0) && d.lines.some(l => _isCategory(l)) ? 'NOTAM'
+      : 'UNKNOWN';
+    if (d.kind === 'UNKNOWN') add('WARN', 'briefing', `briefing document PDF p${d.first}-${d.last}: not recognised by content; not read`);
+  }
+  return docs;
+}
+
+const _isHeading = l => l.indent >= BRIEF.HEADING_MIN_INDENT;
+const _isCategory = l => _isHeading(l) && BRIEF_CATEGORIES.includes(l.text.trim());
+const _isWxHeading = l => _isHeading(l) && PATTERNS.BR_WX_HEAD.test(l.text.trim()) && l.text.trim() !== 'SIGMET';
+
+// §A.4: an airport block starts at line i (name/role line + APT<ICAO> line).
+function _briefBlockAt(lines, i) {
+  const a = lines[i], b = lines[i + 1];
+  if (!a || !b) return null;
+  const nm = PATTERNS.BR_APT_NAME.exec(a.text);
+  const ap = nm && PATTERNS.BR_APT_LINE.exec(b.text);
+  return ap ? { nm, ap } : null;
+}
+// §A.8: a FIR block starts at line i (name line + FIR<ICAO> line).
+const _firBlockAt = (lines, i) => !!(lines[i + 1] && PATTERNS.BR_FIR_CODE.test(lines[i + 1].text) && lines[i].text.trim());
+
+// One airport block's header (§A.4): name/role line, APT line, then the wrapped
+// runway / role lines. Returns { icao, iata, name, roles[], next } (next = the
+// index of the first body line).
+function _briefBlockHeader(lines, i, blk) {
+  const { nm, ap } = blk;
+  const roles = [{ role: nm[3], start: nm[4], end: nm[5] }];
+  const tail = s => {
+    const m = PATTERNS.BR_ROLE_TAIL.exec(s);
+    if (m) roles.push({ role: m[1], start: m[2], end: m[3] });
+    return m ? s.slice(0, m.index) : s;
+  };
+  tail(ap[2]);
+  let j = i + 2;
+  for (; j < lines.length; j++) {
+    const l = lines[j];
+    if (_isCategory(l) || _isWxHeading(l) || _briefBlockAt(lines, j) || _firBlockAt(lines, j)) break;
+    const m = PATTERNS.BR_ROLE_TAIL.exec(l.text);
+    const rest = m ? l.text.slice(0, m.index) : l.text;
+    const rw = PATTERNS.BR_RWY_CELL.exec(rest);
+    if (!rw || (!m && !rw[1].trim())) break;      // not a runway / role line
+    if (m) roles.push({ role: m[1], start: m[2], end: m[3] });
+  }
+  return { icao: ap[1], iata: nm[1] || '', name: nm[2].trim(), roles, next: j };
+}
+
+// Consumes an empty-state box starting at line j (§A.10 row 8): the "THERE ARE NO
+// ACTIVE …" line, the "NIL" between its lines and the closing line. Returns the
+// index after the box.
+function _briefEmptyEnd(lines, j) {
+  let k = j + 1;
+  for (let n = 0; n < 2 && k < lines.length; n++) {
+    const t = lines[k].text.trim();
+    if (PATTERNS.BR_EMPTY_NIL.test(t) || (lines[k].indent > BRIEF.REPORT_MAX_INDENT && PATTERNS.BR_EMPTY_END.test(t))) k++;
+    else break;
+  }
+  return k;
+}
+
+// The blocks of one NOTAM or WX document: { pre: [lines before the first airport
+// block], airports: [{ hdr, body: [lines], firstLine }], fir: { line } | null }.
+function _briefBlocks(lines) {
+  const out = { pre: [], airports: [], fir: null };
+  let cur = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (_firBlockAt(lines, i) && (cur || out.airports.length)) { out.fir = { line: lines[i], icao: PATTERNS.BR_FIR_CODE.exec(lines[i + 1].text)[1] }; break; }
+    const blk = _briefBlockAt(lines, i);
+    if (blk) {
+      const hdr = _briefBlockHeader(lines, i, blk);
+      cur = { hdr, firstLine: lines[i], aptLine: lines[i + 1], body: [] };
+      out.airports.push(cur);
+      i = hdr.next - 1;
+      continue;
+    }
+    if (cur) cur.body.push(lines[i]); else out.pre.push(lines[i]);
+  }
+  return out;
+}
+
+// Source positions of a run of lines: one span per page and column, in reading
+// order: { page, column: 'L' | 'R', y: [top, bottom] } (pt from the page top).
+function _briefSource(lines) {
+  const out = [];
+  for (const l of lines) {
+    const s = out[out.length - 1];
+    if (s && s.page === l.page && s.column === l.col) s.y[1] = Math.round(l.yMax * 100) / 100;
+    else out.push({ page: l.page, column: l.col, y: [Math.round(l.y * 100) / 100, Math.round(l.yMax * 100) / 100] });
+  }
+  return out;
+}
+
+// §A.5 / §A.6 / D54 / D64: one airport's NOTAM block body → { items, notams,
+// notamsRaw, empty }. The type heading is removed from the item text and kept as
+// the item's category; inside a heading the NOTAM ruleset cuts the text at its
+// item headers (ADR-005 §2.5); line breaks and indentation are kept.
+function _briefNotams(ctx, icao, body) {
+  const { add } = ctx;
+  const nr = ctx.opts.notamRules;
+  const runs = [];
+  let cat = '', run = null, empty = false;
+  const raw = [];
+  for (let j = 0; j < body.length; j++) {
+    const l = body[j];
+    if (_isCategory(l)) { raw.push(l); cat = l.text.trim(); run = null; continue; }
+    if (PATTERNS.BR_EMPTY_START.test(l.text.trim())) {
+      const k = _briefEmptyEnd(body, j);
+      raw.push(...body.slice(j, k));
+      empty = true; run = null; j = k - 1; continue;
+    }
+    raw.push(l);
+    if (!run) { run = { category: cat, lines: [] }; runs.push(run); }
+    run.lines.push(l);
+  }
+  const items = [];
+  const texts = [];
+  for (const r of runs) {
+    const text = r.lines.map(l => l.text).join('\n');
+    texts.push(text);
+    if (!nr) continue;
+    const pieces = nr._splitNotams(text);
+    let at = 0;
+    pieces.forEach((pc, k) => {
+      const n = pc.replace(/\n$/, '').split('\n').length;
+      const ls = r.lines.slice(at, at + n);
+      at += n;
+      const h = nr._fkHeader(pc);
+      if (!h || !h.id) add('WARN', 'airportData.notams', `${icao}: NOTAM text under ${r.category || 'no heading'} (PDF p${ls[0].page}) does not start with a NOTAM item header; kept as an item with no ID`);
+      if (k === 0 && h === null && runs.indexOf(r) > 0) add('WARN', 'airportData.notams', `${icao}: text under ${r.category || 'no heading'} joins the item above it when the airport's NOTAM text is split`);
+      items.push({ id: h && h.id ? h.id : null, category: r.category, source: _briefSource(ls) });
+    });
+    if (at !== r.lines.length) add('WARN', 'airportData.notams', `${icao}: NOTAM split under ${r.category || 'no heading'} does not give back its ${r.lines.length} lines`);
+  }
+  return { items, notams: texts.join('\n'), notamsRaw: raw.map(l => l.text).join('\n'), empty };
+}
+
+// §A.9: one airport's weather block body → { metar[], taf[], atis[], prio[], orphan }
+// Each report is its lines as printed (line breaks and indentation kept; wrapped
+// TAF groups as printed). A report starts at indent 0–2 with its keyword; every
+// other line continues the report above it.
+function _briefWeather(ctx, icao, body) {
+  const { add } = ctx;
+  const rep = { TAF: [], METAR: [], ATIS: [] };
+  let sub = null, cur = null, orphans = 0;
+  for (let j = 0; j < body.length; j++) {
+    const l = body[j], t = l.text.trim();
+    if (_isWxHeading(l)) { sub = t; cur = null; continue; }
+    if (PATTERNS.BR_EMPTY_START.test(t)) { j = _briefEmptyEnd(body, j) - 1; cur = null; continue; }
+    const start = l.indent <= BRIEF.REPORT_MAX_INDENT && sub &&
+      (sub === 'TAF' ? PATTERNS.BR_TAF_START : sub === 'METAR' ? PATTERNS.BR_METAR_START : PATTERNS.BR_ATIS_START).test(t);
+    if (start) { cur = { type: sub, prio: sub === 'TAF' && PATTERNS.BR_PRIO_PREFIX.test(t), lines: [l] }; rep[sub].push(cur); continue; }
+    if (cur) { cur.lines.push(l); continue; }
+    // A line with no report above it is kept as a report of its own (fail-safe).
+    orphans++;
+    cur = { type: sub || 'TAF', prio: false, lines: [l] };
+    rep[sub || 'TAF'].push(cur);
+  }
+  if (orphans) add('WARN', 'airportData.weather', `${icao}: ${orphans} weather line(s) with no report keyword above them; kept as printed`);
+  const txt = r => r.lines.map((l, k) => k === 0 ? l.text.replace(/^(\s*)\* PRIO \* /, '$1') : l.text).join('\n');
+  // NavBlue's form (rows 43, 48): METAR before TAF; the TAF last (the app reads
+  // from the first TAF to the end of the text). ATIS between them.
+  const all = [...rep.METAR, ...rep.ATIS, ...rep.TAF];
+  return { reports: rep, weather: all.map(txt).join('\n'), prio: rep.TAF.filter(r => r.prio).map(txt) };
+}
+
+// Steps 5d-1 … 5d-5: read the briefing documents into airportData (rows 43–45,
+// 48; SME-1, SME-17, SME-21, SME-23; D46, D54, D55, D64).
+function _readBriefing(ctx) {
+  const { out, add } = ctx;
+  ctx.briefDocs = [];
+  if (!ctx.pagesIn) {
+    for (const e of Object.values(out.airportData)) { e.notamItems = []; e.notamsRaw = ''; e.briefing = null; }
+    add('WARN', 'briefing', 'no positioned items: the briefing (NOTAMs, weather, sections) is read from positions only; not read');
+    return;
+  }
+  const docs = ctx.briefDocs = _briefDocs(ctx);
+  const notamDocs = docs.filter(d => d.kind === 'NOTAM'), wxDocs = docs.filter(d => d.kind === 'WX');
+  if (!notamDocs.length && !wxDocs.length) {
+    for (const e of Object.values(out.airportData)) { e.notamItems = []; e.notamsRaw = ''; e.briefing = null; }
+    add('WARN', 'briefing', 'no NOTAM Briefing and no Weather Briefing document found: airport NOTAMs and weather not read');
+    return;
+  }
+  if (notamDocs.length !== 1) add('WARN', 'briefing', `${notamDocs.length} NOTAM Briefing documents found (1 expected)`);
+  if (wxDocs.length !== 1) add('WARN', 'briefing', `${wxDocs.length} Weather Briefing documents found (1 expected)`);
+
+  const apts = new Map();   // icao → { iata, name, roles[], notam, wx, order }
+  const roleIn = (a, r, where) => {
+    const x = a.roles.find(y => y.role === r.role && y.start === r.start && y.end === r.end);
+    if (x) { if (!x.in.includes(where)) x.in.push(where); }
+    else a.roles.push({ role: r.role, start: r.start, end: r.end, in: [where] });
+  };
+  const visit = (doc, where) => {
+    const b = _briefBlocks(doc.lines);
+    doc.blocks = b;
+    for (const blk of b.airports) {
+      const h = blk.hdr;
+      let a = apts.get(h.icao);
+      if (!a) { a = { icao: h.icao, iata: h.iata, name: h.name, roles: [], notam: null, wx: null }; apts.set(h.icao, a); }
+      if (a[where === 'NOTAM' ? 'notam' : 'wx']) {
+        add('WARN', 'briefing', `${h.icao}: two blocks in the ${where === 'NOTAM' ? 'NOTAM' : 'Weather'} Briefing; both read`);
+        a[where === 'NOTAM' ? 'notam' : 'wx'].body.push(...blk.body);
+      } else a[where === 'NOTAM' ? 'notam' : 'wx'] = blk;
+      for (const r of h.roles) roleIn(a, r, where);
+    }
+  };
+  // The Weather Briefing lists every briefing airport (§A.4: ALTN / dest2Altn are
+  // weather only), so its block order is the briefing order; an airport with a
+  // NOTAM block only follows.
+  for (const d of wxDocs) visit(d, 'WX');
+  for (const d of notamDocs) visit(d, 'NOTAM');
+
+  // ── Assemble the entries; card order (SME-1) ─────────────────────────
+  const entryFor = icao => out.airportData[icao] ||
+    { weather: '', notams: '', remarks: [], remarksWeather: [], specialQualification: false };
+  const built = new Map();
+  let nItems = 0;
+  for (const a of apts.values()) {
+    const e = entryFor(a.icao);
+    let nt = { items: [], notams: '', notamsRaw: '', empty: false };
+    if (a.notam) nt = _briefNotams(ctx, a.icao, a.notam.body);
+    else add('INFO', 'airportData.notams', `${a.icao}: no NOTAM block in the FlightKeys briefing`);
+    if (nt.empty && !nt.items.length) add('INFO', 'airportData.notams', `${a.icao}: the NOTAM Briefing prints no active NOTAMs`);
+    let wx = { weather: '', prio: [] };
+    if (a.wx) wx = _briefWeather(ctx, a.icao, a.wx.body);
+    else add('WARN', 'airportData.weather', `${a.icao}: no block in the Weather Briefing`);
+    e.weather = wx.weather;
+    e.notams = nt.notams;
+    e.notamItems = nt.items;
+    e.notamsRaw = nt.notamsRaw;
+    e.briefing = { iata: a.iata, name: a.name, roles: a.roles, notamBlock: !!a.notam, weatherBlock: !!a.wx };
+    nItems += nt.items.length;
+    // E-WINS (row 48; D55, SME-17/21/23; D46): the "* PRIO *" TAF is the E-WINS
+    // forecast. The fields are set as NavBlue sets them (FK-P): ewinsWeather = the
+    // forecast (prefix not shown), ewinsRole by NavBlue's rule on the role text,
+    // ewinsWindow from its validity. The TAF stays in weather too (both kept, D46).
+    if (wx.prio.length) {
+      const fc = wx.prio[0];
+      const roleText = a.roles.map(r => r.role).join(' ');
+      const vm = PATTERNS.EWINS_VALID.exec(fc);
+      e.ewinsWeather = fc;
+      e.ewinsRole = PATTERNS.EWINS_ROLE_ALT.test(roleText) ? 'ALT' : PATTERNS.EWINS_ROLE_DEST.test(roleText) ? 'DEST' : 'ALT';
+      e.ewinsWindow = vm ? (vm[2] + '00Z-' + vm[4] + '00Z') : '';
+      add('INFO', 'ewins', `${a.icao}: "* PRIO *" TAF in the Weather Briefing = the E-WINS forecast (SME-17/21); sets the airport's E-WINS fields`);
+      if (wx.prio.length > 1) add('WARN', 'ewins', `${a.icao}: ${wx.prio.length} "* PRIO *" TAFs; the first is the E-WINS forecast`);
+    }
+    built.set(a.icao, e);
+  }
+  if (!ctx.opts.notamRules && [...apts.values()].some(a => a.notam)) {
+    add('WARN', 'notamRules', 'NOTAM ruleset not supplied: airport NOTAM text read, but not cut into items (notamItems empty)');
+  }
+  // Release airports (OFP page 1) and v0.2.0 entries with no briefing block keep
+  // their entry; the airport extensions are explicit empties.
+  for (const [icao, e] of Object.entries(out.airportData)) {
+    if (built.has(icao)) continue;
+    e.notamItems = []; e.notamsRaw = ''; e.briefing = null;
+    add(ctx.p1Icaos.includes(icao) ? 'WARN' : 'INFO', 'airportData', `${icao}: not in the FlightKeys briefing (no NOTAM or weather block)`);
+  }
+  // Card order (SME-1, rows 43–45): the OFP page-1 airports in line order, then the
+  // other airports — release alternates and briefing airports with a role other
+  // than IA / TA / EA in briefing order, then the IA / TA / EA-only airports.
+  const order = [...ctx.p1Icaos.filter(i => out.airportData[i])];
+  const rest = [...apts.keys(), ...Object.keys(out.airportData)].filter((i, k, arr) => !order.includes(i) && arr.indexOf(i) === k);
+  const lastOnly = i => { const a = apts.get(i); return !!a && a.roles.every(r => BRIEF_LAST_ROLES.includes(r.role)); };
+  order.push(...rest.filter(i => !lastOnly(i)), ...rest.filter(lastOnly));
+  const ad = {};
+  for (const i of order) ad[i] = built.get(i) || out.airportData[i];
+  out.airportData = ad;
+  ctx.briefStats = { airports: apts.size, notamBlocks: [...apts.values()].filter(a => a.notam).length,
+    wxBlocks: [...apts.values()].filter(a => a.wx).length, items: nItems };
+  add('INFO', 'briefing', `read from positions: ${docs.length} briefing documents; ${ctx.briefStats.notamBlocks} airport blocks in the NOTAM Briefing (${nItems} NOTAM items), ${ctx.briefStats.wxBlocks} in the Weather Briefing; ${apts.size} briefing airports`);
+}
+
+// Rows 37, 38 (ADR-005 §2.6): sections[] from content — { id, title, startPage,
+// endPage, anchor } with absolute PDF pages. The anchor is text printed on the
+// start page. The release: the first copy only (§2.6.3; the copies are reported
+// under 'release'). Bookmark names and order are confirmed by the Exec in the app
+// (§2.6.5); here the sections are in page order.
+function _readSections(ctx) {
+  const secs = [];
+  const sec = (id, title, startPage, endPage, anchor) => secs.push({ id, title, startPage, endPage, anchor });
+  if (ctx.rel) sec('ofp', 'OFP', ctx.rel.pages[0].pdfPage, ctx.rel.pages[ctx.rel.pages.length - 1].pdfPage, 'OPERATIONAL FLIGHT PLAN');
+  for (const d of ctx.briefDocs || []) {
+    if (d.kind === 'HSCN') sec('hscn', 'High Severity Company NOTAMs', d.first, d.last, 'HIGH SEVERITY COMPANY NOTAMS');
+    else if (d.kind === 'NOTAM') {
+      const b = d.blocks || { airports: [] };
+      const nb = b.airports.length ? b.airports[0].firstLine.page : null;
+      if (PATTERNS.BR_CN_HEAD.test(d.lines[0].text.trim())) sec('companyNotams', 'Company NOTAMs', d.first, nb || d.last, 'COMPANY NOTAMS');
+      if (nb) sec('notamBriefing', 'NOTAM Briefing', nb, d.last, 'APT' + b.airports[0].hdr.icao);
+    } else if (d.kind === 'WX') {
+      const b = d.blocks || { airports: [] };
+      const hz = b.fir ? b.fir.line.page : null;
+      if (b.airports.length) sec('weatherBriefing', 'Weather Briefing', b.airports[0].firstLine.page, hz || d.last, 'APT' + b.airports[0].hdr.icao);
+      if (hz) sec('hazardBriefing', 'Hazard Briefing', hz, d.last, 'FIR' + b.fir.icao);
+    } else if (d.kind === 'VA') sec('va', 'Volcanic Ash Advisories', d.first, d.last, 'VOLCANIC ASH');
+  }
+  // Text pages identified by their first line: NAT track message, charts (Jeppesen
+  // attachments), TLR (first copy, as _tlrLines reads it).
+  const runs = (re, id, title, anchor) => {
+    let s = null;
+    ctx.textPages.forEach((ls, i) => {
+      const hit = ls.length && re.test(ls[0]);
+      if (hit && s === null) s = i;
+      if ((!hit || i === ctx.textPages.length - 1) && s !== null) { const e = hit ? i : i - 1; sec(id, title, s + 1, e + 1, anchor); s = null; }
+    });
+  };
+  runs(PATTERNS.SEC_NAT_PAGE, 'nat', 'NAT Tracks', 'NAT-TRACKS');
+  runs(PATTERNS.SEC_CHART_PAGE, 'charts', 'Charts', 'JEPPESEN');
+  const tlr = _tlrPages(ctx);
+  if (tlr) sec('tlr', 'Takeoff/Landing Report', tlr[0], tlr[1], 'TAKEOFF AND LANDING REPORT');
+  secs.sort((a, b) => a.startPage - b.startPage || a.endPage - b.endPage);
+  ctx.ext.sections = secs;
+}
+
+// The PDF pages of the first TLR copy, found exactly as _tlrLines finds them.
+function _tlrPages(ctx) {
+  let next = 1, of = null, first = null, last = null;
+  ctx.textPages.forEach((ls, i) => {
+    if (of !== null && next > of) return;
+    if (ls.length < 2 || !PATTERNS.TLR_PAGE_HDR.test(ls[0])) return;
+    const fm = PATTERNS.TLR_PAGE_FOOTER.exec(ls[ls.length - 1]);
+    if (!fm || +fm[1] !== next || (of !== null && +fm[2] !== of)) { if (first !== null) of = 0; return; }
+    of = +fm[2];
+    if (first === null) first = i + 1;
+    last = i + 1;
+    next++;
+  });
+  return first === null ? null : [first, last];
+}
+
+// ═══════════════════════════════════════════════════════════════
 // § 6 · SCHEMA VALIDATION (Blueprint)
 // ═══════════════════════════════════════════════════════════════
 
@@ -1725,7 +2250,7 @@ function validateSchema(ruleset) {
   };
   list('CORE_FIELDS', 57);
   list('EXTENSION_FIELDS', 14);
-  list('AIRPORT_EXTENSION_FIELDS', 3);
+  list('AIRPORT_EXTENSION_FIELDS', 6);
   list('DDG_EXTENSION_FIELDS', 2);
   list('CREW_EXTENSION_FIELDS', 2);
   if (Array.isArray(r.CORE_FIELDS) && Array.isArray(r.EXTENSION_FIELDS)) {
