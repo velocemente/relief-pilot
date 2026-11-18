@@ -17,6 +17,8 @@ The FlightKeys OFP parser reads an Atlas Air / Polar Air Cargo package in the Fl
 
 **v0.3.0 is a development version (D58 amended).** It is not built into `index.html`, not used by the app and not written to the master folder. It reads everything v0.2.0 read, unchanged (TC-162-001), plus — step 5d, Exec decision **D64** (18 Nov) — the **briefing**: per airport the NOTAM items, the NOTAM section as printed, the weather with the E-WINS, every briefing airport in card order, and `sections[]` (§5.13–§5.17). Curfew, ops notes, Company NOTAMs, en-route NOTAMs and NAT are still explicit empties with one INFO finding. **It must not be integrated:** an explicit empty is not a value.
 
+**Exec answers of 18 Nov (same version, development):** **D65** — `weather` stays in NavBlue's order; new airport extension `weatherRaw` = the Weather Briefing block as printed (TAF → METAR → ATIS) for the RAW view (§5.16). **D66** — `ewinsWindow` is `''` and `ewinsRole` is the airport's own role (§5.16); FK-P does not copy the logged NavBlue faults NB-F6 / NB-F7 (`test/known-gaps.json` G-NB-6, G-NB-7).
+
 **D64 (Exec, 18 Nov).** FlightKeys groups NOTAMs by type for each airport and each FIR. The cards stay organised for humans (the app's own groups, both formats). The RAW presentation preserves the FlightKeys layout. The parser keeps each NOTAM's printed type as its category and returns the raw layout.
 
 | Scope (field map v1.1 rows) | Version | Read |
@@ -63,7 +65,7 @@ module.exports = {
   CORE_FIELDS,           // 57, NavBlue order
   EXTENSION_FIELDS,      // 14: contract v2.0 list + swa + operatingPilots (before sections)
   AIRPORT_EXTENSION_FIELDS, // ['remarks', 'remarksWeather', 'specialQualification',
-                         //  'notamItems', 'notamsRaw', 'briefing']   (addendum 3, v0.3.0)
+                         //  'notamItems', 'notamsRaw', 'briefing', 'weatherRaw']   (addendum 3, v0.3.0; D65)
   DDG_EXTENSION_FIELDS,  // ['type', 'notes']
   CREW_EXTENSION_FIELDS, // ['firstName', 'toLndgExpiry']            (new in v0.2.0)
   DEFERRED_FIELDS,       // field → '5d' | 'open' (§1)
@@ -76,7 +78,7 @@ Input, options and the null rule as v0.1.0 (`{ text, pages }` from the extractor
 
 ### 3.3 `validateSchema(ruleset?)`
 
-As v0.1.0, with the lists 57 / 14 / 6 / 2 / 2 (v0.3.0: `AIRPORT_EXTENSION_FIELDS` 6) and the `DEFERRED_FIELDS` steps `5d` or `open`.
+As v0.1.0, with the lists 57 / 14 / 7 / 2 / 2 (v0.3.0: `AIRPORT_EXTENSION_FIELDS` 7) and the `DEFERRED_FIELDS` steps `5d` or `open`.
 
 ---
 
@@ -286,16 +288,53 @@ Every printed item is kept. L15 PHNL prints 23 IDs twice under `GENERAL`: the sa
 
 Company NOTAMs (the part of the document before the first airport block) and FIR NOTAMs (after the first FIR block) are never airport NOTAMs. They are read in a later step (`companyNotams`, `enrouteNotams` stay deferred).
 
-### 5.16 Airport weather and E-WINS (rows 43, 48; §A.9; D46, D55, D56; SME-15, SME-17, SME-21, SME-23)
+### 5.16 Airport weather and E-WINS (rows 43, 48; §A.9; D46, D55, D56, D65, D66; SME-15, SME-17, SME-21, SME-23)
 
 Per airport, the body of its Weather Briefing block has the sub-headings `TAF`, `METAR` and `ATIS`. A **report** starts at indent 0–2 with its keyword: `TAF` / `* PRIO * TAF` under TAF, `METAR` under METAR, `AD <AAA> /OS` under ATIS. Every other line continues the report above it (wrapped TAF groups as printed: 42 lines end in a bare `TEMPO` / `BECMG` / `PROBnn`). An empty-state box gives no report. A line with no report above it is kept as a report of its own (fail-safe) with a WARN (none on the 26).
 
-`weather` is in **NavBlue's form**: the reports as printed, joined by `\n`, **METAR first** (newest first, as printed), **then ATIS, then TAF last**. The TAF goes last because the app reads the TAF from the first `TAF` to the end of the text (`extractEtaWindow`), as in NavBlue's METAR-then-TAF text. FlightKeys prints TAF → METAR → ATIS (O-19).
+`weather` is in **NavBlue's form**: the reports as printed, joined by `\n`, **METAR first** (newest first, as printed), **then ATIS, then TAF last**. The TAF goes last because the app reads the TAF from the first `TAF` to the end of the text (`extractEtaWindow`), as in NavBlue's METAR-then-TAF text (FK-P). **D65 (Exec, 18 Nov): kept so.**
 
-**E-WINS.** The `* PRIO *` TAF is the E-WINS forecast (D55 for row 48, SME-17, SME-21). It is found in 3 packages: L15 PWAK, L20 CYXY, L22 EPPW. It sets the airport's fields exactly as NavBlue's `extractEwins()` sets them (FK-P):
-- `ewinsWeather` — the forecast as printed, with the prefix removed (it is not displayed, SME-21);
-- `ewinsWindow` — from `DDHHmmZ DDHH/DDHH`, as `HH00Z-HH00Z`;
-- `ewinsRole` — NavBlue's rule on the role text: `ALTERNATE` → `ALT`, else `DESTINATION`/`DEST` → `DEST`, else `ALT`.
+**`weatherRaw` (D65, addendum 3):** "TAF – METAR – ATIS — it should match the FlightKeys format." It is the airport's Weather Briefing block **as printed**, for the RAW view (step 5e):
+- the sub-headings `TAF`, `METAR`, `ATIS` and every report in printed order;
+- line breaks and indentation, wrapped TAF groups and the printed empty-state text kept;
+- page and column breaks and the running header and footer removed (D54);
+- the `* PRIO * ` prefix removed from its report's first line (D55); nothing else changed.
+
+The block's own lines (name/role, `APT<ICAO>`, runways) are not part of it, as for `notamsRaw`. **No evaluation reads `weatherRaw`.** It is `''` for an airport with no Weather Briefing block, and it is the last key of the entry.
+
+**E-WINS.** The `* PRIO *` TAF is the E-WINS forecast (D55 for row 48, SME-17, SME-21). It is found in 3 packages: L15 PWAK, L20 CYXY, L22 EPPW. Its fields (D66, Exec 18 Nov):
+- `ewinsWeather` — the forecast as printed, with the prefix removed (it is not displayed, SME-21).
+- `ewinsWindow` — **`''`**. No window is built from the forecast's validity. The app's `evalAirport()` (`src/airports.html` line 297: `var effectiveWin = isEwins ? (_ewRef.ewinsWindow || wxWindowOverride) : wxWindowOverride;`) then reads the E-WINS forecast in the airport's **normal window** — ETA ± 60, or its role / CFS window — as for any TAF (TC-162-034, with the app's own `extractEtaWindow` through the harness).
+- `ewinsRole` — **the airport's actual role**: its briefing role codes (§5.14) in printed order (name/role line, then `APT` line, then wrapped lines), each once, joined by `/`.
+
+  | Package | Airport | Roles printed | `ewinsRole` |
+  | :--- | :--- | :--- | :--- |
+  | L15 | PWAK | EA | `EA` |
+  | L20 | CYXY | TA, IA | `TA/IA` |
+  | L22 | EPPW | DEPARTURE, IA | `DEPARTURE/IA` (the departure) |
+
+  The codes are FlightKeys' own (grammar §A.4; Company NOTAM "WX/NOTAMs in Briefing Acronyms"):
+
+  | Code | Meaning |
+  | :--- | :--- |
+  | `DEPARTURE` | origin |
+  | `DESTINATION` | destination |
+  | `ALTN 1` | first destination alternate |
+  | `ALTN` | further alternates (weather only) |
+  | `IA` | intermediate (adequate) airport |
+  | `TA` | terrain alternate |
+  | `EA` | en-route (ETOPS/ETP) alternate |
+  | `dest2` | reclear (redispatch) airport |
+  | `dest2Altn` | reclear alternate candidate |
+  | `dest2AltnPlanned` | reclear alternate as planned |
+
+  The app stores the value only.
+
+**FK-P does not copy a logged NavBlue fault.** NavBlue's `extractEwins()` (locked, D47) has two:
+- **NB-F6:** it builds `HH00Z-HH00Z` from `DDHH/DDHH`, dropping the days. A forecast valid 24 h or more gets equal hours (on the same forecasts: `0400Z-0400Z`, `0500Z-0500Z`, `1300Z-1300Z`; NavBlue fixture `NB_KWRI-EPRZ_08APR26` EPPW `1200Z-1200Z`).
+- **NB-F7:** it takes the role from the free-text line, with `ALT` by default.
+
+Both are logged as open gaps G-NB-6 (lines 1320–1321) and G-NB-7 (lines 1316–1318) in `test/known-gaps.json`. NavBlue is not changed.
 
 The TAF stays in `weather` too, prefix removed (D46: E-WINS sets the status; both reports kept for RAW). At L15 PWAK the Weather Briefing prints the PRIO TAF (0400Z) and, under it, the later `TAF AMD` (1520Z), which the Remarks also quote. The PRIO TAF is controlling (SME-23) and is `ewinsWeather`; both briefing TAFs stay in `weather`; the Remarks copy stays in `remarksWeather` (D34).
 
@@ -374,10 +413,13 @@ Where one document holds two sections, they share the page where the second star
 | TC-162-023 | **evaluation check:** NOTAM v1.13.0 over each airport at each role window: 2,292/2,292 items with a readable window; every result is one unchanged item; per-package table (§8) | PASS |
 | TC-162-024 | NOTAM synthetic: category, heading removed, line breaks kept, empty state, weather-only INFO, no Company / FIR item at an airport; no NOTAM ruleset → WARN, text unchanged | PASS |
 | TC-162-030 | **weather on 26:** counts per airport = the independent reading; totals = grammar §A.9; reports as printed; METAR → ATIS → TAF; no hazard product; prefix never shown | PASS |
-| TC-162-031 | **E-WINS:** L15 PWAK, L20 CYXY, L22 EPPW and no other; `ewinsWindow` / `ewinsRole` = the locked NavBlue parser on the same forecast (FK-P); SME-23; negatives | PASS |
+| TC-162-031 | **E-WINS (D66):** L15 PWAK, L20 CYXY, L22 EPPW and no other; `ewinsWindow` `''` (fails if a validity window comes back); `ewinsRole` = the airport's briefing roles (`EA`, `TA/IA`, `DEPARTURE/IA`; EPPW = the release origin); NavBlue on the same forecast still gives the NB-F6 / NB-F7 values; G-NB-6 / G-NB-7 logged open; SME-23; negatives | PASS |
 | TC-162-032 | weather synthetic: indent + keyword, ATIS continuation starting `AD`, empty state, hazard, PRIO positive and negative | PASS |
 | TC-162-040 / 041 | card order on 6 packages in full and the rule on 26 / an entry for every briefing airport (285; 101 ALTN) and no other | PASS |
 | TC-162-050 | sections on 26 = field map §1.1 (with the O-16 correction); each anchor on its start page in text and items; page order | PASS |
+| TC-162-033 | **weatherRaw (D65)** on all 285 airports: the block as printed (an independent reading), sub-headings TAF → METAR → ATIS, all 1,718 reports once, whole, in printed order, line breaks kept; `* PRIO *` removed from the 3 PRIO TAFs; no furniture, no Hazard text | PASS |
+| TC-162-034 | **D66 in the app:** line 297 checked in `src/airports.html`; the app's `extractEtaWindow` (harness) reads the E-WINS forecast of the 3 airports in the airport's normal window in 384/384 evaluations (no window, each role window; ETA every 30 min); control: the NB-F6 window would select other TAF groups in 315 | PASS |
+| TC-162-060 | **v0.3.0 at e96ed88 byte-identical** (`test/rules/data/ofp-flightkeys-v0.3.0-e96ed88-baseline.json`, recorded before D65 / D66): 1,820 field values, 2,283 airport values and the findings; changed only the 6 D66 values (`ewinsWindow`, `ewinsRole` at 3 airports); `weatherRaw` added as the last key | PASS |
 | TC-162-090 | fixtures missing → FAIL, none skipped (child run) | PASS |
 
 Expected values (`test/rules/data/ofp-flightkeys-expected-v0.2.0.json`) were taken from the release text by a separate, simpler extraction (one pattern per field) and checked against the field map v1.1 counts. They hold no crew data, and free text (MEL titles, Remarks, the permits block) only as SHA-256.
@@ -443,8 +485,9 @@ Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) 
 
 - **Readable windows:** every item has one (2,292/2,292). "Shown at a role window" counts the items NOTAM v1.13.0 keeps at at least one of the airport's role windows (midpoint, ORIG for `DEPARTURE`, aircraft profile of the release); the others are out of their window or schedule at every window, or filtered by the content rules.
 - **Weather (§A.9):** TAF 282 (237 + 37 AMD + 5 COR + 3 PRIO), METAR 1,398 (1,312 + 83 SPECI + 3 COR) and ATIS 38 — equal to the doc. Empty states: ATIS 247, METAR 5, TAF 6 — equal.
-- **Roles (§A.4):** equal to the doc except TA 28 / three-role blocks 9 (doc 27 / 8; O-13). E-WINS: 3 airports (row 48).
-- **Sections:** equal to the field map §1.1 on 26, except the L16 / L18 TLR pages (O-16).
+- **Roles (§A.4):** equal to grammar v1.1 (TA 28, three-role blocks 9; O-13, corrected in the document). E-WINS: 3 airports (row 48), `ewinsWindow` `''`, `ewinsRole` the airport's roles (D66).
+- **weatherRaw (D65):** 285 airports, every report once in printed order (TC-162-033).
+- **Sections:** equal to the field map v1.2 §1.1 on 26 (L16 / L18 pages corrected in the document, O-16).
 - **Findings:** no WARN from the briefing on the 26.
 
 ---
@@ -454,15 +497,15 @@ Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) 
 | Item | Note |
 | :--- | :--- |
 | Explicit empties | v0.3.0 must not be integrated (§1): curfew, ops notes, Company NOTAMs, en-route NOTAMs and NAT are still explicit empties. |
-| **O-12** trailing type heading (5c QA F2) | A type heading left at the end of an item changes nothing for 16 headings. **`OBSTACLE` would hide the item** in NOTAM v1.13.0: the obstacle filter (R-OBS) skips text that says `OBSTACLE` with no approach/departure keyword (994 of the 2,292 items, at 1,710 evaluations). The parser never leaves a heading in an item (TC-162-020), so nothing is hidden today. The NOTAM ruleset is not changed here. **Exec:** confirm this is acceptable, or brief a NOTAM change. |
-| **O-13** grammar §A.4 roles | T2 ZUCK prints its third role (`TA`) on the wrapped runway line, the doc's own example. So TA is in 28 blocks per briefing (doc 27), and 9 blocks have 3 roles (doc 8). No block carries the same role twice (doc: "4 blocks, 2 packages"). Independent reading agrees. Doc not edited here. |
-| **O-14** E-WINS window | NavBlue's rule (`HH00Z-HH00Z` from `DDHH/DDHH`, the days dropped), applied unchanged (FK-P), gives equal hours for a TAF valid 24 h or more: L15 `0400Z-0400Z`, L20 `0500Z-0500Z`, L22 `1300Z-1300Z`. The locked NavBlue parser gives the same for the same forecast. The app then reads the TAF at that hour only, not at ETA ± 60. **Exec:** decision needed before integration (NavBlue is locked, D47). |
-| **O-15** `ewinsRole` | NavBlue's rule gives `ALT` unless the role text says `DESTINATION`; all three FlightKeys E-WINS airports are `ALT`, including L22 EPPW, the departure. The app stores the value only. |
-| **O-16** field map §1.1 | L16 has 4 image-only pages (PDF 32–35) and L18 has 6 (41–46), not 2 and 3, so their TLR is on PDF 36–38 and 47–50. Field map not edited here. |
-| **O-17** grammar §A.5 repeated IDs | Repeated location + ID in one NOTAM Briefing: L15 24, L13 7, L22 4, L06 3, L03/L12/L14/L16/L17/L18 1 each, T1 38, T2 40 (doc: "0–2 in the live packages"). L15 PHNL prints 23 twice under one airport. Every printed item is kept (D43). |
-| **O-18** NOTAM ruleset as an option | The parser takes the NOTAM ruleset through `options.notamRules` to cut items (ADR-005 §2.5). The app must pass it at integration, as it passes `icaoFpl`. |
-| **O-19** weather order | `weather` is METAR → ATIS → TAF, NavBlue's order with the TAF last for the app's reader. FlightKeys prints TAF → METAR → ATIS. **Exec:** confirm for the RAW weather display. |
-| **O-20** sections list | Ten section ids, `hscn` and `nat` included (ADR-005 §2.6.2 lists both), in page order. The release copies 2 and 3 have no section. Final names and order are the Exec's, at the visual check (§2.6.5). |
+| **O-12** trailing type heading (5c QA F2) | A type heading left at the end of an item changes nothing for 16 headings; `OBSTACLE` would hide the item in NOTAM v1.13.0 (994 items, 1,710 evaluations). **Exec, 18 Nov:** no parser change here; the Exec's rule (D67) goes into NOTAM v1.14.0 (step 5c-2). The parser keeps removing the type heading from the item text and keeps it as the category; headings never go into `notams`. |
+| **O-13** grammar §A.4 roles | **Closed (Exec, 18 Nov):** grammar corrected to v1.1 (`docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md`): T2 ZUCK's role on its wrapped runway line, TA 28, 9 three-role blocks, no block with the same role twice. |
+| **O-14** E-WINS window | **Closed (Exec D66, 18 Nov):** `ewinsWindow` `''`; the app uses the airport's normal window (line 297). NavBlue's fault logged as NB-F6 / G-NB-6. |
+| **O-15** `ewinsRole` | **Closed (Exec D66, 18 Nov):** the airport's own role codes in printed order (§5.16); L22 EPPW `DEPARTURE/IA`. NavBlue's fault logged as NB-F7 / G-NB-7. |
+| **O-16** field map §1.1 | **Closed (Exec, 18 Nov):** field map corrected to v1.2 (`docs/SPRINT-OFP-FlightKeysMigration-UPD-20261118-v1.2-FieldMap.md`): L16 TLR PDF 36–38, L18 47–50. |
+| **O-17** repeated IDs | **Closed (Exec, 18 Nov):** field map v1.2 row 44 and grammar v1.1 §A.5 carry the measured counts per package (T1 38, T2 40, L15 24, L13 7, L22 4, L06 3, six packages 1, thirteen 0); L15 PHNL 23 IDs printed twice, both kept. |
+| **O-18** NOTAM ruleset as an option | **Exec, 18 Nov: for step 5e** (integration): the app passes `options.notamRules`. Nothing to do here. |
+| **O-19** weather order | **Closed (Exec D65, 18 Nov):** `weather` stays METAR → ATIS → TAF (the app's reader); `weatherRaw` gives the FlightKeys order TAF → METAR → ATIS for RAW. |
+| **O-20** sections list | **Exec, 18 Nov: for step 6** (bookmarks): names and order at the Exec's visual check (ADR-005 §2.6.5). Nothing to do here. |
 | Contract 2.2 vs NavBlue 2.0 | `operatingPilots` and the crew-record extensions (addendum 2), like `swa` / `specialQualification` (addendum 1), are not returned by the locked NavBlue parser (D47). **Exec, 17 Nov: ignore NavBlue.** The contract 2.2 fields are FlightKeys only, and NavBlue stays locked as it is. |
 | Security line | **Exec, 17 Nov: keep it on the Preflight card only.** L07's `POS LAUNCH TO DWC …` goes to `securityMessages[]` (D45), never to an airport card (TC-161-050). |
 | Repeated MEL items | **Exec, 17 Nov: possible, not an anomaly; keep all items** (§5.7). |
@@ -488,4 +531,4 @@ Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) 
 | :--- | :--- | :--- | :--- |
 | 0.1.0 | 2026-11-17 | NEW (development, D58) | First version: contract 2.1 shape; release rows 1–23, 29–31, 33, 34, 36, 39–41; extensions `designator`, `swa`, `airportData[].specialQualification`; deferred fields explicit empties + INFO. |
 | **0.2.0** | 2026-11-17 | UPD (development, D58) | Release and remarks pages: rows 24–28, 32, 32a, 35; extensions `revision`, `ofpRemarks`, `airportData[].remarks` / `remarksWeather`, `catIiIiiRestrictions`, `securityMessages`, `extraFuel`, `pcf`, `permits`, `operatingPilots` (D62), crew-record `firstName` / `toLndgExpiry`; SME-18 flag; FPL from the release (QA F4); SPEC wording for curfew/opsNotes (QA F3). Contract 2.2. v0.1.0 fields byte-identical. QA F1 → **D63**: one remark per item in a marked block (§5.12; airport remarks and `ofpRemarks`; 4 remarks changed in L06, L09, L21). O-9 → **D63a**: paragraph grouping in unmarked blocks (46 remarks in 24 packages; reason lists keep their line breaks). QA re-review F1 (18 Nov): the D63a blank line is read from the positioned items (a same-page gap ≥ 1.6 × the release median pitch; never across a page break), no output change on the 26; F3: MEL/CDL notes keep their printed line breaks (L13, L19). O-11 (Exec, 18 Nov): D63 confirmed for blank lines inside a marked item (one remark; TC-161-103); module unchanged. |
-| **0.3.0** | 2026-11-18 | UPD (development, D58 amended) | Step 5d, D64: the briefing reader from the positioned items only (§5.13); airport blocks with every role window (`briefing`, SME-1); airport NOTAMs — items cut by the NOTAM ruleset under each printed type heading, `notams` in the v1.13.0 form, `notamItems[]` (ID, category, source positions), `notamsRaw` (the printed layout); weather in NavBlue's form; E-WINS from the `* PRIO *` TAF as NavBlue sets it; an entry for every briefing airport in card order; `sections[]`. Contract 2.3 (addendum 3). New option `notamRules`. v0.2.0 output byte-identical (TC-162-001; one entry moves, L15 PWAK). |
+| **0.3.0** | 2026-11-18 | UPD (development, D58 amended) | Step 5d, D64: the briefing reader from the positioned items only (§5.13); airport blocks with every role window (`briefing`, SME-1); airport NOTAMs — items cut by the NOTAM ruleset under each printed type heading, `notams` in the v1.13.0 form, `notamItems[]` (ID, category, source positions), `notamsRaw` (the printed layout); weather in NavBlue's form; E-WINS from the `* PRIO *` TAF as NavBlue sets it; an entry for every briefing airport in card order; `sections[]`. Contract 2.3 (addendum 3). New option `notamRules`. v0.2.0 output byte-identical (TC-162-001; one entry moves, L15 PWAK). Exec answers (18 Nov): **D65** `weatherRaw` (the Weather Briefing block as printed; `weather` unchanged); **D66** `ewinsWindow` `''`, `ewinsRole` = the airport's role (NavBlue faults NB-F6 / NB-F7 logged, not copied); field map v1.2 and grammar v1.1 corrected (O-13, O-16, O-17); every other value byte-identical to e96ed88 (TC-162-060). |

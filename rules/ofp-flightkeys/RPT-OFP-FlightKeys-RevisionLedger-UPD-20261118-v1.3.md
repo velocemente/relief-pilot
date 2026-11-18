@@ -4,7 +4,7 @@
 **Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v0.3.0.js`
 **Current Version:** 0.3.0 (development version, D58 amended)
 **Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, and the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50. Contract 2.3.
-**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 19/19 PASS on the 26 FlightKeys fixtures; v0.2.0 reviewed in PR #62 (merged); v0.3.0 independent QA pending (relief-pilot PR #63)
+**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22 PASS on the 26 FlightKeys fixtures; v0.3.0 Exec answers of 18 Nov applied (K-09); independent QA pending (relief-pilot PR #63)
 **Last Updated:** 2026-11-18
 
 ---
@@ -13,9 +13,9 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 8 (K-01 … K-08) |
+| Total entries | 9 (K-01 … K-09) |
 | Current Version | 0.3.0 |
-| Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1` (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
+| Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1`, since K-09 v1.2 (`…-UPD-20261118-v1.2-FieldMap.md`) (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
 | Masters reconciled | none: no master exists; v0.2.0 is not published to Drive (D58) |
 | Gate Status | development version; not gated |
 | Integration | none; must not be integrated (curfew, ops notes, Company / en-route NOTAMs and NAT are explicit empties) |
@@ -23,6 +23,18 @@
 ---
 
 ## History
+
+### K-09 — v0.3.0: Exec answers of 18 Nov — D65, D66, document corrections (2026-11-18)
+
+**Type:** UPD · **Brief:** Exec answers to O-12 … O-20 (18 Nov); module still v0.3.0 (development, D58)
+- **D65 (O-19):** `weather` is unchanged (METAR → ATIS → TAF; the app reads from the first `TAF`). The new airport extension `weatherRaw` holds the Weather Briefing block as printed: TAF → METAR → ATIS, with sub-headings, line breaks, indentation, wrapped TAF groups and empty-state text; furniture removed; only the `* PRIO * ` prefix removed. It is for RAW only and is the last key of each entry. `AIRPORT_EXTENSION_FIELDS` 7; addendum 3 updated.
+- **D66 (O-14, O-15):** `ewinsWindow` is `''`, so `src/airports.html` line 297 uses the airport's normal window. `ewinsRole` is the airport's briefing role codes in printed order, joined by `/` (L15 `EA`, L20 `TA/IA`, L22 `DEPARTURE/IA`). `ewinsWeather` is unchanged and the TAF stays in `weather`.
+- **NavBlue faults:** FK-P does not copy a logged NavBlue fault. The comments cite NB-F6 and NB-F7, and the NavBlue-rule patterns `EWINS_VALID`, `EWINS_ROLE_ALT` and `EWINS_ROLE_DEST` are removed. `test/known-gaps.json` "navblue-parser" gets G-NB-6 (lines 1320–1321) and G-NB-7 (lines 1316–1318), status open. NavBlue is not changed (D47).
+- **O-12:** no parser change. The Exec's rule (D67) goes into NOTAM v1.14.0 (step 5c-2). Headings stay out of the item text.
+- **O-13, O-16, O-17:** field map v1.1 → v1.2 (§1.1 L16 / L18 pages; row 44 repeated IDs) and briefing grammar v1.0 → v1.1 (§A.4 roles; §A.5 repeated IDs). Each has a change log; `tools/redact` replaced nothing; docs/README updated.
+- **O-18, O-20:** for 5e and step 6; nothing here.
+- **Tests:** TC-162-033 (`weatherRaw` on 285 airports), TC-162-034 (line 297 plus the app's `extractEtaWindow`: 384/384 in the normal window; control: NB-F6 differs in 315), TC-162-031 (D66), TC-162-060 (byte-identical to e96ed88 except the 6 D66 values; `weatherRaw` added). TC-162-001 (v0.2.0) is unchanged and passes.
+- **Unchanged:** `index.html`, `src/`, `build/`, NavBlue and the snapshots.
 
 ### K-08 — v0.3.0: the briefing reader (step 5d, D64) (2026-11-18)
 
@@ -137,12 +149,12 @@
 | O-9 | ~~D63 outside a marked block~~ **Closed (Exec D63a, 17 Nov): paragraph grouping** (K-04) | — |
 | O-10 | ~~D63a readings~~ **Closed (Exec, 17 Nov): both confirmed** (K-05; TC-161-202, 203) | — |
 | O-11 | ~~Blank line inside a marked block~~ **Closed (Exec, 18 Nov): D63 stands as written**; only the marker starts a new remark, a blank line inside a marked item stays part of it (K-07; TC-161-103) | — |
-| O-12 | A type heading left at the end of an item: 16 headings change nothing; `OBSTACLE` would hide the item (NOTAM v1.13.0 obstacle filter; 994 items). The parser leaves no heading in an item (TC-162-020, -022) | Exec |
-| O-13 | Grammar doc §A.4: TA 28 blocks per briefing (doc 27) and 9 three-role blocks (doc 8): T2 ZUCK's TA on its wrapped runway line; no block has the same role twice (doc: 4) | Exec (doc correction) |
-| O-14 | E-WINS window by NavBlue's rule drops the days: equal hours for a TAF valid 24 h or more (L15, L20, L22); the same in the locked NavBlue parser | Exec (before integration) |
-| O-15 | `ewinsRole` by NavBlue's rule is `ALT` for all three FlightKeys E-WINS airports, the L22 departure included | Exec |
-| O-16 | Field map §1.1: L16 / L18 have 4 / 6 image-only pages; TLR on PDF 36–38 / 47–50 | Exec (doc correction) |
-| O-17 | Grammar doc §A.5: repeated location + ID in one NOTAM Briefing up to 24 in a live package (L15), not 0–2 | Exec (doc correction) |
-| O-18 | The app must pass the NOTAM ruleset (`options.notamRules`) at integration | integration brief |
-| O-19 | `weather` order METAR → ATIS → TAF (NavBlue's, TAF last for the app's reader); FlightKeys prints TAF → METAR → ATIS | Exec (RAW display) |
-| O-20 | Sections: ten ids incl. `hscn` and `nat` (ADR-005 §2.6.2), page order; names and order at the Exec's visual check (§2.6.5) | Exec |
+| O-12 | A type heading left at the end of an item: `OBSTACLE` would hide the item in NOTAM v1.13.0. **Exec, 18 Nov:** no parser change; the Exec's rule (D67) goes into NOTAM v1.14.0 (step 5c-2); headings stay out of the item text | NOTAM 5c-2 |
+| O-13 | ~~Grammar §A.4 roles~~ **Closed (Exec, 18 Nov): grammar v1.1** (K-09) | — |
+| O-14 | ~~E-WINS window~~ **Closed (Exec D66, 18 Nov): `ewinsWindow` `''`**; NavBlue fault NB-F6 / G-NB-6 (K-09) | — |
+| O-15 | ~~`ewinsRole`~~ **Closed (Exec D66, 18 Nov): the airport's own role codes**; NavBlue fault NB-F7 / G-NB-7 (K-09) | — |
+| O-16 | ~~Field map §1.1 L16 / L18~~ **Closed (Exec, 18 Nov): field map v1.2** (K-09) | — |
+| O-17 | ~~Repeated NOTAM IDs~~ **Closed (Exec, 18 Nov): field map v1.2 row 44, grammar v1.1 §A.5** (K-09) | — |
+| O-18 | The app must pass `options.notamRules` at integration (Exec, 18 Nov: 5e) | integration brief (5e) |
+| O-19 | ~~Weather order~~ **Closed (Exec D65, 18 Nov): `weather` unchanged, `weatherRaw` in the FlightKeys order** (K-09) | — |
+| O-20 | Sections: names and order at the Exec's visual check (Exec, 18 Nov: step 6) | step 6 |
