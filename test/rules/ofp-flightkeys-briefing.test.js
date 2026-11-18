@@ -475,7 +475,7 @@ if (!FIXTURES) {
         if (a.briefing.notamBlock && a.briefing.weatherBlock) assert.deepEqual(rn, rw, `${lbl} ${icao}: same roles and windows in both briefings`);
       }
     }
-    // §A.4, with one correction (O-2): T2 ZUCK's third role (TA) is printed on its wrapped runway line (the doc's
+    // §A.4, with one correction (O-13): T2 ZUCK's third role (TA) is printed on its wrapped runway line (the doc's
     // own §A.4 example); the doc's count missed it: TA 28 (not 27) and 9 three-role blocks (not 8) in each briefing.
     assert.deepEqual(roleN, { DEPARTURE: 26, DESTINATION: 26, 'ALTN 1': 26, IA: 83, TA: 28, EA: 21, dest2: 10, dest2AltnPlanned: 10 });
     assert.deepEqual(roleW, { DEPARTURE: 26, DESTINATION: 26, 'ALTN 1': 26, ALTN: 101, IA: 122, TA: 28, EA: 21, dest2: 10, dest2AltnPlanned: 10, dest2Altn: 9 });
@@ -624,7 +624,7 @@ if (!FIXTURES) {
       }
     }
     // 16 of the 17 headings change nothing. A trailing "OBSTACLE" would HIDE items: NOTAM v1.13.0's obstacle
-    // filter (R-OBS) skips a NOTAM that says OBSTACLE without an approach/departure keyword. Reported (O-1); the
+    // filter (R-OBS) skips a NOTAM that says OBSTACLE without an approach/departure keyword. Reported (O-12); the
     // parser never leaves a heading in an item, so no FlightKeys item reaches the module that way.
     assert.deepEqual(Object.keys(changed), ['OBSTACLE']);
     console.log(`TC-162-022: ${evals} item × window evaluations × 17 headings; changed only by OBSTACLE: ${changed.OBSTACLE} evaluations, ${hidden.size} items would be hidden`);
@@ -753,7 +753,7 @@ if (!FIXTURES) {
     assert.deepEqual(pwTafs, ['TAF PWAK 030400Z 0304/0404', 'TAF AMD PWAK 031520Z'], 'L15 PWAK: both briefing TAFs, as printed');
     assert.ok(pw.ewinsWeather.startsWith('TAF PWAK 030400Z'), 'L15 PWAK: the PRIO TAF is the E-WINS');
     assert.equal(pw.remarksWeather.length, 1, 'L15 PWAK: the Remarks copy stays in remarksWeather');
-    // As NavBlue: a TAF valid 24 h or more gives an E-WINS window with equal hours (O-3)
+    // As NavBlue: a TAF valid 24 h or more gives an E-WINS window with equal hours (O-14)
     const win = got.sort().map(k => { const [lbl, icao] = k.split(' '); return run(fk.find(f => L(f) === lbl)).airportData[icao].ewinsWindow; });
     assert.deepEqual(win, ['0400Z-0400Z', '0500Z-0500Z', '1300Z-1300Z']);
   });
@@ -809,7 +809,7 @@ if (!FIXTURES) {
   test('TC-162-050 sections on all 26 = field map §1.1 page ranges; each anchor on its start page', () => {
     const fm = fieldMapSections();
     const MAP = { HSCN: ['hscn'], OFP: ['ofp'], VA: ['va'], TLR: ['tlr'], NAT: ['nat'], Jepp: ['charts'] };
-    // Corrections to field map §1.1 (O-5): the two packages with image-only pages have more of them than §1.1
+    // Corrections to field map §1.1 (O-16): the two packages with image-only pages have more of them than §1.1
     // counts — L16 four (PDF 32–35), L18 six (PDF 41–46), pages with no items — so their TLR is on PDF pages
     // 36–38 and 47–50 (the items' own page numbers; checked below by the anchor in the items).
     const CORR = { L16: { 'tlr 34-36': 'tlr 36-38' }, L18: { 'tlr 44-47': 'tlr 47-50' } };
