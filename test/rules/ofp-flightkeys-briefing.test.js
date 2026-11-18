@@ -335,7 +335,7 @@ if (!FIXTURES) {
           const ind = t.length - t.trimStart().length;
           const kw = { TAF: /^(\* PRIO \* )?TAF\b/, METAR: /^METAR\b/, ATIS: /^AD\s+\S+\s+\/OS\b/ }[sub];
           if (ind <= 2 && kw.test(t.trim())) w[sub].push([t]);
-          else if (w[sub].length && !/^\s{15,}(TAF|METAR|ATIS)$/.test(t) && !/THERE ARE NO ACTIVE|^NIL$|^\s+(TIME )?PERIOD\.$/.test(t) && !(i + 1 < ls.length && /^\s*APT/.test(ls[i + 1].text))) w[sub][w[sub].length - 1].push(t);
+          else if (w[sub].length && !/^\s{15,}(TAF|METAR|ATIS)$/.test(t) && !/THERE ARE NO ACTIVE|^NIL$|^\s+(TIME )?PERIOD\.$/.test(t) && !(i + 1 < ls.length && /^\s*(APT[A-Z0-9]{4}|FIR[A-Z0-9]{4}\s*$)/.test(ls[i + 1].text))) w[sub][w[sub].length - 1].push(t);
         }
       });
       if (!isNotam) continue;
@@ -662,6 +662,100 @@ if (!FIXTURES) {
     }
     assert.equal(all, 2292); assert.equal(readableAll, 2292);
     console.log('TC-162-023 per package (NOTAM v1.13.0 at each role window midpoint):\n' + rows.join('\n'));
+  });
+
+  // ── part 4: weather and E-WINS ─────────────────────────────────────────────
+  // The airport's weather split back into reports: a report starts at indent 0–2 with its keyword (§A.9).
+  const reportsOf = w => {
+    const out = [];
+    for (const l of w ? w.split('\n') : []) {
+      const t = l.trim(), ind = l.length - l.trimStart().length;
+      const type = ind <= 2 && /^TAF\b/.test(t) ? 'TAF' : ind <= 2 && /^METAR\b/.test(t) ? 'METAR' : ind <= 2 && /^AD\s+\S+\s+\/OS\b/.test(t) ? 'ATIS' : null;
+      if (type) out.push({ type, lines: [l] }); else out[out.length - 1].lines.push(l);
+    }
+    return out;
+  };
+  const HAZARD = /^\s*(?:TWC FPG|TWC SIGMET|AIRMET|SIGMET|CONVECTIVE SIGMET)\b/m;
+
+  test('TC-162-030 weather on all 26: report counts per airport, totals = grammar doc §A.9; as printed; order; no hazard', () => {
+    const tot = { TAF: 0, METAR: 0, ATIS: 0 }, forms = {}, empty = { TAF: 0, METAR: 0, ATIS: 0 };
+    let airports = 0;
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx), o = oracle(fx);
+      for (const d of o.docs) for (const l of fkb.readingOrder(d)) {
+        const m = /^\s*THERE ARE NO ACTIVE (ATIS|METAR|TAF) FOR AIRPORT/.exec(l.text);
+        if (m) empty[m[1]]++;
+      }
+      for (const [icao, a] of Object.entries(r.airportData)) {
+        if (!a.briefing || !a.briefing.weatherBlock) { if (a.briefing) assert.equal(a.weather, '', `${lbl} ${icao}`); continue; }
+        airports++;
+        const reps = reportsOf(a.weather);
+        const want = o.wx[icao] || { TAF: [], METAR: [], ATIS: [] };
+        for (const t of ['TAF', 'METAR', 'ATIS']) {
+          assert.equal(reps.filter(x => x.type === t).length, want[t].length, `${lbl} ${icao}: ${t} reports = the independent count`);
+          tot[t] += want[t].length;
+        }
+        // as printed, in NavBlue's order: METAR (newest first, as printed), ATIS, then TAF; "* PRIO *" not shown
+        const strip = ls => ls.map((l, k) => k ? l : l.replace(/^(\s*)\* PRIO \* /, '$1'));
+        const expect = [...want.METAR, ...want.ATIS, ...want.TAF].map(strip).map(ls => ls.join('\n')).join('\n');
+        assert.equal(a.weather, expect, `${lbl} ${icao}: weather = its reports as printed, METAR → ATIS → TAF`);
+        assert.ok(!HAZARD.test(a.weather), `${lbl} ${icao}: no hazard product (TWC FPG, SIGMET, AIRMET) in airport weather (row 48)`);
+        assert.ok(!/\* PRIO \*/.test(a.weather), `${lbl} ${icao}: the "* PRIO *" prefix is not shown (SME-21)`);
+        for (const x of reps) if (x.type !== 'ATIS') {
+          const f = x.lines[0].trim().split(/\s+/).slice(0, 2).join(' ').replace(/ [A-Z]{4}$/, '');
+          forms[f] = (forms[f] || 0) + 1;
+        }
+      }
+    }
+    // §A.9: TAF 282 = 237 + 37 AMD + 5 COR + 3 PRIO (shown as "TAF IIII"); METAR 1,398 = 1,312 + 83 SPECI + 3 COR;
+    // ATIS 38; empty states ATIS 247, METAR 5, TAF 6
+    assert.deepEqual(tot, { TAF: 282, METAR: 1398, ATIS: 38 });
+    assert.deepEqual(forms, { TAF: 240, 'TAF AMD': 37, 'TAF COR': 5, METAR: 1312, 'METAR SPECI': 83, 'METAR COR': 3 });
+    assert.deepEqual(empty, { TAF: 6, METAR: 5, ATIS: 247 });
+    assert.equal(airports, 285);
+    console.log(`TC-162-030: ${airports} airport weather blocks; reports ${JSON.stringify(tot)}; forms ${JSON.stringify(forms)}; empty states ${JSON.stringify(empty)}`);
+  });
+
+  test('TC-162-031 E-WINS: the 3 "* PRIO *" airports and no other; fields as NavBlue sets them (FK-P); negatives', () => {
+    const got = [];
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx);
+      for (const [icao, a] of Object.entries(r.airportData)) {
+        if (!('ewinsWeather' in a)) { assert.ok(!('ewinsRole' in a) && !('ewinsWindow' in a), `${lbl} ${icao}: no E-WINS keys`); continue; }
+        got.push(`${lbl} ${icao}`);
+        // the forecast = the airport's "* PRIO *" TAF in the Weather Briefing (independent reading), prefix not
+        // shown; every TAF of the block stays in weather (D46: both kept for RAW)
+        const prio = oracle(fx).wx[icao].TAF.filter(x => /^\* PRIO \* /.test(x[0]));
+        assert.equal(prio.length, 1, `${lbl} ${icao}: one PRIO TAF printed`);
+        assert.equal(a.ewinsWeather, [prio[0][0].replace(/^\* PRIO \* /, ''), ...prio[0].slice(1)].join('\n'), `${lbl} ${icao}: ewinsWeather = the PRIO TAF`);
+        const tafs = reportsOf(a.weather).filter(x => x.type === 'TAF').map(x => x.lines.join('\n'));
+        assert.equal(tafs[0], a.ewinsWeather, `${lbl} ${icao}: the PRIO TAF also kept in weather`);
+        assert.ok(!/\* PRIO \*/.test(a.ewinsWeather), `${lbl} ${icao}: prefix not shown`);
+        // FK-P: the locked NavBlue parser, given the same forecast in its own E-WINS form, sets the same window and role
+        const roleText = a.briefing.roles.map(x => x.role).join(' ');
+        const nbText = ['HEADER', `***FLIGHT RELEASED UNDER E-WINS AUTHORITY FOR TAF (${icao})`, roleText,
+          ...a.ewinsWeather.split('\n').map((l, k) => k ? l.trim() : l.replace(/^TAF /, 'WSITAF ')), '', 'END'].join('\n');
+        const nb = navblue.parseNavBlue(nbText).airportData[icao];
+        assert.deepEqual([a.ewinsWindow, a.ewinsRole], [nb.ewinsWindow, nb.ewinsRole], `${lbl} ${icao}: ewinsWindow / ewinsRole = NavBlue's`);
+        assert.equal(infos(r, /^ewins$/).filter(f => f.message.startsWith(`${icao}: "* PRIO *" TAF`)).length, 1);
+      }
+    }
+    // row 48: L15 PWAK (EA), L20 CYXY (TA/IA), L22 EPPW (DEPARTURE/IA); every other TAF is not E-WINS (negative)
+    assert.deepEqual(got.sort(), ['L15 PWAK', 'L20 CYXY', 'L22 EPPW']);
+    // NEGATIVE: L22's "Released under EWINS Authority" release line names no airport and sets nothing (v0.2.0 finding kept)
+    const l22 = run(fk.find(f => L(f) === 'L22'));
+    assert.equal(l22.findings.filter(f => f.field === 'ewins' && /names no airport/.test(f.message)).length, 1);
+    // SME-23 (L15 PWAK): the Weather Briefing prints the PRIO TAF (0400Z) and, under it, the later TAF AMD (1520Z),
+    // which the Remarks also quote (remarksWeather, D34). The E-WINS (PRIO) TAF is controlling: it is ewinsWeather;
+    // both briefing TAFs stay in weather for RAW (D46); the Remarks copy stays in remarksWeather.
+    const pw = run(fk.find(f => L(f) === 'L15')).airportData.PWAK;
+    const pwTafs = reportsOf(pw.weather).filter(x => x.type === 'TAF').map(x => x.lines[0].trim().split(/\s+/).slice(0, 4).join(' '));
+    assert.deepEqual(pwTafs, ['TAF PWAK 030400Z 0304/0404', 'TAF AMD PWAK 031520Z'], 'L15 PWAK: both briefing TAFs, as printed');
+    assert.ok(pw.ewinsWeather.startsWith('TAF PWAK 030400Z'), 'L15 PWAK: the PRIO TAF is the E-WINS');
+    assert.equal(pw.remarksWeather.length, 1, 'L15 PWAK: the Remarks copy stays in remarksWeather');
+    // As NavBlue: a TAF valid 24 h or more gives an E-WINS window with equal hours (O-3)
+    const win = got.sort().map(k => { const [lbl, icao] = k.split(' '); return run(fk.find(f => L(f) === lbl)).airportData[icao].ewinsWindow; });
+    assert.deepEqual(win, ['0400Z-0400Z', '0500Z-0500Z', '1300Z-1300Z']);
   });
 }
 
