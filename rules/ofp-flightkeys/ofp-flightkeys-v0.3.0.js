@@ -76,7 +76,7 @@ const SCHEMA_VERSION   = 2;
 // Appendix B addenda: specialQualification, swa (Exec SME answers 13 Nov,
 // contract 2.1); operatingPilots (D62) and the crew-record extensions
 // firstName, toLndgExpiry (SME-9) (contract 2.2); the airport extensions
-// notamItems, notamsRaw (D64) and briefing (SME-1) (contract 2.3, addendum 3).
+// notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65) (contract 2.3, addendum 3).
 // Adding fields is a minor contract version (ADR-005 §2.4).
 const CONTRACT_VERSION = '2.3';
 const RULESET_SOURCE   = 'FlightKeys OFP issued by Atlas Air / Polar Air Cargo dispatch (release, ICAO FPL and briefing package); field map SPRINT-OFP-FlightKeysMigration v1.1; ICAO Doc 4444 App 2/3 through icao-fpl';
@@ -109,9 +109,9 @@ const EXTENSION_FIELDS = Object.freeze([
   'designator', 'swa', 'operatingPilots', 'sections', 'findings',
 ]);
 // Extensions on core records. specialQualification: addendum (SME-2).
-// notamItems, notamsRaw (D64) and briefing (SME-1): addendum 3 (v0.3.0).
+// notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65): addendum 3 (v0.3.0).
 const AIRPORT_EXTENSION_FIELDS = Object.freeze(['remarks', 'remarksWeather', 'specialQualification',
-  'notamItems', 'notamsRaw', 'briefing']);
+  'notamItems', 'notamsRaw', 'briefing', 'weatherRaw']);
 const DDG_EXTENSION_FIELDS     = Object.freeze(['type', 'notes']);
 // Extensions on crewMembers[i] (addendum 2): the full first name as printed and
 // the TO/LNDG currency expiry ("Not Reported" when blank, SME-9).
@@ -2032,11 +2032,19 @@ function _briefWeather(ctx, icao, body) {
     rep[sub || 'TAF'].push(cur);
   }
   if (orphans) add('WARN', 'airportData.weather', `${icao}: ${orphans} weather line(s) with no report keyword above them; kept as printed`);
-  const txt = r => r.lines.map((l, k) => k === 0 ? l.text.replace(/^(\s*)\* PRIO \* /, '$1') : l.text).join('\n');
+  const noPrio = l => l.text.replace(/^(\s*)\* PRIO \* /, '$1');
+  const txt = r => r.lines.map((l, k) => k === 0 ? noPrio(l) : l.text).join('\n');
   // NavBlue's form (rows 43, 48): METAR before TAF; the TAF last (the app reads
-  // from the first TAF to the end of the text). ATIS between them.
+  // from the first TAF to the end of the text). ATIS between them. D65: kept so.
   const all = [...rep.METAR, ...rep.ATIS, ...rep.TAF];
-  return { reports: rep, weather: all.map(txt).join('\n'), prio: rep.TAF.filter(r => r.prio).map(txt) };
+  // D65 (Exec, 18 Nov): weatherRaw = the block as printed, for the RAW view only —
+  // TAF, METAR, ATIS in printed order with their sub-headings, line breaks and
+  // indentation, wrapped TAF groups and the empty-state text; page / column breaks
+  // and running headers are already removed (D54). Only the "* PRIO *" prefix is
+  // removed from its report's first line (D55). No evaluation reads it.
+  const prioStarts = new Set(rep.TAF.filter(r => r.prio).map(r => r.lines[0]));
+  const raw = body.map(l => prioStarts.has(l) ? noPrio(l) : l.text).join('\n');
+  return { reports: rep, weather: all.map(txt).join('\n'), weatherRaw: raw, prio: rep.TAF.filter(r => r.prio).map(txt) };
 }
 
 // Steps 5d-1 … 5d-5: read the briefing documents into airportData (rows 43–45,
@@ -2045,14 +2053,14 @@ function _readBriefing(ctx) {
   const { out, add } = ctx;
   ctx.briefDocs = [];
   if (!ctx.pagesIn) {
-    for (const e of Object.values(out.airportData)) { e.notamItems = []; e.notamsRaw = ''; e.briefing = null; }
+    for (const e of Object.values(out.airportData)) { e.notamItems = []; e.notamsRaw = ''; e.briefing = null; e.weatherRaw = ''; }
     add('WARN', 'briefing', 'no positioned items: the briefing (NOTAMs, weather, sections) is read from positions only; not read');
     return;
   }
   const docs = ctx.briefDocs = _briefDocs(ctx);
   const notamDocs = docs.filter(d => d.kind === 'NOTAM'), wxDocs = docs.filter(d => d.kind === 'WX');
   if (!notamDocs.length && !wxDocs.length) {
-    for (const e of Object.values(out.airportData)) { e.notamItems = []; e.notamsRaw = ''; e.briefing = null; }
+    for (const e of Object.values(out.airportData)) { e.notamItems = []; e.notamsRaw = ''; e.briefing = null; e.weatherRaw = ''; }
     add('WARN', 'briefing', 'no NOTAM Briefing and no Weather Briefing document found: airport NOTAMs and weather not read');
     return;
   }
@@ -2096,7 +2104,7 @@ function _readBriefing(ctx) {
     if (a.notam) nt = _briefNotams(ctx, a.icao, a.notam.body);
     else add('INFO', 'airportData.notams', `${a.icao}: no NOTAM block in the FlightKeys briefing`);
     if (nt.empty && !nt.items.length) add('INFO', 'airportData.notams', `${a.icao}: the NOTAM Briefing prints no active NOTAMs`);
-    let wx = { weather: '', prio: [] };
+    let wx = { weather: '', weatherRaw: '', prio: [] };
     if (a.wx) wx = _briefWeather(ctx, a.icao, a.wx.body);
     else add('WARN', 'airportData.weather', `${a.icao}: no block in the Weather Briefing`);
     e.weather = wx.weather;
@@ -2119,6 +2127,7 @@ function _readBriefing(ctx) {
       add('INFO', 'ewins', `${a.icao}: "* PRIO *" TAF in the Weather Briefing = the E-WINS forecast (SME-17/21); sets the airport's E-WINS fields`);
       if (wx.prio.length > 1) add('WARN', 'ewins', `${a.icao}: ${wx.prio.length} "* PRIO *" TAFs; the first is the E-WINS forecast`);
     }
+    e.weatherRaw = wx.weatherRaw;   // D65; the last key of the entry
     built.set(a.icao, e);
   }
   if (!ctx.opts.notamRules && [...apts.values()].some(a => a.notam)) {
@@ -2128,7 +2137,7 @@ function _readBriefing(ctx) {
   // their entry; the airport extensions are explicit empties.
   for (const [icao, e] of Object.entries(out.airportData)) {
     if (built.has(icao)) continue;
-    e.notamItems = []; e.notamsRaw = ''; e.briefing = null;
+    e.notamItems = []; e.notamsRaw = ''; e.briefing = null; e.weatherRaw = '';
     add(ctx.p1Icaos.includes(icao) ? 'WARN' : 'INFO', 'airportData', `${icao}: not in the FlightKeys briefing (no NOTAM or weather block)`);
   }
   // Card order (SME-1, rows 43–45): the OFP page-1 airports in line order, then the
@@ -2255,7 +2264,7 @@ function validateSchema(ruleset) {
   };
   list('CORE_FIELDS', 57);
   list('EXTENSION_FIELDS', 14);
-  list('AIRPORT_EXTENSION_FIELDS', 6);
+  list('AIRPORT_EXTENSION_FIELDS', 7);
   list('DDG_EXTENSION_FIELDS', 2);
   list('CREW_EXTENSION_FIELDS', 2);
   if (Array.isArray(r.CORE_FIELDS) && Array.isArray(r.EXTENSION_FIELDS)) {

@@ -35,10 +35,14 @@
  *   TC-162-031  E-WINS (row 48; D46, D55, SME-17/21/23): the 3 "* PRIO *" airports (L15 PWAK, L20 CYXY,
  *               L22 EPPW) and no other; fields as NavBlue sets them (FK-P); prefix never shown; negatives
  *   TC-162-032  weather synthetic: report split by indent + keyword; wrapped TAF groups kept; empty state;
- *               PRIO positive and negative
+ *               PRIO positive and negative; weatherRaw (D65) as printed
+ *   TC-162-033  D65 weatherRaw on every airport of all 26: the block as printed (independent reading), TAF →
+ *               METAR → ATIS, every report once and whole, no "* PRIO *", no furniture, no Hazard text
  *   TC-162-040  card order (SME-1) on 6 packages, and the rule on all 26
  *   TC-162-041  an airportData entry for every airport in either briefing (rows 43–45)
  *   TC-162-050  sections on all 26 = the field map §1.1 page ranges; each anchor on its start page
+ *   TC-162-060  every v0.3.0 value byte-identical to the PR head before the Exec answers (e96ed88), except
+ *               weatherRaw (added, D65) and the D66 E-WINS fields
  *   TC-162-090  fixtures missing → FAIL, never skip (child run)
  *
  * Independent reading (test code only): the expected items, categories, reports and blocks are built here from
@@ -274,6 +278,15 @@ test('TC-162-032 weather synthetic: indent + keyword; order METAR → ATIS → T
   assert.equal(p.ewinsWindow, '0600Z-1200Z', 'NavBlue rule: DDHH/DDHH → HH00Z-HH00Z');
   assert.equal(p.ewinsRole, 'ALT', 'NavBlue rule: no ALTERNATE / DEST word → ALT');
   assert.ok(!/PRIO/.test(p.weather) && p.weather.includes('TAF KAAA 040500Z'), 'the TAF stays in weather (D46: both kept), prefix not shown');
+  // D65: weatherRaw = the block as printed (TAF, METAR, ATIS; sub-headings; empty state), prefix removed only
+  const rawLines = [pad(38, 'TAF'), 'TAF KAAA 040500Z 0406/0512 27010KT P6SM SCT030', pad(5, 'FM041200 30012KT P6SM BKN040'),
+    pad(37, 'METAR'), 'METAR KAAA 040651Z 27010KT 10SM SCT030 12/04 A3000 RMK', pad(5, 'AO2 SLP160'), 'METAR KAAA 040551Z 27009KT 10SM SCT030 11/04 A3001',
+    pad(38, 'ATIS'), pad(17, 'THERE ARE NO ACTIVE ATIS FOR AIRPORT KAAA WITHIN THE GIVEN TIME'), 'NIL', pad(17, 'PERIOD.')];
+  assert.equal(p.weatherRaw, rawLines.join('\n'), 'weatherRaw (PRIO): as printed, prefix removed');
+  assert.equal(a.weatherRaw, rawLines.join('\n'), 'weatherRaw (no PRIO): the same lines');
+  assert.ok(!/SIGMET|TWC FPG|FIRKXXX|CHARLIE/.test(a.weatherRaw), 'NEGATIVE: no Hazard Briefing text, no other airport');
+  assert.ok(r.airportData.KCCC.weatherRaw.endsWith(pad(38, 'ATIS') + '\nAD CCC /OS AD0650-  CCC ATIS INFO A 0650Z.\n AD CONTINUATION TEXT.'), 'the last block stops at the FIR block');
+  assert.equal(r.airportData.KBBB.weatherRaw, '', 'no weather block → weatherRaw ""');
 });
 
 // ══ fixtures ═════════════════════════════════════════════════════════════════
@@ -716,6 +729,65 @@ if (!FIXTURES) {
     console.log(`TC-162-030: ${airports} airport weather blocks; reports ${JSON.stringify(tot)}; forms ${JSON.stringify(forms)}; empty states ${JSON.stringify(empty)}`);
   });
 
+  // ── D65: weatherRaw ───────────────────────────────────────────────────────
+  // The independent reading of one airport's Weather Briefing block as printed: from its first sub-heading
+  // (TAF, always first, §A.9) to the line before the next airport or FIR block (test code, fk-briefing.js).
+  function oracleWxRaw(fx) {
+    const out = {};
+    for (const d of oracle(fx).docs) {
+      const ls = fkb.readingOrder(d).filter(l => !l.furniture);
+      if (!ls.length || ls[0].text.trim() === 'COMPANY NOTAMS' || !isName(ls[0].text)) continue;
+      let cur = null;
+      for (let i = 0; i < ls.length; i++) {
+        const t = ls[i].text, next = ls[i + 1] ? ls[i + 1].text : '';
+        const blockStart = (isName(t) && /^\s*APT[A-Z0-9]{4}/.test(next)) || /^\s*FIR[A-Z0-9]{4}\s*$/.test(next);
+        if (blockStart) { cur = null; if (/^\s*APT/.test(next)) cur = out[/^\s*APT([A-Z0-9]{4})/.exec(next)[1]] = { lines: [], started: false }; continue; }
+        if (!cur) continue;
+        if (!cur.started && /^\s{15,}TAF$/.test(t)) cur.started = true;
+        if (cur.started) cur.lines.push(t);
+      }
+    }
+    return out;
+  }
+
+  test('TC-162-033 D65 weatherRaw on every airport of all 26: as printed, TAF → METAR → ATIS, every report once', () => {
+    let airports = 0, reports = 0, prio = 0;
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx), want = oracleWxRaw(fx);
+      for (const [icao, a] of Object.entries(r.airportData)) {
+        if (!a.briefing || !a.briefing.weatherBlock) { assert.equal(a.weatherRaw, '', `${lbl} ${icao}: no weather block → ''`); continue; }
+        airports++;
+        const raw = a.weatherRaw.split('\n');
+        // as printed (the independent reading), the "* PRIO *" prefix removed and nothing else changed (D55)
+        const exp = want[icao].lines.map(t => t.replace(/^(\s*)\* PRIO \* /, '$1'));
+        assert.deepEqual(raw, exp, `${lbl} ${icao}: weatherRaw = the block as printed`);
+        prio += want[icao].lines.filter(t => /^\* PRIO \* /.test(t)).length;
+        assert.ok(!/\* PRIO \*/.test(a.weatherRaw), `${lbl} ${icao}: no "* PRIO *"`);
+        assert.ok(!raw.some(l => mod.PATTERNS.BR_RUNNING_HDR.test(l.trim()) || mod.PATTERNS.BR_FOOTER.test(l.trim())), `${lbl} ${icao}: no page furniture`);
+        assert.ok(!HAZARD.test(a.weatherRaw) && !raw.some(l => /^\s*FIR[A-Z0-9]{4}\s*$/.test(l)), `${lbl} ${icao}: no Hazard Briefing text`);
+        // the sub-headings TAF, METAR, ATIS once each, in that order
+        assert.deepEqual(raw.filter(l => /^\s{21,}(TAF|METAR|ATIS)$/.test(l)).map(l => l.trim()), ['TAF', 'METAR', 'ATIS'], `${lbl} ${icao}: sub-headings`);
+        // every report of weather once, whole, in printed order TAF → METAR → ATIS; line breaks kept
+        const reps = reportsOf(a.weather);
+        const ordered = [...reps.filter(x => x.type === 'TAF'), ...reps.filter(x => x.type === 'METAR'), ...reps.filter(x => x.type === 'ATIS')];
+        let at = 0;
+        for (const x of ordered) {
+          const k = raw.findIndex((l, i) => i >= at && l === x.lines[0]);
+          assert.ok(k >= 0, `${lbl} ${icao}: ${x.type} report in weatherRaw, in printed order`);
+          assert.deepEqual(raw.slice(k, k + x.lines.length), x.lines, `${lbl} ${icao}: ${x.type} report whole, line breaks kept`);
+          assert.equal(raw.filter(l => l === x.lines[0]).length, 1, `${lbl} ${icao}: ${x.type} report once`);
+          at = k + x.lines.length;
+          reports++;
+        }
+        // every raw line is a sub-heading, a line of a report, or empty-state text — nothing else
+        const inRep = new Set(ordered.flatMap(x => x.lines));
+        for (const l of raw) assert.ok(/^\s{21,}(TAF|METAR|ATIS)$/.test(l) || inRep.has(l) || /THERE ARE NO ACTIVE (TAF|METAR|ATIS)|^NIL$|^\s+(TIME )?PERIOD\.$|^\s+.*WITHIN THE GIVEN( TIME)?$/.test(l), `${lbl} ${icao}: raw line is printed weather`);
+      }
+    }
+    assert.equal(airports, 285); assert.equal(reports, 282 + 1398 + 38); assert.equal(prio, 3);
+    console.log(`TC-162-033: weatherRaw on ${airports} airports = the blocks as printed; ${reports} reports once each in printed order; "* PRIO *" removed from ${prio}`);
+  });
+
   test('TC-162-031 E-WINS: the 3 "* PRIO *" airports and no other; fields as NavBlue sets them (FK-P); negatives', () => {
     const got = [];
     for (const fx of fk) {
@@ -837,6 +909,34 @@ if (!FIXTURES) {
       const order = r.sections.map(x => x.startPage);
       assert.deepEqual(order, order.slice().sort((a, b) => a - b), `${lbl}: page order`);
     }
+  });
+
+  // ── D65 / D66: everything else byte-identical to the PR head before the Exec answers (e96ed88) ──
+  const HEAD = require('./data/ofp-flightkeys-v0.3.0-e96ed88-baseline.json');
+  // The values D65 / D66 change on purpose: airport → keys (weatherRaw is added on every entry).
+  const CHANGED_AT_HEAD = {};
+
+  test('TC-162-060 v0.3.0 at e96ed88 byte-identical except weatherRaw (D65, added) and the D66 E-WINS fields', () => {
+    assert.deepEqual(fk.map(f => f.id).sort(), Object.keys(HEAD.fixtures).sort());
+    let fields = 0, values = 0;
+    const changed = [];
+    for (const fx of fk) {
+      const r = run(fx), b = HEAD.fixtures[fx.id], lbl = b.label;
+      assert.deepEqual(Object.keys(r), b.keys, `${lbl}: top-level keys`);
+      for (const [k, h] of Object.entries(b.sha256)) { assert.equal(sha(JSON.stringify(r[k])), h, `${lbl}: ${k} unchanged`); fields++; }
+      assert.equal(sha(JSON.stringify(r.findings)), b.findings, `${lbl}: findings unchanged`);
+      assert.deepEqual(Object.keys(r.airportData), Object.keys(b.airportData), `${lbl}: airport entries and card order unchanged`);
+      for (const [icao, be] of Object.entries(b.airportData)) {
+        const e = r.airportData[icao];
+        assert.deepEqual(Object.keys(e), [...be.keys, 'weatherRaw'], `${lbl} ${icao}: keys = head keys + weatherRaw`);
+        for (const k of be.keys) {
+          if (sha(JSON.stringify(e[k])) === be.sha256[k]) { values++; continue; }
+          changed.push(`${lbl} ${icao}.${k}`);
+        }
+      }
+    }
+    assert.deepEqual(changed.sort(), Object.entries(CHANGED_AT_HEAD).flatMap(([a, ks]) => ks.map(k => `${a}.${k}`)).sort(), 'only the intended values changed');
+    console.log(`TC-162-060: ${fields} fields, ${values} airport values and the findings equal the head e96ed88; changed: ${changed.join(', ') || 'none'}`);
   });
 }
 

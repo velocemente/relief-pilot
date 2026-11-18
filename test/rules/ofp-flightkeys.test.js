@@ -9,7 +9,7 @@
  * TC-160-019 (the SME-18 takeoff-alternate WARN is a v0.2.0 finding, TC-161), TC-160-040 (compares
  * the v0.1.0 fields; the v0.2.0 fields are TC-161-040).
  * Changes for v0.3.0 only where the battery named the version, the airport keys or the deferred list:
- * TC-160-001/002 (version 0.3.0, contract 2.3, 6 airport extensions), TC-160-013 (the airport entry's
+ * TC-160-001/002 (version 0.3.0, contract 2.3, 7 airport extensions incl. weatherRaw, D65), TC-160-013 (the airport entry's
  * keys), TC-160-005 (airportData.weather / .notams and sections are read now: TC-162).
  *
  * A NEW format parser (ADR-005 §2.1): parseFlightKeys(input, options) reads a FlightKeys package
@@ -120,7 +120,7 @@ test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () 
     'extensions = contract v2.0 list + swa (addendum 1) + operatingPilots (addendum 2, D62)');
   assert.deepEqual([...mod.CREW_EXTENSION_FIELDS], ['firstName', 'toLndgExpiry']);
   assert.deepEqual([...mod.AIRPORT_EXTENSION_FIELDS], [...navblue.AIRPORT_EXTENSION_FIELDS, 'specialQualification',
-    'notamItems', 'notamsRaw', 'briefing'], 'airport extensions: v2.0 + specialQualification (addendum 1) + addendum 3 (v0.3.0)');
+    'notamItems', 'notamsRaw', 'briefing', 'weatherRaw'], 'airport extensions: v2.0 + specialQualification (addendum 1) + addendum 3 (v0.3.0, D65)');
   assert.deepEqual([...mod.DDG_EXTENSION_FIELDS], [...navblue.DDG_EXTENSION_FIELDS]);
   const copy = () => Object.assign({}, mod);
   const broken = [
@@ -341,7 +341,7 @@ test('TC-160-013 Q token = Special Qualification (SME-2): text, positions, negat
   assert.deepEqual(Object.keys(r.airportData), ['KAAA', 'KBBB', 'KCCC']);
   assert.deepEqual(Object.values(r.airportData).map(a => a.specialQualification), [true, true, false]);
   for (const a of Object.values(r.airportData))
-    assert.deepEqual(Object.keys(a), ['weather', 'notams', 'remarks', 'remarksWeather', 'specialQualification', 'notamItems', 'notamsRaw', 'briefing']);
+    assert.deepEqual(Object.keys(a), ['weather', 'notams', 'remarks', 'remarksWeather', 'specialQualification', 'notamItems', 'notamsRaw', 'briefing', 'weatherRaw']);
   // positions decide when they disagree with the text (a 1-letter name word "Q" at the column end)
   const text = release({ airports: ['ORIG KAAA/AAA NAME ENDS IN Q N40000W080000 1755Z', 'DEST KBBB/BBB B N41000W081000 0328Z'] });
   const items = [{ str: 'ORIG', x: 58.7, y: 100 }, { str: 'KAAA/AAA NAME ENDS IN', x: 102, y: 100 }, { str: 'Q', x: 250, y: 100 },
