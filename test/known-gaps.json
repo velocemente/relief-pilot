@@ -257,6 +257,28 @@
         "effect": "An OFP without DOF can get a wrong or impossible flight date (e.g. day 59), which moves or drops the dated OUT time and every downline time.",
         "fix": "fix at next NavBlue unlock; FlightKeys parser implements the correct rule (5b)",
         "fixtures": []
+      },
+      {
+        "id": "G-NB-6",
+        "what": "E-WINS window (NB-F6): the window is built from the WSITAF validity DDHH/DDHH as \"HH00Z-HH00Z\", dropping the days; a forecast valid 24 h or more gives equal hours (e.g. 0812/0912 -> \"1200Z-1200Z\").",
+        "file": "rules/ofp-navblue/ofp-navblue-v2.0.1.js",
+        "lines": "1320-1321",
+        "pattern": "var ewinsWindow = validM ? (validM[2] + '00Z-' + validM[4] + '00Z') : '';",
+        "effect": "src/airports.html line 297 uses ewinsWindow in place of the airport's window, so the E-WINS forecast is read at one hour (or a wrong span) instead of ETA ± 60 and the airport's role windows.",
+        "fix": "fix at next NavBlue unlock; the FlightKeys parser returns ewinsWindow '' (Exec D66, ofp-flightkeys v0.3.0)",
+        "status": "open",
+        "fixtures": ["NB_KWRI-EPRZ_08APR26_cmb-nat_rev30"]
+      },
+      {
+        "id": "G-NB-7",
+        "what": "E-WINS role (NB-F7): the role is taken from the free-text line after the E-WINS header (/ALTERNATE/ -> ALT, else /DESTINATION|DEST/ -> DEST, else ALT), not from the airport's role in the release; a departure or any other role becomes ALT.",
+        "file": "rules/ofp-navblue/ofp-navblue-v2.0.1.js",
+        "lines": "1316-1318",
+        "pattern": "var ewinsRole = /ALTERNATE/i.test(roleLine) ? 'ALT' : /DESTINATION|DEST/i.test(roleLine) ? 'DEST' : 'ALT';",
+        "effect": "ewinsRole can name the wrong role (the app stores it only today).",
+        "fix": "fix at next NavBlue unlock; the FlightKeys parser returns the airport's actual role codes (Exec D66, ofp-flightkeys v0.3.0)",
+        "status": "open",
+        "fixtures": []
       }
     ]
   }
