@@ -1,12 +1,12 @@
 # NOTAM Ruleset — Revision Ledger
 
-**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261117-v1.5.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261109-v1.4.md`)
-**Ruleset:** `notam-rules` — file `rules/notam-rules/notam-rules-v1.13.0.js`
-**Current Version:** 1.13.0
-**Lines:** 2,222
-**Patterns:** 66 NM (v1.10.1 also has 66; the "39 NM" in ledger v1.0 did not match its own file). v1.13.0 adds no NM entry: the FlightKeys header patterns are module-private (`_FK_*`, §2b of the file)
-**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); TC-122-001 … 009 PASS (9/9); NOTAM unit tests 82/82 PASS against the module; TC-151-001 … 030 PASS (7/7); TC-171-001 … 040 PASS (16/16). Independent QA pending
-**Last Updated:** 2026-11-17
+**File Standard:** `RPT-NOTAM-RevisionLedger-UPD-20261118-v1.6.md` (supersedes `RPT-NOTAM-RevisionLedger-UPD-20261117-v1.5.md`)
+**Ruleset:** `notam-rules` — built into the app: `rules/notam-rules/notam-rules-v1.13.0.js` (manifest `notam-rules`); next revision, not built: `rules/notam-rules-next/notam-rules-v1.14.0.js` (manifest `notam-rules-next`, step 5e)
+**Current Version:** 1.14.0 (not built into the app; the app runs 1.13.0, the beta 1.11.2)
+**Lines:** 2,537 (v1.13.0: 2,289)
+**Patterns:** 66 NM, unchanged. v1.14.0 adds the obstacle rule's pattern set `OBSTACLE_RULE` (exported, §8a of the file): 9 effect, 11 other-content, 4 undecided patterns and `obstacleWord`, `height`, `runwayRef`, `procedureRef`, `noEffect`, `obstacleLight`
+**QA Status:** TC-120-001 … 030 PASS (11/11); TC-121-001 … 007 PASS (7/7); TC-122-001 … 009 PASS (9/9); NOTAM unit tests 82/82 PASS against the module; TC-151-001 … 030 PASS (7/7); TC-171-001 … 040 PASS (16/16, v1.13.0 after QA: 20/20); **TC-172-001 … 090 PASS (18/18, v1.14.0)**. Independent QA of v1.14.0 pending
+**Last Updated:** 2026-11-18
 
 ---
 
@@ -14,11 +14,11 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total Patches | 25 (P-01 through P-25) |
-| Current Version | 1.13.0 |
+| Total Patches | 26 (P-01 through P-26) |
+| Current Version | 1.14.0 (not built; app 1.13.0) |
 | First Integration | v1.9.7 |
-| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 on `main` (P-23); module 1.12.0 on `main` (P-24); module 1.13.0 pending (P-25, this PR) |
-| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 independent QA APPROVE-FOR-EXEC, merged (#41); P-23 merged; P-24 merged; P-25 pending Exec gate and independent QA (ADR-005 §2.2.6) |
+| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 on `main` (P-23); module 1.12.0 on `main` (P-24); module 1.13.0 on `main` (P-25, velocemente/relief-pilot#61); module 1.14.0 not built (P-26, velocemente/relief-pilot#64; step 5e) |
+| Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 independent QA APPROVE-FOR-EXEC, merged (#41); P-23 merged; P-24 merged; P-25 merged (#61); P-26 pending the Exec's review of the change list and independent QA (ADR-005 §2.2.6) |
 | Open DEFs Against This Ruleset | 4 (ARCH-03 through ARCH-06, all DEFERRED S4). ARCH-01 and ARCH-02 closed by P-21. |
 
 **What changed in v1.1 of this ledger.** The entries P-01 … P-13 of v1.0 are kept unchanged below. P-14 … P-20 record the NOTAM fixes made in the app (`src/notam.html`) since June, which the master v1.10.1 never received (ADR-005 §1.2). P-21 is the extraction of the module. The planned patch numbers of the ARCH items (v1.0: P-14 … P-19) are therefore re-assigned (see "Pending Architecture Items"). A reconciliation of master v1.10.1 against the app follows the patch chain.
@@ -433,6 +433,21 @@
 | Integrated In | this PR (module revision with rebuilt `index.html`; no `src/` change) |
 | QA Verification | TC-171-001 … 040 (16/16): every §A.5 form on the 26 FlightKeys fixtures counted as in the grammar doc (2 five-code wrapped cells added to its location forms); 3,281/3,281 NOTAM items and 298/298 Company/HSCN items with a readable window; split = the items (7,158); 40 header rows split by a page and 13 wrapped cells read whole (L07 example); 14 impossible-date forms → only that NOTAM shown; FlightKeys/NavBlue twins shown at the same ETAs (13,972 cases); matched pair: 133/133 equal windows, shown equal except 3 FlightKeys-shown/NavBlue-hidden (NavBlue's wrapped D) line). NavBlue: 30 fixtures, 7,704 NOTAMs, 22,572 `evalNotams` calls equal to recorded v1.12.0 results; golden, V0 NOTAM-at-ETA and app-path snapshots unchanged (33/33 each); HF-5 oracle: hidden 0, not found 0 (7,538 oracle NOTAMs). All 439 unit tests pass. **After QA (F1, D61): TC-171 20/20, unit tests 443/443.** TC-171-101: 9 unreadable + 8 impossible header-date forms, each after another NOTAM — two items, two IDs, the second shown and flagged at all 882 evaluations each, the first unchanged; TC-171-102: impossible/unreadable date + readable schedule shown outside the schedule, flagged (12 cases), readable date + schedule unchanged (7 cases); TC-171-103: escaped, scope, filters, D43; TC-171-104: flag on the card's NOTAM row, same markup; TC-171-012 now asserts the F1 split. Each fails on the pre-QA head `30c7b61`. NavBlue vs v1.12.0 (30 fixtures, every NOTAM alone, 924,480 calls): differences only in the 14 D61 NOTAMs (8 IDs; `test/reports/NOTAM-v1.13.0-D61-changes.md`), each already shown at every ETA, now flagged; TC-171-030 re-recorded from v1.12.0 with those 14 left out of the sweep (the other 21 fixtures' digests unchanged). FlightKeys fixtures: split still 7,158, no item flagged. Golden and V0 NOTAM-at-ETA 33/33 unchanged; app path: 1 fixture, 2 texts flagged (snapshot updated on the fixtures branch); HF-5 oracle 0 hidden. |
 
+### P-26 — Obstacle NOTAMs shown only when they affect heights or gradients (D67); FlightKeys type headings (v1.14.0)
+
+| Field | Value |
+|:------|:------|
+| Date | 2026-11-18 |
+| Ruleset Version | 1.14.0 |
+| Type | RULE CHANGE (Exec decision D67) + FEATURE (FlightKeys grammar §A.6) |
+| DEF-ID | **Exec decision D67 (18 Nov)**: obstacle NOTAMs "should only show if it affects a runway, approach, SID or STAR heights or gradients", both formats; replaces E1 (v1.13.0 lines 1953–1958). FlightKeys parser v0.3.0 open item **O-12** (5c QA F2): a type heading left at the end of an item hid it under `OBSTACLE` in v1.13.0 (994 items at 1,710 evaluations) |
+| PR | relief-pilot #64, branch `claude/notam-v1.14.0`; fixtures companion branch `claude/notam-v1.14.0` (`expected/notam-rules-v1.14.0/fk-notams-raw.json`: the FlightKeys parser v0.3.0 output per airport, for TC-172 and the change list) |
+| Summary | **Obstacle rule (SPEC §8a).** Obstacle NOTAM = the rule text says `OBST`, `OBSTACLE` or `CRANE` (as before), or a FlightKeys item printed under the `OBSTACLE` heading. Shown only if (1) the text states an effect on runway / approach / SID / STAR heights or gradients (`OBSTACLE_RULE.effect`: minima raised / changed / given, not authorised, glide path / VGSI angle, obstacle clearance, climb gradient, take-off minimums / ODP — today's TKOF keywords unchanged —, procedure altitudes), or (2) it also changes anything else, and is then shown by its own content exactly as v1.13.0 shows it (`OBSTACLE_RULE.other`: navaid, lighting, procedure availability or change, declared distances, threshold, runway / taxiway / apron / stand availability, area closed, low-visibility operations), or (3) the patterns cannot clearly decide (`OBSTACLE_RULE.undecided`: a surface penetrated or named, runway strip, a procedure area "affected"; a height near a procedure or a runway) — shown and listed for the Exec (group U). Otherwise hidden. Stated non-effects (`OCA/H NOT AFFECTED`) and obstacle-light outages are set aside before the patterns are read. One documented pattern set, exported as `OBSTACLE_RULE`; `_obstacleRule(ruleText, fkCategory)` gives the decision and its reason. **FlightKeys type headings (SPEC §5b).** The 17 heading lines (exact text, indent ≥ 15) are cut out by `_splitNotams` as pieces of their own (byte for byte); `evalNotams` reads a heading piece, or a heading line inside a piece, as the category of the items after it (`issues[].fkCategory`) and never as item content. NavBlue text: no headings, unchanged path. Unchanged: window, schedules, D27, D31, D43, D61, aircraft filter, classification, display text, grouping. Not built into `index.html` (manifest entry `notam-rules-next`). |
+| Patterns Affected | none of the 66 NM; E1 (the obstacle filter in `evalNotams`) replaced by `_obstacleRule`; new `OBSTACLE_RULE`, `FK_TYPE_HEADINGS`, `_fkTypeHeading`, `_fkHeadingLines`, `_fkHeadingPiece`; `_splitNotams`, `_splitAt`, `evalNotams`, `validateSchema` (each edit marked `v1.14.0`) |
+| Gate Result | Pending — the Exec's review of the change list, then independent QA (ADR-005 §2.2.6); published to Drive only after both |
+| Integrated In | not built into the app (step 5e) |
+| QA Verification | TC-172-001 … 090 (18/18). Change list `docs/RPT-NOTAM-ObstacleRule-ChangeList-NEW-20261118-v1.0.md`: v1.13.0 vs v1.14.0 over the 30 NavBlue/eOFP fixtures (7,704 NOTAMs, each alone, no window and the TC-171-030 sweep, 1,664,064 calls) and the 26 FlightKeys packages (137 airports, 2,292 items from `notamsRaw` under 635 headings, no window and each airport window): **B 132 shown → hidden (63 NOTAMs), C 12 hidden → shown (11), U 221 undecided, shown (159; 37 hidden by v1.13.0)**; every other NOTAM identical. TC-172-031 / 032 hold every NOTAM not in the list to identical results in CI. `npm test` 488/488; golden 33/33; extractor 56/56; `index.html` unchanged. |
+
 ---
 
 ## Reconciliation — master v1.10.1 vs the app (2026-11-07)
@@ -498,3 +513,4 @@ These are tracked in the Defect Register as ARCH-01 through ARCH-06. ARCH-01 and
 | 2026-11-09 | v1.4: P-24 (v1.12.0, the aircraft data leaves the module; one aircraft-profile module; `evalNotams()` takes the profile object and `getWingspan`) added. P-01 … P-23 entries unchanged. |
 | 2026-11-17 | v1.5: P-25 (v1.13.0, FlightKeys NOTAM item headers) added; P-24 recorded as merged. P-01 … P-24 entries unchanged. |
 | 2026-11-17 | v1.5 (QA rework, before merge): P-25 extended with QA F1 (header with an unreadable date stands alone) and Exec decision D61 (unreadable/impossible dates always shown, flagged, no schedule check). P-01 … P-24 entries unchanged. |
+| 2026-11-18 | v1.6: P-26 (v1.14.0, Exec decision D67 obstacle rule; FlightKeys type headings, O-12) added; P-25 recorded as merged (#61). P-01 … P-25 entries unchanged. |
