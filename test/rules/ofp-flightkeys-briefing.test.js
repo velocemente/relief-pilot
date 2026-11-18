@@ -484,6 +484,185 @@ if (!FIXTURES) {
     assert.deepEqual(noIata.sort(), ['L16 RJCJ', 'L22 EPPW']);
     console.log('TC-162-010 roles (NOTAM | WX): ' + JSON.stringify(roleN) + ' | ' + JSON.stringify(roleW));
   });
+
+  // ── part 3: NOTAM items ────────────────────────────────────────────────────
+  const AP = acProf;
+  const hm = s => { const m = /(\d{2}) (\d{2}):(\d{2})/.exec(s); return { d: +m[1], m: +m[2] * 60 + +m[3] }; };
+  // The evaluation time of one role window: its midpoint (minutes of the UTC day); ORIG for DEPARTURE.
+  const windowsOf = a => a.briefing.roles.map(x => {
+    const s = hm(x.start), e = hm(x.end);
+    return { role: x.role === 'DEPARTURE' ? 'ORIG' : 'DEST', eta: (s.m + Math.round(((e.d - s.d) * 1440 + e.m - s.m) / 2) + 1440) % 1440, name: x.role };
+  });
+  const depOf = r => /^\d{4}$/.test(r.offFromOFP) ? (+r.offFromOFP.slice(0, 2)) * 60 + +r.offFromOFP.slice(2) : null;
+  const piecesOf = a => a.notams === '' ? [] : NR._splitNotams(a.notams).map(p => p.replace(/\n$/, ''));
+  const shown = (r, fx, text, w) => NR.evalNotams([text], w.role, w.eta, AP.buildAcftProfile(r.acftType), fx.date, depOf(r), AP.getWingspan).issues.some(i => i.notamRaw === text);
+
+  // Rows of one source span, rebuilt from the positioned items (test code): { y, text } (compared without spaces).
+  function spanRows(json, s) {
+    const p = json.pages.find(x => x.n === s.page);
+    const its = p.items.filter(i => i.str && i.str.trim() && (s.column === 'L' ? i.x < p.width / 2 : i.x >= p.width / 2) && i.y >= s.y[0] - 0.5 && i.y <= s.y[1] + 0.5);
+    const rows = [];
+    for (const it of its.sort((a, b) => a.y - b.y || a.x - b.x)) {
+      const r = rows[rows.length - 1];
+      if (r && Math.abs(it.y - r.y) <= 2) r.items.push(it); else rows.push({ y: it.y, items: [it] });
+    }
+    return rows.map(r => ({ y: r.y, text: norm(r.items.sort((a, b) => a.x - b.x).map(i => i.str).join('')) }));
+  }
+  const norm = t => t.replace(/\s+/g, '');
+
+  test('TC-162-020 NOTAM items on all 26: each once, right airport, right category; split = items; by position', () => {
+    const per = [];
+    let total = 0, multi = 0, dups = 0;
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx), o = oracle(fx), json = load(fx).items;
+      const mine = [];
+      const spans = [];
+      for (const [icao, a] of Object.entries(r.airportData)) {
+        if (!a.notamItems || !a.notamItems.length) continue;
+        const pcs = piecesOf(a);
+        // the split of the airport's NOTAM text gives back exactly its items (FK-P: the form v1.13.0 splits)
+        assert.equal(pcs.length, a.notamItems.length, `${lbl} ${icao}: _splitNotams(notams) = notamItems`);
+        assert.equal(NR._splitNotams(a.notams).join(''), a.notams, `${lbl} ${icao}: the pieces are the text (D54)`);
+        a.notamItems.forEach((it, k) => {
+          const h = NR._fkHeader(pcs[k]);
+          assert.ok(h && h.id === it.id, `${lbl} ${icao}: item ${k} ID ${it.id} = its header`);
+          assert.equal(NR._splitNotams(pcs[k]).length, 1, `${lbl} ${icao} ${it.id}: one item, one ID (never two)`);
+          assert.ok(!pcs[k].split('\n').some(l => mod.PATTERNS.BR_RUNNING_HDR.test(l.trim()) || mod.PATTERNS.BR_FOOTER.test(l.trim())), `${lbl} ${icao} ${it.id}: no page furniture`);
+          assert.ok(!pcs[k].split('\n').some(l => /^\s{21,}\S/.test(l) && fkb.CATEGORIES.includes(l.trim())), `${lbl} ${icao} ${it.id}: no type heading in the item`);
+          // by source position: the rows inside the item's spans are exactly the item's lines, in order
+          const rows = it.source.flatMap(s => {
+            assert.ok(s.y[0] > 27.5 && s.y[1] < 571.6, `${lbl} ${icao} ${it.id}: span inside the body band`);
+            return spanRows(json, s);
+          });
+          assert.deepEqual(rows.map(x => x.text), pcs[k].split('\n').map(norm), `${lbl} ${icao} ${it.id}: its source positions hold its lines and nothing else`);
+          if (pcs[k].split('\n').length > 3) multi++;
+          for (const s of it.source) spans.push({ key: `${icao} ${it.id}`, ...s });
+          mine.push({ icao, id: it.id, category: it.category, text: pcs[k] });
+        });
+      }
+      // no two items share a source row
+      for (let i = 0; i < spans.length; i++) for (let j = i + 1; j < spans.length; j++) {
+        const a = spans[i], b = spans[j];
+        if (a.page === b.page && a.column === b.column) assert.ok(a.y[1] < b.y[0] || b.y[1] < a.y[0], `${lbl}: ${a.key} and ${b.key} do not overlap`);
+      }
+      // every item of the NOTAM Briefing exactly once, under the right airport, with the right category
+      const key = x => `${x.icao}|${x.id}|${x.category}`;
+      assert.deepEqual(mine.map(key).sort(), o.notam.map(key).sort(), `${lbl}: (airport, ID, category) = the independent reading`);
+      assert.deepEqual(mine.map(x => x.text).sort(), o.notam.map(x => x.text).sort(), `${lbl}: item texts = the independent reading (line breaks and indentation kept)`);
+      assert.equal(mine.length, grammarTable()[lbl].aptItems, `${lbl}: airport NOTAM items = grammar doc §A.2`);
+      const seen = {};
+      for (const x of mine) seen[`${x.icao}|${x.id}`] = (seen[`${x.icao}|${x.id}`] || 0) + 1;
+      const twice = Object.values(seen).filter(v => v > 1).length;
+      dups += twice;
+      per.push(`${lbl} ${mine.length}${twice ? ` (${twice} IDs printed twice under one airport)` : ''}`);
+      total += mine.length;
+    }
+    assert.equal(total, 2292);
+    // L15 PHNL prints 23 IDs twice under GENERAL (same header row, body wrapped differently): both printed items
+    // are kept, never merged by the parser (D43; the NOTAM ruleset's own D43 rule decides at evaluation).
+    assert.equal(dups, 23);
+    console.log(`TC-162-020: ${total} airport NOTAM items (${multi} with more than 3 lines) = the independent reading; per package: ${per.join(', ')}`);
+  });
+
+  test('TC-162-021 D64 raw layout on every airport of all 26: headings and items in printed order, nothing else', () => {
+    let airports = 0, headings = 0;
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx), o = oracle(fx);
+      for (const [icao, a] of Object.entries(r.airportData)) {
+        if (!a.briefing) continue;
+        airports++;
+        if (!a.briefing.notamBlock) { assert.equal(a.notamsRaw, '', `${lbl} ${icao}: no NOTAM block → no raw layout`); continue; }
+        const raw = a.notamsRaw.split('\n');
+        const pcs = piecesOf(a).map(p => p.split('\n'));
+        // walk the raw layout: a heading, an item (its lines, contiguous), or the empty-state box — nothing else
+        let k = 0, at = 0, cat = '';
+        const heads = [];
+        while (at < raw.length) {
+          const l = raw[at];
+          if (/^\s{21,}\S/.test(l) && fkb.CATEGORIES.includes(l.trim())) { cat = l.trim(); heads.push(cat); at++; continue; }
+          if (/THERE ARE NO ACTIVE NOTAMS FOR AIRPORT/.test(l)) { at += 3; continue; }
+          assert.ok(k < pcs.length, `${lbl} ${icao}: raw line ${at} belongs to an item`);
+          assert.deepEqual(raw.slice(at, at + pcs[k].length), pcs[k], `${lbl} ${icao}: item ${a.notamItems[k].id} once, whole, in printed order`);
+          assert.equal(a.notamItems[k].category, cat, `${lbl} ${icao}: item ${a.notamItems[k].id} under its printed heading`);
+          at += pcs[k].length; k++;
+        }
+        assert.equal(k, pcs.length, `${lbl} ${icao}: every item in the raw layout`);
+        assert.ok(!raw.some(l => mod.PATTERNS.BR_RUNNING_HDR.test(l.trim()) || mod.PATTERNS.BR_FOOTER.test(l.trim())), `${lbl} ${icao}: no page furniture`);
+        // the headings appear in printed order (the independent reading's category sequence for this airport)
+        const want = o.notam.filter(x => x.icao === icao).map(x => x.category).filter((c, i, arr) => c && c !== arr[i - 1]);
+        assert.deepEqual(heads.filter((c, i, arr) => c !== arr[i - 1]), want, `${lbl} ${icao}: headings in printed order`);
+        assert.ok(new Set(heads).size === heads.length, `${lbl} ${icao}: each heading at most once per block (§A.6)`);
+        headings += heads.length;
+      }
+    }
+    console.log(`TC-162-021: raw layout checked on ${airports} briefing airports; ${headings} headings in printed order`);
+  });
+
+  test('TC-162-022 5c QA F2: a type heading left at the end of an item — the parser leaves none; effect measured', () => {
+    // The parser removes every heading from the item text (TC-162-020). What a heading LEFT at the end of an
+    // item would do, through NOTAM v1.13.0 at the airport's windows, for each of the 17 headings:
+    const changed = {};
+    let evals = 0;
+    const hidden = new Set();
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx);
+      for (const [icao, a] of Object.entries(r.airportData)) {
+        if (!a.notamItems || !a.notamItems.length) continue;
+        const ws = windowsOf(a);
+        for (const p of piecesOf(a)) for (const w of ws) {
+          const base = shown(r, fx, p, w);
+          evals++;
+          for (const c of fkb.CATEGORIES) {
+            const q = p + '\n' + ' '.repeat(36) + c;
+            if (shown(r, fx, q, w) !== base) {
+              changed[c] = (changed[c] || 0) + 1;
+              assert.ok(base, `${lbl} ${icao}: a trailing heading never SHOWS an item that is hidden`);
+              hidden.add(`${lbl} ${icao} ${NR._fkHeader(p).id}`);
+            }
+          }
+        }
+      }
+    }
+    // 16 of the 17 headings change nothing. A trailing "OBSTACLE" would HIDE items: NOTAM v1.13.0's obstacle
+    // filter (R-OBS) skips a NOTAM that says OBSTACLE without an approach/departure keyword. Reported (O-1); the
+    // parser never leaves a heading in an item, so no FlightKeys item reaches the module that way.
+    assert.deepEqual(Object.keys(changed), ['OBSTACLE']);
+    console.log(`TC-162-022: ${evals} item × window evaluations × 17 headings; changed only by OBSTACLE: ${changed.OBSTACLE} evaluations, ${hidden.size} items would be hidden`);
+  });
+
+  test('TC-162-023 evaluation check: NOTAM v1.13.0 over each airport at each window; nothing lost or merged', () => {
+    const rows = [];
+    let all = 0, readableAll = 0;
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx);
+      let n = 0, readable = 0, shownAny = 0, evals = 0;
+      for (const [icao, a] of Object.entries(r.airportData)) {
+        if (!a.notamItems || !a.notamItems.length) continue;
+        const pcs = NR._splitNotams(a.notams);
+        const set = new Set(pcs);
+        const shownIds = new Set();
+        for (const w of windowsOf(a)) {
+          const res = NR.evalNotams(pcs, w.role, w.eta, AP.buildAcftProfile(r.acftType), fx.date, depOf(r), AP.getWingspan);
+          evals++;
+          for (const i of res.issues) {
+            if (i.slot === 99) continue;
+            assert.ok(set.has(i.notamRaw), `${lbl} ${icao}: every result is one item, unchanged (never merged)`);
+            shownIds.add(pcs.indexOf(i.notamRaw));
+          }
+        }
+        pcs.forEach((p, k) => {
+          n++;
+          if (NR.xNW_standalone(p, fx.date)) readable++;
+          if (shownIds.has(k)) shownAny++;
+        });
+      }
+      rows.push(`  ${lbl.padEnd(4)} items ${String(n).padStart(4)}  readable window ${String(readable).padStart(4)}  shown at a window ${String(shownAny).padStart(4)}  (${evals} airport-window evaluations)`);
+      assert.equal(readable, n, `${lbl}: every airport NOTAM item has a readable window`);
+      all += n; readableAll += readable;
+    }
+    assert.equal(all, 2292); assert.equal(readableAll, 2292);
+    console.log('TC-162-023 per package (NOTAM v1.13.0 at each role window midpoint):\n' + rows.join('\n'));
+  });
 }
 
 // ── TC-162-090: a missing fixtures repo is a FAILURE (child run) ──
