@@ -4,8 +4,8 @@
 **Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v0.2.0.js`
 **Current Version:** 0.2.0 (development version, D58)
 **Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1. Contract 2.2.
-**QA Status:** TC-160 20/20 and TC-161 21/21 PASS on the 26 FlightKeys fixtures; independent QA of PR #62: CHANGES-REQUESTED (F1), F1 fixed under D63 (K-03), O-9 under D63a (K-04), O-10 confirmed (K-05), re-review pending
-**Last Updated:** 2026-11-17
+**QA Status:** TC-160 20/20 and TC-161 26/26 PASS on the 26 FlightKeys fixtures; independent QA of PR #62: CHANGES-REQUESTED (F1), F1 fixed under D63 (K-03), O-9 under D63a (K-04), O-10 confirmed (K-05); re-review CHANGES-REQUESTED (F1–F4), fixed (K-06); re-review pending
+**Last Updated:** 2026-11-18
 
 ---
 
@@ -13,7 +13,7 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 5 (K-01 … K-05) |
+| Total entries | 6 (K-01 … K-06) |
 | Current Version | 0.2.0 |
 | Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1` (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
 | Masters reconciled | none: no master exists; v0.2.0 is not published to Drive (D58) |
@@ -23,6 +23,15 @@
 ---
 
 ## History
+
+### K-06 — v0.2.0: D63a blank lines from the positions; MEL notes keep their line breaks (QA re-review F1–F4) (2026-11-18)
+
+**Type:** UPD (same development version, before merge) · **Brief:** Exec prompt, 18 Nov (QA re-review of PR #62, F1–F4)
+- **F1:** the app's reader writes no empty line inside a page, so the D63a "blank line" is now read from the positioned items: a gap between two consecutive lines of the same page of at least 1.6 × the median line pitch of the first release copy (13.20 pt in all 26; one line 0.90–1.10 ×, a blank line ≥ 1.99 ×). The page's lines are rebuilt from the items as `processPDF()` builds them and used only when they match the text line for line. Never across a page break (O-10). Applied to the general Remarks run and the CDC attestation. A spaces-only text line is no longer a blank line. Without matching items: no blank line, one WARN naming the page(s). **No output change on the 26** (131 printed blank lines in unmarked blocks, each already a record boundary).
+- **F2:** crew and CAT tests plant a full block, heading included, on a briefing page before the release; a mutant that reads the whole package now fails TC-161-011 / TC-161-021.
+- **F3:** a wrapped MEL/CDL note keeps its printed line breaks (`"\n"`), as remarks do (Exec display rule, 3 Nov). Changed on the 26: one note in L13 (36-11-08C), one in L19 (2 lines each). Titles still join with a space (`melItems`, NavBlue form).
+- **F4:** the private truth-sheet report header gives the current module SHA-256 (fixtures repo).
+- Tests: TC-161-300 … 304 new; TC-161-201 / 203 / 302 built from positioned items (no typed blank lines); TC-161-011, 021, 031 changed. Mutants caught: blank never seen, page break as blank line, threshold 2.5 and 1.2, CDC and Remarks blank ignored, WARN removed, note joined with a space, crew and CAT read from the whole package.
 
 ### K-05 — v0.2.0: D63a readings confirmed (O-10) (2026-11-17)
 
@@ -102,3 +111,4 @@
 | O-8 | ~~Truth sheets are drafts~~ **Closed (Exec, 17 Nov): OK** | — |
 | O-9 | ~~D63 outside a marked block~~ **Closed (Exec D63a, 17 Nov): paragraph grouping** (K-04) | — |
 | O-10 | ~~D63a readings~~ **Closed (Exec, 17 Nov): both confirmed** (K-05; TC-161-202, 203) | — |
+| O-11 | A blank line inside a **marked** block does not start a remark (D63: only the block's marker does). L06 LEZG `DEPARTURES` is one item across 2 printed blank lines. Confirm D63 here, or a rule for blank lines in marked blocks | Exec |

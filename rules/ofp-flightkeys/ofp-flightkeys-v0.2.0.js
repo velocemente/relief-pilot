@@ -992,6 +992,72 @@ function _lineX(ctx, pdfPage, text) {
   return hit ? hit.x : null;
 }
 
+// D63a blank lines (QA F1, 17 Nov). The app's reader writes no empty line inside a
+// page (src/pdf.html processPDF: a line is written only `if (lineStr.trim())`), so a
+// printed blank line exists only in the positioned items: a vertical gap between two
+// consecutive lines of the same page. The release is one column in one font. On the
+// 26 FlightKeys fixtures the median line pitch of the first release copy is 13.20 pt
+// in every package; one printed line is 0.90–1.10 × that pitch, a blank line 1.99–2.04 ×
+// (two blank lines 3.00–3.23 ×), and nothing lies in between. A blank line is
+// therefore a gap of at least BLANK_LINE_PITCHES × the release copy's median pitch.
+// The median is taken over the whole copy, not the block: in 6 of the 26 packages
+// the Remarks block has more blank lines than single steps. Lines on different pages
+// are never compared (O-10: a page break is not a blank line).
+const BLANK_LINE_PITCHES = 1.6;
+
+// The y of every text line of a PDF page, from the page's items, grouped exactly as
+// processPDF groups them (source order; a line is the first one within 2 pt of the
+// item's y; lines top to bottom; empty lines dropped). null when the items are missing
+// or their lines do not match the text page line for line.
+function _pageLineYs(ctx, pdfPage) {
+  ctx.lineYCache = ctx.lineYCache || {};
+  if (Object.prototype.hasOwnProperty.call(ctx.lineYCache, pdfPage)) return ctx.lineYCache[pdfPage];
+  let ys = null;
+  const pg = ctx.pagesIn && ctx.pagesIn.find(p => p && p.page === pdfPage);
+  const textLines = ctx.textPages[pdfPage - 1];
+  if (pg && Array.isArray(pg.items) && textLines) {
+    const src = pg.items.map((it, k) => ({ it, k: it && typeof it.order === 'number' ? it.order : k }))
+      .filter(o => o.it && typeof o.it.str === 'string' && o.it.str && typeof o.it.x === 'number' && typeof o.it.y === 'number')
+      .sort((a, b) => a.k - b.k);
+    const buckets = [];
+    for (const { it } of src) {
+      let b = buckets.find(l => Math.abs(l.y - it.y) <= 2);
+      if (!b) { b = { y: it.y, items: [] }; buckets.push(b); }
+      b.items.push(it);
+    }
+    buckets.sort((a, b) => a.y - b.y);
+    const rows = buckets.map(b => ({ y: b.y, key: b.items.slice().sort((a, c) => a.x - c.x).map(i => i.str).join('').replace(/\s+/g, '') }))
+      .filter(r => r.key);
+    if (rows.length === textLines.length && rows.every((r, j) => r.key === textLines[j].replace(/\s+/g, ''))) ys = rows.map(r => r.y);
+  }
+  ctx.lineYCache[pdfPage] = ys;
+  return ys;
+}
+
+// Median pitch of the first release copy: consecutive body lines on the same page.
+function _releasePitch(ctx) {
+  if (ctx.relPitch !== undefined) return ctx.relPitch;
+  const d = [];
+  for (const p of ctx.rel ? ctx.rel.pages : []) {
+    const ys = _pageLineYs(ctx, p.pdfPage);
+    if (!ys) continue;
+    for (let j = 3; j < 2 + p.body.length; j++) d.push(ys[j] - ys[j - 1]);
+  }
+  d.sort((a, b) => a - b);
+  ctx.relPitch = d.length ? d[Math.floor((d.length - 1) / 2)] : null;
+  return ctx.relPitch;
+}
+
+// Is a printed blank line between release lines a and b (a above b)? true / false, or
+// null when the positions cannot tell (the page is then noted for one WARN).
+function _blankBetween(ctx, a, b) {
+  const pa = ctx.rel.pos[a], pb = ctx.rel.pos[b];
+  if (pa.page !== pb.page) return false;   // O-10: a page break is not a blank line
+  const ys = _pageLineYs(ctx, pa.page), pitch = _releasePitch(ctx);
+  if (!ys || !(pitch > 0)) { (ctx.blankUnknown = ctx.blankUnknown || new Set()).add(pa.page); return null; }
+  return ys[pb.line - 1] - ys[pa.line - 1] >= BLANK_LINE_PITCHES * pitch;
+}
+
 // Airport entry for a remark: the page-1 airports exist already; an airport the
 // release names elsewhere (an alternate in altData, e.g. a CFS alternate) gets an
 // entry of the same shape; any other airport is not attached (INFO).
@@ -1072,7 +1138,8 @@ function _readCrew(ctx) {
 
 // ── MEL / CDL / DDG block (row 25; SME-4) ───────────────────────────────
 // "MEL|CDL <code> - <title>" (title wraps onto the next line), notes "- …" /
-// "RMK - …" under the item (their wrapped lines join the note), until the next
+// "RMK - …" under the item (their wrapped lines join the note with their printed
+// line breaks, "\n", nothing reflowed; QA F3), until the next
 // item or the block end. Every printed item is kept, a repeated one included (Exec,
 // 17 Nov). "Dispatcher applied ADHOC penalty:" and its lines are
 // not item notes (kept in ofpRemarks). Indentation comes from the positioned
@@ -1099,7 +1166,7 @@ function _readMelBlock(ctx, from, to) {
     } else if (PATTERNS.MEL_NOTE.test(l)) {
       note = { text: l, indent: 1, at: i };
       cur.notes.push(note);
-    } else if (note) note.text += ' ' + l;
+    } else if (note) note.text += '\n' + l;   // the note keeps its printed line breaks, as remarks do (D63a; QA F3)
     else cur.desc = (cur.desc + ' ' + l).trim();
   }
   // Indentation from the positioned items (positions win over the text rule + WARN).
@@ -1146,7 +1213,8 @@ function _finishDdg(ctx) {
 //    SME-18, SME-18a, SME-19, SME-23) ─────────────────────────────────────
 // Every line from the dispatcher line to "MEL/CDL" goes into ofpRemarks
 // { text, category, airport, subHeading, page, line }, one record per remark.
-// D63a (Exec, 17 Nov) for the unmarked run: a remark runs until a blank line, a
+// D63a (Exec, 17 Nov) for the unmarked run: a remark runs until a blank line (seen in
+// the positioned items, _blankBetween; never across a page break), a
 // sub-heading, or the start of a recognised item (a line that starts a category,
 // _remarkStart); a fixed-form item also ends where its form ends (a one-line
 // category; the boilerplate at its "questions." line). Its lines are joined with
@@ -1198,9 +1266,12 @@ function _readRemarks(ctx, from, to) {
   const entries = [];
   let mode = null, boilerOpen = false, station = null, entry = null, fleetWarned = false;
   let blank = false, afterSub = false, genSub = null;   // D63a paragraph state (unmarked run)
+  let prevLine = -1;
   for (let i = from; i < to; i++) {
     const t = lines[i].trim();
-    if (!t) { blank = true; continue; }
+    if (!t) continue;   // the app writes no empty line; a blank line is a gap in the positions
+    blank = prevLine !== -1 && _blankBetween(ctx, prevLine, i) === true;
+    prevLine = i;
     let c = _remarkStart(t, i === from);
     if (c === null && PATTERNS.RMK_DASHES.test(t) && i + 1 < to && PATTERNS.RMK_STATION.test(lines[i + 1].trim())) c = 'dashes';
     let cont = false, isSub = false;
@@ -1571,10 +1642,12 @@ function _readReleasePages(ctx) {
           const end = ce === -1 ? (stop === -1 ? lines.length : stop) : ce;
           // D63a: the attestation is one remark; a blank line, a sub-heading or another
           // "*** CDC ATTESTATION" heading (the block's only recognised item) starts a new one.
-          let rec = null, afterSub = false;
+          let rec = null, afterSub = false, prevLine = -1;
           for (let i = cs; i < end; i++) {
             const t = lines[i].trim();
-            if (!t) { rec = null; continue; }
+            if (!t) continue;   // a blank line is a gap in the positions (see _blankBetween)
+            if (prevLine !== -1 && _blankBetween(ctx, prevLine, i) === true) rec = null;
+            prevLine = i;
             const isSub = PATTERNS.RMK_SUBHEAD.test(t);
             if (rec && !isSub && !afterSub && !PATTERNS.CDC_START.test(t)) rec.text += '\n' + t;
             else ctx.ext.ofpRemarks.push(rec = { text: t, category: 'cdcAttestation', airport: null, subHeading: null, page: rel.pos[i].page, line: rel.pos[i].line });
@@ -1582,6 +1655,7 @@ function _readReleasePages(ctx) {
           }
         }
       }
+      if (ctx.blankUnknown) ctx.add('WARN', 'ofpRemarks', `positioned items missing or not matching the text on PDF page(s) ${[...ctx.blankUnknown].sort((a, b) => a - b).join(', ')}: a printed blank line cannot be seen there, so a remark after one may be joined to the remark above it (D63a)`);
     }
   }
   _readTlr(ctx);

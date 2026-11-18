@@ -12,7 +12,7 @@
  *               fixtures repo; public assertions are counts, roles and flags; operating pilots per package
  *               (D62); "*" never seniority (SME-3/3a); blank expiry "Not Reported" (SME-9); FA/PU/MX/LM
  *               not crew; DH/JS as NavBlue
- *   TC-161-011  crew synthetic, positive and negative
+ *   TC-161-011  crew synthetic, positive and negative; QA F2: a crew block planted before the release is never read
  *   TC-161-020  CAT II/III (row 24, SC) on 26 fixtures: authorisations (NavBlue form) and restrictions
  *   TC-161-021  CAT II/III synthetic (SME-10), positive and negative
  *   TC-161-030  MEL/CDL/DDG (row 25) on 26 fixtures: items, type, notes, TLR cross-reference (row 32a)
@@ -38,8 +38,18 @@
  *   TC-161-202  O-10 (1), Exec 17 Nov: a fixed-length recognised item never takes a continuation (every one-line kind,
  *               the boilerplate to "questions."; T3 on the fixtures)
  *   TC-161-203  O-10 (2), Exec 17 Nov: a page break is not a blank line (a remark continues across it; a blank line splits)
+ *   TC-161-300  QA F1: the tests' copy of the app reader (appText) rebuilds the text of all 26 fixtures from their items
+ *   TC-161-301  QA F1 cases on a copy of the real items (L15 PHNL-WIHH, L17 OMAA-VHHH): an unrelated line after a printed
+ *               blank line never joins the PWAK weather or the PCF reason; the same item moved up one pitch joins
+ *   TC-161-302  QA F1 synthetic: a blank line is a gap in the positions (≥ 1.6 × the release pitch); normal spacing joins;
+ *               a gap at a page break never splits; CDC; no / mismatched positions → no blank line + WARN
+ *   TC-161-303  QA F1 on the 26: joined remarks = printed lines in order; every printed blank line in an unmarked block ends
+ *               a remark
+ *   TC-161-304  QA F3 on the 26: an MEL/CDL note keeps its printed line breaks (L13, L19)
  *   TC-161-090  fixtures (or the private crew file) missing → FAIL, never skip (child run)
  *
+ * Synthetic packages are parsed as the app delivers them (appInput): positioned items with a 13.2 pt pitch, the text
+ * rebuilt by the app's line reader; a printed blank line (BL) is a gap in the positions, never an empty text line.
  * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
  * Messages name fixture labels and field names only; no crew data is printed. Synthetic packages use
  * made-up identifiers and obviously fake names.
@@ -108,7 +118,59 @@ function pkg(o = {}) {
     `FUFI00000000-0000-0000-0000-000000000000 PAGE ${i + 1}/${o.tlr.length}`].join('\n') + '\n\n').join('') : '';
   return (o.before || 'BRIEFING COVER PAGE') + '\n\n' + copies + (o.after || 'COMPANY NOTAMS\nGENERAL') + '\n\n' + tlr;
 }
-const parse = (text, opts = OPTS) => mod.parseFlightKeys({ text, pages: [] }, opts);
+// ── the input exactly as the app delivers it (QA F1, 17 Nov) ──
+// appText(): a copy of the line reconstruction in processPDF() (src/pdf.html; the same copy as
+// tools/extract/extract.js), run on positioned items. TC-161-300 checks that it rebuilds the text of
+// all 26 fixtures from their items byte for byte. The app writes no empty line inside a page, so a
+// printed blank line exists only as a gap in the items' y positions.
+function appLines(p) {   // one page: [{ y, str }], top to bottom, as processPDF() builds its lines
+  const lines = [];
+  p.items.slice().sort((a, b) => a.order - b.order).forEach(item => {
+    if (!item.str) return;
+    let bucket = lines.find(l => Math.abs(l.y - item.y) <= 2);
+    if (!bucket) { bucket = { y: item.y, items: [] }; lines.push(bucket); }
+    bucket.items.push({ x: item.x, str: item.str, w: item.w || 0 });
+  });
+  lines.sort((a, b) => a.y - b.y);
+  const out = [];
+  lines.forEach(line => {
+    line.items.sort((a, b) => a.x - b.x);
+    let lineStr = '', prevRight = null;
+    line.items.forEach(item => {
+      if (prevRight !== null) { const gap = item.x - prevRight; lineStr += gap > 20 ? '   ' : gap > 8 ? '  ' : gap > 3 ? ' ' : ''; }
+      lineStr += item.str;
+      prevRight = item.x + (item.w || item.str.length * 5);
+    });
+    if (lineStr.trim()) out.push({ y: line.y, str: lineStr });
+  });
+  return out;
+}
+function appText(pages) {
+  return pages.map(p => appLines(p).map(l => l.str + '\n').join('') + '\n').join('');   // '\n' = page break
+}
+// A synthetic package as the app reads it: every text line becomes one positioned item (13.2 pt
+// pitch, the FlightKeys release pitch); a BL line is a printed blank line — no item, one pitch of
+// empty space — so it reaches the module only as a gap. The text is then rebuilt with appText().
+// x as the fixtures print it: 58.7, and 65.3 for a note line ("- " / "RMK -") in the MEL/CDL block.
+const BL = '\u0000BLANK LINE';
+const PITCH = 13.2;
+function appInput(src) {
+  let inMel = false;
+  const pages = src.replace(/\n$/, '').split('\n\n').map((pg, i) => {
+    const items = [];
+    pg.split('\n').forEach((l, k) => {
+      if (l === 'MEL/CDL') inMel = true; else if (/^Flight Release Authorization/.test(l)) inMel = false;
+      const x = inMel && /^(?:RMK\s+-|-)\s/.test(l) ? 65.3 : 58.7;
+      if (l !== BL) items.push({ str: l, x, y: 40 + k * PITCH, w: l.length * 5, h: 9.6, font: 'f1', order: items.length });
+    });
+    return { page: i + 1, width: 612, height: 792, items };
+  });
+  const text = appText(pages);
+  assert.equal(text, src.split('\n').filter(l => l !== BL).join('\n'), 'appInput: the app reader gives back the package text');
+  return { text, pages };
+}
+const parse = (text, opts = OPTS) => mod.parseFlightKeys(appInput(text), opts);
+const parseTextOnly = (text, opts = OPTS) => mod.parseFlightKeys({ text: text.split('\n').filter(l => l !== BL).join('\n') }, opts);
 
 // ══ TC-161-002 FPL from the release (QA F4) ══════════════════════════════════
 
@@ -171,6 +233,22 @@ test('TC-161-011 crew synthetic (row 26, SC; SME-3/3a, SME-9; D62): positive and
   // negative: crew lines outside the release are never read
   const out = parse(pkg({ after: 'COMPANY NOTAMS\nCA 999999 Outside, Person .. ..\nTO/LNDG Expiry: 2027-01-01' }));
   assert.equal(out.crewMembers.filter(c => c.empNum === '999999').length, 0);
+  // QA F2: a full crew block, heading included, on a briefing page BEFORE the release (where a reader of
+  // the whole package would meet it first) is never read; the release crew is returned unchanged
+  const planted = ['BRIEFING PAGE', 'Fit for Duty Affirmation', 'By signing below, I affirm that I am fit for duty to operate this', 'flight.',
+    'FIT FOR DUTY/   RELIEF PIC', 'JS VERIFY   START-END(Z)', 'CA 999991 Planted, Uno .. .. .. .. ..', 'TO/LNDG Expiry: 2027-03-03',
+    'FO 999992 Planted, Dos .. .. .. .. ..', 'TO/LNDG Expiry: 2027-03-03', 'FO 999993 Planted, Tres .. .. .. .. ..', 'TO/LNDG Expiry: 2027-03-03',
+    'TIME FUEL'].join('\n');
+  const pl = parse(pkg({ before: planted }));
+  assert.deepEqual(pl.crewMembers, r.crewMembers, 'the release crew, not the planted block');
+  assert.equal(pl.operatingPilots, 2, 'two operating pilots from the release (the planted block has three)');
+  assert.ok(!pl.crewMembers.some(c => /^99999/.test(c.empNum) || /Planted/.test(c.lastName)));
+  // the same planted block with no crew block in the release: nothing is read from the briefing page
+  const relCrew = 'Fit for Duty Affirmation\nBy signing below, I affirm that I am fit for duty to operate this\nflight.\nFIT FOR DUTY/   RELIEF PIC\nJS VERIFY   START-END(Z)\n' + CREW_DEFAULT.join('\n') + '\n';
+  assert.ok(pkg({ before: planted }).includes(relCrew));
+  const plNo = parse(pkg({ before: planted }).replace(relCrew, ''));
+  assert.deepEqual(plNo.crewMembers, [], 'no crew in the release → none, even with a crew block on a briefing page');
+  assert.ok(warns(plNo, 'crewMembers').some(w => /not found in the release/.test(w.message)));
 });
 
 // ══ TC-161-021 CAT II/III synthetic ═══════════════════════════════════════════
@@ -201,6 +279,15 @@ test('TC-161-021 CAT II/III synthetic (row 24, SC; SME-10): authorisations, rest
   const n = parse(pkg({ after: 'COMPANY NOTAMS\nEZZZ CAT II/III - RWY 09\nKZZZ CAT II/III RWY 01 APPROACH NOT AUTHORIZED' }));
   assert.equal(n.catIiIiiApproaches, null);
   assert.deepEqual(n.catIiIiiRestrictions, []);
+  // QA F2: a full Remarks block with CAT lines, heading included, on a briefing page BEFORE the release is never read
+  const before = ['BRIEFING PAGE', 'Remarks', 'EZZZ CAT II/III - RWY 09', 'KZZZ CAT II/III RWY 01 APPROACH NOT AUTHORIZED', 'MEL/CDL',
+    'MEL 22-ZZ-01 - CAT II/III Restriction', 'Flight Release Authorization'].join('\n');
+  const b = parse(pkg({ before, cat: ['EAAA CAT II - RWY 07L/25R'] }));
+  assert.deepEqual(b.catIiIiiApproaches, { EAAA: [{ cat: 'II', rwys: '07L/25R' }] }, 'the release CAT line only');
+  assert.deepEqual(b.catIiIiiRestrictions, [], 'no restriction from the briefing page (Remarks or MEL)');
+  const b0 = parse(pkg({ before }));
+  assert.equal(b0.catIiIiiApproaches, null);
+  assert.deepEqual(b0.catIiIiiRestrictions, []);
 });
 
 // ══ TC-161-031 MEL/CDL/DDG synthetic ═════════════════════════════════════════
@@ -228,8 +315,8 @@ test('TC-161-031 MEL/CDL/DDG synthetic (row 25, 32a; SME-4, SME-19): items, note
     ['MEL', '25-57-01', '', ''],
   ], 'wrapped title joined; an item printed twice is kept twice (Exec 17 Nov); late additions after the block; TLR codes on the RMKS line and below it');
   assert.deepEqual(r.ddgItems[1].notes, [{ text: '- ETOPS MDT 180', indent: 1 }, { text: '- "M1" removed from ICAO FPL, field 10A.', indent: 1 }]);
-  assert.deepEqual(r.ddgItems[2].notes, [{ text: 'RMK - The airplane must also be dispatched using DDG item 78-31-01, 36-11-03 and 36-21-04.', indent: 1 }],
-    'the RMK line is kept with its item, its wrap joined');
+  assert.deepEqual(r.ddgItems[2].notes, [{ text: 'RMK - The airplane must also be dispatched using DDG item 78-31-01,\n36-11-03 and 36-21-04.', indent: 1 }],
+    'QA F3: the RMK note is kept with its item; its wrap keeps the printed line break, as remarks do (not joined with a space)');
   assert.deepEqual(r.ddgItems[5].notes, [{ text: '- Enroute climb penalty 7779kg', indent: 1 }], 'ADHOC penalty lines are not item notes');
   assert.deepEqual(r.ddgItems[6].notes, [{ text: '1829Z STR ADD M33-44-01-02A', indent: 1 }]);
   assert.deepEqual(r.ofpRemarks.filter(x => x.category === 'adhocPenalty').map(x => x.text),
@@ -441,8 +528,8 @@ test('TC-161-102 D63 on the ADHOC block (dash items): wraps join the item above'
 
 test('TC-161-201 D63a synthetic: blank line, sub-heading and recognised item end a remark; page break; reasons keep breaks', () => {
   const remarks = ['- PCF FOR ENROUTE WX DEVIATIONS', 'BTWN TWO POINTS',
-    '   ', 'CREW NOTE ONE FIRST LINE', 'CREW NOTE ONE SECOND LINE',          // a blank line: two different remarks stay two
-    '   ', 'CREW NOTE TWO',
+    BL, 'CREW NOTE ONE FIRST LINE', 'CREW NOTE ONE SECOND LINE',             // a blank line (a gap): two different remarks stay two
+    BL, 'CREW NOTE TWO',
     'NOTES FOR CREW:', 'CHECK THE DOORS', 'BEFORE PUSHBACK',                  // a sub-heading always starts a new remark
     'PERISHABLES ONBOARD', 'NOT PART OF THE PERISHABLES LINE',                 // a one-line item never takes a continuation
     'FLIGHT RELEASED UNDER EXEMPTION NO 00000Z. ALTERNATE AIRPORT', 'REQUIRED.REFER TO FOM FOR ADDITIONAL INFORMATION.',
@@ -469,14 +556,14 @@ test('TC-161-201 D63a synthetic: blank line, sub-heading and recognised item end
   assert.equal(r.hasPerishables, true);
   assert.deepEqual(r.dotExemption, parse(pkg({ remarks: remarks.slice(12, 14) })).dotExemption, 'the exemption is read as before');
   // every printed line kept, once, in order; nothing added, removed or reflowed
-  assert.deepEqual(r.ofpRemarks.flatMap(x => x.text.split('\n')).filter(l => remarks.includes(l)), remarks.filter(l => l.trim()));
+  assert.deepEqual(r.ofpRemarks.flatMap(x => x.text.split('\n')).filter(l => remarks.includes(l)), remarks.filter(l => l !== BL));
   // page break: a paragraph that ends at the bottom of a page continues on the next page; a recognised item there starts anew
   const pb = parse(pkg({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS'], remarksNextPage: ['BTWN TWO POINTS', 'PERISHABLES ONBOARD'] }));
   const pcfRec = pb.ofpRemarks.find(x => x.category === 'pcf');
   assert.equal(pcfRec.text, '- PCF FOR ENROUTE WX DEVIATIONS\nBTWN TWO POINTS');
   assert.ok(pb.ofpRemarks.find(x => x.category === 'perishables').page === pcfRec.page + 1);
-  // the CDC attestation: one remark; a blank line inside it starts a second one
-  const cdc = parse(pkg({ afterAuth: ['*** CDC ATTESTATION — U.S.-BOUND FLIGHTS ***', 'FIRST PARAGRAPH LINE', '   ', 'SECOND PARAGRAPH LINE'] }));
+  // the CDC attestation: one remark; a blank line (a gap) inside it starts a second one
+  const cdc = parse(pkg({ afterAuth: ['*** CDC ATTESTATION — U.S.-BOUND FLIGHTS ***', 'FIRST PARAGRAPH LINE', BL, 'SECOND PARAGRAPH LINE'] }));
   assert.deepEqual(cdc.ofpRemarks.filter(x => x.category === 'cdcAttestation').map(x => x.text),
     ['*** CDC ATTESTATION — U.S.-BOUND FLIGHTS ***\nFIRST PARAGRAPH LINE', 'SECOND PARAGRAPH LINE']);
   // the boilerplate (a fixed-form item) ends at its "questions." line: an unmarked line after it is a new remark
@@ -518,11 +605,68 @@ test('TC-161-203 O-10 (2): a page break is not a blank line; a remark continues 
   const relPages = across.ofpRemarks.map(x => x.page);
   assert.ok(Math.max(...relPages) > ex[0].page, 'the remarks run really spans two release pages');
   // negative: the same two lines separated by a blank line on one page are two remarks
-  const blank = parse(pkg({ remarks: ['- PCF FOR ENROUTE WX', '   ', 'BTWN TWO POINTS'] }));
+  const blank = parse(pkg({ remarks: ['- PCF FOR ENROUTE WX', BL, 'BTWN TWO POINTS'] }));
   assert.deepEqual(blank.ofpRemarks.filter(x => x.category === 'pcf' || x.text === 'BTWN TWO POINTS').map(x => [x.category, x.text]),
     [['pcf', '- PCF FOR ENROUTE WX'], ['other', 'BTWN TWO POINTS']]);
   // and across a page break the same pair is one remark
   assert.deepEqual(parse(pkg({ remarks: ['- PCF FOR ENROUTE WX'], remarksNextPage: ['BTWN TWO POINTS'] })).pcf.reasons, ['- PCF FOR ENROUTE WX\nBTWN TWO POINTS']);
+});
+
+// ══ TC-161-302 D63a blank lines from the positions (QA F1) ═══════════════════
+// Input built the way the app delivers it (appInput): no text line is ever empty; a blank line is a
+// gap of ≥ 1.6 × the release pitch between two consecutive lines of the same page.
+
+test('TC-161-302 QA F1: a blank line is a gap in the positions; normal spacing joins; a page break never splits', () => {
+  const pcfAnd = (o) => { const r = parse(pkg(o)); return [r.pcf.reasons, r.ofpRemarks.filter(x => x.text.includes('UNRELATED CREW NOTE')).map(x => [x.category, x.text])]; };
+  // positive: a gap ends the PCF reason; the unrelated line after it is a remark of its own
+  assert.deepEqual(pcfAnd({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', BL, 'UNRELATED CREW NOTE'] }),
+    [['- PCF FOR ENROUTE WX DEVIATIONS'], [['other', 'UNRELATED CREW NOTE']]]);
+  // two blank lines: the same
+  assert.deepEqual(pcfAnd({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', BL, BL, 'UNRELATED CREW NOTE'] })[0], ['- PCF FOR ENROUTE WX DEVIATIONS']);
+  // negative: normal line spacing joins (the same lines, no gap)
+  assert.deepEqual(pcfAnd({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', 'UNRELATED CREW NOTE'] }),
+    [['- PCF FOR ENROUTE WX DEVIATIONS\nUNRELATED CREW NOTE'], [['pcf', '- PCF FOR ENROUTE WX DEVIATIONS\nUNRELATED CREW NOTE']]]);
+  // negative (O-10): a gap at a page break — below the last line of one page and above the first line of the
+  // next — does not split: lines on different pages are never compared
+  assert.deepEqual(pcfAnd({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', BL], remarksNextPage: [BL, BL, 'UNRELATED CREW NOTE'] })[0],
+    ['- PCF FOR ENROUTE WX DEVIATIONS\nUNRELATED CREW NOTE']);
+  // remarks weather: a gap ends the report; the line after it is never weather
+  const wx = ['GOV TAF UPDATED', 'TAF KCCC 081100Z 0812/0912 09010KT P6SM FEW030', 'FM081800 10012KT P6SM SCT040'];
+  const w1 = parse(pkg({ remarks: [...wx, BL, 'UNRELATED CREW NOTE'] }));
+  assert.deepEqual(w1.airportData.KCCC.remarksWeather.map(x => x.text), [wx.slice(1).join('\n')]);
+  assert.deepEqual(w1.ofpRemarks.filter(x => x.text === 'UNRELATED CREW NOTE').map(x => x.category), ['other']);
+  const w0 = parse(pkg({ remarks: [...wx, 'UNRELATED CREW NOTE'] }));
+  assert.deepEqual(w0.airportData.KCCC.remarksWeather.map(x => x.text), [[...wx.slice(1), 'UNRELATED CREW NOTE'].join('\n')], 'no gap → a continuation');
+  // the CDC attestation: a gap starts a second remark; normal spacing keeps one; a page break does not split
+  const cdcOf = (afterAuth) => parse(pkg({ afterAuth })).ofpRemarks.filter(x => x.category === 'cdcAttestation').map(x => x.text);
+  const H = '*** CDC ATTESTATION — U.S.-BOUND FLIGHTS ***';
+  assert.deepEqual(cdcOf([H, 'FIRST LINE', BL, 'SECOND LINE']), [H + '\nFIRST LINE', 'SECOND LINE']);
+  assert.deepEqual(cdcOf([H, 'FIRST LINE', 'SECOND LINE']), [H + '\nFIRST LINE\nSECOND LINE']);
+  // no WARN on the position path
+  assert.deepEqual(warns(w1, 'ofpRemarks'), []);
+  // the threshold (1.6 pitches), by shifting one item of the positioned input: 1.5 pitches joins, 1.7 splits
+  const gapAt = (dy) => {
+    const inp = appInput(pkg({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', 'UNRELATED CREW NOTE', 'RAIM VALIDATION PASSED'] }));
+    const pg = inp.pages.find(p => p.items.some(i => i.str === 'UNRELATED CREW NOTE'));
+    const it = pg.items.find(i => i.str === 'UNRELATED CREW NOTE');
+    it.y += dy;                                              // shift one item down (still above the next line)
+    return mod.parseFlightKeys(inp, OPTS).pcf.reasons;
+  };
+  assert.deepEqual(gapAt(0.5 * PITCH), ['- PCF FOR ENROUTE WX DEVIATIONS\nUNRELATED CREW NOTE'], '1.5 pitches: not a blank line');
+  assert.deepEqual(gapAt(0.7 * PITCH), ['- PCF FOR ENROUTE WX DEVIATIONS'], '1.7 pitches: a blank line');
+  // without positions (text only) a blank line cannot be seen: the lines join (the app never types an empty line)
+  // and a WARN says so; a spaces-only text line is not a blank line either
+  const t0 = parseTextOnly(pkg({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', BL, 'UNRELATED CREW NOTE'] }));
+  assert.deepEqual(t0.pcf.reasons, ['- PCF FOR ENROUTE WX DEVIATIONS\nUNRELATED CREW NOTE']);
+  assert.ok(warns(t0, 'ofpRemarks').some(w => /a printed blank line cannot be seen there/.test(w.message)));
+  const sp = parseTextOnly(pkg({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', '   ', 'UNRELATED CREW NOTE'] }));
+  assert.deepEqual(sp.pcf.reasons, ['- PCF FOR ENROUTE WX DEVIATIONS\nUNRELATED CREW NOTE'], 'spaces-only text is not a blank line');
+  // positions that do not match the text (another page's items) → WARN, never a guess
+  const inp = appInput(pkg({ remarks: ['- PCF FOR ENROUTE WX DEVIATIONS', BL, 'UNRELATED CREW NOTE'] }));
+  const k = inp.pages.findIndex(p => p.items.some(i => i.str === 'UNRELATED CREW NOTE'));
+  inp.pages[k] = Object.assign({}, inp.pages[k], { items: inp.pages[0].items });
+  const mm = mod.parseFlightKeys(inp, OPTS);
+  assert.ok(warns(mm, 'ofpRemarks').some(w => w.message.startsWith(`positioned items missing or not matching the text on PDF page(s) ${k + 1}:`)));
 });
 
 // ══ fixtures ═════════════════════════════════════════════════════════════════
@@ -855,5 +999,117 @@ if (!FIXTURES) {
     // the reason lists keep the printed line breaks (no reflow)
     assert.deepEqual(run(byLabel('L13')).pcf.reasons.map(x => x.split('\n').length), [1, 2]);
     assert.ok(run(byLabel('L15')).airportData.PWAK.remarksWeather[0].text.split('\n').length === 4);
+  });
+
+  // ── QA F1: blank lines from the positions, on the real items ──
+  const itemsOf = fx => mod.inputFromExtractor(text(fx), JSON.parse(fs.readFileSync(path.join(FIXTURES, fx.files.items), 'utf8'))).pages;
+  // the first release copy as printed: body lines with their PDF page and y (the test's own reading)
+  const releaseRows = (pages) => {
+    const rows = [];
+    for (const p of pages) {
+      const ls = appLines(p), fm = /^FUFI: [0-9A-F-]+ PAGE (\d+)\/(\d+)$/.exec(ls.length ? ls[ls.length - 1].str : '');
+      if (!fm || !/^OPERATIONAL FLIGHT PLAN\b/.test(ls[1].str)) { if (rows.length) break; continue; }
+      if (rows.length && +fm[1] === 1) break;
+      ls.slice(2, -1).forEach(l => rows.push({ page: p.page, y: l.y, t: l.str.trim() }));
+      if (+fm[1] === +fm[2]) break;
+    }
+    return rows;
+  };
+  const GAP = 1.6 * 13.2;
+  const isGap = (a, b) => a.page === b.page && b.y - a.y >= GAP;
+  // one printed line of a copy of the real items (the row at y on PDF page pg) made into ONE item, then its str
+  // replaced and/or its y shifted; the text is rebuilt by the app reader
+  const edited = (fx, pg, y, change) => {
+    const pages = JSON.parse(JSON.stringify(itemsOf(fx)));
+    const row = pages.find(p => p.page === pg).items.filter(it => it.str && Math.abs(it.y - y) <= 2).sort((a, b) => a.x - b.x);
+    assert.ok(row.length >= 1, 'the line to change is found');
+    row[0].str = row.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
+    row.slice(1).forEach(it => { it.str = ''; });
+    change(row[0]);
+    return mod.parseFlightKeys({ text: appText(pages), pages }, OPTS);
+  };
+  const INVENTED = 'GALLEY DRAIN TO BE CHECKED BEFORE DEPARTURE';   // made up; recognised as no category
+
+  test('TC-161-300 QA F1: the test input is the app reader: appText() rebuilds the text of all 26 fixtures from their items', () => {
+    for (const fx of fk) assert.equal(appText(itemsOf(fx)), text(fx), `${L(fx.id)}: text = app reader(items)`);
+  });
+
+  test('TC-161-301 QA F1 cases: an unrelated remark after a printed blank line never joins the PWAK weather (L15) or the PCF reason (L17)', () => {
+    for (const [lbl, field] of [['L15', 'PWAK weather'], ['L17', 'PCF reasons']]) {
+      const fx = byLabel(lbl), base = run(fx);
+      const get = r => lbl === 'L15' ? r.airportData.PWAK.remarksWeather.map(x => x.text) : r.pcf.reasons;
+      // the RAIM line follows the TAF / the PCF reason after a printed blank line
+      const rows = releaseRows(itemsOf(fx));
+      const k = rows.findIndex(x => x.t === 'RAIM VALIDATION PASSED');
+      assert.ok(k > 0 && isGap(rows[k - 1], rows[k]), `${lbl}: a printed blank line above RAIM`);
+      const raim = [rows[k].page, rows[k].y];
+      // positive (QA's case): the RAIM text replaced by an unrelated line, positions unchanged → a remark of its own
+      const r1 = edited(fx, ...raim, it => { it.str = INVENTED; });
+      assert.deepEqual(get(r1), get(base), `${lbl}: ${field} unchanged`);
+      assert.ok(!get(r1).join('\n').includes(INVENTED), `${lbl}: the unrelated line is not in the ${field}`);
+      assert.deepEqual(r1.ofpRemarks.filter(x => x.text.includes(INVENTED)).map(x => [x.category, x.text, x.subHeading]), [['other', INVENTED, null]]);
+      assert.deepEqual(warns(r1, 'ofpRemarks'), []);
+      // negative: the same item shifted up by one line pitch (no blank line any more) → it continues the remark above
+      const r2 = edited(fx, ...raim, it => { it.str = INVENTED; it.y -= 13.2; });
+      assert.deepEqual(get(r2), [...get(base).slice(0, -1), get(base).slice(-1)[0] + '\n' + INVENTED], `${lbl}: normal spacing joins (D63a)`);
+      // and the real RAIM line shifted the same way still starts its own remark (a recognised item)
+      const r3 = edited(fx, ...raim, it => { it.y -= 13.2; });
+      assert.deepEqual(get(r3), get(base));
+    }
+  });
+
+  // Unmarked blocks (D63a: the general Remarks run, the CDC attestation): every printed blank line ends a remark.
+  // Station blocks mark their items (D63): a new remark starts only at the block's marker, so an item may run
+  // across a printed blank line there (L06 LEZG DEPARTURES, two blank lines); those are counted, not split.
+  test('TC-161-303 QA F1 on the 26: joined remarks = printed lines in order; every printed blank line in an unmarked block is a record boundary', () => {
+    let gaps = 0, joins = 0;
+    const marked = [];
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx.id), rows = releaseRows(itemsOf(fx));
+      const rs = rows.findIndex(x => x.t === 'Remarks'), me = rows.findIndex((x, i) => i > rs && x.t === 'MEL/CDL');
+      const fe = rows.findIndex((x, i) => i > rs && /^Flight Release Authorization\b/.test(x.t));
+      assert.ok(rs !== -1 && me > rs && fe > me, `${lbl}: Remarks, MEL/CDL and the authorisation found`);
+      const blocks = [['Remarks', rows.slice(rs + 1, me), r.ofpRemarks.filter(x => x.category !== 'adhocPenalty' && x.category !== 'cdcAttestation')]];
+      const cs = rows.findIndex((x, i) => i > fe && /^\*{3}\s*CDC ATTESTATION\b/.test(x.t));
+      if (cs !== -1) {
+        const ce = rows.findIndex((x, i) => i > cs && /^Signed by PIC\b|^Fit for Duty Affirmation\b/.test(x.t));
+        blocks.push(['CDC', rows.slice(cs, ce), r.ofpRemarks.filter(x => x.category === 'cdcAttestation')]);
+      } else assert.equal(r.ofpRemarks.filter(x => x.category === 'cdcAttestation').length, 0, `${lbl}: no CDC block, no CDC remark`);
+      for (const [name, printed, recs] of blocks) {
+        const owner = recs.flatMap((x, n) => x.text.split('\n').map(t => ({ t, n })));
+        assert.deepEqual(owner.map(o => o.t), printed.map(x => x.t), `${lbl} ${name}: joined remarks = printed lines, in order`);
+        for (let j = 1; j < printed.length; j++) {
+          const st = recs[owner[j].n].category === 'stationRestriction' && recs[owner[j - 1].n].category === 'stationRestriction';
+          if (isGap(printed[j - 1], printed[j])) {
+            if (st) { if (owner[j].n === owner[j - 1].n) marked.push(`${lbl} ${recs[owner[j].n].airport}`); continue; }
+            gaps++; assert.notEqual(owner[j].n, owner[j - 1].n, `${lbl} ${name}: a printed blank line before "${name} line ${j + 1}" ends the remark`);
+          } else if (owner[j].n === owner[j - 1].n) joins++;
+        }
+      }
+      // the ADHOC lines of the MEL/CDL block, in order, from its heading
+      const ad = r.ofpRemarks.filter(x => x.category === 'adhocPenalty').flatMap(x => x.text.split('\n'));
+      if (ad.length) { const a0 = rows.findIndex((x, i) => i > me && x.t === ad[0]); assert.deepEqual(rows.slice(a0, a0 + ad.length).map(x => x.t), ad, `${lbl}: ADHOC lines`); }
+      assert.deepEqual(warns(r, 'ofpRemarks'), [], `${lbl}: positions read on every release page`);
+    }
+    assert.equal(gaps, 131, 'printed blank lines in the unmarked blocks of the 26 (each ends a remark)');
+    assert.ok(joins > 0);
+    assert.deepEqual(marked, ['L06 LEZG', 'L06 LEZG'], 'D63: one station item (L06 LEZG DEPARTURES) printed across two blank lines, kept one remark as D63 says');
+  });
+
+  test('TC-161-304 QA F3: an MEL/CDL note printed over several lines keeps its line breaks (L13, L19); every note = its printed lines', () => {
+    const multi = {};
+    for (const fx of fk) {
+      const r = run(fx), lbl = L(fx.id), rows = releaseRows(itemsOf(fx)).map(x => x.t);
+      const me = rows.indexOf('MEL/CDL');
+      for (const d of r.ddgItems.filter(x => !x.notes.some(n => /\bSTR ADD\b|ADD MEL|MEL ADDED/.test(n.text)))) for (const n of d.notes) {
+        const ls = n.text.split('\n'), a = rows.indexOf(ls[0], me);
+        assert.ok(a > me, `${lbl} ${d.code}: note found in the MEL/CDL block`);
+        assert.deepEqual(rows.slice(a, a + ls.length), ls, `${lbl} ${d.code}: the note = its printed lines, line breaks kept`);
+        if (ls.length > 1) (multi[lbl] = multi[lbl] || []).push(`${d.code}:${ls.length}`);
+      }
+    }
+    assert.deepEqual(multi, { L13: ['36-11-08C:2'], L19: ['21-51-06-02:2'] }, 'the notes printed over several lines (2 each), with their line breaks');
+    // negative: a one-line note stays one line (no line break added)
+    assert.ok(fk.every(fx => run(fx).ddgItems.every(d => d.notes.every(n => !/\n$|^\n|\n\n/.test(n.text)))));
   });
 }
