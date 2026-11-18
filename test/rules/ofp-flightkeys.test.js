@@ -1,6 +1,12 @@
 'use strict';
 /**
- * TC-160 — FlightKeys OFP parser (rules/ofp-flightkeys, v0.1.0 development version, D58)
+ * TC-160 — FlightKeys OFP parser (rules/ofp-flightkeys, development version, D58): the battery of
+ * v0.1.0 (release page 1 and the route), run unchanged on the current module (v0.2.0). The v0.2.0
+ * fields (release and remarks pages) are tested by TC-161 (test/rules/ofp-flightkeys-release.test.js).
+ * Changes for v0.2.0 only where the battery named the version or the deferred list: TC-160-001/002
+ * (version, contract 2.2, 14 extensions, steps 5d/open), TC-160-005 (deferred fields now 5d/open only),
+ * TC-160-019 (the SME-18 takeoff-alternate WARN is a v0.2.0 finding, TC-161), TC-160-040 (compares
+ * the v0.1.0 fields; the v0.2.0 fields are TC-161-040).
  *
  * A NEW format parser (ADR-005 §2.1): parseFlightKeys(input, options) reads a FlightKeys package
  * (the extractor's text + positioned items) and returns the briefing contract (57 core fields with
@@ -100,14 +106,15 @@ const parseText = (text, opts = OPTS) => mod.parseFlightKeys({ text, pages: [] }
 test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'ofp');
   assert.equal(mod.OFP_FORMAT, 'flightkeys');
-  assert.equal(mod.RULESET_VERSION, '0.1.0');
+  assert.equal(mod.RULESET_VERSION, '0.2.0');
   assert.equal(mod.SCHEMA_VERSION, 2);
-  assert.equal(mod.CONTRACT_VERSION, '2.1');
+  assert.equal(mod.CONTRACT_VERSION, '2.2');
   assert.ok(mod.RULESET_SOURCE.length > 10);
   assert.deepEqual(mod.validateSchema(), { valid: true, errors: [] });
   assert.deepEqual([...mod.CORE_FIELDS], [...navblue.CORE_FIELDS], 'core fields = NavBlue core fields, same order');
-  assert.deepEqual(mod.EXTENSION_FIELDS.filter(f => f !== 'swa'), [...navblue.EXTENSION_FIELDS],
-    'extensions = contract v2.0 list + swa (addendum)');
+  assert.deepEqual(mod.EXTENSION_FIELDS.filter(f => f !== 'swa' && f !== 'operatingPilots'), [...navblue.EXTENSION_FIELDS],
+    'extensions = contract v2.0 list + swa (addendum 1) + operatingPilots (addendum 2, D62)');
+  assert.deepEqual([...mod.CREW_EXTENSION_FIELDS], ['firstName', 'toLndgExpiry']);
   assert.deepEqual([...mod.AIRPORT_EXTENSION_FIELDS], [...navblue.AIRPORT_EXTENSION_FIELDS, 'specialQualification']);
   assert.deepEqual([...mod.DDG_EXTENSION_FIELDS], [...navblue.DDG_EXTENSION_FIELDS]);
   const copy = () => Object.assign({}, mod);
@@ -124,7 +131,9 @@ test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () 
     [o => { o.AIRPORT_EXTENSION_FIELDS = ['remarks', 'remarks', 'x']; }, /unique/],
     [o => { o.PATTERNS = { X: 'not a regexp' }; }, /PATTERNS\.X/],
     [o => { o.DEFERRED_FIELDS = { nope: '5d' }; }, /not a contract field/],
-    [o => { o.DEFERRED_FIELDS = { crewMembers: '6' }; }, /not 5b-2 or 5d/],
+    [o => { o.DEFERRED_FIELDS = { crewMembers: '6' }; }, /not 5d or open/],
+    [o => { o.DEFERRED_FIELDS = { crewMembers: '5b-2' }; }, /not 5d or open/],
+    [o => { o.CREW_EXTENSION_FIELDS = ['firstName']; }, /CREW_EXTENSION_FIELDS must list 2/],
     [o => { o.parseNavBlue = () => null; }, /parseNavBlue must not be exported/],
     [o => { o.deriveCallsign = () => null; }, /deriveCallsign must not be exported/],
   ];
@@ -139,11 +148,11 @@ test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () 
 
 // ══ TC-160-002 manifest ══════════════════════════════════════════════════════
 
-test('TC-160-002 rules/manifest.json lists ofp-flightkeys 0.1.0 with its SHA-256', () => {
+test('TC-160-002 rules/manifest.json lists ofp-flightkeys 0.2.0 with its SHA-256', () => {
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
   assert.equal(e.version, mod.RULESET_VERSION);
-  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v0.1.0.js');
+  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v0.2.0.js');
   assert.equal(e.sha256, crypto.createHash('sha256').update(fs.readFileSync(MOD_FILE)).digest('hex'));
 });
 
@@ -545,20 +554,19 @@ if (!FIXTURES) {
       for (const [icao, a] of Object.entries(r.airportData))
         for (const k of mod.AIRPORT_EXTENSION_FIELDS) assert.ok(k in a, `${lbl} ${icao}: ${k}`);
       for (const f of Object.keys(mod.DEFERRED_FIELDS)) {
-        const n = r.findings.filter(x => x.level === 'INFO' && x.field === f && /^not read in v0\.1\.0: read in (5b-2|5d)$/.test(x.message)).length;
+        const n = r.findings.filter(x => x.level === 'INFO' && x.field === f
+          && /^not read in v0\.2\.0: (read in 5d|not in any brief yet \(open item\))$/.test(x.message)).length;
         assert.equal(n, 1, `${lbl}: one INFO for ${f}`);
       }
-      // explicit empties with the NavBlue types
-      assert.deepEqual(r.crewMembers, []); assert.equal(r.catIiIiiApproaches, null); assert.deepEqual(r.ddgItems, []);
-      assert.equal(r.melItems, ''); assert.equal(r.overflightPerms, ''); assert.deepEqual(r.oeiData, []);
-      assert.equal(r.hasPerishables, false); assert.equal(r.hasTemperatureControl, false); assert.equal(r.natTrack, null);
+      // explicit empties with the NavBlue types (the fields still deferred: 5d / open)
+      assert.equal(r.natTrack, null);
       assert.deepEqual(r.enrouteNotams, { route: '', fir: '', airway: '', waypoint: '', geographic: '' });
       for (const a of Object.values(r.airportData)) {
-        assert.equal(a.weather, ''); assert.equal(a.notams, ''); assert.deepEqual(a.remarks, []); assert.deepEqual(a.remarksWeather, []);
+        assert.equal(a.weather, ''); assert.equal(a.notams, '');
+        assert.ok(!('curfew' in a) && !('opsNotes' in a), `${lbl}: no curfew/opsNotes keys before 5d (as NavBlue when nothing is printed; QA F3)`);
       }
-      for (const k of ['companyNotams', 'ofpRemarks', 'catIiIiiRestrictions', 'securityMessages', 'permits', 'sections'])
-        assert.deepEqual(r[k], [], `${lbl}: ${k}`);
-      for (const k of ['revision', 'fplEquipment', 'extraFuel', 'pcf']) assert.equal(r[k], null, `${lbl}: ${k}`);
+      for (const k of ['companyNotams', 'sections']) assert.deepEqual(r[k], [], `${lbl}: ${k}`);
+      assert.equal(r.fplEquipment, null, `${lbl}: fplEquipment`);
       assert.equal(typeof r.rawOFP, 'string');
       for (const f of r.findings) assert.ok(['INFO', 'WARN'].includes(f.level) && f.field && f.message, `${lbl}: finding shape`);
     }
@@ -655,7 +663,8 @@ if (!FIXTURES) {
         e.cfsAlternates, `${e.label}: CFS alternates`);
       assert.deepEqual(r.altRoutes.map(a => ({ title: a.title, mora: a.mora, routeWords: a.route.split(' ').length,
         routeSha256: crypto.createHash('sha256').update(a.route).digest('hex') })), e.altRoutes, `${e.label}: altRoutes`);
-      assert.deepEqual(warns(r).filter(f => /^(navLog|toc|etops|por|etp|altData)/.test(f.field)), [], `${e.label}: no WARN on the route`);
+      assert.deepEqual(warns(r).filter(f => /^(navLog|toc|etops|por|etp|altData)/.test(f.field) && !/\(SME-18\)$/.test(f.message)),
+        [], `${e.label}: no WARN on the route (the SME-18 takeoff-alternate flag is a v0.2.0 finding, TC-161)`);
     }
     const labelsWhere = pred => fkFixtures.filter(fx => pred(runFixture(fx))).map(fx => EXPECTED[fx.id].label).sort();
     const ETOPS = ['L03', 'L14', 'L15', 'L20', 'L21', 'L22', 'L23'];
@@ -701,7 +710,10 @@ if (!FIXTURES) {
       porOffsetMins:     'REDISPATCH: as porWpt',
       porMinf:           'REDISPATCH: second MINF column in the EOFP only',
     };
-    const NOT_COMPARED = new Set([...Object.keys(mod.DEFERRED_FIELDS).filter(k => !k.includes('.')), 'airportData', 'rawOFP']);
+    // The v0.1.0 fields only; the fields read since v0.2.0 are compared in TC-161-040.
+    const V02_FIELDS = ['crewMembers', 'hasPerishables', 'hasTemperatureControl', 'catIiIiiApproaches', 'ddgItems',
+      'melItems', 'overflightPerms', 'oeiData'];
+    const NOT_COMPARED = new Set([...Object.keys(mod.DEFERRED_FIELDS).filter(k => !k.includes('.')), ...V02_FIELDS, 'airportData', 'rawOFP']);
     const equal = [], differ = [];
     for (const f of mod.CORE_FIELDS) {
       if (NOT_COMPARED.has(f)) continue;

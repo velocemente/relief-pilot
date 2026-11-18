@@ -7,4 +7,5 @@ require('../rules/aircraft-profile.test.js');
 require('../rules/notam-aircraft.test.js');
 require('../rules/icao-fpl.test.js');
 require('../rules/ofp-flightkeys.test.js');
+require('../rules/ofp-flightkeys-release.test.js');
 require('../rules/notam-flightkeys.test.js');

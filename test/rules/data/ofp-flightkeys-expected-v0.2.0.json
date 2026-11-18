@@ -1,0 +1,2514 @@
+{
+ "_about": "Expected v0.2.0 values on the 26 FlightKeys fixtures, taken from the release text by a separate, simpler extraction (one pattern per field) and checked against the field map v1.1 counts. No crew names, employee numbers or dates: crew values are in the private fixtures repo (expected/ofp-flightkeys-v0.2.0/crew.json). Free text (MEL titles, remarks, permit block) only as SHA-256.",
+ "fixtures": {
+  "FK_UAAA-EHAM_27OCT26_prototype": {
+   "label": "T1",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 4,
+   "notReported": 4,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 10,
+   "ofpRemarksSha": "12950b83726e0c59bd52c1bbb8a8c6108a0265e5fec3aa9fefeaf894e3f52ddf",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "UAAA": [
+     {
+      "cat": "II",
+      "rwys": "23R/23L"
+     },
+     {
+      "cat": "III",
+      "rwys": "23R/23L"
+     }
+    ],
+    "EHAM": [
+     {
+      "cat": "II/III",
+      "rwys": "6/18C/18R/27/36C/36R"
+     }
+    ],
+    "EBBR": [
+     {
+      "cat": "II/III",
+      "rwys": "25L/25R"
+     }
+    ],
+    "EBLG": [
+     {
+      "cat": "II/III",
+      "rwys": "04R/22L"
+     }
+    ],
+    "EDDK": [
+     {
+      "cat": "II/III",
+      "rwys": "13L/31R"
+     }
+    ],
+    "ELLX": [
+     {
+      "cat": "II/III",
+      "rwys": "24"
+     }
+    ],
+    "LTAC": [
+     {
+      "cat": "II/III",
+      "rwys": "3R"
+     }
+    ]
+   },
+   "catRestrictions": [
+    "MEL 34-31-01-01"
+   ],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "33-45-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "f541327fe0a97ff9c703b6742953ef887db7d5060171c6d8bc3d0be7a7cac450"
+    },
+    {
+     "type": "MEL",
+     "code": "74-00-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "3d931c3fc2db0e22e4acde7cd080b62847932603bb8f44ff90b7ae54e9635e1a"
+    },
+    {
+     "type": "MEL",
+     "code": "34-46-01-03A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "d425b0a4f0372fa3eae7a1b4b230614494ce2801452c05d4444565f70f33b147"
+    },
+    {
+     "type": "MEL",
+     "code": "34-31-01-01",
+     "tlr": "",
+     "notes": 1,
+     "descSha256": "654cab4e58a7bf67c9432893df9856bc0fd6288ba1c99254a94eba34dc94b5a9"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "2831",
+    "minutes": 14,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [
+    "OVERFLIGHT UZBEKISTAN",
+    "OVERFLIGHT AZERBAIJAN",
+    "OVERFLIGHT TURKEY"
+   ],
+   "overflightPermsSha": "cb8daa7bded2435f3867ee7c35b52aed95d8299c43ecff7df19e7afe1e0e05ac",
+   "revision": {
+    "kind": "NOT RELEASED",
+    "number": null
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_ZUCK-UAAA_27OCT26_prototype": {
+   "label": "T2",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 4,
+   "notReported": 4,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 6,
+   "ofpRemarksSha": "c7debb985778110a1bcd89c312f1d4d0374aa2132d11a1f397f0c3ca13e27e11",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "UAAA": [
+     {
+      "cat": "II",
+      "rwys": "23R/23L"
+     },
+     {
+      "cat": "III",
+      "rwys": "23R/23L"
+     }
+    ],
+    "UCFM": [
+     {
+      "cat": "II/III",
+      "rwys": "07/25"
+     }
+    ],
+    "UACC": [
+     {
+      "cat": "II/III",
+      "rwys": "04/22"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "33-45-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "f541327fe0a97ff9c703b6742953ef887db7d5060171c6d8bc3d0be7a7cac450"
+    },
+    {
+     "type": "MEL",
+     "code": "74-00-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "3d931c3fc2db0e22e4acde7cd080b62847932603bb8f44ff90b7ae54e9635e1a"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "12463",
+    "minutes": 66,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [
+    "TAKEOFF CHINA"
+   ],
+   "overflightPermsSha": "4d6466bc61c7c0b3e116ab6e43620dc5b1edde014d56b381d7912cc30cb176c3",
+   "revision": {
+    "kind": "NOT RELEASED",
+    "number": null
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KLAX-RKSI_31OCT26_rda-etp_prototype": {
+   "label": "T3",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 4,
+   "notReported": 4,
+   "starPilots": 0,
+   "notCrew": {
+    "LM": 2
+   },
+   "ofpRemarksLines": 32,
+   "ofpRemarksSha": "43f59087469d7b5312d0e3d95af52f204f7ffbdeecdd7ac3f5b3883bfeccc439",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "RKSI": [
+     {
+      "cat": "II/III",
+      "rwys": "15L/15R/16L/16R/33L/33R/34L/34R"
+     }
+    ],
+    "RJBB": [
+     {
+      "cat": "II",
+      "rwys": "06L/06R/24L/24R"
+     }
+    ],
+    "RKPC": [
+     {
+      "cat": "II",
+      "rwys": "7"
+     }
+    ],
+    "RJCC": [
+     {
+      "cat": "II/III",
+      "rwys": "19R"
+     }
+    ],
+    "RJTT": [
+     {
+      "cat": "II/III",
+      "rwys": "34R"
+     }
+    ],
+    "RJGG": [
+     {
+      "cat": "II",
+      "rwys": "18/36"
+     },
+     {
+      "cat": "III",
+      "rwys": "36"
+     }
+    ]
+   },
+   "catRestrictions": [
+    "MEL 22-13-01-01"
+   ],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "33-43-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "b078ecc9348614d1685fa1b1b1c51ceaa56b0806db60488d3b0f17f95005ec8f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-53-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a8bc7c3f06aaeb9f0cf90ea77ac324128a1761fe04b4bb835a1cbe3d3ef92854"
+    },
+    {
+     "type": "MEL",
+     "code": "36-11-03",
+     "tlr": "",
+     "notes": 1,
+     "descSha256": "2987c91ae00c012ccb79de3bd981514b19ba0b57163fa0678a2d6949fe54467a"
+    },
+    {
+     "type": "MEL",
+     "code": "22-13-01-01",
+     "tlr": "",
+     "notes": 1,
+     "descSha256": "8b583a7827aec46659c5b4e13a832d1dd22402b8f1efc939fc5117799a5b6a18"
+    },
+    {
+     "type": "MEL",
+     "code": "78-31-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "0ce6c835f94272eb60af66724341781f93702b6f0de5bd18bbea21bd0da2fc7e"
+    },
+    {
+     "type": "MEL",
+     "code": "31-61-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "d505661b7101d3b5ce452a2262035e480bae34e9a8abc87f04394cb56f101918"
+    },
+    {
+     "type": "MEL",
+     "code": "33-44-01-02A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "98be98568c2d39065873a58da01fd5940a0edc41a9637be31988053c4ab7213a"
+    },
+    {
+     "type": "MEL",
+     "code": "38-10-01B",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a98343ab58472c4895b025b8e6195e905429f1c7b9ff1b7f75c9fda830467136"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "1032",
+    "minutes": 8,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1500",
+    "minutes": 8
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "NOT RELEASED",
+    "number": null
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_MKJP-KMIA_03NOV26_caribbean-callsign_live": {
+   "label": "L01",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "JS"
+   ],
+   "operatingPilots": 2,
+   "notReported": 0,
+   "starPilots": 1,
+   "notCrew": {
+    "MX": 1
+   },
+   "ofpRemarksLines": 7,
+   "ofpRemarksSha": "e216f968c2f9227db882c18a1bb8857fec635e81117f069a40654533382a2698",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
+   "catIiIiiApproaches": null,
+   "catRestrictions": [
+    "MEL 22-14-02-01"
+   ],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "23-51-04-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "335242e2f2551d30382f0cd318b3e72ab3048873234f48c80a3479619545c1f1"
+    },
+    {
+     "type": "MEL",
+     "code": "22-14-02-01",
+     "tlr": "",
+     "notes": 1,
+     "descSha256": "cec7950a93170026d5fc3943173ffa6f1b285f1f3e74565496f58de44b9c1ea3"
+    },
+    {
+     "type": "CDL",
+     "code": "C23-61-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "52ebc74bcba16cba8841a002d51e7ebcae65fff6269bab984be5f097fcebf0ea"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "89",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "3592",
+    "minutes": 25
+   },
+   "permits": [
+    "OVERFLIGHT CUBA"
+   ],
+   "overflightPermsSha": "cecba36eae35337fb9d4677f1ab566a975322ff3c5374efdbc6a44a51872075d",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [
+    "MKJP"
+   ],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KORD-RKSI_05NOV26_crew-ballast-rda_live": {
+   "label": "L02",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 4,
+   "notReported": 0,
+   "starPilots": 1,
+   "notCrew": {},
+   "ofpRemarksLines": 14,
+   "ofpRemarksSha": "8c556a4e52f843fec7ec710025bfb19997aee7f6f848a101bf7eb6ca81d28f9f",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "RKSI": [
+     {
+      "cat": "II/III",
+      "rwys": "15L/15R/16L/16R/33L/33R/34L/34R"
+     }
+    ],
+    "RKSS": [
+     {
+      "cat": "II/III",
+      "rwys": "14R"
+     }
+    ],
+    "RKPC": [
+     {
+      "cat": "II",
+      "rwys": "7"
+     }
+    ],
+    "RJCC": [
+     {
+      "cat": "II/III",
+      "rwys": "19R"
+     }
+    ],
+    "RJAA": [
+     {
+      "cat": "II/III",
+      "rwys": "16R"
+     }
+    ],
+    "RJTT": [
+     {
+      "cat": "II/III",
+      "rwys": "34R"
+     }
+    ],
+    "RJGG": [
+     {
+      "cat": "II",
+      "rwys": "18/36"
+     },
+     {
+      "cat": "III",
+      "rwys": "36"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "80-11-02",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "165b8251a5242a84f0d572c28328290e4a6e81b1edb081e6b11f7f24f500db93"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "1078",
+    "minutes": 10,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_PANC-ZHEC_04NOV26_etops-ddg_live": {
+   "label": "L03",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 3,
+   "notReported": 3,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 18,
+   "ofpRemarksSha": "8fd359103f54e07920450e474afc9c14b7d1e1420e8d60addf38052e34b2d43c",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "ZHEC": [
+     {
+      "cat": "II",
+      "rwys": "19L/19R"
+     }
+    ],
+    "ZHCC": [
+     {
+      "cat": "II",
+      "rwys": "12L"
+     }
+    ],
+    "ZSHC": [
+     {
+      "cat": "II",
+      "rwys": "06"
+     }
+    ],
+    "ZSNJ": [
+     {
+      "cat": "II",
+      "rwys": "7"
+     }
+    ],
+    "ZSPD": [
+     {
+      "cat": "II",
+      "rwys": "17L/35R/34L"
+     },
+     {
+      "cat": "III",
+      "rwys": "34L"
+     }
+    ],
+    "RJCC": [
+     {
+      "cat": "II/III",
+      "rwys": "19R"
+     }
+    ],
+    "RJBB": [
+     {
+      "cat": "II",
+      "rwys": "06L/06R/24L/24R"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "23-15-01-01A",
+     "tlr": "",
+     "notes": 4,
+     "descSha256": "26f73c8ff13ae0aae0e00a9659a677a32a4229871ac45c617f521001336460c4"
+    },
+    {
+     "type": "MEL",
+     "code": "33-42-02A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "9d5e37a91b87d09497ff86da95f2af2c8c054c342d08eea2e7ab37fb582c711f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    }
+   ],
+   "perishables": true,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "37",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [
+    "LANDING CHINA"
+   ],
+   "overflightPermsSha": "b5de902b1a8733fdcd9e3f8187e5b23fa322c6a560c6a6515386473efbbedf46",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_RCTP-RJGG_03NOV26_lcf-lbs_live": {
+   "label": "L04",
+   "crewRoles": [
+    "CA",
+    "FO"
+   ],
+   "operatingPilots": 2,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 13,
+   "ofpRemarksSha": "abfb022c54cf66ed33097c9094343a73c4823ffb61b4f4cbc46bf08bb515107f",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "RCTP": [
+     {
+      "cat": "II",
+      "rwys": "5L/23R/5R/23L"
+     }
+    ],
+    "RJGG": [
+     {
+      "cat": "II",
+      "rwys": "18/36"
+     },
+     {
+      "cat": "III",
+      "rwys": "36"
+     }
+    ],
+    "RJBB": [
+     {
+      "cat": "II",
+      "rwys": "06L/06R/24L/24R"
+     }
+    ],
+    "RJTT": [
+     {
+      "cat": "II/III",
+      "rwys": "34R"
+     }
+    ],
+    "RJAA": [
+     {
+      "cat": "II/III",
+      "rwys": "16R"
+     }
+    ],
+    "RKSS": [
+     {
+      "cat": "II/III",
+      "rwys": "14R"
+     }
+    ]
+   },
+   "catRestrictions": [
+    "MEL 22-AA-01"
+   ],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "22-AA-01",
+     "tlr": "",
+     "notes": 1,
+     "descSha256": "18341647c195d0ee621e4bd9a4f016eb0c280556a254ac71618d849a4b89a246"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "33",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "3574",
+    "minutes": 10
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KCVG-KSEA_04NOV26_pax-catiii_live": {
+   "label": "L05",
+   "crewRoles": [
+    "CA",
+    "CA"
+   ],
+   "operatingPilots": 2,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "MX": 1
+   },
+   "ofpRemarksLines": 7,
+   "ofpRemarksSha": "2adaf0071ba83e0cc4cba35fdeead055b71afb65f32eb368afd6d4c13fb56be4",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": null,
+   "catRestrictions": [
+    "KCVG"
+   ],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "14709",
+    "minutes": 107,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_LEZG-LLBG_04NOV26_remarks-subcards_live": {
+   "label": "L06",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 3,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "LM": 1,
+    "MX": 1
+   },
+   "ofpRemarksLines": 21,
+   "ofpRemarksSha": "5031360480e74a25c81a683d600daf3270e0a256e1a27c4628b7a6ccd1dee272",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "LEZG": [
+     {
+      "cat": "II/III",
+      "rwys": "30R"
+     }
+    ],
+    "HECA": [
+     {
+      "cat": "II",
+      "rwys": "05C/23C"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "21-61-03-01-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "49e530bf610ff3e1d7231f9d85912be7dde0b7885bf2073c744b3eb59847660f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-00-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "9",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1000",
+    "minutes": 6
+   },
+   "permits": [
+    "LANDING ISRAEL"
+   ],
+   "overflightPermsSha": "f443185373ff492a65ff5a244a4f0e6ee8e8fb7da03359fe93e81244f4afcdb4",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [
+    "LEZG"
+   ],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live": {
+   "label": "L07",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 3,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "LM": 1,
+    "MX": 1
+   },
+   "ofpRemarksLines": 10,
+   "ofpRemarksSha": "2c7356bbee3a6c8ae0a5aa8c210d94b8d8d10860255936facc9b6dba52a40e98",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "OMDW": [
+     {
+      "cat": "II/III",
+      "rwys": "12/30"
+     }
+    ],
+    "OMAA": [
+     {
+      "cat": "II/III",
+      "rwys": "13L/31R/31L"
+     }
+    ],
+    "OTHH": [
+     {
+      "cat": "II/III",
+      "rwys": "16L/16R/34L/34R"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "21-61-03-01-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "49e530bf610ff3e1d7231f9d85912be7dde0b7885bf2073c744b3eb59847660f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-00-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 1,
+   "extra": {
+    "fuel": "666",
+    "minutes": 5,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "4927",
+    "minutes": 45
+   },
+   "permits": [
+    "OVERFLIGHT JORDAN",
+    "OVERFLIGHT SAUDI ARABIA",
+    "LANDING UNITED ARAB EMIRATES"
+   ],
+   "overflightPermsSha": "6a3f7ac4ecb1a8b3bd99590017f0e8c595ab9d5c8caf3c3b639089753ccc251d",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KMIA-EHBK_03NOV26_polar-callsign_live": {
+   "label": "L08",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "DH"
+   ],
+   "operatingPilots": 3,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 17,
+   "ofpRemarksSha": "32b3c25f80ca7653e12e60c9d99f67de1d8b4d5a7e1847f2414cda86dea8d626",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "EHBK": [
+     {
+      "cat": "II/III",
+      "rwys": "21"
+     }
+    ],
+    "EBLG": [
+     {
+      "cat": "II/III",
+      "rwys": "04R/22L"
+     }
+    ],
+    "EDDL": [
+     {
+      "cat": "II/III",
+      "rwys": "5R/23L/23R"
+     }
+    ],
+    "EBBR": [
+     {
+      "cat": "II/III",
+      "rwys": "25L/25R"
+     }
+    ],
+    "EDDK": [
+     {
+      "cat": "II/III",
+      "rwys": "13L/31R"
+     }
+    ],
+    "ELLX": [
+     {
+      "cat": "II/III",
+      "rwys": "24"
+     }
+    ],
+    "EINN": [
+     {
+      "cat": "II",
+      "rwys": "24"
+     }
+    ],
+    "CYYT": [
+     {
+      "cat": "II/III",
+      "rwys": "10/28"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "31-41-01-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5b135313378c689923e249bc736a600f48bce011bacad2b78b3ad711586f4591"
+    },
+    {
+     "type": "MEL",
+     "code": "25-58-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a3dd9e0ea3025d58ea04f8b603d6224378e6311efc0fd3a6b0d7e095f848199c"
+    },
+    {
+     "type": "MEL",
+     "code": "25-58-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a3dd9e0ea3025d58ea04f8b603d6224378e6311efc0fd3a6b0d7e095f848199c"
+    }
+   ],
+   "perishables": true,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "1073",
+    "minutes": 6,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "2407",
+    "minutes": 15
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "RLS",
+    "number": "02"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_VHHH-PANC_02NOV26_mtow-equipcode_live": {
+   "label": "L09",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "JS"
+   ],
+   "operatingPilots": 3,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 13,
+   "ofpRemarksSha": "3b5c908991a3969288dad574235d0fef58c2604eb7f8b0d747ae92d883f623b7",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
+   "catIiIiiApproaches": {
+    "VHHH": [
+     {
+      "cat": "II",
+      "rwys": "07L/07R/07C/25L/25C"
+     },
+     {
+      "cat": "III",
+      "rwys": "07L/25C"
+     }
+    ],
+    "RJCC": [
+     {
+      "cat": "II/III",
+      "rwys": "19R"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "21-42-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "4c00b592002906b9fe281c7c79e4ca1d39905019cbdbc43ca10c1ddc7795c793"
+    },
+    {
+     "type": "MEL",
+     "code": "25-54-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "27a0f2e803d49c1081f5eb9d19c722c9956e86842d9f1a9c35b16b32a5cdadf8"
+    },
+    {
+     "type": "MEL",
+     "code": "25-54-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "27a0f2e803d49c1081f5eb9d19c722c9956e86842d9f1a9c35b16b32a5cdadf8"
+    },
+    {
+     "type": "MEL",
+     "code": "23-25-01A",
+     "tlr": "",
+     "notes": 5,
+     "descSha256": "2e6895b2e14840b6bf8c557dc4c254d63ab4386dada6087a49ae05ff9349ff46"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "588",
+    "minutes": 3,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [
+    "OVERFLIGHT TAIWAN"
+   ],
+   "overflightPermsSha": "3dd19196e046a6502537f19e07cc04e1b9f8832944021a57284d89cf433d2584",
+   "revision": {
+    "kind": "RLS",
+    "number": "04"
+   },
+   "stationAirports": [
+    "VHHH"
+   ],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KMIA-SBGL_03NOV26_perishables-ddg_live": {
+   "label": "L10",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "JS"
+   ],
+   "operatingPilots": 3,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "MX": 1
+   },
+   "ofpRemarksLines": 10,
+   "ofpRemarksSha": "29067c4aa5e47c772f75f4045d127247c380f002031c802717530edb33571eca",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "SBGL": [
+     {
+      "cat": "II",
+      "rwys": "10"
+     }
+    ],
+    "SBGR": [
+     {
+      "cat": "II",
+      "rwys": "10L/10R"
+     },
+     {
+      "cat": "III",
+      "rwys": "10R"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "26-16-01-02-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "6226d498a8e9e56b970f7ef597dcc65e342c332b35d798cf489c861381a0cf5a"
+    },
+    {
+     "type": "MEL",
+     "code": "26-16-01-02-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "6226d498a8e9e56b970f7ef597dcc65e342c332b35d798cf489c861381a0cf5a"
+    },
+    {
+     "type": "MEL",
+     "code": "33-43-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "b078ecc9348614d1685fa1b1b1c51ceaa56b0806db60488d3b0f17f95005ec8f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-57-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "0c2040d826308c5bac0aa526b69755830272b9cf21fadd04de29451322e375ae"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "MEL",
+     "code": "78-31-01A",
+     "tlr": "both",
+     "notes": 0,
+     "descSha256": "0ce6c835f94272eb60af66724341781f93702b6f0de5bd18bbea21bd0da2fc7e"
+    }
+   ],
+   "perishables": true,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "39",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1949",
+    "minutes": 10
+   },
+   "permits": [
+    "OVERFLIGHT VENEZUELA"
+   ],
+   "overflightPermsSha": "288627fe4b84f76c9546576a3fc4de8fd8e30127059dec94a9937f9733fbcf6e",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KGSP-EPWA_03NOV26_nat-track-ddg_live": {
+   "label": "L11",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "JS"
+   ],
+   "operatingPilots": 3,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "MX": 1,
+    "LM": 1
+   },
+   "ofpRemarksLines": 19,
+   "ofpRemarksSha": "2558567a1519d12498c96556283a684c1f956c57607d9904feedcad30850eb79",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "EPWA": [
+     {
+      "cat": "II",
+      "rwys": "11/33"
+     },
+     {
+      "cat": "III",
+      "rwys": "33"
+     }
+    ],
+    "EPPO": [
+     {
+      "cat": "II",
+      "rwys": "28"
+     }
+    ],
+    "EPRZ": [
+     {
+      "cat": "II",
+      "rwys": "27"
+     }
+    ],
+    "EPWR": [
+     {
+      "cat": "II",
+      "rwys": "29"
+     }
+    ],
+    "BIKF": [
+     {
+      "cat": "II",
+      "rwys": "10/19"
+     }
+    ],
+    "EINN": [
+     {
+      "cat": "II",
+      "rwys": "24"
+     }
+    ],
+    "CYYT": [
+     {
+      "cat": "II/III",
+      "rwys": "10/28"
+     }
+    ],
+    "EDDK": [
+     {
+      "cat": "II/III",
+      "rwys": "13L/31R"
+     }
+    ],
+    "EDDL": [
+     {
+      "cat": "II/III",
+      "rwys": "5R/23L/23R"
+     }
+    ],
+    "EDFH": [
+     {
+      "cat": "II/III",
+      "rwys": "21"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "36-11-01",
+     "tlr": "takeoff",
+     "notes": 0,
+     "descSha256": "6a735e0747925b8a1e9a18a5031bb59e04abbcc41446778dce459fb8212b762e"
+    },
+    {
+     "type": "MEL",
+     "code": "36-12-02-01",
+     "tlr": "both",
+     "notes": 1,
+     "descSha256": "3d6457d741888f67861006050ac1d0f64a01204824599e57d50919fdf44a29c8"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "MEL",
+     "code": "25-11-02-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "d7572af604ec2a900a111afd166e6c8b5e42dedc2bc7f7e11baa45fad20b5061"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "1053",
+    "minutes": 6,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1500",
+    "minutes": 7
+   },
+   "permits": [
+    "LANDING POLAND"
+   ],
+   "overflightPermsSha": "1f59b9c28df7153d8d31e5023c233461a672636db7e755343feba7b54abbbcdd",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_EBLG-KORD_03NOV26_nat-random_live": {
+   "label": "L12",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO",
+    "DH",
+    "DH"
+   ],
+   "operatingPilots": 4,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 14,
+   "ofpRemarksSha": "262e5d981f403c9e476402b8ecc30658be7570ec777f64adf5f2fdb3fc65869a",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
+   "catIiIiiApproaches": {
+    "EBLG": [
+     {
+      "cat": "II/III",
+      "rwys": "04R/22L"
+     }
+    ],
+    "BIKF": [
+     {
+      "cat": "II",
+      "rwys": "10/19"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "29-34-01-03",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "71f92ea6759ff4e6bea8a534b7ed20dcc79d54b5353ec6ccce5ed239e4a5c252"
+    },
+    {
+     "type": "MEL",
+     "code": "25-57-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "0c2040d826308c5bac0aa526b69755830272b9cf21fadd04de29451322e375ae"
+    },
+    {
+     "type": "MEL",
+     "code": "25-57-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "0c2040d826308c5bac0aa526b69755830272b9cf21fadd04de29451322e375ae"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "MEL",
+     "code": "78-31-01A",
+     "tlr": "both",
+     "notes": 0,
+     "descSha256": "0ce6c835f94272eb60af66724341781f93702b6f0de5bd18bbea21bd0da2fc7e"
+    }
+   ],
+   "perishables": true,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "1048",
+    "minutes": 10,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1500",
+    "minutes": 12
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "RLS",
+    "number": "02"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_UBBB-RJFK_03NOV26_bcf-multicrew_live": {
+   "label": "L13",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO",
+    "JS",
+    "JS",
+    "JS",
+    "JS",
+    "JS"
+   ],
+   "operatingPilots": 4,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "MX": 1,
+    "LM": 1
+   },
+   "ofpRemarksLines": 20,
+   "ofpRemarksSha": "e98ef9552bdbb76e78e227df72e1436147cb18815240ad703df973e7a51c5376",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "UBBB": [
+     {
+      "cat": "II/III",
+      "rwys": "16/17/35"
+     }
+    ],
+    "RJFT": [
+     {
+      "cat": "II/III",
+      "rwys": "7"
+     }
+    ],
+    "RJBB": [
+     {
+      "cat": "II",
+      "rwys": "06L/06R/24L/24R"
+     }
+    ],
+    "RJAA": [
+     {
+      "cat": "II/III",
+      "rwys": "16R"
+     }
+    ],
+    "UCFM": [
+     {
+      "cat": "II/III",
+      "rwys": "07/25"
+     }
+    ],
+    "ZSHC": [
+     {
+      "cat": "II",
+      "rwys": "06"
+     }
+    ],
+    "ZSNJ": [
+     {
+      "cat": "II",
+      "rwys": "7"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "27-32-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "4cb75511f6812a8e6142adeb1d9c874a1a53beb847cea4d2092ea086bcd2c7af"
+    },
+    {
+     "type": "MEL",
+     "code": "21-51-01-02",
+     "tlr": "takeoff",
+     "notes": 0,
+     "descSha256": "8117a0e0ae4d5c1b31a3008f55d9166833d529fb75689c1f7a172e8254f37bb8"
+    },
+    {
+     "type": "MEL",
+     "code": "36-11-01",
+     "tlr": "takeoff",
+     "notes": 0,
+     "descSha256": "6a735e0747925b8a1e9a18a5031bb59e04abbcc41446778dce459fb8212b762e"
+    },
+    {
+     "type": "MEL",
+     "code": "74-00-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "3d931c3fc2db0e22e4acde7cd080b62847932603bb8f44ff90b7ae54e9635e1a"
+    },
+    {
+     "type": "MEL",
+     "code": "36-11-08C",
+     "tlr": "both",
+     "notes": 1,
+     "descSha256": "acf3b90e27fdc070ba93a680eb7e2e84a7c18acad8fd1b20d6692d0361d550e2"
+    },
+    {
+     "type": "MEL",
+     "code": "25-53-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a8bc7c3f06aaeb9f0cf90ea77ac324128a1761fe04b4bb835a1cbe3d3ef92854"
+    },
+    {
+     "type": "MEL",
+     "code": "25-53-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a8bc7c3f06aaeb9f0cf90ea77ac324128a1761fe04b4bb835a1cbe3d3ef92854"
+    },
+    {
+     "type": "MEL",
+     "code": "36-21-04",
+     "tlr": "both",
+     "notes": 1,
+     "descSha256": "6c890d3b613d2fec71c480a7d0508d3c90ce0599375c2d4f41c26cb89677ce34"
+    },
+    {
+     "type": "MEL",
+     "code": "36-11-03",
+     "tlr": "both",
+     "notes": 1,
+     "descSha256": "2987c91ae00c012ccb79de3bd981514b19ba0b57163fa0678a2d6949fe54467a"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "MEL",
+     "code": "78-31-01A",
+     "tlr": "both",
+     "notes": 0,
+     "descSha256": "0ce6c835f94272eb60af66724341781f93702b6f0de5bd18bbea21bd0da2fc7e"
+    },
+    {
+     "type": "MEL",
+     "code": "34-61-02-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "812c74e703aa822ce001514866e3252927bbc134d762596ba7c2c39b99a39b06"
+    }
+   ],
+   "perishables": true,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "2367",
+    "minutes": 13,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "7000",
+    "minutes": 37
+   },
+   "permits": [
+    "OVERFLIGHT KAZAKHSTAN",
+    "OVERFLIGHT CHINA"
+   ],
+   "overflightPermsSha": "19cddaa7ef124c8e28a174456d392763d0ca203239aa292f11b9a924cf1bfaf8",
+   "revision": {
+    "kind": "RLS",
+    "number": "04"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KORD-RKSI_03NOV26_etops-rda-dateline_live": {
+   "label": "L14",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 4,
+   "notReported": 4,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 17,
+   "ofpRemarksSha": "bcbeaca67ab6c7df7280d9133cae56bf2cd43bd9e09e1216fb8fc6a4f9c19721",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "RKSI": [
+     {
+      "cat": "II/III",
+      "rwys": "15L/15R/16L/16R/33L/33R/34L/34R"
+     }
+    ],
+    "RKSS": [
+     {
+      "cat": "II/III",
+      "rwys": "14R"
+     }
+    ],
+    "RKPC": [
+     {
+      "cat": "II",
+      "rwys": "7"
+     }
+    ],
+    "RJCC": [
+     {
+      "cat": "II/III",
+      "rwys": "19R"
+     }
+    ],
+    "RJAA": [
+     {
+      "cat": "II/III",
+      "rwys": "16R"
+     }
+    ],
+    "RJTT": [
+     {
+      "cat": "II/III",
+      "rwys": "34R"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "33-43-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "b078ecc9348614d1685fa1b1b1c51ceaa56b0806db60488d3b0f17f95005ec8f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "502",
+    "minutes": 5,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1308",
+    "minutes": 12
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_PHNL-WIHH_03NOV26_pax-etops-tanker_live": {
+   "label": "L15",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO",
+    "JS"
+   ],
+   "operatingPilots": 4,
+   "notReported": 0,
+   "starPilots": 1,
+   "notCrew": {
+    "FA": 9,
+    "MX": 2,
+    "PU": 2
+   },
+   "ofpRemarksLines": 13,
+   "ofpRemarksSha": "19f8c01eff89addf9b27cb61bf4ba249c62e3bb3d2c3e1dd7192748fed70ca78",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": null,
+   "catRestrictions": [],
+   "ddgItems": [],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "4427",
+    "minutes": 26,
+    "tanker": true
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [
+    "LANDING INDONESIA"
+   ],
+   "overflightPermsSha": "7aad7b682c316abfa8e91efb2ddffc9b99ed9295b568321c9c695cfb8d37e125",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [
+    "PWAK"
+   ],
+   "takeoffAlternateFlag": false
+  },
+  "FK_ZHEC-PANC_02NOV26_wheelsup-penalty_live": {
+   "label": "L16",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 3,
+   "notReported": 3,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 9,
+   "ofpRemarksSha": "9e4866be9c1d4d4ef22c8be7fe58c92573c7273b44477bf96cf9feaa6ffabfb3",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
+   "catIiIiiApproaches": {
+    "ZHEC": [
+     {
+      "cat": "II",
+      "rwys": "19L/19R"
+     }
+    ],
+    "ZSNJ": [
+     {
+      "cat": "II",
+      "rwys": "7"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "47-11-01-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "0532aa7d78c2d2f16a38e291a205df372c819d8e8f317838062df9edc715855c"
+    },
+    {
+     "type": "MEL",
+     "code": "21-43-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "e5cf2500ff34c5759d3fe191a3895752d66619c3cfb81150c1688b02c1008b6f"
+    },
+    {
+     "type": "MEL",
+     "code": "25-00-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    },
+    {
+     "type": "MEL",
+     "code": "25-00-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    },
+    {
+     "type": "CDL",
+     "code": "C27-51-02",
+     "tlr": "both",
+     "notes": 2,
+     "descSha256": "ba0c5747e20f34a4d970e632e3d51bcd8f83dec903688583c7629dcf64cc5837"
+    }
+   ],
+   "perishables": true,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "40",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [
+    "TAKEOFF CHINA"
+   ],
+   "overflightPermsSha": "f6e02a6a830e3809211f111ba9a604bc9895de801aad2c77b94bb3ee20097843",
+   "revision": {
+    "kind": "RLS",
+    "number": "02"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_OMAA-VHHH_03NOV26_etihad-permits_live": {
+   "label": "L17",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 3,
+   "notReported": 3,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 18,
+   "ofpRemarksSha": "27c0c801354f9ecc404bccd0aab71706486ca8aed03ee899fda5bf6c8aa916d5",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "OMAA": [
+     {
+      "cat": "II/III",
+      "rwys": "13L/31R/31L"
+     }
+    ],
+    "VHHH": [
+     {
+      "cat": "II",
+      "rwys": "07L/07R/07C/25L/25C"
+     },
+     {
+      "cat": "III",
+      "rwys": "07L/25C"
+     }
+    ],
+    "VMMC": [
+     {
+      "cat": "II",
+      "rwys": "34"
+     }
+    ],
+    "VIJP": [
+     {
+      "cat": "II/III",
+      "rwys": "26"
+     }
+    ],
+    "VECC": [
+     {
+      "cat": "II",
+      "rwys": "01R/19L"
+     },
+     {
+      "cat": "III",
+      "rwys": "01R"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    }
+   ],
+   "perishables": true,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "52",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "657",
+    "minutes": 8
+   },
+   "permits": [
+    "OVERFLIGHT OMAN",
+    "OVERFLIGHT INDIA",
+    "OVERFLIGHT BANGLADESH",
+    "OVERFLIGHT MYANMAR",
+    "OVERFLIGHT CHINA",
+    "ADC BANGLADESH"
+   ],
+   "overflightPermsSha": "e3132f342ffe15572c9141ad1325f0abb8a8d55daac2a715cd3cbe15248724ab",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KORD-RJAA_03NOV26_intl-redispatch_live": {
+   "label": "L18",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO",
+    "JS",
+    "JS",
+    "JS"
+   ],
+   "operatingPilots": 4,
+   "notReported": 4,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 11,
+   "ofpRemarksSha": "a657ee29b759349c9e33639978284aa5f97ff32256c8fa4541721eb95995351e",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "RJAA": [
+     {
+      "cat": "II/III",
+      "rwys": "16R"
+     }
+    ],
+    "RJTT": [
+     {
+      "cat": "II/III",
+      "rwys": "34R"
+     }
+    ],
+    "RJGG": [
+     {
+      "cat": "II",
+      "rwys": "18/36"
+     },
+     {
+      "cat": "III",
+      "rwys": "36"
+     }
+    ],
+    "RJCC": [
+     {
+      "cat": "II/III",
+      "rwys": "19R"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "CDL",
+     "code": "C27-11-02",
+     "tlr": "",
+     "notes": 2,
+     "descSha256": "4ef321d575ccc70cb2c3c1e7e740262214581d52c849dd0b12aff90c89bd0bba"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "1078",
+    "minutes": 10,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "2500",
+    "minutes": 19
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_PANC-KMIA_03NOV26_dom-redispatch-mel_live": {
+   "label": "L19",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "JS"
+   ],
+   "operatingPilots": 3,
+   "notReported": 3,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 6,
+   "ofpRemarksSha": "941c6045a6ae78285d94dafa163fcf8c09bbf7580a72b6f0f4442c9a30dc2dcd",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": null,
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "38-10-01A",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "a98343ab58472c4895b025b8e6195e905429f1c7b9ff1b7f75c9fda830467136"
+    },
+    {
+     "type": "MEL",
+     "code": "33-45-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "f541327fe0a97ff9c703b6742953ef887db7d5060171c6d8bc3d0be7a7cac450"
+    },
+    {
+     "type": "MEL",
+     "code": "34-53-01B",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "2d82f440a08c3170e4e6b5160e3eed192e8ef0b688e6995786fad4d3ff26afd7"
+    },
+    {
+     "type": "MEL",
+     "code": "33-11-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "ed801b0369c64a381221745b3114380cced028a29c21931d1cba82ed8c75243a"
+    },
+    {
+     "type": "MEL",
+     "code": "21-51-06-02",
+     "tlr": "",
+     "notes": 1,
+     "descSha256": "88dc622e5cdf60aefb4eefb5eb6f3b318ff20cdda88116e98b0d0dfa388eeeeb"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "1058",
+    "minutes": 6,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1938",
+    "minutes": 10
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "RLS",
+    "number": "01"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KORD-RKSI_10NOV26_nopac-etops-remarks_live": {
+   "label": "L20",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 4,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {},
+   "ofpRemarksLines": 19,
+   "ofpRemarksSha": "75ab67fa13235fa1a0f75a70e76516f1255fd4e53b2540ab01029a1bd266cd36",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "RKSI": [
+     {
+      "cat": "II/III",
+      "rwys": "15L/15R/16L/16R/33L/33R/34L/34R"
+     }
+    ],
+    "RKSS": [
+     {
+      "cat": "II/III",
+      "rwys": "14R"
+     }
+    ],
+    "RKPC": [
+     {
+      "cat": "II",
+      "rwys": "7"
+     }
+    ],
+    "RJCC": [
+     {
+      "cat": "II/III",
+      "rwys": "19R"
+     }
+    ],
+    "RJTT": [
+     {
+      "cat": "II/III",
+      "rwys": "34R"
+     }
+    ],
+    "RJAA": [
+     {
+      "cat": "II/III",
+      "rwys": "16R"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5845b1fa73470ed02aeaa5a044a07a91d4e12a18c5afbf322f4d4d92db37424b"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "533",
+    "minutes": 5,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1504",
+    "minutes": 15
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "REV",
+    "number": "02"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_NZWN-NFFN_10NOV26_pax-remarks_live": {
+   "label": "L21",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "DH",
+    "JS"
+   ],
+   "operatingPilots": 2,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "FA": 9,
+    "MX": 2,
+    "PU": 2
+   },
+   "ofpRemarksLines": 21,
+   "ofpRemarksSha": "caf3e6132b4de693a90656176aeb6cc3a78484b2e68d1a3247e48cb6618429d8",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "NZAA": [
+     {
+      "cat": "II/III",
+      "rwys": "23L"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "80",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "0",
+    "minutes": 0
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "REV",
+    "number": "01"
+   },
+   "stationAirports": [
+    "NZWN",
+    "NFFN"
+   ],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": true
+  },
+  "FK_EPPW-KPSM_10NOV26_nat-random-callsign_live": {
+   "label": "L22",
+   "crewRoles": [
+    "CA",
+    "CA",
+    "FO",
+    "JS",
+    "JS"
+   ],
+   "operatingPilots": 3,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "FA": 8,
+    "MX": 2,
+    "PU": 1
+   },
+   "ofpRemarksLines": 15,
+   "ofpRemarksSha": "da4d20c2054d40c6c75041559a8f3b0abd47849e05d48c1881500a7335a7f4a5",
+   "cdcLines": 6,
+   "cdcSha": "76de0aef6c23411f1ab981f33b6eff5c43ae38a1f06f46dda86f6b6e8fee8be7",
+   "catIiIiiApproaches": {
+    "EINN": [
+     {
+      "cat": "II",
+      "rwys": "24"
+     }
+    ],
+    "BIKF": [
+     {
+      "cat": "II",
+      "rwys": "10/19"
+     }
+    ],
+    "EDDH": [
+     {
+      "cat": "II/III",
+      "rwys": "23"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "33",
+    "minutes": 0,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1585",
+    "minutes": 8
+   },
+   "permits": [
+    "OVERFLIGHT GERMANY"
+   ],
+   "overflightPermsSha": "2784b7b3b5af3944d3c47b910e859b75e609e669fa84c09bf9b725a6bb148b72",
+   "revision": {
+    "kind": "REV",
+    "number": "01"
+   },
+   "stationAirports": [
+    "EPPW"
+   ],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  },
+  "FK_KDOV-ETAR_03NOV26_pax-nat-random_live": {
+   "label": "L23",
+   "crewRoles": [
+    "CA",
+    "FO",
+    "FO"
+   ],
+   "operatingPilots": 3,
+   "notReported": 0,
+   "starPilots": 0,
+   "notCrew": {
+    "LM": 1
+   },
+   "ofpRemarksLines": 18,
+   "ofpRemarksSha": "63ced7acacf3f8f494c596e532d3cdb23ce132f7dd1e3874f70debb1a166cfac",
+   "cdcLines": 0,
+   "cdcSha": null,
+   "catIiIiiApproaches": {
+    "ETAR": [
+     {
+      "cat": "II/III",
+      "rwys": "ALL RUNWAYS"
+     }
+    ],
+    "EDDK": [
+     {
+      "cat": "II/III",
+      "rwys": "13L/31R"
+     }
+    ],
+    "ELLX": [
+     {
+      "cat": "II/III",
+      "rwys": "24"
+     }
+    ],
+    "EDFH": [
+     {
+      "cat": "II/III",
+      "rwys": "21"
+     }
+    ],
+    "EDDF": [
+     {
+      "cat": "II/III",
+      "rwys": "7L/7C/7R/25L/25C/25R"
+     }
+    ],
+    "EICK": [
+     {
+      "cat": "II",
+      "rwys": "16"
+     }
+    ],
+    "CYYT": [
+     {
+      "cat": "II/III",
+      "rwys": "10/28"
+     }
+    ]
+   },
+   "catRestrictions": [],
+   "ddgItems": [
+    {
+     "type": "MEL",
+     "code": "52-71-01-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "8a5dad873cee0e74740c2432f57afbd5e1a522abc11dd1e9c14097a230ab9181"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "MEL",
+     "code": "25-20-01",
+     "tlr": "",
+     "notes": 0,
+     "descSha256": "5012bfc5d89a0decdb8efc4c39fa7516c21eb171217f0a6787c87dbfa39f900c"
+    },
+    {
+     "type": "MEL",
+     "code": "25-58-01A",
+     "tlr": "",
+     "notes": 1,
+     "descSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+   ],
+   "perishables": false,
+   "temperatureControl": false,
+   "securityMessages": 0,
+   "extra": {
+    "fuel": "20809",
+    "minutes": 113,
+    "tanker": false
+   },
+   "pcf": {
+    "fuel": "1763",
+    "minutes": 10
+   },
+   "permits": [],
+   "overflightPermsSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "revision": {
+    "kind": "REV",
+    "number": "03"
+   },
+   "stationAirports": [],
+   "remarksWeather": [],
+   "takeoffAlternateFlag": false
+  }
+ }
+}
