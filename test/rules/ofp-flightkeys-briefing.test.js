@@ -2,7 +2,7 @@
 /**
  * TC-162 — FlightKeys OFP parser v0.3.0 (rules/ofp-flightkeys, development version, D58 amended): the
  * briefing reader (step 5d; Exec decision D64). TC-160 / TC-161 keep testing the v0.1.0 / v0.2.0 fields.
- * Grammar: docs/RPT-OFP-FlightKeys-BriefingGrammar-NEW-20261114-v1.0.md §A.1–§A.11; field map v1.1 rows 37,
+ * Grammar: docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md §A.1–§A.11 (v1.1); field map v1.2 rows 37,
  * 38, 43–45, 48, 50; SME-1, SME-15, SME-17, SME-21, SME-23.
  *
  *   TC-162-001  v0.2.0 byte-identical: every field v0.2.0 read, every v0.2.0 airportData value and the v0.2.0
@@ -43,7 +43,7 @@
  *               METAR → ATIS, every report once and whole, no "* PRIO *", no furniture, no Hazard text
  *   TC-162-040  card order (SME-1) on 6 packages, and the rule on all 26
  *   TC-162-041  an airportData entry for every airport in either briefing (rows 43–45)
- *   TC-162-050  sections on all 26 = the field map §1.1 page ranges; each anchor on its start page
+ *   TC-162-050  sections on all 26 = the field map v1.2 §1.1 page ranges; each anchor on its start page
  *   TC-162-060  every v0.3.0 value byte-identical to the PR head before the Exec answers (e96ed88), except
  *               weatherRaw (added, D65) and the D66 E-WINS fields
  *   TC-162-090  fixtures missing → FAIL, never skip (child run)
@@ -73,8 +73,8 @@ const navblue  = require(path.join(RULES, MANIFEST['ofp-navblue'].file));
 const OPTS     = { icaoFpl, aircraftProfile: acProf, notamRules: NR };
 const BASELINE = require('./data/ofp-flightkeys-v0.2.0-baseline.json');
 const LABELS   = require('./data/ofp-flightkeys-expected-v0.2.0.json').fixtures;
-const GRAMMAR  = fs.readFileSync(path.join(ROOT, 'docs', 'RPT-OFP-FlightKeys-BriefingGrammar-NEW-20261114-v1.0.md'), 'utf8');
-const FIELDMAP = fs.readFileSync(path.join(ROOT, 'docs', 'SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1-FieldMap.md'), 'utf8');
+const GRAMMAR  = fs.readFileSync(path.join(ROOT, 'docs', 'RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md'), 'utf8');
+const FIELDMAP = fs.readFileSync(path.join(ROOT, 'docs', 'SPRINT-OFP-FlightKeysMigration-UPD-20261118-v1.2-FieldMap.md'), 'utf8');
 
 const sha   = s => crypto.createHash('sha256').update(s).digest('hex');
 const warns = (r, re) => r.findings.filter(f => f.level === 'WARN' && (!re || re.test(f.field)));
@@ -491,11 +491,13 @@ if (!FIXTURES) {
         if (a.briefing.notamBlock && a.briefing.weatherBlock) assert.deepEqual(rn, rw, `${lbl} ${icao}: same roles and windows in both briefings`);
       }
     }
-    // §A.4, with one correction (O-13): T2 ZUCK's third role (TA) is printed on its wrapped runway line (the doc's
-    // own §A.4 example); the doc's count missed it: TA 28 (not 27) and 9 three-role blocks (not 8) in each briefing.
+    // §A.4 of grammar v1.1 (O-13 corrected, Exec 18 Nov): T2 ZUCK's third role (TA) is printed on its wrapped runway
+    // line, so TA 28 and 9 three-role blocks in each briefing; no block carries the same role twice.
     assert.deepEqual(roleN, { DEPARTURE: 26, DESTINATION: 26, 'ALTN 1': 26, IA: 83, TA: 28, EA: 21, dest2: 10, dest2AltnPlanned: 10 });
     assert.deepEqual(roleW, { DEPARTURE: 26, DESTINATION: 26, 'ALTN 1': 26, ALTN: 101, IA: 122, TA: 28, EA: 21, dest2: 10, dest2AltnPlanned: 10, dest2Altn: 9 });
     assert.deepEqual(perN, { 1: 53, 2: 75, 3: 9 }); assert.deepEqual(perW, { 1: 200, 2: 76, 3: 9 });
+    // the same numbers as grammar v1.1 §A.4 prints them
+    assert.ok(GRAMMAR.includes('| `TA` | 28 (15) | 28 (15) |') && GRAMMAR.includes('NOTAM: 1 role in 53 blocks, 2 in 75, 3 in 9. WX: 1 in 200, 2 in 76, 3 in 9'), 'grammar v1.1 §A.4');
     // §A.4: no IATA code in 3 blocks of 2 packages: L22 EPPW (NOTAM and WX), L16 RJCJ (WX)
     assert.deepEqual(noIata.sort(), ['L16 RJCJ', 'L22 EPPW']);
     console.log('TC-162-010 roles (NOTAM | WX): ' + JSON.stringify(roleN) + ' | ' + JSON.stringify(roleW));
@@ -923,10 +925,9 @@ if (!FIXTURES) {
   test('TC-162-050 sections on all 26 = field map §1.1 page ranges; each anchor on its start page', () => {
     const fm = fieldMapSections();
     const MAP = { HSCN: ['hscn'], OFP: ['ofp'], VA: ['va'], TLR: ['tlr'], NAT: ['nat'], Jepp: ['charts'] };
-    // Corrections to field map §1.1 (O-16): the two packages with image-only pages have more of them than §1.1
-    // counts — L16 four (PDF 32–35), L18 six (PDF 41–46), pages with no items — so their TLR is on PDF pages
-    // 36–38 and 47–50 (the items' own page numbers; checked below by the anchor in the items).
-    const CORR = { L16: { 'tlr 34-36': 'tlr 36-38' }, L18: { 'tlr 44-47': 'tlr 47-50' } };
+    // Field map v1.2 §1.1 carries the measured L16 / L18 pages (O-16, Exec 18 Nov): four and six image-only pages
+    // (no items), TLR on PDF 36–38 and 47–50 (the items' own page numbers; checked below by the anchor in the items).
+    assert.deepEqual([fm.L16.find(p => p.part === 'TLR'), fm.L18.find(p => p.part === 'TLR')].map(p => `${p.start}-${p.end}`), ['36-38', '47-50'], 'field map v1.2 §1.1');
     for (const fx of fk) {
       const r = run(fx), lbl = L(fx), text = load(fx).text.replace(/\r\n?/g, '\n').split('\n\n');
       const want = [];
@@ -934,7 +935,7 @@ if (!FIXTURES) {
       for (const p of fm[lbl]) {
         if (p.part === 'OFP') { if (ofpSeen) continue; ofpSeen = true; }   // bookmarks point to the first copy (ADR-005 §2.6.3)
         if (p.part === 'blank') continue;
-        if (MAP[p.part]) { const w = `${MAP[p.part][0]} ${p.start}-${p.end}`; want.push((CORR[lbl] || {})[w] || w); }
+        if (MAP[p.part]) want.push(`${MAP[p.part][0]} ${p.start}-${p.end}`);
       }
       const got = r.sections.filter(s => !['companyNotams', 'notamBriefing', 'weatherBriefing', 'hazardBriefing'].includes(s.id)).map(s => `${s.id} ${s.startPage}-${s.endPage}`);
       assert.deepEqual(got, want, `${lbl}: sections = field map §1.1`);

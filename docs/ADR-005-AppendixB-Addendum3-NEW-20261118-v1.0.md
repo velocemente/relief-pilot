@@ -5,7 +5,7 @@
 | **Extends** | ADR-005 Modular OFP Platform v1.0, Appendix B (contract v2.0); addendum 1 (contract 2.1) and addendum 2 (contract 2.2) |
 | **Status** | Written 2026-11-18 for `ofp-flightkeys` v0.3.0. The fields follow the Exec's brief for v0.3.0 (step 5d), Exec decision **D64** (18 Nov) and SME-1 |
 | **Contract version** | 2.3. Fields are added; no meaning changes (ADR-005 §2.4: adding a field is a minor version) |
-| **Source** | Grammar report `RPT-OFP-FlightKeys-BriefingGrammar-NEW-20261114-v1.0.md` §A.4–§A.6, §A.10; field map v1.1 rows 43–45, §4 SME-1; Exec brief v0.3.0 (scope 2, 3a, 3b); D54, D64 |
+| **Source** | Grammar report `RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md` §A.4–§A.6, §A.10; field map v1.1 rows 43–45, §4 SME-1; Exec brief v0.3.0 (scope 2, 3a, 3b); D54, D64 |
 
 ## Fields
 

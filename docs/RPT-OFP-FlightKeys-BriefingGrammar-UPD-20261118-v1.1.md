@@ -1,6 +1,6 @@
 # RPT-OFP-FlightKeys — Briefing Grammar (NOTAM and Weather Briefing) and Beta Live Risk
 
-**Version:** v1.0-NEW | **Status:** NEW | **Date:** 2026-11-14 (independent-QA corrections the same day: "items cut by a page" recounted, header rows split by a page added to §A.5)
+**Version:** v1.1-UPD | **Status:** UPD | **Date:** 2026-11-18 — v1.0 (2026-11-14: independent-QA corrections the same day: "items cut by a page" recounted, header rows split by a page added to §A.5) corrected to the measurements of `ofp-flightkeys` v0.3.0 (Exec, 18 Nov; ledger O-13, O-17): §A.4 roles, §A.5 repeated IDs. Change log at the end.
 **Input for:** NOTAM ruleset v1.13.0 and parser step 5d (`ofp-flightkeys` briefing reader); D54 (NOTAM layout preservation).
 **Evidence:** the 26 FlightKeys packages on fixtures branch `claude/fk-live-19` (velocemente/pilotbrief-fixtures#11): 23 live (L01–L23) and 3 prototypes (T1–T3). Labels and the package list are those of the FlightKeys field map v1.1 (`docs/SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1-FieldMap.md`, §1.1).
 **What it is not:** a parser or a code change. Nothing in the app changes.
@@ -110,9 +110,9 @@ APT<ICAO> RWYS: <rwy pairs>   <ROLE> DD HH:MM - DD HH:MM    (indent 10–12)
 | Blocks | 137 in the NOTAM Briefing, 285 in the Weather Briefing (422) | 26/26 |
 | Name cell | `<IATA> - <NAME>`. The name is **clipped** at the cell width by FlightKeys itself (e.g. `ANCHORAGE/TED STEVENS ANCHORAG`) and can run into the role cell with **no space**: `…ANCHORAGDEPARTURE`, `…AT PEASEdest2AltnPlanned`, `…ELMENDORF AFBdest2AltnPlanned`. The role must be matched from the known role list anchored to the window at the end of the line, never split on spaces. | glued role in 25 blocks |
 | No IATA code | `- POWIDZ   DEPARTURE …` (L22 EPPW, NOTAM and WX), `- SAPPORO/CHITOSE   IA …` (L16 RJCJ, WX) | 3 blocks, 2 packages |
-| `APT` line | `APT` is glued to the ICAO code in 422/422. `RWYS:` follows after one space (420) or is glued (`APTNWWWRWYS: 11/29`, L21). In 1 block the page break falls between `APTRJTT` and the runways (L02, WX). Runway pairs wrap onto the next line(s) at indent 87–89 (24 blocks, 12 packages); a wrapped runway line can carry a role window at its right (`03R/21L   TA 27 02:00 - 27 04:44`, T1). | 422 |
+| `APT` line | `APT` is glued to the ICAO code in 422/422. `RWYS:` follows after one space (420) or is glued (`APTNWWWRWYS: 11/29`, L21). In 1 block the page break falls between `APTRJTT` and the runways (L02, WX). Runway pairs wrap onto the next line(s) at indent 87–89 (24 blocks, 12 packages); a wrapped runway line can carry a role window at its right (`03R/21L   TA 27 02:00 - 27 04:44`, T2 ZUCK, in both briefings). | 422 |
 | Role cell | Right-aligned; the window `DD HH:MM - DD HH:MM` is day-of-month and UTC time, no month or year. Roles: `DEPARTURE`, `DESTINATION`, `ALTN 1`, `ALTN`, `IA`, `TA`, `EA`, `dest2`, `dest2Altn`, `dest2AltnPlanned` (lower case as printed). | see below |
-| Roles per block | NOTAM: 1 role in 53 blocks, 2 in 76, 3 in 8. WX: 1 in 200, 2 in 77, 3 in 8. The same airport can carry the same role twice with different windows (4 blocks, 2 packages). | |
+| Roles per block | NOTAM: 1 role in 53 blocks, 2 in 75, 3 in 9. WX: 1 in 200, 2 in 76, 3 in 9 (v1.1: T2 ZUCK's third role, `TA`, is on its wrapped runway line; v1.0 counted 76 / 8 and 77 / 8). **No block carries the same role twice** (v1.0 said 4 blocks in 2 packages; none found by the position reader or an independent reading). | |
 
 Role counts (blocks carrying the role; packages):
 
@@ -123,7 +123,7 @@ Role counts (blocks carrying the role; packages):
 | `ALTN 1` | 26 (26) | 26 (26) | first destination alternate (the OFP p1 alternate) |
 | `ALTN` | **0** | 101 (26) | further alternates: **weather only, never a NOTAM block** |
 | `IA` | 83 (26) | 122 (26) | Intermediate (adequate) airport |
-| `TA` | 27 (15) | 27 (15) | Terrain alternate |
+| `TA` | 28 (15) | 28 (15) | Terrain alternate (v1.1: 28 with T2 ZUCK's wrapped runway line; v1.0 27) |
 | `EA` | 21 (10) | 21 (10) | En-route (ETOPS/ETP) alternate |
 | `dest2` | 10 (10) | 10 (10) | Reclear (redispatch) airport |
 | `dest2AltnPlanned` | 10 (10) | 10 (10) | Reclear alternate as planned |
@@ -219,7 +219,7 @@ ADVISORY AREA CYA311(M) MOOSE JAW ACT.
 
 **Multi-part NOTAMs.** `END PART n OF m` inside the body: 6 items, 5 packages (KMIA ODP in L01: part 1 and part 2 are separate items with separate IDs).
 
-**Repeated IDs.** Inside one package the same `<locations> <ID>` occurs more than once in the prototypes (T1/T2) and 0–2 times in the live packages (field map row 44); the duplicates are the same NOTAM printed under two airports or FIRs. D43: never merged by text; the ID decides.
+**Repeated IDs.** Inside one package the same `<locations> <ID>` occurs more than once (v1.1, measured on the positioned items over the NOTAM Briefing's airport and FIR items; field map v1.2 row 44): T1 38, T2 40; live L15 24, L13 7, L22 4, L06 3, L03 / L12 / L14 / L16 / L17 / L18 1 each, the other 13 live packages 0 (v1.0 said "0–2 times in the live packages"). Mostly the same NOTAM printed under two airports or FIRs; in L15, PHNL prints 23 IDs twice under its own `GENERAL` heading (same header row, body wrapped differently). D43: never merged by text; the ID decides.
 
 ### A.6 Category headings (NOTAM Briefing)
 
@@ -496,3 +496,12 @@ Count of safety-critical gaps per package (empty or wrong): cards without NOTAMs
 
 - `tools/redact` still leaves the `JS 0 <NAME>` jump-seat lines (L11 among others), as already reported in field map v1.1 §6. This report quotes none of them.
 - Field map v1.1 row 44 lists `PERM` as a NOTAM end form in 8 packages; no NOTAM header in the 26 packages ends in `PERM` (§A.5). The field map is not edited in this PR.
+
+---
+
+## Change log
+
+| Version | Date | Change |
+|---|---|---|
+| v1.0 | 2026-11-14 | First version, with the independent-QA corrections of the same day (see the version line). |
+| **v1.1** | 2026-11-18 | Corrected to what `ofp-flightkeys` v0.3.0 measured on the positioned items, confirmed by an independent reading in test code (Exec, 18 Nov; ledger O-13, O-17). **§A.4:** the role window on a wrapped runway line is T2 ZUCK's (`03R/21L   TA …`), not T1's; with it, `TA` is in 28 blocks per briefing (v1.0: 27) and 9 blocks carry 3 roles (v1.0: 8; 2 roles 75 NOTAM / 76 WX, v1.0: 76 / 77); no block carries the same role twice (v1.0: 4 blocks, 2 packages). **§A.5 Repeated IDs:** counted per package (v1.0: "0–2 times in the live packages"). File renamed from `…-NEW-20261114-v1.0.md`. Every other count is unchanged and was re-measured equal (blocks 137 / 285, airport NOTAM items 2,292, weather reports and forms, empty states). Passed through `tools/redact` (no change). |
