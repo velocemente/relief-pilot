@@ -1,6 +1,6 @@
 'use strict';
 /**
- * TC-172 — NOTAM ruleset v1.14.0 (ledger P-26): the obstacle rule of Exec decision D67 and the
+ * TC-172 — NOTAM ruleset v1.14.0 (ledger P-26): the obstacle rule of Exec decisions D67 / D67a and the
  * FlightKeys type headings. Module rules/notam-rules-next/notam-rules-v1.14.0.js (manifest entry
  * 'notam-rules-next'; not built into index.html, which keeps v1.13.0 until step 5e).
  *
@@ -16,7 +16,13 @@
  *   TC-172-012  group U samples (item 5): shown; without the height / surface: hidden
  *   TC-172-013  stated non-effects and obstacle-light outages are not read as effects (pos. and neg.)
  *   TC-172-014  a NOTAM that is not an obstacle NOTAM is never touched by the rule: v1.14.0 = v1.13.0
- *   TC-172-015  the OBSTACLE heading makes an item an obstacle NOTAM; the 16 other headings never do
+ *   TC-172-015  the OBSTACLE heading makes an item an obstacle NOTAM; the 16 other headings never
+ *   TC-172-016  D67a O-22 / O-23 / O-24: a height near a runway or procedure with no effect stated,
+ *               obstacle-light outages, men and equipment with no height, items under OBSTACLE → hidden;
+ *               the same NOTAM with a procedure affected → shown
+ *   TC-172-017  D67a O-25: apron / stand, area closed, procedure changed, LVO → shown in a card group with
+ *               a row (GENERAL, RWY-<rwy>, SIDs, STARs), ORIG and DEST; a classification with a row kept
+ *   TC-172-018  D67a O-26: OCA/H NOT AFFECTED + height near a runway + take-off side unstated → U, shown do
  *   TC-172-020  headings: each of the 17 cut out as a piece of its own, never in an item's text; the
  *               pieces give the text back byte for byte; indent ≥ 15 only; NavBlue text unchanged
  *   TC-172-021  a trailing heading hides nothing (O-12): each of the 17 after an item, unsplit;
@@ -32,7 +38,12 @@
  *               U entry is shown
  *   TC-172-032  NavBlue corpus (30 fixtures, whole text, the TC-171-030 sweep): split unchanged; every
  *               NOTAM not in the change list identical; every B / C entry differs; every U entry shown
- *   TC-172-033  the change list data = the report's counts; every listed NOTAM is the fixture's NOTAM
+ *   TC-172-033  the change list data (v1.1) = the report's counts (B, C, U, G, O-28 a and c); card groups
+ *   TC-172-060  O-28 (b): each kind v1.13.0's obstacle filter hid (circling OCA/H, taxiway closure, navaid
+ *               outages, beacon, area closed, minimum altitude, procedure affected, obstacle word only in
+ *               the weather after the NOTAM) is shown by v1.14.0 — and hidden by v1.13.0
+ *   TC-172-061  O-28 (a) on the corpus: every audit NOTAM hidden by v1.13.0, shown by v1.14.0; the beta
+ *               exposure entries are change-list NOTAMs v1.14.0 shows
  *   TC-172-040  D61, D43 and the aircraft filter unchanged (v1.14.0 = v1.13.0)
  *   TC-172-050  the gate bites: E1 restored, headings not read, the OBSTACLE heading ignored → caught
  *   TC-172-090  fixtures missing → the fixture tests FAIL (never skip)
@@ -61,7 +72,7 @@ const OLD_SRC  = fs.readFileSync(OLD_FILE, 'utf8');
 const M13      = require(OLD_FILE);                                          // v1.13.0 (built into the app)
 const AP       = nodeAircraftProfile();
 const CHANGES  = require('./data/notam-v1.14.0-obstacle-changes.json');
-const REPORT   = path.join(ROOT, 'docs', 'RPT-NOTAM-ObstacleRule-ChangeList-NEW-20261118-v1.0.md');
+const REPORT   = path.join(ROOT, 'docs', 'RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.1.md');
 const FK_RAW   = path.join('expected', 'notam-rules-v1.14.0', 'fk-notams-raw.json');
 
 const PROF  = AP.buildAcftProfile('B744');
@@ -97,6 +108,18 @@ const nextId = () => `${'ABCDEFGHJK'[Math.floor(seq / 9000) % 10]}${1000 + (seq+
 const NB = body => `- XXXX ${nextId()} 01NOV0000-30NOV2359\n${body}\n`;
 const FK = body => `XXXX XXX ${nextId()}   2026-Nov-01 00:00 - 2026-Nov-30 23:59\nCREATED:2026-Oct-31 12:00   FL: SFC - UNL\n${body}\n`;
 const BASE = 'TEMP CRANE 2NM N OF ARP.';
+// Card rows (E2): the runway groups, GENERAL, TAXIWAYS, SIDs, STARs. The group an issue lands in, or null.
+const O25 = ['APRON_STAND', 'CLOSED_TO_TRAFFIC', 'PROCEDURE_CHANGE', 'LOW_VIS_OPS'];
+const hasRow = (c, isOrig) => c.category === 'SID' || c.category === 'STAR' ||
+  ([3, 6].includes(c.slot) && !!c.label && /^TWY\b/i.test(c.label)) || (isOrig ? [1, 2, 5, 6] : [1, 2, 3, 4]).includes(c.slot);
+function cardGroup(res, raw) {
+  const it = res.issues.find(i => i.notamRaw === raw);
+  if (!it) return undefined;
+  if (res.sidIssues.includes(it)) return 'SIDs';
+  if (res.starIssues.includes(it)) return 'STARs';
+  for (const [k, g] of res.rwyGroups) if (g.items.includes(it)) return k;
+  return null;
+}
 
 // ══ TC-172-001 module standard ═══════════════════════════════════════════════
 
@@ -166,7 +189,7 @@ test('TC-172-002 every v1.13.0 declaration except the edited ones is unchanged i
   const a = declarations(OLD_SRC), b = declarations(SRC);
   const EDITED = ['RULESET_VERSION', '_splitNotams', '_splitAt', 'evalNotams', 'validateSchema', 'API'];
   const ADDED = ['FK_TYPE_HEADINGS', '_FK_HEADING_MIN_INDENT', '_fkTypeHeading', '_fkHeadingLines', '_fkHeadingPiece',
-    '_OB_SENT', '_OB_US', '_obRe', 'OBSTACLE_RULE', '_obstacleRule'];
+    '_OB_SENT', '_OB_US', '_obRe', 'OBSTACLE_RULE', '_obstacleRule', '_OB_CARD_CASES', '_hasCardRow', '_obstacleCardGroup'];
   for (const [name, text] of a) {
     assert.ok(b.has(name), `${name} kept`);
     if (!EDITED.includes(name)) assert.equal(b.get(name), text, `${name} unchanged`);
@@ -203,6 +226,11 @@ const EFFECT_CASES = [
   ['PROCEDURE_ALTITUDE', 'SID RWY 27 ABCDE1A CROSS ABCDE AT OR ABOVE 3000FT.',          'SID RWY 27 ABCDE1A.'],
   ['PROCEDURE_ALTITUDE', 'IAC RNP RWY33 CHANGED AS FLW: ADD NEW WAY POINT XX053, ALT:750M.', 'IAC RNP RWY33.'],
   ['PROCEDURE_ALTITUDE', 'ILS RWY 34L MISSED APCH TURN ALT 600FT VICE 500FT.',          'ILS RWY 34L MISSED APCH TURN.'],
+  // D67a: a procedure stated affected; a close-in obstacle (the departure)
+  ['PROCEDURE_AFFECTED', 'CRANE 1. FLT PROC/TAKE-OFF PATH AREA AFFECTED: RWY35R VOR/DME FINAL APCH.', 'CRANE 1. RWY35R VOR/DME FINAL APCH.'],
+  ['PROCEDURE_AFFECTED', 'APPROACH PROCEDURES RWY 09 AFFECTED.',                       'APPROACH PROCEDURES RWY 09.'],
+  ['CLOSE_IN_OBSTACLE',  'SIDS RWY 36L ABCDE1A CLOSE-IN OBST BTN PSN 522246N 0044206E.', 'SIDS RWY 36L ABCDE1A BTN PSN 522246N 0044206E.'],
+  ['CLOSE_IN_OBSTACLE',  'CTN! CRANE .55NM W OF RWY 09R APCH END INCURS A LOW CLOSE END OBST.', 'CTN! CRANE .55NM W OF RWY 09R APCH END.'],
 ];
 
 test('TC-172-010 each effect pattern: shown with its reason; without the phrase: hidden (E1 gone); NavBlue and FlightKeys', () => {
@@ -229,7 +257,7 @@ test('TC-172-010 each effect pattern: shown with its reason; without the phrase:
   }
   assert.deepEqual([...seen].sort(), Object.keys(M.OBSTACLE_RULE.effect).filter(k => k !== 'TKOF_ODP' || seen.has(k)).sort(), 'every effect pattern tested');
   assert.deepEqual(Object.keys(M.OBSTACLE_RULE.effect), ['MINIMA_CHANGED', 'MINIMA_VALUE', 'NOT_AUTHORISED', 'GLIDE_PATH_VGSI', 'OBSTACLE_CLEARANCE',
-    'CLIMB_GRADIENT', 'TKOF_ODP', 'TKOF_MINIMA', 'PROCEDURE_ALTITUDE']);
+    'CLIMB_GRADIENT', 'TKOF_ODP', 'TKOF_MINIMA', 'PROCEDURE_ALTITUDE', 'PROCEDURE_AFFECTED', 'CLOSE_IN_OBSTACLE']);
 });
 
 // ══ TC-172-011 other content (item 3) ════════════════════════════════════════
@@ -268,10 +296,12 @@ test('TC-172-011 each other-content case: shown by its own content as v1.13.0 cl
       const r = ev(M, [pos]);
       const it = r.issues.find(i => i.notamRaw === pos);
       assert.ok(it, `${pat}: shown`);
-      // Classified exactly as v1.13.0 classifies the same text (the classifier is unchanged).
+      // Classified exactly as v1.13.0 classifies the same text (the classifier is unchanged) — except
+      // the four O-25 cases when v1.13.0's classification has no card row (TC-172-017).
       const h = M._fkHeader(pos);
       const ruleRaw = h ? pos.split('\n').filter((_, k) => !h.headerRows.includes(k)).join('\n') : pos;
       const c13 = M13._classifyNotamSlot(ruleRaw.toUpperCase(), ruleRaw, 'DEST', PROF.type, true, AP.getWingspan);
+      if (O25.includes(pat) && !hasRow(c13, false)) { assert.ok(cardGroup(r, pos) !== null, `${pat}: a card group with a row`); continue; }
       assert.deepEqual([it.slot, it.level, it.label, it.rwy, it.category], [c13.slot, c13.level, c13.label || null, c13.rwy || null, c13.category || null], `${pat}: classification`);
       // Where v1.13.0 shows it too (it names one of its keywords), the whole result is identical.
       if (shown(M13, [pos], pos)) assert.equal(canon(r), canon(ev(M13, [pos])), `${pat}: = v1.13.0`);
@@ -287,14 +317,11 @@ test('TC-172-011 each other-content case: shown by its own content as v1.13.0 cl
 const U_CASES = [
   ['SURFACE_PENETRATION',     'NEW OBST PENETRATING TRANSITIONAL SFC.',                      'NEW OBST.'],
   ['SURFACE_PENETRATION',     'CRANE INFRINGES INNER HORIZONTAL SFC BY 74FT.',               'CRANE BY 74FT.'],
-  ['SURFACE_PENETRATION',     'CTN! CRANE INCURS A LOW CLOSE END OBST.',                     'CTN! CRANE.'],
   ['SURFACE_NAMED',           'CRANE EXIST ABV CONICAL SFC.',                                'CRANE EXIST.'],
   ['SURFACE_NAMED',           'HVY EQPT (OBST) EXIST ABV APCH SFC FOR RWY 16R.',             'HVY EQPT (OBST) EXIST FOR RWY 16R.'],
   ['RUNWAY_STRIP',            'NEW OBST OBSERVED IN THE RWY STRIP.',                         'NEW OBST OBSERVED.'],
-  ['PROCEDURE_AREA_AFFECTED', 'CRANE 1. FLT PROC/TAKE-OFF PATH AREA AFFECTED: RWY35R VOR/DME FINAL APCH.', 'CRANE 1. RWY35R VOR/DME FINAL APCH.'],
-  ['HEIGHT_NEAR_PROCEDURE',   'CRANE ERECTED NW OF APCH COURSE RWY 05, MAX HEIGHT OF (9843FT/30M).', 'CRANE ERECTED NW OF APCH COURSE RWY 05.'],
-  ['HEIGHT_NEAR_RUNWAY',      'MOBILE CRANE APRX 1040FT BFR THR 10. 120FT AGL 317FT AMSL.',   'MOBILE CRANE APRX 1040FT BFR THR 10.'],
-  ['HEIGHT_NEAR_RUNWAY',      'OBST CRANE (0.1NM E APCH END RWY 27) UNKNOWN (75FT AGL) FLAGGED AND LGTD.', 'OBST CRANE (0.1NM E APCH END RWY 27) FLAGGED AND LGTD.'],
+  // D67a O-26: the approach side stated not affected, a height near a runway, the take-off side unstated
+  ['TAKEOFF_SIDE_UNSTATED',   'CRANE 1950M BEYOND TORA RWY 36L ON EXTD RCL. 155FT AMSL. OCA/H NOT AFFECTED.', 'CRANE 1950M BEYOND TORA RWY 36L ON EXTD RCL. OCA/H NOT AFFECTED.'],
 ];
 
 test('TC-172-012 group U samples: shown (undecided); without the surface / height: hidden', () => {
@@ -312,7 +339,8 @@ test('TC-172-012 group U samples: shown (undecided); without the surface / heigh
       assert.ok(!shown(M, [n], n), `${pat}: hidden without it`);
     }
   }
-  assert.deepEqual([...seen].sort(), [...Object.keys(M.OBSTACLE_RULE.undecided), 'HEIGHT_NEAR_PROCEDURE', 'HEIGHT_NEAR_RUNWAY'].sort());
+  assert.deepEqual([...seen].sort(), [...Object.keys(M.OBSTACLE_RULE.undecided), 'TAKEOFF_SIDE_UNSTATED'].sort());
+  assert.deepEqual(Object.keys(M.OBSTACLE_RULE.undecided), ['SURFACE_PENETRATION', 'SURFACE_NAMED', 'RUNWAY_STRIP']);
   // A height with no runway or procedure named decides nothing: hidden.
   const far = NB('CRANE 120FT AGL 2NM N OF ARP.');
   assert.ok(!shown(M, [far], far));
@@ -341,7 +369,7 @@ test('TC-172-013 a stated non-effect and an obstacle-light outage are not read a
   // Near a runway the height still leaves the take-off side undecided: shown, with the note.
   const c = NB('CRANE 1950M BEYOND TORA RWY 36L ON EXTD RCL. 155FT AMSL. OCA/H NOT AFFECTED.');
   const dc = M._obstacleRule(c);
-  assert.deepEqual([dc.group, dc.pattern, dc.noEffectStated], ['UNDECIDED', 'HEIGHT_NEAR_RUNWAY', true]);
+  assert.deepEqual([dc.group, dc.pattern, dc.noEffectStated], ['UNDECIDED', 'TAKEOFF_SIDE_UNSTATED', true]);   // D67a O-26
   // An obstacle light out of service is not a navaid or an aerodrome light out of service (hidden) …
   for (const t of ['AD VORTAC OBST LGT U/S 6,600 FT WEST OF RWY 10 END.', 'OBST LGTS ON RWY 09 GLIDESLOPE U/S.',
                    'RWY 05L LLZ OBST LGTS U/S.', 'OBST TOWER LGT (ASR 1009056) 4.3NM NNE ORD U/S.']) {
@@ -389,9 +417,14 @@ test('TC-172-015 the OBSTACLE heading makes an item an obstacle NOTAM; the other
       const d = M._obstacleRule(body, h);
       assert.deepEqual([d.obstacle, d.byText, d.byHeading, d.show], [true, false, true, false]);
       // with an effect / other content / undecided it is shown
-      for (const extra of ['RWY 09 CLSD.', 'OCA/H INCREASED.', 'MAX HGT 300FT NEAR THR 09.']) {
+      for (const extra of ['RWY 09 CLSD.', 'OCA/H INCREASED.', 'PENETRATES THE APCH SFC.']) {
         const it2 = FK(`${body} ${extra}`);
         assert.ok(shown(M, M._splitNotams(`${PAD}OBSTACLE\n${it2}`), it2), extra);
+      }
+      // D67a O-24: a height near a runway or a procedure, no effect stated → hidden, as O-22
+      for (const extra of ['MAX HGT 300FT NEAR THR 09.', 'MAX HGT 300FT NW OF APCH COURSE RWY 09.']) {
+        const it2 = FK(`${body} ${extra}`);
+        assert.ok(!shown(M, M._splitNotams(`${PAD}OBSTACLE\n${it2}`), it2), extra);
       }
     } else {
       assert.ok(issue, `under ${h}: not an obstacle NOTAM → shown`);
@@ -478,6 +511,127 @@ test('TC-172-022 the items after a heading carry it until the next heading; a he
   assert.ok(!('fkCategory' in ev(M, [nb]).issues[0]));
   // Only heading pieces → nothing to show (the green "reviewed" item).
   assert.equal(ev(M, [`${PAD}RUNWAY\n`]).issues[0].slot, 99);
+});
+
+// ══ TC-172-016 D67a O-22 / O-23 / O-24: hidden ═══════════════════════════════
+
+test('TC-172-016 D67a: a height near a runway / procedure, obstacle-light outages, men and equipment, OBSTACLE items → hidden', () => {
+  const HIDE = [
+    // O-22: a height near a runway, no procedure named (FAA crane NOTAMs among them)
+    ['HEIGHT_NEAR_RUNWAY',    'MIA OBST CRANE (ASN UNKNOWN) 254716N0801310W (3.03NM E APCH END RWY 27) 304FT (300FT AGL) FLAGGED AND LGTD.'],
+    ['HEIGHT_NEAR_RUNWAY',    'MOBILE CRANE APRX 1040FT BFR THR 10 AND 2490FT SOUTH EXTENDED RCL. 120FT AGL 317FT AMSL.'],
+    ['HEIGHT_NEAR_RUNWAY',    'CRANE ERECTED 510M BEYOND THR 04 AND 330M RIGHT OF RCL, 138FT AMSL, MARKED AND LGTD.'],
+    // O-22: a height near a procedure with no effect stated
+    ['HEIGHT_NEAR_PROCEDURE', 'CRANE ERECTED NW OF APCH COURSE RWY 05, MAX HEIGHT OF (9843FT/30M).'],
+    // O-23: obstacle-light outages; men and equipment near a runway with no height
+    [null,                    'OBST LGTS ON HANGAR 12 2,095 FT NORTH OF RWY 06 CL AT N 61.26 W 149.81 U/S.'],
+    [null,                    'AD VORTAC OBST LGT U/S 6,600 FT WEST OF RWY 10 END.'],
+    [null,                    'OBST MEN/EQPT OPR 280FT SOUTH OF RWY 06/24 CL ON RWY 16/34.'],
+    [null,                    'OBST MEN AND EQUIPMENT OPERATING 280FT FROM RWY 06/24 CENTERLINE ON TWY R AND ELBOW.'],
+  ];
+  for (const [pat, t] of HIDE) for (const mk of [NB, FK]) {
+    const d = M._obstacleRule(t);
+    assert.deepEqual([d.group, d.pattern, d.show], ['NONE', pat, false], t);
+    const x = mk(t);
+    assert.ok(!shown(M, [x], x), `hidden: ${t}`);
+    // the positive: the same NOTAM with a procedure affected is shown
+    const y = mk(`${t} RNAV RWY 27 LNAV MDA 580/HAT 452.`);
+    assert.ok(shown(M, [y], y), `shown with a procedure affected: ${t}`);
+  }
+  // O-24: a FlightKeys item under OBSTACLE with no obstacle word takes the same test
+  for (const [body, want] of [['TOWER 120FT AGL 1040FT BFR THR 10.', false], ['TOWER 120FT AGL NW OF APCH COURSE RWY 05.', false],
+                              ['TOWER 120FT AGL BFR THR 10. LOC RWY 10 OCA/H INCREASED TO 560.', true], ['TOWER BFR THR 10. TWY B CLSD.', true]]) {
+    const it = FK(body);
+    assert.equal(shown(M, M._splitNotams(`${PAD}OBSTACLE\n${it}`), it), want, body);
+    assert.equal(shown(M, M._splitNotams(`${PAD}AIRPORT\n${it}`), it), true, `${body}: not an obstacle NOTAM under AIRPORT`);
+  }
+});
+
+// ══ TC-172-017 D67a O-25: the four cases in their card group ══════════════════
+
+test('TC-172-017 D67a O-25: apron / stand, area closed, procedure changed, LVO → shown in a card group with a row', () => {
+  const CASES = [
+    // [text, role, group, label]
+    [`${BASE} STAND 12 NOT AVBL.`,                       'DEST', 'GENERAL', 'APRON/STAND NOT AVBL'],
+    [`${BASE} STAND 12 NOT AVBL.`,                       'ORIG', 'GENERAL', 'APRON/STAND NOT AVBL'],
+    [`${BASE} APRON 3 CLSD.`,                            'DEST', 'GENERAL', 'APRON/STAND CLSD'],
+    ['OBST CTN: EAST RAMP NW CORNER CLSD TO ACFT.',      'DEST', 'GENERAL', 'AREA CLSD TO ACFT'],
+    ['OBST CTN: EAST RAMP NW CORNER CLSD TO ACFT.',      'ORIG', 'GENERAL', 'AREA CLSD TO ACFT'],
+    [`${BASE} SID ABCDE1A AMENDED.`,                     'ORIG', 'SIDs',    'ABCDE1A CHANGE'],
+    [`${BASE} SID ABCDE1A AMENDED.`,                     'DEST', 'GENERAL', 'SID ABCDE1A CHANGE'],
+    [`${BASE} STAR ABCDE1A AMENDED.`,                    'ORIG', 'GENERAL', 'STAR ABCDE1A CHANGE'],
+    ['DUE CRANE AP VISUAL APCH RWY 27 REGULAR OPR.',     'DEST', 'RWY-27',  'APCH PROC CHANGE RWY 27'],
+    ['DUE CRANE AP VISUAL APCH RWY 27 REGULAR OPR.',     'ORIG', 'RWY-27',  'APCH PROC CHANGE RWY 27'],
+    ['DUE CRANE AP VISUAL APCH REGULAR OPR.',            'DEST', 'GENERAL', 'APCH PROC CHANGE'],
+    ['DUE CRANE LOW VIS OPS AMD.',                       'DEST', 'GENERAL', 'LVO CHANGED'],
+    ['DUE CRANE LOW VIS OPS RWY 09 AMD.',                'ORIG', 'RWY-09',  'LVO CHANGED RWY 09'],
+  ];
+  for (const [t, role, group, label] of CASES) for (const mk of [NB, FK]) {
+    const x = mk(t);
+    assert.ok(O25.includes(M._obstacleRule(t).pattern), `${t}: an O-25 case`);
+    const r = ev(M, [x], role);
+    assert.equal(cardGroup(r, x), group, `${t} (${role}): card group`);
+    assert.equal(r.issues.find(i => i.notamRaw === x).label, label, `${t} (${role}): label`);
+  }
+  // A classification that already has a row is kept: a STAR amended at an arrival airport (v1.13.0's STAR row).
+  const s = NB(`${BASE} STAR ABCDE1A CHANGED.`);
+  const r = ev(M, [s], 'DEST');
+  assert.equal(M._obstacleRule(s).pattern, 'PROCEDURE_CHANGE');
+  assert.equal(cardGroup(r, s), 'STARs');
+  const c13 = M13._classifyNotamSlot(s.toUpperCase(), s, 'DEST', PROF.type, true, AP.getWingspan);
+  assert.equal(c13.category, 'STAR', 'v1.13.0 classifies it as a STAR');
+  assert.equal(r.issues[0].label, c13.label, 'the classifier\'s own STAR row is kept');
+  // Not an obstacle NOTAM → the classifier alone, as v1.13.0 (no group set).
+  const n = NB('STAND 12 NOT AVBL.');
+  assert.equal(canon(ev(M, [n], 'DEST')), canon(ev(M13, [n], 'DEST')));
+});
+
+// ══ TC-172-018 D67a O-26 ══════════════════════════════════════════════════════
+
+test('TC-172-018 D67a O-26: OCA/H NOT AFFECTED + a height near a runway + the take-off side unstated → U, shown', () => {
+  const pos = 'CRANE ERECTED BTN PSN 522246N 0044206E 1950M BEYOND TORA RWY 36L AND 340M LEFT OF EXTD RCL. 155FT AMSL, MARKED AND LGTD. OCA/H NOT AFFECTED.';
+  for (const mk of [NB, FK]) {
+    const x = mk(pos);
+    assert.deepEqual([M._obstacleRule(pos).group, M._obstacleRule(pos).pattern], ['UNDECIDED', 'TAKEOFF_SIDE_UNSTATED']);
+    assert.ok(shown(M, [x], x));
+  }
+  // negatives: the take-off side stated too, all procedures stated, no height, no runway → hidden
+  for (const t of [pos.replace('OCA/H NOT AFFECTED', 'OCA/H AND TKOF NOT AFFECTED'), pos.replace('OCA/H NOT AFFECTED', 'OCA/H NOT AFFECTED. SID NOT AFFECTED'),
+                   pos.replace('OCA/H NOT AFFECTED', 'PROCEDURES NOT AFFECTED'), pos.replace(' 155FT AMSL,', ''),
+                   'CRANE ERECTED AT PSN 521628N 0044104E 6600M FM ARP. 158FT AMSL. OCA/H NOT AFFECTED.']) {
+    const x = NB(t);
+    assert.equal(M._obstacleRule(t).show, false, t);
+    assert.ok(!shown(M, [x], x), t);
+  }
+});
+
+// ══ TC-172-060 O-28 (b): each kind v1.13.0 hid is shown — fails on v1.13.0 ═════
+
+test('TC-172-060 O-28: each kind of NOTAM v1.13.0\'s obstacle filter hid is shown by v1.14.0 (and hidden by v1.13.0)', () => {
+  const KINDS = [
+    ['circling OCA/H increased',      'MINIMA_CHANGED',     'CHANGE OF CIRCLING MINIMA OCA(OCH) DUE TO CRANE. CAT A AND B INCREASED TO 916(927).'],
+    ['taxiway closure',               'TWY_AVAILABILITY',   'TWY B CLSD DUE CRANE OPS.'],
+    ['navaid outage (TACAN)',         'NAVAID',             'XXX NAV TACAN U/S DUE OBST.'],
+    ['navaid unusable (VORTAC)',      'NAVAID',             'V38 ABC VORTAC R-285 UNUSABLE BLW 12500 DUE OBST.'],
+    ['aerodrome beacon outage',       'LIGHTING',           'ABN U/S DUE CRANE.'],
+    ['area closed to aircraft',       'CLOSED_TO_TRAFFIC',  'OBST CTN: EAST RAMP NW CORNER CLSD TO ACFT DUE TO CONST.'],
+    ['minimum altitude changed',      'MINIMA_CHANGED',     'DUE TO OBST, ATC SURVEILLANCE MINIMUM ALT CHART, SECTOR 15 ALT LIMIT CHANGED TO 600M.'],
+    ['procedure area affected',       'PROCEDURE_AFFECTED', 'ADD NEW TEMPO OBST: CRANE 1 139/3206 76.0 RED LGT. FLT PROCEDURE/TAKE-OFF PATH AREA AFFECTED.'],
+  ];
+  for (const [kind, pat, t] of KINDS) for (const mk of [NB, FK]) {
+    const x = mk(t);
+    assert.equal(M._obstacleRule(t).pattern, pat, kind);
+    assert.ok(shown(M, [x], x), `${kind}: shown by v1.14.0`);
+    assert.ok(!shown(M13, [x], x), `${kind}: hidden by v1.13.0 (the defect)`);
+  }
+  // NavBlue whole text: the obstacle word only in the text after the NOTAM (the weather) — the NOTAM
+  // is no obstacle NOTAM; v1.13.0 hid it, v1.14.0 shows it by its content.
+  const tw = '- XXXX E2929/26 30APR1258-22MAY1430\nTWY B CLSD DUE MAINT.\nOTHER\nMETAR XXXX 061730Z 02020KT 9999 SCT038 04/M06 Q1022\n- NO OPERATIONAL NOTAMS ON FILE FOR XXXX OBST\n';
+  const nv = '- XXXX A3994/25 17JUN1409-PERM\nXXX NAV TACAN U/S\nOTHER\nMETAR XXXX 081554Z AUTO 26007KT 10SM CLR 09/03 A3002 RMK AO2 OBST\n';
+  for (const x of [tw, nv]) {
+    assert.ok(!shown(M13, [x], x), 'v1.13.0 hid it');
+    assert.ok(shown(M, [x], x), 'v1.14.0 shows it');
+  }
 });
 
 // ══ FlightKeys corpus helpers ════════════════════════════════════════════════
@@ -570,6 +724,7 @@ test('TC-172-031 FlightKeys corpus: v1.13.0 (no headings) = v1.14.0 (notamsRaw) 
       if (e.group === 'B') assert.deepEqual([s13, s14, diff > 0], [true, false, true], `${key}: B`);
       if (e.group === 'C') assert.deepEqual([s13, s14, diff > 0], [false, true, true], `${key}: C`);
       if (e.group === 'U') assert.equal(s14, true, `${key}: U shown`);
+      if (e.group === 'G') assert.deepEqual([s13, s14, diff > 0], [true, true, true], `${key}: G (card group set)`);
     }
   }
   const fkListed = new Set(CHANGES.entries.filter(e => e.fmt === 'FK').map(e => e.key));
@@ -603,6 +758,11 @@ test('TC-172-032 NavBlue corpus: split unchanged; every NOTAM not in the change 
       if (e.group === 'B') assert.deepEqual([s13, s14], [true, false], `${fx.id} #${k} ${e.id}: B`);
       if (e.group === 'C') assert.deepEqual([s13, s14], [false, true], `${fx.id} #${k} ${e.id}: C`);
       if (e.group === 'U') assert.equal(s14, true, `${fx.id} #${k} ${e.id}: U shown`);
+      if (e.group === 'G') {
+        assert.deepEqual([s13, s14], [true, true], `${fx.id} #${k} ${e.id}: G shown by both`);
+        assert.notEqual(canon(ev(M, [pc], 'DEST', null, fx.date, null, prof)) + canon(ev(M, [pc], 'ORIG', null, fx.date, null, prof)),
+          canon(ev(M13, [pc], 'DEST', null, fx.date, null, prof)) + canon(ev(M13, [pc], 'ORIG', null, fx.date, null, prof)), `${fx.id} #${k}: G differs`);
+      }
     });
     for (let i = 0; i < keep.length; i += SWEEP.group) {
       const grp = keep.slice(i, i + SWEEP.group);
@@ -622,17 +782,71 @@ test('TC-172-032 NavBlue corpus: split unchanged; every NOTAM not in the change 
 
 test('TC-172-033 the change list data and the report agree; recorded from these two modules', () => {
   const md = fs.readFileSync(REPORT, 'utf8');
+  assert.ok(/\*\*Version:\*\* v1\.1-UPD/.test(md) && /## Change log/.test(md), 'v1.1 with its change log');
+  assert.equal(CHANGES.version, '1.1');
   const cnt = g => CHANGES.entries.filter(e => e.group === g).length;
-  assert.deepEqual(CHANGES.counts, { B: cnt('B'), C: cnt('C'), U: cnt('U') });
-  for (const g of ['B', 'C', 'U']) assert.ok(new RegExp(`\\| \\*\\*${g}\\*\\* \\| [^|]+\\| \\*\\*${cnt(g)}\\*\\* \\|`).test(md), `report count ${g} = ${cnt(g)}`);
-  for (const g of ['B', 'C', 'U']) {
+  assert.deepEqual(CHANGES.counts, { B: cnt('B'), C: cnt('C'), U: cnt('U'), G: cnt('G') });
+  for (const g of ['B', 'C', 'U', 'G']) assert.ok(new RegExp(`\\| \\*\\*${g}\\*\\* \\| [^|]+\\| \\*\\*${cnt(g)}\\*\\* \\|`).test(md), `report count ${g} = ${cnt(g)}`);
+  for (const g of ['B', 'C', 'U', 'G']) {
     const sec = md.split(`## Group ${g} `)[1].split('\n## ')[0];
     assert.equal((sec.match(/^\| \d+ \|/gm) || []).length, cnt(g), `report rows of group ${g}`);
   }
+  // O-28: the audit (a) and the beta exposure (c), counts at the top and one row each
+  assert.ok(new RegExp(`\\| \\*\\*O-28 \\(a\\)\\*\\* \\| [^|]+\\| \\*\\*${CHANGES.audit.length}\\*\\* \\|`).test(md), 'audit count');
+  assert.ok(new RegExp(`\\| \\*\\*O-28 \\(c\\)\\*\\* \\| [^|]+\\| \\*\\*${CHANGES.beta.entries.length}\\*\\* \\|`).test(md), 'beta exposure count');
+  const secA = md.split('### (a) ')[1].split('\n### ')[0], secC = md.split('### (c) ')[1];
+  assert.equal((secA.match(/^\| \d+ \|/gm) || []).length, CHANGES.audit.length);
+  assert.equal((secC.match(/^\| \d+ \|/gm) || []).length, CHANGES.beta.entries.length);
+  assert.equal(CHANGES.beta.sha256, 'faa8377dadf6b24dfe1f7a44325647f24de704b4e9e026b6dd266a7ea7438997', 'beta exposure from v1.11.2 (TC-151 record)');
+  // every shown row of C, U and G carries its card group (O-25); the four O-25 cases all have a row
+  for (const e of CHANGES.entries.filter(x => ['C', 'U', 'G'].includes(x.group))) {
+    assert.ok(e.cards && e.cards.DEST && e.cards.ORIG, `${e.key}: card group`);
+    if (O25.includes(e.pattern)) assert.ok(!/^no row/.test(e.cards.DEST) && !/^no row/.test(e.cards.ORIG), `${e.key}: O-25 case has a row`);
+  }
   assert.equal(CHANGES.before.sha256, MANIFEST['notam-rules'].sha256, 'recorded from v1.13.0');
   assert.equal(CHANGES.after.sha256, MANIFEST['notam-rules-next'].sha256, 'recorded from this v1.14.0 file');
-  // No NOTAM text in this repository's data; the report holds no crew data marker words.
-  for (const e of CHANGES.entries) assert.deepEqual(Object.keys(e), ['key', 'fmt', 'pkg', 'airport', 'id', 'category', 'group', 'pattern', 'byHeadingOnly', 'before', 'after', 'sha']);
+  // No NOTAM text in this repository's data.
+  for (const e of CHANGES.entries) assert.deepEqual(Object.keys(e), ['key', 'fmt', 'pkg', 'airport', 'id', 'category', 'group', 'pattern', 'byHeadingOnly', 'before', 'after', 'cards', 'sha']);
+});
+
+// ══ TC-172-061 O-28 (a) on the corpus ═════════════════════════════════════════
+
+test('TC-172-061 O-28 audit: every NOTAM of the corpus v1.13.0\'s obstacle filter hid that changes something else or affects a procedure is shown by v1.14.0', () => {
+  const dir = requireFixturesDir();
+  const raw = requireFkRaw();
+  const byKey = new Map(CHANGES.audit.map(e => [e.key, e]));
+  assert.ok(CHANGES.audit.length >= 14, 'the audit list');
+  let found = 0;
+  for (const fx of readManifest(dir).fixtures.filter(f => f.format !== 'flightkeys')) {
+    const text = fs.readFileSync(path.join(dir, fx.files.text), 'utf8').replace(/\r\n/g, '\n');
+    const prof = AP.buildAcftProfile(fx.aircraft || '');
+    M._splitNotams(text).forEach((pc, k) => {
+      const e = byKey.get(`NB ${fx.id} #${k}`);
+      if (!e) return;
+      found++;
+      assert.equal(sha(pc), e.sha);
+      assert.ok(!shown(M13, [pc], pc, 'DEST', null, fx.date, null, prof), `${e.key} ${e.id}: hidden by v1.13.0`);
+      assert.ok(shown(M, [pc], pc, 'DEST', null, fx.date, null, prof), `${e.key} ${e.id}: shown by v1.14.0`);
+      assert.ok(['EFFECT', 'OTHER'].includes(M._obstacleRule(pc).group));
+    });
+  }
+  for (const { pkg, p, a } of fkAirports(raw)) {
+    const prof = AP.buildAcftProfile(p.acftType || '');
+    for (const x of fkItems(a).items) {
+      const e = byKey.get(fkKey(pkg, x.h, x.category));
+      if (!e) continue;
+      found++;
+      const hd = x.category ? [`${PAD}${x.category}\n`] : [];
+      assert.ok(!shown(M13, [x.text], x.text, 'DEST', null, p.date, p.depMin, prof), `${e.key}: hidden by v1.13.0`);
+      assert.ok(shown(M, [...hd, x.text], x.text, 'DEST', null, p.date, p.depMin, prof), `${e.key}: shown by v1.14.0`);
+    }
+  }
+  assert.equal(found, CHANGES.audit.length, 'every audit row found in the corpus');
+  // the beta exposure (v1.11.2 is not in this checkout; recorded by the script): each a change-list NOTAM v1.14.0 shows
+  for (const b of CHANGES.beta.entries) {
+    const e = changeKeys.get(b.key);
+    assert.ok(e && e.after === true && ['C', 'U'].includes(e.group), `${b.key}: in the change list, shown by v1.14.0`);
+  }
 });
 
 // ══ TC-172-040 D61, D43, aircraft filter ═════════════════════════════════════
@@ -684,7 +898,7 @@ function variant(edit) {
 
 test('TC-172-050 the gate bites: broken variants of v1.14.0 are caught', () => {
   // (a) E1 restored: the negative of TC-172-010 is shown again.
-  const e1 = variant(s => s.replace("if (!_obstacleRule(ruleRaw, itemHeading).show) continue;",
+  const e1 = variant(s => s.replace("if (!obst.show) continue;",
     "if (/\\bOBST\\b|\\bCRANE\\b|\\bOBSTACLE\\b/.test(nu) && !/\\b(?:ILS|LOC|RWY|APCH|PROC|SID|STAR)\\b/i.test(ruleRaw)) continue;"));
   const neg = NB(`LOC RWY 27 DUE TO CRANE. ${BASE}`);
   assert.ok(!shown(M, [neg], neg));
