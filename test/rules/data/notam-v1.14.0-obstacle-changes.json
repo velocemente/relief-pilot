@@ -1,20 +1,21 @@
 {
- "version": "1.1",
- "_about": "NOTAM ruleset v1.14.0 obstacle-rule change list (D67): docs/RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.1.md (D67a), made by test/corpus/notam-obstacle-changes.js. Keys: NB <fixture> #<piece index of the whole-text split>; FK <package> <locations> <ID> <category>. sha = SHA-256 of the NOTAM text (FlightKeys: trailing white space removed). No NOTAM text, no crew data.",
+ "version": "1.2",
+ "_about": "NOTAM ruleset v1.14.0 obstacle-rule change list (D67): docs/RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.2.md (D67a, D67b), made by test/corpus/notam-obstacle-changes.js. Keys: NB <fixture> #<piece index of the whole-text split>; FK <package> <locations> <ID> <category>. sha = SHA-256 of the NOTAM text (FlightKeys: trailing white space removed). No NOTAM text, no crew data.",
  "before": {
   "file": "rules/notam-rules/notam-rules-v1.13.0.js",
   "sha256": "e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b"
  },
  "after": {
   "file": "rules/notam-rules-next/notam-rules-v1.14.0.js",
-  "sha256": "e16fa0b0983932ec19997c488fe5ec3e1e33cb32c4d4a46e089a10c297418933"
+  "sha256": "b79331d94d70977d8e100d861e11bae10bb9c8d92904c77d32648ea88f8c2241"
  },
  "fkParser": "fd12b6e5cf3d7408885aeddeb85777ede7f36ed20859b1fab30341148d5d72a1",
  "counts": {
-  "B": 253,
-  "C": 14,
-  "U": 58,
-  "G": 7
+  "B": 282,
+  "C": 15,
+  "U": 31,
+  "G": 8,
+  "deferred": 4
  },
  "stats": {
   "navblue": {
@@ -30,6 +31,44 @@
    "headings": 635
   }
  },
+ "deferred": [
+  {
+   "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #174",
+   "fmt": "NB",
+   "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
+   "airport": "KZOB",
+   "id": "A0409/26",
+   "before": true,
+   "after": true
+  },
+  {
+   "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #175",
+   "fmt": "NB",
+   "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
+   "airport": "KZOB",
+   "id": "A0408/26",
+   "before": false,
+   "after": false
+  },
+  {
+   "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #183",
+   "fmt": "NB",
+   "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
+   "airport": "KZID",
+   "id": "A0718/26",
+   "before": false,
+   "after": false
+  },
+  {
+   "key": "NB NB_ELLX-KHSV_08MAR26_baseline_rev16 #343",
+   "fmt": "NB",
+   "pkg": "NB_ELLX-KHSV_08MAR26_baseline_rev16",
+   "airport": "KZID",
+   "id": "A0314/25",
+   "before": false,
+   "after": false
+  }
+ ],
  "audit": [
   {
    "key": "NB EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 #44",
@@ -47,16 +86,31 @@
    "sha": "1ccacc6b726dee0f925c53978ca0c3758e5975958118f9b0de8522dee1205f70"
   },
   {
+   "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #170",
+   "fmt": "NB",
+   "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
+   "airport": "CZWG CZYZ",
+   "id": "G2674/26",
+   "group": "C",
+   "pattern": null,
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "20e1f4f9be918763966af5ff46549774fcffdca548857fb7fc227829c89b6b0f"
+  },
+  {
    "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #179",
    "fmt": "NB",
    "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
    "airport": "KZAU",
    "id": "A0207/26",
    "group": "C",
-   "pattern": "NAVAID",
+   "pattern": null,
    "shown": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "5964b1d6b671b2808910cae041b2114747117bf2b0705e46723e7c29f13d92e9"
@@ -68,7 +122,7 @@
    "airport": "CYQX",
    "id": "E2929/26",
    "group": "C",
-   "pattern": "TWY_AVAILABILITY",
+   "pattern": null,
    "shown": true,
    "cards": {
     "DEST": "TAXIWAYS",
@@ -83,28 +137,13 @@
    "airport": "KCVG",
    "id": "A3994/25",
    "group": "C",
-   "pattern": "NAVAID",
-   "shown": true,
-   "cards": {
-    "DEST": "no row (slot 7)",
-    "ORIG": "no row (slot 7)"
-   },
-   "sha": "f4bd098f8face5dfeef776a5bb886c14756a7bab34a42323a46fc52313672c4f"
-  },
-  {
-   "key": "NB NB_KLAX-ZSAM_11MAR26_etops-rda_rev6 #262",
-   "fmt": "NB",
-   "pkg": "NB_KLAX-ZSAM_11MAR26_etops-rda_rev6",
-   "airport": "KSFO",
-   "id": "A5647/24",
-   "group": "C",
-   "pattern": "NAVAID",
+   "pattern": null,
    "shown": true,
    "cards": {
     "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
-   "sha": "f045f59354d84d75c6880232ada4dd7785e218e80368d048b88236cbecbefba2"
+   "sha": "f4bd098f8face5dfeef776a5bb886c14756a7bab34a42323a46fc52313672c4f"
   },
   {
    "key": "NB NB_KMIA-EHAM_12MAR26_etp_rev8 #139",
@@ -120,6 +159,21 @@
     "ORIG": "no row (slot 7)"
    },
    "sha": "cbccdeabb0b9d9ce2cc3f8ee08c505fe4f5c84ab66ae5dfc6468d51138678c1e"
+  },
+  {
+   "key": "NB NB_KPSM-ETAR_19APR26_nat_rev12 #33",
+   "fmt": "NB",
+   "pkg": "NB_KPSM-ETAR_19APR26_nat_rev12",
+   "airport": "EDFH",
+   "id": "C1139/26",
+   "group": "C",
+   "pattern": null,
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "bb66addd488edc3d7648ea7c8a07818caebe4c821f526188e2aa80f082d4ad64"
   },
   {
    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #88",
@@ -188,10 +242,10 @@
    "airport": "YBRK",
    "id": "J5859/25",
    "group": "C",
-   "pattern": "LIGHTING",
+   "pattern": null,
    "shown": true,
    "cards": {
-    "DEST": "no row (slot 5, INFO)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "94c872d42d8b2e87e3ea579a53ba558d1e0eb562f0dd5247ad61c138412cfe6c"
@@ -212,34 +266,34 @@
    "sha": "fe439c28a0a8b6ae2de79b8a41c0459d93a8224ee7451220854d1ea4bb424644"
   },
   {
-   "key": "FK FK_OMAA-VHHH_03NOV26_etihad-permits_live ZPPP U3512/26 OBSTACLE",
+   "key": "FK FK_LEZG-LLBG_04NOV26_remarks-subcards_live LLBG A0701/26 OBSTACLE",
    "fmt": "FK",
-   "pkg": "FK_OMAA-VHHH_03NOV26_etihad-permits_live",
-   "airport": "ZPPP",
-   "id": "U3512/26",
+   "pkg": "FK_LEZG-LLBG_04NOV26_remarks-subcards_live",
+   "airport": "LLBG",
+   "id": "A0701/26",
    "group": "C",
-   "pattern": "PROCEDURE_AFFECTED",
+   "pattern": "AREA_CLOSED",
    "shown": true,
    "cards": {
-    "DEST": "no row (slot 7)",
-    "ORIG": "no row (slot 7)"
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
    },
-   "sha": "b3200667254b9096095b289ea853f44867edacb0cdda39211efb317d8223652e"
+   "sha": "5e295bcad0859bb0ed60b874432c09f1175e6a0cfbab4ae58b14787f517f01c2"
   },
   {
-   "key": "FK FK_OMAA-VHHH_03NOV26_etihad-permits_live ZPPP U3121/26 OBSTACLE",
+   "key": "FK FK_LLBG-OMDW_04NOV26_poslaunch-permits_live LLBG A0701/26 OBSTACLE",
    "fmt": "FK",
-   "pkg": "FK_OMAA-VHHH_03NOV26_etihad-permits_live",
-   "airport": "ZPPP",
-   "id": "U3121/26",
+   "pkg": "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live",
+   "airport": "LLBG",
+   "id": "A0701/26",
    "group": "C",
-   "pattern": "PROCEDURE_AFFECTED",
+   "pattern": "AREA_CLOSED",
    "shown": true,
    "cards": {
-    "DEST": "no row (slot 7)",
-    "ORIG": "no row (slot 7)"
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
    },
-   "sha": "31c3ca4398a9df6822231940f138b4c015ab72860317be1fef516db3a20f4e86"
+   "sha": "5e295bcad0859bb0ed60b874432c09f1175e6a0cfbab4ae58b14787f517f01c2"
   }
  ],
  "beta": {
@@ -254,11 +308,18 @@
     "pattern": "MINIMA_CHANGED"
    },
    {
+    "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #170",
+    "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
+    "airport": "CZWG CZYZ",
+    "id": "G2674/26",
+    "pattern": null
+   },
+   {
     "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #179",
     "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
     "airport": "KZAU",
     "id": "A0207/26",
-    "pattern": "NAVAID"
+    "pattern": null
    },
    {
     "key": "NB NB_KCHS-LIBG_12MAR26_lcf_rev16 #48",
@@ -279,21 +340,14 @@
     "pkg": "NB_KORD-EDDF_06MAY26_notam_rev10",
     "airport": "CYQX",
     "id": "E2929/26",
-    "pattern": "TWY_AVAILABILITY"
+    "pattern": null
    },
    {
     "key": "NB NB_ELLX-KHSV_08MAR26_baseline_rev16 #88",
     "pkg": "NB_ELLX-KHSV_08MAR26_baseline_rev16",
     "airport": "KCVG",
     "id": "A3994/25",
-    "pattern": "NAVAID"
-   },
-   {
-    "key": "NB NB_KLAX-ZSAM_11MAR26_etops-rda_rev6 #262",
-    "pkg": "NB_KLAX-ZSAM_11MAR26_etops-rda_rev6",
-    "airport": "KSFO",
-    "id": "A5647/24",
-    "pattern": "NAVAID"
+    "pattern": null
    },
    {
     "key": "NB NB_KMIA-EHAM_12MAR26_etp_rev8 #139",
@@ -301,6 +355,13 @@
     "airport": "EHAM",
     "id": "A3013/25",
     "pattern": "MINIMA_CHANGED"
+   },
+   {
+    "key": "NB NB_KPSM-ETAR_19APR26_nat_rev12 #33",
+    "pkg": "NB_KPSM-ETAR_19APR26_nat_rev12",
+    "airport": "EDFH",
+    "id": "C1139/26",
+    "pattern": null
    },
    {
     "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #88",
@@ -440,7 +501,7 @@
     "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
     "airport": "YBRK",
     "id": "J5859/25",
-    "pattern": "LIGHTING"
+    "pattern": null
    }
   ]
  },
@@ -476,7 +537,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "9092bdafd1fd7b538d78c1d4653077fdab120d5de5aaf625f7ec52af78689bbd"
@@ -527,6 +588,24 @@
    "sha": "a2a3152de276bdf613749337ac3a157fa30c0d7f9671cb2ad6967159b673fad1"
   },
   {
+   "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #170",
+   "fmt": "NB",
+   "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
+   "airport": "CZWG CZYZ",
+   "id": "G2674/26",
+   "category": null,
+   "group": "C",
+   "pattern": null,
+   "byHeadingOnly": false,
+   "before": false,
+   "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "20e1f4f9be918763966af5ff46549774fcffdca548857fb7fc227829c89b6b0f"
+  },
+  {
    "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #179",
    "fmt": "NB",
    "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
@@ -534,12 +613,12 @@
    "id": "A0207/26",
    "category": null,
    "group": "C",
-   "pattern": "NAVAID",
+   "pattern": null,
    "byHeadingOnly": false,
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "5964b1d6b671b2808910cae041b2114747117bf2b0705e46723e7c29f13d92e9"
@@ -557,28 +636,10 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "650036c3bf059654d0d0fe11e02a5ac9dd9e604b2cfee32b6bb546eb2d290509"
-  },
-  {
-   "key": "NB NB_KCHS-LIBG_12MAR26_lcf_rev16 #132",
-   "fmt": "NB",
-   "pkg": "NB_KCHS-LIBG_12MAR26_lcf_rev16",
-   "airport": "EIDW",
-   "id": "B1138/15",
-   "category": null,
-   "group": "G",
-   "pattern": "PROCEDURE_CHANGE",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "RWY-16",
-    "ORIG": "RWY-16"
-   },
-   "sha": "2219b90fde5c79e3f9086355cb9b21560a4e711861a1b608e996791ee8e0c472"
   },
   {
    "key": "NB NB_RODN-PANC_13MAR26_etops_rev16 #34",
@@ -752,15 +813,12 @@
    "airport": "RJTT",
    "id": "J0281/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "GENERAL"
-   },
+   "after": false,
+   "cards": null,
    "sha": "ec36dbe1cfe8590996f6b8d34016f9217f2e189ddee21cfe58913c1f8611e39f"
   },
   {
@@ -807,6 +865,21 @@
    "after": false,
    "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
+  },
+  {
+   "key": "NB NB_YPDN-PHNL_11MAR26_etops_rev16 #82",
+   "fmt": "NB",
+   "pkg": "NB_YPDN-PHNL_11MAR26_etops_rev16",
+   "airport": "PHNL",
+   "id": "A4835/23",
+   "category": null,
+   "group": "B",
+   "pattern": null,
+   "byHeadingOnly": false,
+   "before": true,
+   "after": false,
+   "cards": null,
+   "sha": "5fc10a74fda801eaef410319aac641a27bb473f2b9620e0802cb793aa3e1d887"
   },
   {
    "key": "NB NB_YPDN-PHNL_11MAR26_etops_rev16 #85",
@@ -1268,15 +1341,12 @@
    "airport": "RJTT",
    "id": "J0516/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -1286,16 +1356,28 @@
    "airport": "RJTT",
    "id": "J0515/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
+  },
+  {
+   "key": "NB NB_VHHH-PANC_05APR26_vzfw_rev29 #94",
+   "fmt": "NB",
+   "pkg": "NB_VHHH-PANC_05APR26_vzfw_rev29",
+   "airport": "ZSPD",
+   "id": "F0378/26",
+   "category": null,
+   "group": "B",
+   "pattern": null,
+   "byHeadingOnly": false,
+   "before": true,
+   "after": false,
+   "cards": null,
+   "sha": "41d79eb1a2c51ecc0db632d3c79819036f88c1a8a84570aae65c14dddd2bfc07"
   },
   {
    "key": "NB NB_VHHH-PANC_05APR26_vzfw_rev29 #100",
@@ -1532,15 +1614,12 @@
    "airport": "RJTT",
    "id": "J0786/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "fbb9db6c69339ed113eb3afc0dede69722de84d4f4e2d87965a6653bd2d3e86d"
   },
   {
@@ -1550,15 +1629,12 @@
    "airport": "RJTT",
    "id": "J0516/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -1568,15 +1644,12 @@
    "airport": "RJTT",
    "id": "J0515/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
@@ -1586,16 +1659,28 @@
    "airport": "RJBB",
    "id": "B1072/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "GENERAL"
-   },
+   "after": false,
+   "cards": null,
    "sha": "cc6bbd236565e18b9099169f3b7fcc3096bb92ff0de5fbea71ba6b355418410f"
+  },
+  {
+   "key": "NB NB_VHHH-PANC_11MAY26_wheelsup_rev23 #217",
+   "fmt": "NB",
+   "pkg": "NB_VHHH-PANC_11MAY26_wheelsup_rev23",
+   "airport": "ZSPD",
+   "id": "F0378/26",
+   "category": null,
+   "group": "B",
+   "pattern": null,
+   "byHeadingOnly": false,
+   "before": true,
+   "after": false,
+   "cards": null,
+   "sha": "891a09f12de8feacfb202ac0ebd71be2a59ae84d1970b6f46f0252b32c74d54e"
   },
   {
    "key": "NB NB_VHHH-PANC_11MAY26_wheelsup_rev23 #220",
@@ -1643,7 +1728,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "c2a1a1fbf75f89918cd13fa432999cbe192942d66d220135d05945ac7896a101"
@@ -1656,7 +1741,7 @@
    "id": "E2929/26",
    "category": null,
    "group": "C",
-   "pattern": "TWY_AVAILABILITY",
+   "pattern": null,
    "byHeadingOnly": false,
    "before": false,
    "after": true,
@@ -1689,12 +1774,12 @@
    "id": "A3994/25",
    "category": null,
    "group": "C",
-   "pattern": "NAVAID",
+   "pattern": null,
    "byHeadingOnly": false,
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "f4bd098f8face5dfeef776a5bb886c14756a7bab34a42323a46fc52313672c4f"
@@ -1727,7 +1812,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "6eeeed32e2612f071df2c4aa132cc5c161bbd7c0ea2ee95e707dae7337425bc1"
@@ -1739,15 +1824,12 @@
    "airport": "RJTT",
    "id": "J0786/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "fbb9db6c69339ed113eb3afc0dede69722de84d4f4e2d87965a6653bd2d3e86d"
   },
   {
@@ -1757,15 +1839,12 @@
    "airport": "RJTT",
    "id": "J0516/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -1775,15 +1854,12 @@
    "airport": "RJTT",
    "id": "J0515/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
@@ -2003,34 +2079,13 @@
    "airport": "RJTT",
    "id": "J0281/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "GENERAL"
-   },
+   "after": false,
+   "cards": null,
    "sha": "238fa4079dcd0296bcc3004b82ff5a11f0f03a873603adc0e8b92715d07aa4e3"
-  },
-  {
-   "key": "NB NB_KLAX-ZSAM_11MAR26_etops-rda_rev6 #262",
-   "fmt": "NB",
-   "pkg": "NB_KLAX-ZSAM_11MAR26_etops-rda_rev6",
-   "airport": "KSFO",
-   "id": "A5647/24",
-   "category": null,
-   "group": "C",
-   "pattern": "NAVAID",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "no row (slot 7)"
-   },
-   "sha": "f045f59354d84d75c6880232ada4dd7785e218e80368d048b88236cbecbefba2"
   },
   {
    "key": "NB NB_KLAX-ZSAM_11MAR26_etops-rda_rev6 #277",
@@ -2987,15 +3042,12 @@
    "airport": "RJTT",
    "id": "J0516/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -3005,15 +3057,12 @@
    "airport": "RJTT",
    "id": "J0515/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
@@ -3053,15 +3102,12 @@
    "airport": "RJTT",
    "id": "J0516/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -3071,15 +3117,12 @@
    "airport": "RJTT",
    "id": "J0515/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
@@ -3290,10 +3333,28 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "c92a51f7035bcfe6538e58229384052fc9a0b8d7fe67036d143a0d59177a361b"
+  },
+  {
+   "key": "NB NB_KPSM-ETAR_19APR26_nat_rev12 #33",
+   "fmt": "NB",
+   "pkg": "NB_KPSM-ETAR_19APR26_nat_rev12",
+   "airport": "EDFH",
+   "id": "C1139/26",
+   "category": null,
+   "group": "C",
+   "pattern": null,
+   "byHeadingOnly": false,
+   "before": false,
+   "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "bb66addd488edc3d7648ea7c8a07818caebe4c821f526188e2aa80f082d4ad64"
   },
   {
    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #19",
@@ -3854,7 +3915,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "605df978a84ec6dc5247ff96ad152592c7846f054e62dd5f8158ac430b7a4e5c"
@@ -3872,7 +3933,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "a15fd7dbdb3197cd2159427de871621fdffdeeb7e2103b394eb89b379423ea0f"
@@ -3890,7 +3951,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "33b0dcc89d02b356c2fc786d5d9ef53786f91e8a19a4477441b1b9cffcd5b00a"
@@ -3908,7 +3969,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "08797dcc0b504c8db1966ad51ed104e98b0397fa027f4702f7e628b92e6a882d"
@@ -4187,6 +4248,21 @@
    "sha": "93b52b25d113f565bef996305a7f25e82c5491b450c643149edd7502af869081"
   },
   {
+   "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #40",
+   "fmt": "NB",
+   "pkg": "EOFP_EHBK-RKSI_09SEP26_pkgC_rev16",
+   "airport": "ZUCK",
+   "id": "U1704/26",
+   "category": null,
+   "group": "B",
+   "pattern": null,
+   "byHeadingOnly": false,
+   "before": true,
+   "after": false,
+   "cards": null,
+   "sha": "82d4ec4ec16a3e3522a22e22ff03e2456cd57a044f82799324bc1b051535c087"
+  },
+  {
    "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #56",
    "fmt": "NB",
    "pkg": "EOFP_EHBK-RKSI_09SEP26_pkgC_rev16",
@@ -4199,7 +4275,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "6450284a6ee8496e07ccf9b843b5715517f252a396aa29e4387d7f4605c87e9e"
@@ -4286,7 +4362,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "d45c1eb24085efe3b9d11b25a89adbb59273f21552a74d8ed5d4589656cf3856"
@@ -4304,7 +4380,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "67497ae9f0ac41f638003e6a4d297350f50f5231525ba413267b790cd95346d6"
@@ -4322,7 +4398,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "9db160ddaa6ae23cc1bce87299ccb8add44660bd05add20aea87bf7ae1f6e565"
@@ -4340,7 +4416,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "884ffe9f1ce555dc12bf15d909eb9af9e243dcda965dc8637dfae6517bdfafc4"
@@ -4358,7 +4434,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "d15edc78f0d2dfe84e72664e8850fe36e17589affd65260bd273e5486b16a6cf"
@@ -4376,7 +4452,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "06f0d120d80e5fd4ead6a15a612c52c771bef0daf117f6d54d2ece4a1f9af6fa"
@@ -4394,7 +4470,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "0dced1f6f004caf75035e86ad82bde1dc8ee3e2ec9d247f807f84bc507bb0017"
@@ -4412,7 +4488,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "edba6adadb8274fcec4b0ce75f58ccb5c568ff9c7b78d5e8ced4d023295fa7ab"
@@ -4430,7 +4506,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "8be896affcbf14089164301dfb59fc88d1c1a8d37f2c64fb242e0853ac661386"
@@ -4448,7 +4524,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "b3bc72016e2370cc8bdc4d1a03219c1afbc823ba9c72171bc2a952973760fd37"
@@ -4466,7 +4542,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "7ca6086e37742dc1caf9a7d2a6fc4f98d58fa6c0beeac6236a7f8fd058f597c9"
@@ -4479,12 +4555,12 @@
    "id": "J5859/25",
    "category": null,
    "group": "C",
-   "pattern": "LIGHTING",
+   "pattern": null,
    "byHeadingOnly": false,
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 5, INFO)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "94c872d42d8b2e87e3ea579a53ba558d1e0eb562f0dd5247ad61c138412cfe6c"
@@ -4496,15 +4572,12 @@
    "airport": "RJFF",
    "id": "F0173/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "GENERAL"
-   },
+   "after": false,
+   "cards": null,
    "sha": "c1e24bbd46c94f2a9d503a4f35b7a6d052e97959915ebbd1b867a19aaa4700e4"
   },
   {
@@ -4514,15 +4587,12 @@
    "airport": "RJFF",
    "id": "F0008/26",
    "category": null,
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "GENERAL"
-   },
+   "after": false,
+   "cards": null,
    "sha": "5e075abb6665ccde03ed04f49327ffc911518b5c3e83736e4ab9a1717e8f8007"
   },
   {
@@ -4538,7 +4608,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "3eaf02364dad1e0bfe030f9c2fd2dc6d89957bee827309dfe15c467dea2451c8"
@@ -4556,7 +4626,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "74b3c931e8e5dfcb3b38804080e92167ce43c54e3c13a7ab81fa40d097cb3c6a"
@@ -4682,7 +4752,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "7c3cbe87533fbfb63241897484eaad3247b2a7d3d91dc67809b3ac0297b0ac90"
@@ -4715,7 +4785,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "25f0a83bb8b2c44ca97810d0f130ccfa846326461cfdda5f176ed0e4a7739742"
@@ -4727,15 +4797,12 @@
    "airport": "RJAA",
    "id": "A1611/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "46c217368c8d36947c54fc071e98109a05241d4ba35d607c341a3d15e7a39aad"
   },
   {
@@ -4745,15 +4812,12 @@
    "airport": "RJAA",
    "id": "A1610/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "84aa78044b0ffae622dbad1dd76b5e16ba5eb533a42790c6867f52f3e824535d"
   },
   {
@@ -4763,15 +4827,12 @@
    "airport": "RJAA",
    "id": "A1609/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "a71e958d4841d9e098eacf99eb53c0dcfe6ef16ca4551d4fb22a630bb053cb38"
   },
   {
@@ -4781,15 +4842,12 @@
    "airport": "RJAA",
    "id": "A1603/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "6c8c590a52bdadd5bbcf72349c632efcd411a540a429bc0febf0a82f84cf678a"
   },
   {
@@ -4799,15 +4857,12 @@
    "airport": "RJTT",
    "id": "J2167/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "da4aa1649ddc3a7a2faafe2c2026e3837fdda41977973b68a3820f4256a666a9"
   },
   {
@@ -4922,13 +4977,34 @@
    "airport": "LLBG",
    "id": "A0720/26",
    "category": "OBSTACLE",
-   "group": "B",
-   "pattern": null,
+   "group": "G",
+   "pattern": "AREA_CLOSED",
    "byHeadingOnly": true,
    "before": true,
-   "after": false,
-   "cards": null,
+   "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
    "sha": "ef7e5a24d881b642c16c29596c7823655413f2ccab0407abda03c683aa3f08fc"
+  },
+  {
+   "key": "FK FK_LEZG-LLBG_04NOV26_remarks-subcards_live LLBG A0701/26 OBSTACLE",
+   "fmt": "FK",
+   "pkg": "FK_LEZG-LLBG_04NOV26_remarks-subcards_live",
+   "airport": "LLBG",
+   "id": "A0701/26",
+   "category": "OBSTACLE",
+   "group": "C",
+   "pattern": "AREA_CLOSED",
+   "byHeadingOnly": false,
+   "before": false,
+   "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
+   "sha": "5e295bcad0859bb0ed60b874432c09f1175e6a0cfbab4ae58b14787f517f01c2"
   },
   {
    "key": "FK FK_LEZG-LLBG_04NOV26_remarks-subcards_live OJAI A0519/26 OBSTACLE",
@@ -4967,13 +5043,34 @@
    "airport": "LLBG",
    "id": "A0720/26",
    "category": "OBSTACLE",
-   "group": "B",
-   "pattern": null,
+   "group": "G",
+   "pattern": "AREA_CLOSED",
    "byHeadingOnly": true,
    "before": true,
-   "after": false,
-   "cards": null,
+   "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
    "sha": "ef7e5a24d881b642c16c29596c7823655413f2ccab0407abda03c683aa3f08fc"
+  },
+  {
+   "key": "FK FK_LLBG-OMDW_04NOV26_poslaunch-permits_live LLBG A0701/26 OBSTACLE",
+   "fmt": "FK",
+   "pkg": "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live",
+   "airport": "LLBG",
+   "id": "A0701/26",
+   "category": "OBSTACLE",
+   "group": "C",
+   "pattern": "AREA_CLOSED",
+   "byHeadingOnly": false,
+   "before": false,
+   "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
+   "sha": "5e295bcad0859bb0ed60b874432c09f1175e6a0cfbab4ae58b14787f517f01c2"
   },
   {
    "key": "FK FK_LLBG-OMDW_04NOV26_poslaunch-permits_live OMDW A3000/26 OBSTACLE",
@@ -5081,7 +5178,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "2632b4e2c4f7d402b5f8b443056054f611aa1de74bede98e0171c929774eb5cd"
@@ -5099,7 +5196,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "dcce88ea301694942c437c8a3bddb6318ec7abc099ad5aed44d5bf92011212f6"
@@ -5252,7 +5349,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "25f0a83bb8b2c44ca97810d0f130ccfa846326461cfdda5f176ed0e4a7739742"
@@ -5270,7 +5367,7 @@
    "before": true,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "37115134ae78f9eb6a71f458ebbbee3a55ddeb075e6485838fbd6ade7158af22"
@@ -5282,15 +5379,12 @@
    "airport": "RJAA",
    "id": "A1603/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "6c8c590a52bdadd5bbcf72349c632efcd411a540a429bc0febf0a82f84cf678a"
   },
   {
@@ -5300,15 +5394,12 @@
    "airport": "RJTT",
    "id": "J2167/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "da4aa1649ddc3a7a2faafe2c2026e3837fdda41977973b68a3820f4256a666a9"
   },
   {
@@ -5387,57 +5478,18 @@
    "sha": "22d8ba82c8758517d7ff2a345e55b71d646b629dfb95f698a462502fd49a58f3"
   },
   {
-   "key": "FK FK_OMAA-VHHH_03NOV26_etihad-permits_live ZPPP U3512/26 OBSTACLE",
-   "fmt": "FK",
-   "pkg": "FK_OMAA-VHHH_03NOV26_etihad-permits_live",
-   "airport": "ZPPP",
-   "id": "U3512/26",
-   "category": "OBSTACLE",
-   "group": "C",
-   "pattern": "PROCEDURE_AFFECTED",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "cards": {
-    "DEST": "no row (slot 7)",
-    "ORIG": "no row (slot 7)"
-   },
-   "sha": "b3200667254b9096095b289ea853f44867edacb0cdda39211efb317d8223652e"
-  },
-  {
-   "key": "FK FK_OMAA-VHHH_03NOV26_etihad-permits_live ZPPP U3121/26 OBSTACLE",
-   "fmt": "FK",
-   "pkg": "FK_OMAA-VHHH_03NOV26_etihad-permits_live",
-   "airport": "ZPPP",
-   "id": "U3121/26",
-   "category": "OBSTACLE",
-   "group": "C",
-   "pattern": "PROCEDURE_AFFECTED",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "cards": {
-    "DEST": "no row (slot 7)",
-    "ORIG": "no row (slot 7)"
-   },
-   "sha": "31c3ca4398a9df6822231940f138b4c015ab72860317be1fef516db3a20f4e86"
-  },
-  {
    "key": "FK FK_KORD-RJAA_03NOV26_intl-redispatch_live RJAA A1603/26 OBSTACLE",
    "fmt": "FK",
    "pkg": "FK_KORD-RJAA_03NOV26_intl-redispatch_live",
    "airport": "RJAA",
    "id": "A1603/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "6c8c590a52bdadd5bbcf72349c632efcd411a540a429bc0febf0a82f84cf678a"
   },
   {
@@ -5447,15 +5499,12 @@
    "airport": "RJTT",
    "id": "J2167/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "da4aa1649ddc3a7a2faafe2c2026e3837fdda41977973b68a3820f4256a666a9"
   },
   {
@@ -5510,15 +5559,12 @@
    "airport": "RJTT",
    "id": "J2167/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "SURFACE_NAMED",
+   "group": "B",
+   "pattern": "STATED_UNCHANGED",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
-   "cards": {
-    "DEST": "GENERAL",
-    "ORIG": "SIDs"
-   },
+   "after": false,
+   "cards": null,
    "sha": "da4aa1649ddc3a7a2faafe2c2026e3837fdda41977973b68a3820f4256a666a9"
   },
   {
@@ -5579,7 +5625,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "597550c059d423cc978f4d912df3eaa5cb4a9259b583cf11c31665cacce98a28"
@@ -5657,7 +5703,7 @@
    "before": false,
    "after": true,
    "cards": {
-    "DEST": "no row (slot 7)",
+    "DEST": "GENERAL",
     "ORIG": "no row (slot 7)"
    },
    "sha": "712998dfe5ea9ac2f73ccab8515a539978a94a4ca585d45a4840e54fb0680a33"

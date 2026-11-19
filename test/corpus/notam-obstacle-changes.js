@@ -114,19 +114,19 @@ function idOf(mod, text) {
 // NOTAM), or the piece runs on into the text after the NOTAM (weather, the next section).
 function notesOf(p, id) {
   const n = [];
-  if (!/^\s*-\s+[A-Z]{4}\b/.test(p)) n.push('no NOTAM header: OFP text before the first NOTAM');
+  if (!/^\s*-\s+[A-Z]{4}\b/.test(p)) n.push('NOT A NOTAM: a split piece — the OFP text before the first NOTAM');
   else if (!id.id) n.push('no NOTAM ID');
   if (/\b(?:METAR|TAF|SPECI)\b|NO OPERATIONAL NOTAMS ON FILE/.test(p)) n.push('the piece runs on into the text after the NOTAM (weather / next section)');
   return n;
 }
 
 function groupOf(dec, before, after, diff) {
-  if (!dec.obstacle) return null;
+  if (dec.group === 'DEFERRED') return null;          // D67b F-5: decided as v1.13.0 (listed apart)
   if (dec.group === 'UNDECIDED') return 'U';
   if (before && !after) return 'B';
   if (!before && after) return 'C';
-  if (before && after && diff) return 'G';   // shown by both; only its card group / label set (D67a O-25)
-  return null;
+  if (before && after && diff) return 'G';   // shown by both; only its card group / label set (D67a O-25, D67b O-29)
+  return null;   // (a NOTAM that is not an obstacle NOTAM by its own text can still be C / G: D67b F-3)
 }
 
 // The card group an item lands in (the airport card draws rows for these only, E2), or 'no row'.
@@ -145,24 +145,27 @@ const NB_TRAIL = /\b(?:METAR|TAF|SPECI)\b|NO OPERATIONAL NOTAMS ON FILE|\bOTHER\
 function e1Why(NEW, ruleText, dec) {
   const t = ruleText.toUpperCase().replace(/\s+/g, ' ');
   const w = t.match(NEW.OBSTACLE_RULE.obstacleWord);
-  const tr = t.search(NB_TRAIL);
-  const where = w && tr >= 0 && w.index > tr ? 'in the text after the NOTAM (weather / next section)' : 'in the NOTAM text';
+  // D67b F-3: an obstacle word that is not in the NOTAM's own text stands in the text after it
+  const where = dec.obstacle ? 'in the NOTAM text' : 'only in the text after the NOTAM (weather / another NOTAM): not an obstacle NOTAM';
+  // the content: the pattern v1.14.0's rule reads in the NOTAM's own text (read as an obstacle NOTAM when it is none)
+  const d = dec.obstacle ? dec : NEW._obstacleRule(ruleText, 'OBSTACLE');
   const n = t.replace(NEW.OBSTACLE_RULE.noEffect, ' ').replace(NEW.OBSTACLE_RULE.obstacleLight, ' ');
-  const grp = dec.group === 'EFFECT' ? 'effect' : 'other';
-  const m = n.match(NEW.OBSTACLE_RULE[grp][dec.pattern]);
+  const grp = d.group === 'EFFECT' ? 'effect' : d.group === 'OTHER' ? 'other' : null;
+  const m = grp && NEW.OBSTACLE_RULE[grp][d.pattern] ? n.match(NEW.OBSTACLE_RULE[grp][d.pattern]) : null;
   // the word that carries the content: the first word of the match that is not a verb or a joiner;
   // for an area closed (CLSD TO ACFT), the area named before it (RAMP, APRON …)
   const STOP = /^(?:CHANGE|CHANGED|OF|IN|THE|CLSD|CLOSED|TO|ACFT|U\/S|UNUSABLE|AFFECTED|AREA|PATH|CHART,?|SECTOR|LIMIT|ALT|NOT|AVBL|FOR|AND|\d.*)$/;
   let missing = m ? (m[0].split(' ').find(x => !STOP.test(x)) || null) : null;
   if (m && !missing) { const a = n.slice(0, m.index).match(/\b(RAMP|APRON|APN|STANDS?|AREA|PARKING|GATES?)\b(?!.*\b(?:RAMP|APRON|APN|STANDS?|AREA|PARKING|GATES?)\b)/); missing = a ? a[1] : m[0].split(' ')[0]; }
-  return { word: w ? w[0] : null, where, content: m ? m[0].slice(0, 60) : null, missing };
+  return { word: w ? w[0] : null, where, content: m ? m[0].slice(0, 60) : (d.pattern || null), missing, pattern: d.pattern };
 }
 
 function run(o) {
   const OLD = require(path.resolve(o.before));
   const NEW = require(path.resolve(o.after));
   const fixtures = readManifest(o.fixtures).fixtures;
-  const entries = [], stops = [], audit = [], beta = [];
+  const entries = [], stops = [], audit = [], beta = [], deferred = [];
+  const e1Hid = text => NEW.OBSTACLE_RULE.obstacleWord.test(text.toUpperCase()) && !NEW.OBSTACLE_RULE.e1Keyword.test(text);   // v1.13.0's E1
   const BETA = o.beta ? require(path.resolve(o.beta)) : null;   // NOTAM v1.11.2: evalNotams(notams, role, eta, acftType, iso, dep)
   const stats = { navblue: { fixtures: 0, notams: 0, calls: 0 }, flightkeys: { packages: 0, airports: 0, items: 0, calls: 0, headings: 0 } };
 
@@ -189,11 +192,16 @@ function run(o) {
       }
       const g = groupOf(dec, shownIn(b0, p), shownIn(a0, p), diff);
       const id = idOf(NEW, p);
+      const ownU = NEW._ownNotamText(p).toUpperCase().replace(/\s+/g, ' ');
+      if (dec.group === 'DEFERRED' || (!dec.obstacle && NEW.OBSTACLE_RULE.enRoute.test(ownU) && /\bOBST\w*|\bCRANES?\b/.test(ownU))) {
+        deferred.push({ fmt: 'NB', pkg: fx.id, airport: id.loc, id: id.id, key: `NB ${fx.id} #${k}`, body: bodyLines(NEW, p), before: shownIn(b0, p), after: shownIn(a0, p), diff, decision: dec.group || 'not an obstacle NOTAM (word test)' });
+        if (diff) stops.push(`${fx.id} #${k}: deferred en-route NOTAM differs from v1.13.0`);
+      }
       const o14 = ev(NEW, 'ORIG', null, null, fx.date);
       const cards = shownIn(a0, p) ? { DEST: cardGroupOf(a0, p), ORIG: cardGroupOf(o14, p) } : null;
       const cards13 = shownIn(b0, p) ? { DEST: cardGroupOf(b0, p), ORIG: cardGroupOf(ev(OLD, 'ORIG', null, null, fx.date), p) } : null;
       // O-28 (a): hidden by v1.13.0's obstacle filter although it changes something else or affects a procedure
-      if (dec.obstacle && dec.byText && !e1Keyword(p) && !shownIn(b0, p) && ['EFFECT', 'OTHER'].includes(dec.group)) {
+      if (e1Hid(p) && !shownIn(b0, p) && shownIn(a0, p) && dec.group !== 'UNDECIDED') {
         audit.push({ fmt: 'NB', pkg: fx.id, airport: id.loc, id: id.id, key: `NB ${fx.id} #${k}`, body: bodyLines(NEW, p), why: e1Why(NEW, p, dec),
           group: g, decision: dec.group, pattern: dec.pattern, shown14: shownIn(a0, p), cards, notes: notesOf(p, id), sha: sha(p) });
       }
@@ -256,10 +264,14 @@ function run(o) {
         }
         stats.flightkeys.calls += 2;
         const g = groupOf(dec, shownIn(b0, q), shownIn(a0, p), diff);
+        if (dec.group === 'DEFERRED') {
+          deferred.push({ fmt: 'FK', pkg: fx.id, airport: icao, id: h.id, key: `FK ${fx.id} ${h.locations.join(' ')} ${h.id} ${cat || '-'}`, body: bodyLines(NEW, p), before: shownIn(b0, q), after: shownIn(a0, p), diff, decision: dec.group });
+          if (diff) stops.push(`${fx.id} ${icao} ${h.id}: deferred en-route NOTAM differs from v1.13.0`);
+        }
         const rt = p.split('\n').filter((_, k) => !h.headerRows.includes(k)).join('\n');
         const cards = shownIn(a0, p) ? { DEST: cardGroupOf(a0, p), ORIG: cardGroupOf(NEW.evalNotams(hd ? [hd, p] : [p], 'ORIG', null, prof, fx.date, dep, AP.getWingspan), p) } : null;
         const cards13 = shownIn(b0, q) ? { DEST: cardGroupOf(b0, q), ORIG: cardGroupOf(OLD.evalNotams([q], 'ORIG', null, prof, fx.date, dep, AP.getWingspan), q) } : null;
-        if (dec.obstacle && dec.byText && !e1Keyword(rt) && !shownIn(b0, q) && ['EFFECT', 'OTHER'].includes(dec.group)) {
+        if (e1Hid(rt) && !shownIn(b0, q) && shownIn(a0, p) && dec.group !== 'UNDECIDED') {
           audit.push({ fmt: 'FK', pkg: fx.id, airport: icao, id: h.id, key: `FK ${fx.id} ${h.locations.join(' ')} ${h.id} ${cat || '-'}`, category: cat,
             body: bodyLines(NEW, p), why: e1Why(NEW, rt, dec), group: g, decision: dec.group, pattern: dec.pattern, shown14: shownIn(a0, p), cards, notes: [], sha: sha(p.replace(/\s+$/, '')) });
         }
@@ -273,7 +285,7 @@ function run(o) {
       }
     }
   }
-  return { entries, audit, beta, betaFile: o.beta ? path.basename(o.beta) : null, betaSha: o.beta ? sha(fs.readFileSync(o.beta)) : null, stops, stats, before: path.relative(ROOT, path.resolve(o.before)), after: path.relative(ROOT, path.resolve(o.after)),
+  return { entries, audit, beta, deferred, betaFile: o.beta ? path.basename(o.beta) : null, betaSha: o.beta ? sha(fs.readFileSync(o.beta)) : null, stops, stats, before: path.relative(ROOT, path.resolve(o.before)), after: path.relative(ROOT, path.resolve(o.after)),
     sha: { before: sha(fs.readFileSync(o.before)), after: sha(fs.readFileSync(o.after)), fkParser: raw.parser.sha256 }, fkParserFile: raw.parser.file };
 }
 
@@ -282,10 +294,11 @@ function run(o) {
 function slim(res) {
   const cnt = g => res.entries.filter(e => e.group === g).length;
   return {
-    version: '1.1',
-    _about: 'NOTAM ruleset v1.14.0 obstacle-rule change list (D67): docs/RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.1.md (D67a), made by test/corpus/notam-obstacle-changes.js. Keys: NB <fixture> #<piece index of the whole-text split>; FK <package> <locations> <ID> <category>. sha = SHA-256 of the NOTAM text (FlightKeys: trailing white space removed). No NOTAM text, no crew data.',
+    version: '1.2',
+    _about: 'NOTAM ruleset v1.14.0 obstacle-rule change list (D67): docs/RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.2.md (D67a, D67b), made by test/corpus/notam-obstacle-changes.js. Keys: NB <fixture> #<piece index of the whole-text split>; FK <package> <locations> <ID> <category>. sha = SHA-256 of the NOTAM text (FlightKeys: trailing white space removed). No NOTAM text, no crew data.',
     before: { file: res.before, sha256: res.sha.before }, after: { file: res.after, sha256: res.sha.after }, fkParser: res.sha.fkParser,
-    counts: { B: cnt('B'), C: cnt('C'), U: cnt('U'), G: cnt('G') }, stats: res.stats,
+    counts: { B: cnt('B'), C: cnt('C'), U: cnt('U'), G: cnt('G'), deferred: res.deferred.length }, stats: res.stats,
+    deferred: res.deferred.map(e => ({ key: e.key, fmt: e.fmt, pkg: e.pkg, airport: e.airport, id: e.id, before: e.before, after: e.after })),
     audit: res.audit.map(e => ({ key: e.key, fmt: e.fmt, pkg: e.pkg, airport: e.airport, id: e.id, group: e.group, pattern: e.pattern, shown: e.shown14, cards: e.cards, sha: e.sha })),
     beta: res.beta ? { file: res.betaFile, sha256: res.betaSha, entries: res.beta.map(e => ({ key: e.key, pkg: e.pkg, airport: e.airport, id: e.id, pattern: e.pattern })) } : null,
     entries: res.entries.map(e => ({ key: e.key, fmt: e.fmt, pkg: e.pkg, airport: e.airport, id: e.id, category: e.category, group: e.group,
@@ -300,7 +313,7 @@ if (require.main === module) {
   const res = run(o);
   const count = g => res.entries.filter(e => e.group === g).length;
   console.log(JSON.stringify(res.stats));
-  console.log(`B ${count('B')}  C ${count('C')}  U ${count('U')}  G ${count('G')}  (U newly shown: ${res.entries.filter(e => e.group === 'U' && !e.before.noWindow).length})  O-28 audit ${res.audit.length}  beta exposure ${res.beta.length}`);
+  console.log(`B ${count('B')}  C ${count('C')}  U ${count('U')}  G ${count('G')}  deferred ${res.deferred.length}  (U newly shown: ${res.entries.filter(e => e.group === 'U' && !e.before.noWindow).length})  O-28 audit ${res.audit.length}  beta exposure ${res.beta.length}`);
   for (const s of res.stops) console.log(`STOP ${s}`);
   if (o.json) fs.writeFileSync(o.json, JSON.stringify(res, null, 1) + '\n');
   if (o.data) fs.writeFileSync(o.data, JSON.stringify(slim(res), null, 1) + '\n');
