@@ -49,6 +49,11 @@
  *   TC-161-304  QA F3 on the 26: an MEL/CDL note keeps its printed line breaks (L13, L19)
  *   TC-161-090  fixtures (or the private crew file) missing → FAIL, never skip (child run)
  *
+ * v0.3.0 (the briefing, TC-162 in test/rules/ofp-flightkeys-briefing.test.js) changes this battery only where
+ * it assumed the briefing unread: OPTS passes the NOTAM ruleset (as the app passes it); TC-161-001 accepts the
+ * airportData entries v0.3.0 adds for briefing airports (after the v0.1.0 entries, each with its briefing
+ * record); TC-161-050 checks that remarks weather never enters the briefing weather (it was '' before v0.3.0).
+ *
  * Synthetic packages are parsed as the app delivers them (appInput): positioned items with a 13.2 pt pitch, the text
  * rebuilt by the app's line reader; a printed blank line (BL) is a gap in the positions, never an empty text line.
  * Fixtures: PB_FIXTURES (authoritative when set), else ./fixtures or ../pilotbrief-fixtures.
@@ -69,7 +74,8 @@ const mod      = require(path.join(RULES, MANIFEST['ofp-flightkeys'].file));
 const icaoFpl  = require(path.join(RULES, MANIFEST['icao-fpl'].file));
 const acProf   = require(path.join(RULES, MANIFEST['aircraft-profile'].file));
 const navblue  = require(path.join(RULES, MANIFEST['ofp-navblue'].file));
-const OPTS     = { icaoFpl, aircraftProfile: acProf };
+const notamRules = require(path.join(RULES, MANIFEST['notam-rules'].file));
+const OPTS     = { icaoFpl, aircraftProfile: acProf, notamRules };
 const BASELINE = require('./data/ofp-flightkeys-v0.1.0-baseline.json');
 const EXPECTED = require('./data/ofp-flightkeys-expected-v0.2.0.json').fixtures;
 const CREW_FILE = path.join('expected', 'ofp-flightkeys-v0.2.0', 'crew.json');
@@ -750,7 +756,11 @@ if (!FIXTURES) {
       for (const f of BASELINE.fields) { assert.equal(sha(JSON.stringify(r[f])), b.sha256[f], `${b.label}: ${f} unchanged`); n++; }
       for (const [icao, q] of Object.entries(b.specialQualification)) assert.equal(r.airportData[icao].specialQualification, q, `${b.label}: ${icao} Q`);
       const added = Object.keys(r.airportData).filter(k => !(k in b.specialQualification));
-      assert.deepEqual(added, b.label === 'L15' ? ['PWAK'] : [], `${b.label}: airportData entries added`);
+      // v0.2.0 added L15 PWAK (remarks weather); v0.3.0 adds every briefing airport (TC-162), each with its
+      // briefing record. Nothing else is added.
+      assert.equal(added.includes('PWAK'), b.label === 'L15', `${b.label}: PWAK entry (remarks weather)`);
+      assert.deepEqual(added.filter(k => !r.airportData[k].briefing && k !== 'PWAK'), [], `${b.label}: airportData entries added only for briefing airports`);
+      for (const k of added) assert.equal(r.airportData[k].specialQualification, false, `${b.label}: ${k} Q`);
       assert.deepEqual(Object.keys(r.airportData).slice(0, Object.keys(b.specialQualification).length), Object.keys(b.specialQualification), `${b.label}: entry order kept`);
       // the v0.1.0 findings, in order, inside the v0.2.0 findings
       const all = r.findings.map(f => JSON.stringify(f));
@@ -915,7 +925,8 @@ if (!FIXTURES) {
       assert.deepEqual([...new Set(r.ofpRemarks.filter(x => x.category === 'stationRestriction' && x.airport).map(x => x.airport))], e.stationAirports, `${lbl}: station blocks`);
       assert.deepEqual(Object.entries(r.airportData).flatMap(([k, v]) => v.remarksWeather.map(() => k)), e.remarksWeather, `${lbl}: remarks weather`);
       assert.equal(r.findings.some(f => /\(SME-18\)$/.test(f.message)), e.takeoffAlternateFlag, `${lbl}: takeoff-alternate flag`);
-      for (const a of Object.values(r.airportData)) assert.equal(a.weather, '', `${lbl}: remarks weather never merged into the briefing weather`);
+      for (const a of Object.values(r.airportData)) for (const w of a.remarksWeather)
+        assert.ok(!a.weather.includes(w.text), `${lbl}: remarks weather never merged into the briefing weather`);
       assert.deepEqual(warns(r).filter(f => !(lbl === 'L21' && /\(SME-18\)$/.test(f.message)) && !(lbl === 'T1' && f.field === 'permits')), [], `${lbl}: no other WARN`);
     }
     const has = cat => labelsWhere(r => r.ofpRemarks.some(x => x.category === cat));

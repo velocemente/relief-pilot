@@ -2,8 +2,8 @@
 
 **Version:** v1.0-NEW | **Status:** NEW | **Date:** 2026-11-18
 **For:** the Exec's review of the change list before v1.14.0 is published to Drive (it is not built into the app; beta takes it in step 5e).
-**Modules:** before `rules/notam-rules/notam-rules-v1.13.0.js` (SHA-256 `e640b45c…`), after `rules/notam-rules-next/notam-rules-v1.14.0.js` (SHA-256 `ffee2683…`); FlightKeys parser for `notamsRaw`: `fk.js` (SHA-256 `1e2285b7…`, branch `claude/fk-parser-v0.3`, velocemente/relief-pilot#63), its output as stored in the fixtures repository (`expected/notam-rules-v1.14.0/fk-notams-raw.json`, the file the CI tests read).
-**Made by:** `node test/corpus/fk-notams-raw-export.js --fk-parser <ofp-flightkeys-v0.3.0.js> --out <fixtures>/expected/notam-rules-v1.14.0/fk-notams-raw.json`, then `node test/corpus/notam-obstacle-changes.js --fk-raw <that file> --report <this file> --data test/rules/data/notam-v1.14.0-obstacle-changes.json`, then `tools/redact` (no replacement made: the list holds no crew data).
+**Modules:** before `rules/notam-rules/notam-rules-v1.13.0.js` (SHA-256 `e640b45c…`), after `rules/notam-rules-next/notam-rules-v1.14.0.js` (SHA-256 `ffee2683…`); FlightKeys parser for `notamsRaw`: `rules/ofp-flightkeys/ofp-flightkeys-v0.3.0.js` (SHA-256 `fd12b6e5…`, velocemente/relief-pilot#63), its output as stored in the fixtures repository (`expected/notam-rules-v1.14.0/fk-notams-raw.json`, the file the CI tests read).
+**Made by:** `node test/corpus/fk-notams-raw-export.js --out <fixtures>/expected/notam-rules-v1.14.0/fk-notams-raw.json`, then `node test/corpus/notam-obstacle-changes.js --fk-raw <that file> --report <this file> --data test/rules/data/notam-v1.14.0-obstacle-changes.json`, then `tools/redact` (no replacement made: the list holds no crew data).
 
 > **Public repository.** NOTAM text is public aeronautical information and is quoted as printed (first two body lines). No crew names, employee numbers, dispatcher names or phone numbers.
 

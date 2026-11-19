@@ -8,7 +8,7 @@
   "file": "rules/notam-rules-next/notam-rules-v1.14.0.js",
   "sha256": "ffee26834e53e934ecb478ab4e305630126487b2360f8f3b278cc12d755e4325"
  },
- "fkParser": "1e2285b75e65aff46e9176b78041b462a76ccbf621c367d433ecdf5436bb2ef6",
+ "fkParser": "fd12b6e5cf3d7408885aeddeb85777ede7f36ed20859b1fab30341148d5d72a1",
  "counts": {
   "B": 132,
   "C": 12,

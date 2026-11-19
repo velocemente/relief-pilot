@@ -1,12 +1,16 @@
 'use strict';
 /**
  * TC-160 — FlightKeys OFP parser (rules/ofp-flightkeys, development version, D58): the battery of
- * v0.1.0 (release page 1 and the route), run unchanged on the current module (v0.2.0). The v0.2.0
- * fields (release and remarks pages) are tested by TC-161 (test/rules/ofp-flightkeys-release.test.js).
+ * v0.1.0 (release page 1 and the route), run unchanged on the current module (v0.3.0). The v0.2.0
+ * fields (release and remarks pages) are tested by TC-161 (test/rules/ofp-flightkeys-release.test.js),
+ * the v0.3.0 briefing by TC-162 (test/rules/ofp-flightkeys-briefing.test.js).
  * Changes for v0.2.0 only where the battery named the version or the deferred list: TC-160-001/002
  * (version, contract 2.2, 14 extensions, steps 5d/open), TC-160-005 (deferred fields now 5d/open only),
  * TC-160-019 (the SME-18 takeoff-alternate WARN is a v0.2.0 finding, TC-161), TC-160-040 (compares
  * the v0.1.0 fields; the v0.2.0 fields are TC-161-040).
+ * Changes for v0.3.0 only where the battery named the version, the airport keys or the deferred list:
+ * TC-160-001/002 (version 0.3.0, contract 2.3, 7 airport extensions incl. weatherRaw, D65), TC-160-013 (the airport entry's
+ * keys), TC-160-005 (airportData.weather / .notams and sections are read now: TC-162).
  *
  * A NEW format parser (ADR-005 §2.1): parseFlightKeys(input, options) reads a FlightKeys package
  * (the extractor's text + positioned items) and returns the briefing contract (57 core fields with
@@ -106,16 +110,17 @@ const parseText = (text, opts = OPTS) => mod.parseFlightKeys({ text, pages: [] }
 test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'ofp');
   assert.equal(mod.OFP_FORMAT, 'flightkeys');
-  assert.equal(mod.RULESET_VERSION, '0.2.0');
+  assert.equal(mod.RULESET_VERSION, '0.3.0');
   assert.equal(mod.SCHEMA_VERSION, 2);
-  assert.equal(mod.CONTRACT_VERSION, '2.2');
+  assert.equal(mod.CONTRACT_VERSION, '2.3');
   assert.ok(mod.RULESET_SOURCE.length > 10);
   assert.deepEqual(mod.validateSchema(), { valid: true, errors: [] });
   assert.deepEqual([...mod.CORE_FIELDS], [...navblue.CORE_FIELDS], 'core fields = NavBlue core fields, same order');
   assert.deepEqual(mod.EXTENSION_FIELDS.filter(f => f !== 'swa' && f !== 'operatingPilots'), [...navblue.EXTENSION_FIELDS],
     'extensions = contract v2.0 list + swa (addendum 1) + operatingPilots (addendum 2, D62)');
   assert.deepEqual([...mod.CREW_EXTENSION_FIELDS], ['firstName', 'toLndgExpiry']);
-  assert.deepEqual([...mod.AIRPORT_EXTENSION_FIELDS], [...navblue.AIRPORT_EXTENSION_FIELDS, 'specialQualification']);
+  assert.deepEqual([...mod.AIRPORT_EXTENSION_FIELDS], [...navblue.AIRPORT_EXTENSION_FIELDS, 'specialQualification',
+    'notamItems', 'notamsRaw', 'briefing', 'weatherRaw'], 'airport extensions: v2.0 + specialQualification (addendum 1) + addendum 3 (v0.3.0, D65)');
   assert.deepEqual([...mod.DDG_EXTENSION_FIELDS], [...navblue.DDG_EXTENSION_FIELDS]);
   const copy = () => Object.assign({}, mod);
   const broken = [
@@ -148,11 +153,11 @@ test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () 
 
 // ══ TC-160-002 manifest ══════════════════════════════════════════════════════
 
-test('TC-160-002 rules/manifest.json lists ofp-flightkeys 0.2.0 with its SHA-256', () => {
+test('TC-160-002 rules/manifest.json lists ofp-flightkeys 0.3.0 with its SHA-256', () => {
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
   assert.equal(e.version, mod.RULESET_VERSION);
-  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v0.2.0.js');
+  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v0.3.0.js');
   assert.equal(e.sha256, crypto.createHash('sha256').update(fs.readFileSync(MOD_FILE)).digest('hex'));
 });
 
@@ -336,7 +341,7 @@ test('TC-160-013 Q token = Special Qualification (SME-2): text, positions, negat
   assert.deepEqual(Object.keys(r.airportData), ['KAAA', 'KBBB', 'KCCC']);
   assert.deepEqual(Object.values(r.airportData).map(a => a.specialQualification), [true, true, false]);
   for (const a of Object.values(r.airportData))
-    assert.deepEqual(Object.keys(a), ['weather', 'notams', 'remarks', 'remarksWeather', 'specialQualification']);
+    assert.deepEqual(Object.keys(a), ['weather', 'notams', 'remarks', 'remarksWeather', 'specialQualification', 'notamItems', 'notamsRaw', 'briefing', 'weatherRaw']);
   // positions decide when they disagree with the text (a 1-letter name word "Q" at the column end)
   const text = release({ airports: ['ORIG KAAA/AAA NAME ENDS IN Q N40000W080000 1755Z', 'DEST KBBB/BBB B N41000W081000 0328Z'] });
   const items = [{ str: 'ORIG', x: 58.7, y: 100 }, { str: 'KAAA/AAA NAME ENDS IN', x: 102, y: 100 }, { str: 'Q', x: 250, y: 100 },
@@ -555,17 +560,19 @@ if (!FIXTURES) {
         for (const k of mod.AIRPORT_EXTENSION_FIELDS) assert.ok(k in a, `${lbl} ${icao}: ${k}`);
       for (const f of Object.keys(mod.DEFERRED_FIELDS)) {
         const n = r.findings.filter(x => x.level === 'INFO' && x.field === f
-          && /^not read in v0\.2\.0: (read in 5d|not in any brief yet \(open item\))$/.test(x.message)).length;
+          && /^not read in v0\.3\.0: (read in 5d|not in any brief yet \(open item\))$/.test(x.message)).length;
         assert.equal(n, 1, `${lbl}: one INFO for ${f}`);
       }
       // explicit empties with the NavBlue types (the fields still deferred: 5d / open)
       assert.equal(r.natTrack, null);
       assert.deepEqual(r.enrouteNotams, { route: '', fir: '', airway: '', waypoint: '', geographic: '' });
+      // v0.3.0: airportData weather / notams and sections are read (TC-162); curfew / opsNotes still deferred
       for (const a of Object.values(r.airportData)) {
-        assert.equal(a.weather, ''); assert.equal(a.notams, '');
+        assert.equal(typeof a.weather, 'string'); assert.equal(typeof a.notams, 'string');
         assert.ok(!('curfew' in a) && !('opsNotes' in a), `${lbl}: no curfew/opsNotes keys before 5d (as NavBlue when nothing is printed; QA F3)`);
       }
-      for (const k of ['companyNotams', 'sections']) assert.deepEqual(r[k], [], `${lbl}: ${k}`);
+      assert.deepEqual(r.companyNotams, [], `${lbl}: companyNotams`);
+      assert.ok(Array.isArray(r.sections), `${lbl}: sections`);
       assert.equal(r.fplEquipment, null, `${lbl}: fplEquipment`);
       assert.equal(typeof r.rawOFP, 'string');
       for (const f of r.findings) assert.ok(['INFO', 'WARN'].includes(f.level) && f.field && f.message, `${lbl}: finding shape`);

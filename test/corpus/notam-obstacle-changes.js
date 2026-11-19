@@ -10,7 +10,7 @@
 //   --before     defaults to the 'notam-rules' module of rules/manifest.json (v1.13.0, built into the app)
 //   --after      defaults to the 'notam-rules-next' module (v1.14.0)
 //   --fk-parser  a FlightKeys parser that gives airportData[icao].notamsRaw (ofp-flightkeys v0.3.0 or
-//                later, branch claude/fk-parser-v0.3 until velocemente/relief-pilot#63 is merged)
+//                later; merged in velocemente/relief-pilot#63)
 //   --fk-raw     or the parser's output as exported by test/corpus/fk-notams-raw-export.js (fixtures
 //                expected/notam-rules-v1.14.0/fk-notams-raw.json; the CI tests read the same file)
 //

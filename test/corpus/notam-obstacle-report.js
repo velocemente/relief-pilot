@@ -72,8 +72,8 @@ function report(res) {
   L.push('');
   L.push('**Version:** v1.0-NEW | **Status:** NEW | **Date:** 2026-11-18');
   L.push('**For:** the Exec\'s review of the change list before v1.14.0 is published to Drive (it is not built into the app; beta takes it in step 5e).');
-  L.push(`**Modules:** before \`${res.before}\` (SHA-256 \`${res.sha.before.slice(0, 8)}…\`), after \`${res.after}\` (SHA-256 \`${res.sha.after.slice(0, 8)}…\`); FlightKeys parser for \`notamsRaw\`: \`${res.fkParserFile}\` (SHA-256 \`${res.sha.fkParser.slice(0, 8)}…\`, branch \`claude/fk-parser-v0.3\`, velocemente/relief-pilot#63), its output as stored in the fixtures repository (\`expected/notam-rules-v1.14.0/fk-notams-raw.json\`, the file the CI tests read).`);
-  L.push('**Made by:** `node test/corpus/fk-notams-raw-export.js --fk-parser <ofp-flightkeys-v0.3.0.js> --out <fixtures>/expected/notam-rules-v1.14.0/fk-notams-raw.json`, then `node test/corpus/notam-obstacle-changes.js --fk-raw <that file> --report <this file> --data test/rules/data/notam-v1.14.0-obstacle-changes.json`, then `tools/redact` (no replacement made: the list holds no crew data).');
+  L.push(`**Modules:** before \`${res.before}\` (SHA-256 \`${res.sha.before.slice(0, 8)}…\`), after \`${res.after}\` (SHA-256 \`${res.sha.after.slice(0, 8)}…\`); FlightKeys parser for \`notamsRaw\`: \`${res.fkParserFile}\` (SHA-256 \`${res.sha.fkParser.slice(0, 8)}…\`, velocemente/relief-pilot#63), its output as stored in the fixtures repository (\`expected/notam-rules-v1.14.0/fk-notams-raw.json\`, the file the CI tests read).`);
+  L.push('**Made by:** `node test/corpus/fk-notams-raw-export.js --out <fixtures>/expected/notam-rules-v1.14.0/fk-notams-raw.json`, then `node test/corpus/notam-obstacle-changes.js --fk-raw <that file> --report <this file> --data test/rules/data/notam-v1.14.0-obstacle-changes.json`, then `tools/redact` (no replacement made: the list holds no crew data).');
   L.push('');
   L.push('> **Public repository.** NOTAM text is public aeronautical information and is quoted as printed (first two body lines). No crew names, employee numbers, dispatcher names or phone numbers.');
   L.push('');

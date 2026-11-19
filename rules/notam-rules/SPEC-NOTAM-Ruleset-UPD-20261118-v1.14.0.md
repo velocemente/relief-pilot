@@ -7,7 +7,7 @@
 **Exec decision:** D67 (18 Nov) — obstacle NOTAMs "should only show if it affects a runway, approach, SID or STAR heights or gradients", both formats (§8a).
 **Change list:** `docs/RPT-NOTAM-ObstacleRule-ChangeList-NEW-20261118-v1.0.md` (groups B, C, U; reviewed by the Exec before publishing)
 **Architecture:** ADR-005 §2.1–2.3, §2.5 (module catalogue, module standard, master copies and CI; NOTAMs across formats)
-**FlightKeys grammar:** `docs/RPT-OFP-FlightKeys-BriefingGrammar-NEW-20261114-v1.0.md` §A.5 (item header), §A.6 (type headings), §A.7 (Company NOTAMs), §A.10 (D54)
+**FlightKeys grammar:** `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md` §A.5 (item header), §A.6 (type headings), §A.7 (Company NOTAMs), §A.10 (D54)
 **Ledger:** `RPT-NOTAM-RevisionLedger-UPD-20261118-v1.6.md` (beside this file)
 **Supersedes:** v1.13.0 (`SPEC-NOTAM-Ruleset-UPD-20261117-v1.13.0.md`, kept beside this file while v1.13.0 is the module built into the app), which superseded v1.12.0 (`SPEC-NOTAM-Ruleset-UPD-20261109-v1.12.0.md`), which superseded v1.11.2, which superseded v1.11.1 (previous master, Drive "00_General Rulesets / 00_Notam Rules"), v1.11.0 and master `notam-rules-v110-1.js` (v1.10.1)
 

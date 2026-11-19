@@ -3,8 +3,8 @@
 // packages — notamsRaw (the NOTAM section as printed, type headings included), notams (the item
 // text with no heading), the items' IDs and categories, and the airport's role windows — so that
 // the NOTAM v1.14.0 tests (TC-172) and the change list read exactly the parser's text without
-// needing the parser itself (ofp-flightkeys v0.3.0 is on branch claude/fk-parser-v0.3 until
-// velocemente/relief-pilot#63 is merged).
+// needing the parser itself: CI reads the fixtures' expected/ file (ofp-flightkeys v0.3.0, merged
+// in velocemente/relief-pilot#63; --fk-parser defaults to the manifest's ofp-flightkeys module).
 //
 //   node test/corpus/fk-notams-raw-export.js --fk-parser <ofp-flightkeys-v0.3.0.js> [--fixtures <dir>]
 //        --out <fixtures>/expected/notam-rules-v1.14.0/fk-notams-raw.json
@@ -33,7 +33,8 @@ function parseArgs(argv) {
     else if (k === '--out') o.out = argv[++i];
     else { console.error(`unknown argument: ${k}`); process.exit(2); }
   }
-  if (!o.fkParser || !o.out) { console.error('--fk-parser <file> and --out <file> are required'); process.exit(2); }
+  o.fkParser = o.fkParser || path.join(RULES, MAN['ofp-flightkeys'].file);
+  if (!o.out) { console.error('--out <file> is required'); process.exit(2); }
   o.fixtures = findFixtures(o.fixtures);
   if (!o.fixtures) { console.error('fixtures directory not found'); process.exit(2); }
   return o;
@@ -53,7 +54,7 @@ function exportAll(o) {
   const AP = nodeAircraftProfile();
   const out = {
     _about: 'NOTAM ruleset v1.14.0 (TC-172, change list): per FlightKeys package and airport, what the FlightKeys parser gives the NOTAM ruleset: notamsRaw (type headings included), notams (no heading), the items (ID, category) and the role windows (midpoint ETA, minutes of the UTC day). Made by relief-pilot test/corpus/fk-notams-raw-export.js. PRIVATE: NOTAM text of the fixtures; no crew data.',
-    parser: { file: path.basename(o.fkParser), sha256: sha(fs.readFileSync(o.fkParser)), branch: 'claude/fk-parser-v0.3' },
+    parser: { file: path.relative(ROOT, path.resolve(o.fkParser)), sha256: sha(fs.readFileSync(o.fkParser)) },
     notamRules: { file: MAN['notam-rules'].file, sha256: MAN['notam-rules'].sha256 },
     packages: {},
   };
