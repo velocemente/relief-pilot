@@ -1,5 +1,5 @@
 /**
- * ofp-flightkeys.js — FlightKeys OFP Parser  (v0.3.0, development version, contract v2.3)
+ * ofp-flightkeys.js — FlightKeys OFP Parser  (v0.4.0, development version, contract v2.4)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.4): the FlightKeys OFP parser. It reads
  * an Atlas Air / Polar Air Cargo package in the FlightKeys format and returns
@@ -7,7 +7,7 @@
  * and meanings, as the locked NavBlue parser (FK-P), plus the Appendix B
  * extensions and findings[].
  *
- * v0.3.0 (D58 amended) is a DEVELOPMENT version. It is not built into
+ * v0.4.0 (D58) is a DEVELOPMENT version. It is not built into
  * index.html, not used by the app and not published to the master folder.
  * v0.2.0 read the OFP
  * release: identity and header, airports and times, fuel, weights, DOT
@@ -25,10 +25,16 @@
  * ID, printed type and source positions (notamItems), the NOTAM section as
  * printed (notamsRaw), the TAF / METAR / ATIS reports (weather) with the
  * * PRIO * TAF as the E-WINS (ewins*), the role windows (briefing), an entry
- * for every briefing airport in card order (SME-1), and sections[]. Curfew,
- * ops notes, Company NOTAMs, en-route NOTAMs and NAT are still an explicit
- * empty value with one INFO finding ("read in 5d"). v0.3.0 must not be
- * integrated: an explicit empty is not a value.
+ * for every briefing airport in card order (SME-1), and sections[]. New in
+ * v0.4.0 (step 5d-2, § 7b; Exec answers O-33 … O-45): airportData notams keep
+ * the printed type headings for NOTAM ruleset v1.14.0 (D67); the Company NOTAMs
+ * (companyNotams[], HSCN included); curfews (airportData curfew, CURFEW key
+ * only, aircraft type by a closed table, season effectivity); ops notes
+ * (airportData opsNotes); the FIR NOTAM blocks (enrouteNotams.fir, firNotams[],
+ * firRaw[], D64); the NAT track messages (natMessages[], natTrack through the
+ * injected NAT parser) and the PACOTS sections; the Hazard Briefing per FIR
+ * (hazards[], text as printed, never evaluated). v0.4.0 must not be integrated
+ * (D58: integration at v1.0.0, step 5e).
  *
  * INPUT  parseFlightKeys(input, options)
  *   input   { text, pages:[{ page, width, height, items:[{ str, x, y, w, h,
@@ -40,7 +46,9 @@
  *             page's items array (pdf.js source order). inputFromExtractor()
  *             does exactly this.
  *   options { icaoFpl, aircraftProfile, notamRules, parseNatTrack } — the
- *             shared modules, passed in. notamRules (v0.3.0) is the NOTAM
+ *             shared modules, passed in. parseNatTrack (v0.4.0) is the app's
+ *             NAT track parser (src/nat.html), called once per package with the
+ *             chosen NAT message (O-42, O-43). notamRules (v0.3.0) is the NOTAM
  *             ruleset: its _splitNotams / _fkHeader cut an airport's NOTAM
  *             text into items and read each item's ID, so the NOTAM grammar
  *             exists once (ADR-005 §2.5). The module never reads window,
@@ -70,15 +78,17 @@
 
 const RULESET_TYPE     = 'ofp';
 const OFP_FORMAT       = 'flightkeys';
-const RULESET_VERSION  = '0.3.0';
+const RULESET_VERSION  = '0.4.0';
 const SCHEMA_VERSION   = 2;
 // Contract v2.0 (ADR-005 Appendix A + B) plus the extension fields of the
 // Appendix B addenda: specialQualification, swa (Exec SME answers 13 Nov,
 // contract 2.1); operatingPilots (D62) and the crew-record extensions
 // firstName, toLndgExpiry (SME-9) (contract 2.2); the airport extensions
-// notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65) (contract 2.3, addendum 3).
+// notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65) (contract 2.3, addendum 3);
+// the top-level extensions firNotams, firRaw (D64, O-41), natMessages (O-43) and hazards (O-45)
+// (contract 2.4, addendum 4).
 // Adding fields is a minor contract version (ADR-005 §2.4).
-const CONTRACT_VERSION = '2.3';
+const CONTRACT_VERSION = '2.4';
 const RULESET_SOURCE   = 'FlightKeys OFP issued by Atlas Air / Polar Air Cargo dispatch (release, ICAO FPL and briefing package); field map SPRINT-OFP-FlightKeysMigration v1.1; ICAO Doc 4444 App 2/3 through icao-fpl';
 
 // ═══════════════════════════════════════════════════════════════
@@ -102,11 +112,13 @@ const CORE_FIELDS = Object.freeze([
 ]);
 
 // Appendix B — top-level extensions, in order (contract v2.0 list with `swa`
-// (addendum 1) and `operatingPilots` (addendum 2, D62) added before `sections`).
+// (addendum 1), `operatingPilots` (addendum 2, D62) and `firNotams`, `firRaw`,
+// `natMessages`, `hazards` (addendum 4, v0.4.0) added before `sections`).
 const EXTENSION_FIELDS = Object.freeze([
   'revision', 'companyNotams', 'ofpRemarks', 'fplEquipment',
   'catIiIiiRestrictions', 'securityMessages', 'extraFuel', 'pcf', 'permits',
-  'designator', 'swa', 'operatingPilots', 'sections', 'findings',
+  'designator', 'swa', 'operatingPilots', 'firNotams', 'firRaw', 'natMessages', 'hazards',
+  'sections', 'findings',
 ]);
 // Extensions on core records. specialQualification: addendum (SME-2).
 // notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65): addendum 3 (v0.3.0).
@@ -117,18 +129,14 @@ const DDG_EXTENSION_FIELDS     = Object.freeze(['type', 'notes']);
 // the TO/LNDG currency expiry ("Not Reported" when blank, SME-9).
 const CREW_EXTENSION_FIELDS    = Object.freeze(['firstName', 'toLndgExpiry']);
 
-// Fields v0.3.0 does not read: the explicit empty is returned and one INFO
+// Fields v0.4.0 does not read: the explicit empty is returned and one INFO
 // finding names the step that reads the field (field map v1.1 rows). Step
-// 'open' = in no brief yet. The airportData entries carry no curfew / opsNotes
-// keys until they are read (NavBlue also leaves them out when nothing is
-// printed); the INFO names them (QA F3). airportData.weather, .notams and
-// sections are read since v0.3.0.
+// 'open' = in no brief yet. airportData.weather, .notams and sections are read
+// since v0.3.0; enrouteNotams, natTrack, airportData.curfew / .opsNotes and
+// companyNotams since v0.4.0 (step 5d-2). An airportData entry carries a curfew /
+// opsNotes key only when the package prints one for it (NavBlue also leaves them
+// out when nothing is printed).
 const DEFERRED_FIELDS = Object.freeze({
-  enrouteNotams:          '5d',    // row 49
-  natTrack:               '5d',    // row 42
-  'airportData.curfew':   '5d',    // row 46
-  'airportData.opsNotes': '5d',    // row 47
-  companyNotams:          '5d',
   fplEquipment:           'open',  // D41 field 10a + MEL removals: not in the v0.2.0 brief (icao-fpl reads field 10)
 });
 const DEFERRED_STEPS = Object.freeze({ '5d': 'read in 5d', open: 'not in any brief yet (open item)' });
@@ -500,14 +508,15 @@ function _emptyExtensions() {
   return {
     revision: null, companyNotams: [], ofpRemarks: [], fplEquipment: null,
     catIiIiiRestrictions: [], securityMessages: [], extraFuel: null, pcf: null, permits: [],
-    designator: '', swa: null, operatingPilots: null, sections: [], findings: [],
+    designator: '', swa: null, operatingPilots: null, firNotams: [], firRaw: [], natMessages: [], hazards: [],
+    sections: [], findings: [],
   };
 }
 
 /**
- * Parse a FlightKeys package into the briefing contract (v2.1).
+ * Parse a FlightKeys package into the briefing contract (v2.4).
  * @param {{text:string, pages?:Array}} input — see the file header
- * @param {{icaoFpl?:object, aircraftProfile?:object, parseNatTrack?:function}} [options]
+ * @param {{icaoFpl?:object, aircraftProfile?:object, notamRules?:object, parseNatTrack?:function}} [options]
  * @returns {object|null} null when input.text is not a non-empty string
  */
 function parseFlightKeys(input, options) {
@@ -557,11 +566,16 @@ function parseFlightKeys(input, options) {
   _readAirports(ctx);
   _readPending(ctx);
   _readBriefing(ctx);      // § 7 (v0.3.0): airportData weather / notams, card order
-  _readSections(ctx);      // § 7 (v0.3.0): sections[] (rows 37, 38)
+  _readCompany(ctx);       // § 7b (v0.4.0): companyNotams[] (§A.7)
+  _readCurfews(ctx);       // § 7b (v0.4.0): airportData curfew (row 46; O-33 … O-37)
+  _readOpsNotes(ctx);      // § 7b (v0.4.0): airportData opsNotes (row 47; O-38, O-39)
+  _readFirs(ctx);          // § 7b (v0.4.0): enrouteNotams, firNotams[], firRaw[] (row 49; O-40, O-41)
+  _readHazards(ctx);       // § 7b (v0.4.0): hazards[] (O-45)
+  _readNat(ctx);           // § 7b (v0.4.0): natMessages[], natTrack (row 42; O-42, O-43)
+  _readSections(ctx);      // § 7 (v0.3.0): sections[] (rows 37, 38); PACOTS (v0.4.0, O-44)
 
   // ── Deferred fields: explicit empties, one INFO each ───────────────
   for (const f of Object.keys(DEFERRED_FIELDS)) add('INFO', f, `not read in v${RULESET_VERSION}: ${DEFERRED_STEPS[DEFERRED_FIELDS[f]]}`);
-  if (typeof opts.parseNatTrack === 'function') add('INFO', 'natTrack', `NAT parser supplied; not called in v${RULESET_VERSION} (row 42, 5d)`);
 
   // ── Assemble: core fields in CORE_FIELDS order, then the extensions ─
   const res = {};
@@ -1961,25 +1975,33 @@ function _briefSource(lines) {
   return out;
 }
 
-// §A.5 / §A.6 / D54 / D64: one airport's NOTAM block body → { items, notams,
-// notamsRaw, empty }. The type heading is removed from the item text and kept as
-// the item's category; inside a heading the NOTAM ruleset cuts the text at its
-// item headers (ADR-005 §2.5); line breaks and indentation are kept.
-function _briefNotams(ctx, icao, body) {
+// §A.5 / §A.6 / D54 / D64: one airport's (or FIR's) NOTAM block body → { items,
+// notams, notamsRaw, empty, texts }. The type heading is kept as the item's
+// category; inside a heading the NOTAM ruleset cuts the text at its item headers
+// (ADR-005 §2.5); line breaks and indentation are kept. v0.4.0 (D67, step 5d-2
+// scope 0): `notams` keeps the printed type heading lines, in printed order and
+// with their centring, before the items under them — NOTAM ruleset v1.14.0 reads
+// them (its §5b: a heading is never item content; it is the category of the items
+// after it). Without the heading lines the text is v0.3.0's, byte for byte.
+// texts[i] = item i's text (field: the findings' field name).
+function _briefNotams(ctx, icao, body, field) {
   const { add } = ctx;
+  field = field || 'airportData.notams';
   const nr = ctx.opts.notamRules;
   const runs = [];
   let cat = '', run = null, empty = false;
   const raw = [];
+  const withHeadings = [];
   for (let j = 0; j < body.length; j++) {
     const l = body[j];
-    if (_isCategory(l)) { raw.push(l); cat = l.text.trim(); run = null; continue; }
+    if (_isCategory(l)) { raw.push(l); withHeadings.push(l); cat = l.text.trim(); run = null; continue; }
     if (PATTERNS.BR_EMPTY_START.test(l.text.trim())) {
       const k = _briefEmptyEnd(body, j);
       raw.push(...body.slice(j, k));
       empty = true; run = null; j = k - 1; continue;
     }
     raw.push(l);
+    withHeadings.push(l);
     if (!run) { run = { category: cat, lines: [] }; runs.push(run); }
     run.lines.push(l);
   }
@@ -1987,7 +2009,6 @@ function _briefNotams(ctx, icao, body) {
   const texts = [];
   for (const r of runs) {
     const text = r.lines.map(l => l.text).join('\n');
-    texts.push(text);
     if (!nr) continue;
     const pieces = nr._splitNotams(text);
     let at = 0;
@@ -1996,13 +2017,16 @@ function _briefNotams(ctx, icao, body) {
       const ls = r.lines.slice(at, at + n);
       at += n;
       const h = nr._fkHeader(pc);
-      if (!h || !h.id) add('WARN', 'airportData.notams', `${icao}: NOTAM text under ${r.category || 'no heading'} (PDF p${ls[0].page}) does not start with a NOTAM item header; kept as an item with no ID`);
-      if (k === 0 && h === null && runs.indexOf(r) > 0) add('WARN', 'airportData.notams', `${icao}: text under ${r.category || 'no heading'} joins the item above it when the airport's NOTAM text is split`);
+      if (!h || !h.id) add('WARN', field, `${icao}: NOTAM text under ${r.category || 'no heading'} (PDF p${ls[0].page}) does not start with a NOTAM item header; kept as an item with no ID`);
+      if (k === 0 && h === null && runs.indexOf(r) > 0) add('WARN', field, `${icao}: text under ${r.category || 'no heading'} joins the item above it when the airport's NOTAM text is split`);
       items.push({ id: h && h.id ? h.id : null, category: r.category, source: _briefSource(ls) });
+      texts.push(pc.replace(/\n$/, ''));
     });
-    if (at !== r.lines.length) add('WARN', 'airportData.notams', `${icao}: NOTAM split under ${r.category || 'no heading'} does not give back its ${r.lines.length} lines`);
+    if (at !== r.lines.length) add('WARN', field, `${icao}: NOTAM split under ${r.category || 'no heading'} does not give back its ${r.lines.length} lines`);
   }
-  return { items, notams: texts.join('\n'), notamsRaw: raw.map(l => l.text).join('\n'), empty };
+  // A block with an empty-state box only (no item) keeps notams '' (as v0.3.0).
+  const notams = runs.length ? withHeadings.map(l => l.text).join('\n') : '';
+  return { items, notams, notamsRaw: raw.map(l => l.text).join('\n'), empty, texts };
 }
 
 // §A.9: one airport's weather block body → { metar[], taf[], atis[], prio[], orphan }
@@ -2154,6 +2178,426 @@ function _readBriefing(ctx) {
   add('INFO', 'briefing', `read from positions: ${docs.length} briefing documents; ${ctx.briefStats.notamBlocks} airport blocks in the NOTAM Briefing (${nItems} NOTAM items), ${ctx.briefStats.wxBlocks} in the Weather Briefing; ${apts.size} briefing airports`);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// § 7b · v0.4.0 (step 5d-2): COMPANY NOTAMS, CURFEWS, OPS NOTES, FIR NOTAMS,
+//        HAZARDS, NAT / PACOTS (grammar §A.7–§A.9; field map rows 42, 46, 47, 49;
+//        Exec answers O-33 … O-45, 19 Nov; D54, D64)
+// ═══════════════════════════════════════════════════════════════
+//
+// Read from the same positioned lines as § 7 (never the joined text), except the
+// NAT track message, which FlightKeys prints on its own text pages (no footer,
+// one column; § 7 _readSections finds them the same way).
+
+// §A.7: "Contact Dispatch for a preflight briefing." belongs to no item (Exec brief
+// v0.4.0 scope 1). Only this exact line; the longer "… if you have any questions."
+// (L20–L23) is printed inside the P0110 text and stays in it (open item).
+const COMPANY_NO_ITEM_LINE = /^Contact Dispatch for a preflight briefing\.$/;
+// §A.7: a Company key that names no location (O-40: "PUBS- is not an airport").
+const COMPANY_NON_LOCATION_KEYS = Object.freeze(['PUBS']);
+
+// O-33 (Exec, 19 Nov): the closed table from the OFP aircraft type to the wording
+// of a curfew line by aircraft type (field map row 46, SME-12). A line by type
+// applies only to the types listed for its wording; a registration list is never
+// matched. No line for the OFP type → every line and a note (a planned FK-P
+// exception: NavBlue applies every line).
+const CURFEW_TYPES = Object.freeze({
+  'B747-400/F':       Object.freeze(['B744', 'B747-400F']),
+  'B767, B777, B748': Object.freeze(['B77L', 'B777F', 'B748']),
+});
+// The notes added to a curfew string (O-33, O-34). No digits: the app reads every
+// "HHMM-HHMM" in the string as a window (src/render-descent.html parseCurfewWindows).
+const CURFEW_NOTES = Object.freeze({
+  type:       'NOTE: NO CURFEW LINE FOR THIS AIRCRAFT TYPE - ALL LINES SHOWN',
+  dates:      'NOTE: EFFECTIVE DATES NOT STATED - ALL WINDOWS SHOWN',
+  changeover: 'NOTE: SEASON CHANGES THIS MONTH - BOTH WINDOWS SHOWN',
+});
+const CURFEW = Object.freeze({
+  // A curfew window: HHMM[Z]-HHMM with Z or UTC (NavBlue's genM, plus "UTC").
+  WINDOW:     /\b\d{4}Z?\s*[-–]\s*\d{4}\s*(?:Z|UTC)\b/,
+  // O-35: a local-time bracket, e.g. "(2300-0700 LCL)" — dropped from the string.
+  LCL:        /\s*\([^()]*\bL(?:CL|OCAL)\)/g,
+  // O-36: a departure-only / arrival qualifier line (no window) — kept.
+  QUAL_FLOW:  /\b(?:DEPARTURES?|DEPARTING|ARRIVALS?|ARRIVING)\b/,
+  QUAL_WORD:  /\b(?:ONLY|NOT APPLICABLE)\b/,
+  // A line by aircraft type or registration: "<list> CURFEW = <window> …".
+  BY_LIST:    /^(.+?)\s+CURFEW\s*=/,
+  TYPE_TOKEN: /^B7\d{2}\b/,
+  REG_TOKEN:  /^[A-Z]{1,2}\d{1,5}[A-Z]{0,3}$/,
+  SEASON:     /\b(SUMMER|WINTER)\b/,
+  SEASON_HEAD:/^-?\s*(SUMMER|WINTER)\s*:?\s*$/,
+  MONTHS:     /\b(JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUNE?|JULY?|AUG(?:UST)?|SEP(?:TEMBER)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)\s*(?:TO|-|–|THRU|THROUGH)\s*(JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUNE?|JULY?|AUG(?:UST)?|SEP(?:TEMBER)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)\b/,
+  // O-37: curfew-like wording in an item under another key (reported, not read).
+  LIKE:       /\bCURFEW\b|\bQUIET HOURS\b|\bNOISE (?:RESTRICTIONS?|ABATEMENT)\b|\bNOT ALLOWED BETWEEN\b|\bNOT AVAILABLE FOR (?:TAKEOFF|LANDING)\b|\bCLOSED\b[^\n]*\b\d{2}:?\d{2}Z\b/,
+});
+
+// The lines of one Company document part (HSCN or Company NOTAMs) → records.
+// Headings (the document title, GENERAL and the type headings) are no item text.
+function _companyFrom(ctx, lines, origin) {
+  const { add } = ctx;
+  const nr = ctx.opts.notamRules;
+  const title = l => _isHeading(l) && (PATTERNS.BR_HSCN_HEAD.test(l.text.trim()) || PATTERNS.BR_CN_HEAD.test(l.text.trim()));
+  const body = lines.filter(l => !title(l) && !_isCategory(l) && !COMPANY_NO_ITEM_LINE.test(l.text.trim()));
+  if (!body.length) return [];
+  const text = body.map(l => l.text).join('\n');
+  const pieces = nr._splitNotams(text);
+  const out = [];
+  let at = 0;
+  for (const pc of pieces) {
+    const n = pc.replace(/\n$/, '').split('\n').length;
+    const ls = body.slice(at, at + n);
+    at += n;
+    const h = nr._fkHeader(pc);
+    const sm = /^SUBJECT:\s*(.*?)\s*$/m.exec(pc);
+    if (!h || !h.id) add('WARN', 'companyNotams', `${origin} (PDF p${ls[0].page}): Company NOTAM text does not start with an item header; kept as an item with no ID`);
+    if (!sm) add('WARN', 'companyNotams', `${origin} ${h && h.id ? h.id : '(no ID)'}: no SUBJECT line`);
+    const end = !h || h.dateUnreadable ? null : h.endKind === 'UFN' ? 'UFN' : h.endKind === 'UFN_EST' ? `UFN(EST ${h.end})` : h.end;
+    out.push({
+      id: h && h.id ? h.id : null,
+      location: h && h.locations.length ? h.locations.join(' ') : 'GENERAL',
+      subject: sm ? sm[1] : '',
+      start: h && !h.dateUnreadable ? h.start : null,
+      end,
+      severity: origin === 'HSCN' ? 'high' : 'normal',
+      origin,
+      text: pc.replace(/\n$/, ''),
+      source: _briefSource(ls),
+      _subjectRow: h ? h.subjectRow : -1,
+    });
+  }
+  if (at !== body.length) add('WARN', 'companyNotams', `${origin}: the Company NOTAM split does not give back its ${body.length} lines`);
+  return out;
+}
+
+// Scope 1 (§A.7; O-40): every Company NOTAM as printed — the High Severity page
+// first (severity 'high'), then the Company NOTAMs in printed order. The P0110 pair
+// (HSCN and Company) is kept as two records, never merged (D43).
+function _readCompany(ctx) {
+  const { add, ext } = ctx;
+  ctx.company = [];
+  const docs = ctx.briefDocs || [];
+  if (!ctx.pagesIn || !docs.length) { add('WARN', 'companyNotams', 'no briefing documents read: Company NOTAMs not read'); return; }
+  if (!ctx.opts.notamRules) { add('WARN', 'companyNotams', 'NOTAM ruleset not supplied: Company NOTAMs not cut into items (companyNotams empty)'); return; }
+  const recs = [];
+  for (const d of docs.filter(x => x.kind === 'HSCN')) recs.push(..._companyFrom(ctx, d.lines, 'HSCN'));
+  for (const d of docs.filter(x => x.kind === 'NOTAM')) {
+    if (!PATTERNS.BR_CN_HEAD.test((d.lines[0] || { text: '' }).text.trim())) continue;
+    const pre = d.blocks ? d.blocks.pre : _briefBlocks(d.lines).pre;
+    recs.push(..._companyFrom(ctx, pre, 'COMPANY'));
+  }
+  ctx.company = recs;
+  ext.companyNotams = recs.map(r => { const o = Object.assign({}, r); delete o._subjectRow; return o; });
+  const n = o => recs.filter(r => r.origin === o).length;
+  add('INFO', 'companyNotams', `${recs.length} Company NOTAMs read (${n('HSCN')} High Severity, ${n('COMPANY')} Company), as printed`);
+}
+
+// An item's text lines after its SUBJECT row (the item's own text, §A.7).
+const _companyBody = r => (r._subjectRow >= 0 ? r.text.split('\n').slice(r._subjectRow + 1) : r.text.split('\n'));
+const _hasWord = s => /[A-Za-z0-9]/.test(s);
+
+// One CURFEW item → { lines, notes, warns } (field map row 46; O-33 … O-36).
+function _curfewOf(r, acftType, flightISO) {
+  const notes = [], warns = [];
+  const src = _companyBody(r).map(l => l.trim()).filter(_hasWord);
+  // 1. The lines kept: windows (LCL bracket dropped, O-35), departure / arrival
+  //    qualifiers (O-36) and season sub-headings (no digits).
+  const kept = [];
+  let season = null;
+  for (const t of src) {
+    const head = CURFEW.SEASON_HEAD.exec(t);
+    if (head) { season = head[1]; kept.push({ text: t, kind: 'season', season }); continue; }
+    if (CURFEW.WINDOW.test(t)) {
+      const text = t.replace(CURFEW.LCL, '').trim();
+      const sm = CURFEW.SEASON.exec(t);
+      const lm = CURFEW.BY_LIST.exec(t);
+      let kind = 'general', wording = null;
+      if (lm) {
+        const toks = lm[1].split(/\s*,\s*/).map(x => x.trim()).filter(Boolean);
+        if (toks.length && toks.every(x => CURFEW.TYPE_TOKEN.test(x))) { kind = 'type'; wording = toks.join(', '); }
+        else if (toks.length && toks.every(x => CURFEW.REG_TOKEN.test(x))) kind = 'registration';
+      }
+      kept.push({ text, kind, wording, season: sm ? sm[1] : season, months: CURFEW.MONTHS.exec(t) });
+      continue;
+    }
+    if (CURFEW.QUAL_FLOW.test(t) && CURFEW.QUAL_WORD.test(t) && !/\d/.test(t)) kept.push({ text: t, kind: 'qualifier' });
+  }
+  let out = kept;
+  // 2. Lines by aircraft type (O-33): the line(s) whose wording maps to the OFP type;
+  //    other type lines and registration lists out. None for the type → all + note.
+  const byList = out.filter(x => x.kind === 'type' || x.kind === 'registration');
+  if (byList.length) {
+    const mine = out.filter(x => x.kind === 'type' && CURFEW_TYPES[x.wording] && CURFEW_TYPES[x.wording].includes(acftType));
+    if (mine.length) out = out.filter(x => (x.kind !== 'type' && x.kind !== 'registration') || mine.includes(x));
+    else { notes.push(CURFEW_NOTES.type); warns.push(`no curfew line for aircraft type ${acftType || '(none read)'}; all lines shown with a note (O-33)`); }
+  }
+  // 3. Seasons (O-34, SME-22a): each season's months must be stated; the month in
+  //    which a stated season ends is a changeover month (both windows + note).
+  const seasonal = out.filter(x => x.kind !== 'season' && x.season);
+  if (seasonal.length) {
+    const seasons = [...new Set(seasonal.map(x => x.season))];
+    const range = {};
+    for (const s of seasons) {
+      const m = seasonal.find(x => x.season === s && x.months);
+      if (m) range[s] = [MONTHS[m.months[1].slice(0, 3)], MONTHS[m.months[2].slice(0, 3)]];
+    }
+    const mo = /^\d{4}-(\d{2})-\d{2}$/.exec(flightISO || '');
+    const month = mo ? +mo[1] - 1 : null;
+    const readable = seasons.every(s => range[s]) && month !== null;
+    const inRange = (r, m) => r[0] <= r[1] ? m >= r[0] && m <= r[1] : m >= r[0] || m <= r[1];
+    if (!readable) {
+      notes.push(CURFEW_NOTES.dates);
+      warns.push(month === null && seasons.every(s => range[s]) ? 'no flight date read: the season in force cannot be chosen; all windows shown with a note (O-34)'
+        : `effective dates of ${seasons.join(' / ')} not stated; all windows shown with a note (O-34, SME-22a)`);
+    } else if (seasons.some(s => range[s][1] === month)) {
+      notes.push(CURFEW_NOTES.changeover);
+    } else {
+      const now = seasons.filter(s => inRange(range[s], month));
+      if (now.length === 1) out = out.filter(x => !x.season || x.season === now[0]);
+      else { notes.push(CURFEW_NOTES.dates); warns.push(`the stated seasons do not give one season for the flight month; all windows shown with a note (O-34)`); }
+    }
+    // A season sub-heading with no window left under it is dropped.
+    out = out.filter((x, k) => x.kind !== 'season' || out.slice(k + 1).some(y => y.kind !== 'season' && y.season === x.season));
+  }
+  return { lines: out.map(x => x.text), notes, warns };
+}
+
+// Scope 2 (row 46; O-33 … O-37; SME-12, SME-22, SME-22a): a curfew is read only
+// from an item whose subject is "IIII-CURFEW" (O-37); into airportData[IIII].curfew
+// in NavBlue's form: the curfew lines, one per line, UTC only (O-35); notes last.
+function _readCurfews(ctx) {
+  const { out, add } = ctx;
+  const recs = (ctx.company || []).filter(r => r.origin === 'COMPANY');
+  for (const r of recs) {
+    const m = /^([A-Z0-9]{4})-CURFEW$/.exec(r.subject);
+    if (!m) {
+      if (r.location !== 'GENERAL' && CURFEW.LIKE.test(_companyBody(r).join('\n')))
+        add('INFO', 'airportData.curfew', `${r.location}: Company NOTAM ${r.id} (SUBJECT: ${r.subject}) reads like a curfew; not read as one: curfews come from the CURFEW key only (O-37)`);
+      continue;
+    }
+    const icao = m[1];
+    const e = out.airportData[icao];
+    if (!e) { add('INFO', 'airportData.curfew', `${icao}: CURFEW Company NOTAM ${r.id} for an airport with no airportData entry; kept in companyNotams[] only`); continue; }
+    const cf = _curfewOf(r, out.acftType, out.flightDateISO);
+    for (const w of cf.warns) add('WARN', 'airportData.curfew', `${icao} ${r.id}: ${w}`);
+    const lines = [...cf.lines, ...cf.notes];
+    if (!cf.lines.length) { add('WARN', 'airportData.curfew', `${icao} ${r.id}: CURFEW item with no curfew window read; see companyNotams[]`); if (!lines.length) continue; }
+    e.curfew = e.curfew ? e.curfew + '\n' + lines.join('\n') : lines.join('\n');
+    add('INFO', 'airportData.curfew', `${icao}: curfew read from Company NOTAM ${r.id} (${cf.lines.length} line(s)${cf.notes.length ? ', ' + cf.notes.length + ' note(s)' : ''})`);
+  }
+}
+
+// O-38: the words of a text (letters and digits), capitals.
+const _words = s => (String(s || '').toUpperCase().match(/[A-Z0-9]+/g) || []);
+
+// Scope 3 (row 47; O-38, O-39; SME-18): one opsNotes { header, body } per airport
+// that has an airportData entry: every Company item located at that airport
+// (SUBJECT line + text), in printed order, except its CURFEW item(s) and the items
+// that repeat the OFP Remarks (O-38: every content word of the item — subject and
+// title words excluded — is in that airport's OFP Remarks). No entry is created.
+function _readOpsNotes(ctx) {
+  const { out, ext, add } = ctx;
+  const by = new Map();
+  for (const r of (ctx.company || []).filter(x => x.origin === 'COMPANY' && x.location !== 'GENERAL')) {
+    const icao = r.location;
+    if (/^[A-Z0-9]{4}-CURFEW$/.test(r.subject)) continue;
+    const e = out.airportData[icao];
+    if (!e) { add('INFO', 'airportData.opsNotes', `${icao}: Company NOTAM ${r.id} (SUBJECT: ${r.subject}) for an airport with no airportData entry; kept in companyNotams[] only`); continue; }
+    // O-38 repeat check against the airport's OFP Remarks
+    const rem = new Set();
+    for (const x of e.remarks || []) _words([x.text, x.heading, x.subHeading].join(' ')).forEach(w => rem.add(w));
+    for (const x of (ext.ofpRemarks || []).filter(y => y.airport === icao)) _words([x.text, x.subHeading].join(' ')).forEach(w => rem.add(w));
+    const body = _companyBody(r).filter(_hasWord);
+    const iata = e.briefing && e.briefing.iata;
+    const titled = body.length && (body[0].includes(icao) || (iata && new RegExp(`\\b${iata}\\b`).test(body[0])));
+    const skip = new Set([..._words(r.subject), ...(titled ? _words(body[0]) : [])]);
+    const content = _words((titled ? body.slice(1) : body).join(' ')).filter(w => !skip.has(w));
+    if (rem.size && content.length && content.every(w => rem.has(w))) {
+      add('INFO', 'airportData.opsNotes', `${icao}: Company NOTAM ${r.id} (SUBJECT: ${r.subject}) repeats the OFP Remarks; not in opsNotes, kept in companyNotams[] (O-38)`);
+      continue;
+    }
+    if (!by.has(icao)) by.set(icao, []);
+    by.get(icao).push(r);
+  }
+  for (const [icao, rs] of by) {
+    const lines = [];
+    for (const r of rs) lines.push(`SUBJECT: ${r.subject}`, ..._companyBody(r));
+    out.airportData[icao].opsNotes = { header: `${icao} COMPANY NOTAMS`, body: lines.join('\n') };
+  }
+}
+
+// §A.8: the FIR blocks of a NOTAM or Weather document — from the first FIR block
+// after the airport blocks to the document end: [{ name, code, nameLine, body }].
+function _firBlocksOf(doc) {
+  const b = doc.blocks || _briefBlocks(doc.lines);
+  if (!b.fir) return [];
+  const out = [];
+  let cur = null;
+  for (let i = doc.lines.indexOf(b.fir.line); i < doc.lines.length; i++) {
+    const l = doc.lines[i];
+    if (_firBlockAt(doc.lines, i)) {
+      cur = { name: l.text.trim(), code: PATTERNS.BR_FIR_CODE.exec(doc.lines[i + 1].text)[1], nameLine: l, body: [] };
+      out.push(cur);
+      i++;
+      continue;
+    }
+    if (cur) cur.body.push(l);
+  }
+  return out;
+}
+
+// Scope 4 (row 49; §A.8; O-40, O-41; D64): the FIR blocks of the NOTAM Briefing.
+//   firNotams[] — one record per printed FIR block, in route order: { name, code,
+//     empty, items: [{ id, category, origin, text, source }] }; category = the printed
+//     type heading (removed from the text); origin 'NOTAM', or 'COMPANY' for a Company
+//     item keyed to this FIR (O-40; also in companyNotams[]). Repeats are kept (O-41).
+//   firRaw[] — one record per printed FIR block: { name, code, raw }, raw = the block
+//     exactly as printed (headings, items, empty-state box; D64). No Company item.
+//   enrouteNotams.fir — the blocks with items, in route order: the block name, then
+//     its items as printed (line breaks kept, no type heading), a Company item after
+//     a "[COMPANY NOTAM]" line; blocks separated by a blank line. route, airway,
+//     waypoint, geographic: '' (FlightKeys prints en-route NOTAMs per FIR only).
+function _readFirs(ctx) {
+  const { out, ext, add } = ctx;
+  const docs = (ctx.briefDocs || []).filter(d => d.kind === 'NOTAM');
+  const blocks = [];
+  for (const d of docs) blocks.push(..._firBlocksOf(d));
+  const recs = [];
+  for (const b of blocks) {
+    const nt = _briefNotams(ctx, b.code, b.body, 'enrouteNotams');
+    const items = nt.items.map((it, k) => ({ id: it.id, category: it.category, origin: 'NOTAM', text: nt.texts[k], source: it.source }));
+    recs.push({ name: b.name, code: b.code, empty: !items.length, items, raw: nt.notamsRaw });
+  }
+  // O-40: a general Company item keyed "IIII-…" where IIII is a FIR of this package.
+  for (const r of (ctx.company || []).filter(x => x.origin === 'COMPANY' && x.location === 'GENERAL')) {
+    const m = /^([A-Z]{4})-/.exec(r.subject);
+    if (!m || COMPANY_NON_LOCATION_KEYS.includes(m[1])) continue;
+    const fr = recs.filter(x => x.code === m[1]);
+    if (!fr.length) {
+      add('INFO', 'enrouteNotams', `Company NOTAM ${r.id} (SUBJECT: ${r.subject}) is keyed to ${m[1]}, which has no FIR block in the NOTAM Briefing; kept in companyNotams[] only (O-40)`);
+      continue;
+    }
+    for (const x of fr) { x.items.push({ id: r.id, category: '', origin: 'COMPANY', text: r.text, source: r.source }); x.empty = false; }
+    add('INFO', 'enrouteNotams', `Company NOTAM ${r.id} (SUBJECT: ${r.subject}) also listed with FIR ${m[1]}, marked Company (O-40)`);
+  }
+  ext.firNotams = recs.map(x => ({ name: x.name, code: x.code, empty: x.empty, items: x.items }));
+  ext.firRaw = recs.map(x => ({ name: x.name, code: x.code, raw: x.raw }));
+  const txt = [];
+  for (const x of recs.filter(y => !y.empty)) {
+    const ls = [`${x.name} (${x.code})`];
+    for (const it of x.items) { if (it.origin === 'COMPANY') ls.push('[COMPANY NOTAM]'); ls.push(it.text); }
+    txt.push(ls.join('\n'));
+  }
+  out.enrouteNotams = { route: '', fir: txt.join('\n\n'), airway: '', waypoint: '', geographic: '' };
+  const empties = recs.filter(x => x.empty);
+  const nItems = recs.reduce((n, x) => n + x.items.filter(i => i.origin === 'NOTAM').length, 0);
+  if (!docs.length) add('WARN', 'enrouteNotams', 'no NOTAM Briefing document: FIR NOTAMs not read');
+  else add('INFO', 'enrouteNotams', `${recs.length} FIR blocks in the NOTAM Briefing, ${nItems} FIR NOTAM items; route, airway, waypoint and geographic are empty: FlightKeys prints en-route NOTAMs per FIR only (§A.8)`);
+  if (empties.length) add('INFO', 'enrouteNotams', `${empties.length} FIR block(s) print no active NOTAMs and are left out of enrouteNotams.fir: ${empties.map(x => x.code).join(', ')} (O-41)`);
+}
+
+// Scope 6 (O-45): the Hazard Briefing per FIR block — { name, code, text, empty };
+// text = the block exactly as printed (SIGMET sub-heading, products, empty-state
+// box); never evaluated, never airport weather, weatherRaw or E-WINS; repeats kept.
+function _readHazards(ctx) {
+  const { ext, add } = ctx;
+  const docs = (ctx.briefDocs || []).filter(d => d.kind === 'WX');
+  const recs = [];
+  for (const d of docs) for (const b of _firBlocksOf(d)) {
+    const content = b.body.filter(l => !_isHeading(l) && !PATTERNS.BR_EMPTY_START.test(l.text.trim()) && !PATTERNS.BR_EMPTY_NIL.test(l.text.trim()) && !(l.indent > BRIEF.REPORT_MAX_INDENT && PATTERNS.BR_EMPTY_END.test(l.text.trim())));
+    recs.push({ name: b.name, code: b.code, text: b.body.map(l => l.text).join('\n'), empty: !content.length });
+  }
+  ext.hazards = recs;
+  if (docs.length) add('INFO', 'hazards', `${recs.length} FIR blocks in the Hazard Briefing (${recs.filter(x => x.empty).length} with no SIGMET); kept as printed, not evaluated (O-45)`);
+}
+
+// Scope 5 (row 42; SME-14 as amended by O-42, SME-20; O-43): the NAT track
+// messages, complete across their pages. natMessages[] = every message: { tmi,
+// direction, valid, parts, complete, pages, text, selected }. The message returned
+// (natTrack, through the injected NAT parser): the flight's direction first, then
+// the higher TMI (an unreadable TMI counts lowest, WARN). Only the opposite
+// direction printed → that message, with a crew-alert WARN. The filed track is
+// read from the FPL route string only (O-43).
+const NAT_MSG = Object.freeze({
+  PART:  /^\(NAT-(\d+)\/(\d+)\s+TRACKS\b/,
+  END:   /\bEND OF PART\b.*\bPARTS?\)\s*$/,
+  TMI:   /\bTMI\s+IS\s+(\d{3})\b/,
+  EAST:  /^EAST LVLS\s+(.*)$/,
+  WEST:  /^WEST LVLS\s+(.*)$/,
+  FILED: /\bNAT([A-Z])\b/,
+});
+function _readNat(ctx) {
+  const { out, ext, add, fpl } = ctx;
+  const lines = [];
+  ctx.textPages.forEach((ls, i) => {
+    if (!ls.length || !PATTERNS.SEC_NAT_PAGE.test(ls[0])) return;
+    ls.slice(1).forEach(t => lines.push({ page: i + 1, text: t }));
+  });
+  // Parts: "(NAT-n/N TRACKS …" to "END OF PART … PARTS)".
+  const parts = [];
+  let cur = null, stray = 0;
+  for (const l of lines) {
+    const m = NAT_MSG.PART.exec(l.text.trim());
+    if (m) { cur = { n: +m[1], N: +m[2], lines: [l], closed: false }; parts.push(cur); }
+    else if (cur && !cur.closed) cur.lines.push(l);
+    else if (l.text.trim()) stray++;
+    if (cur && NAT_MSG.END.test(l.text.trim())) cur.closed = true;
+  }
+  if (stray) add('WARN', 'natTrack', `${stray} line(s) on the NAT-TRACKS pages outside a track message part; not read`);
+  // Messages: parts 1 … N with the same N and validity line, in printed order.
+  const msgs = [];
+  for (const p of parts) {
+    const valid = (p.lines[1] || { text: '' }).text.trim();
+    const m = msgs[msgs.length - 1];
+    if (p.n > 1 && m && m.N === p.N && m.valid === valid && m.parts.length === p.n - 1) m.parts.push(p);
+    else msgs.push({ N: p.N, valid, parts: [p] });
+  }
+  ext.natMessages = msgs.map(m => {
+    const ls = m.parts.flatMap(p => p.lines);
+    const text = ls.map(l => l.text).join('\n');
+    const tm = NAT_MSG.TMI.exec(text);
+    let east = false, west = false;
+    for (const l of ls) {
+      const e = NAT_MSG.EAST.exec(l.text.trim()), w = NAT_MSG.WEST.exec(l.text.trim());
+      if (e && !/^NIL\b/.test(e[1].trim())) east = true;
+      if (w && !/^NIL\b/.test(w[1].trim())) west = true;
+    }
+    const complete = m.parts.length === m.N && m.parts.every((p, k) => p.n === k + 1 && p.closed);
+    return { tmi: tm ? tm[1] : null, direction: east && !west ? 'EAST' : west && !east ? 'WEST' : null,
+      valid: m.valid, parts: m.N, complete, pages: [ls[0].page, ls[ls.length - 1].page], text, selected: false };
+  });
+  const M = ext.natMessages;
+  M.forEach((m, k) => {
+    if (!m.complete) add('WARN', 'natTrack', `NAT message ${k + 1} (PDF p${m.pages[0]}-${m.pages[1]}): ${m.parts} part(s) expected, not all printed; kept as printed`);
+    if (m.tmi === null) add('WARN', 'natTrack', `NAT message ${k + 1} (PDF p${m.pages[0]}-${m.pages[1]}): TMI not readable; counted as the lowest (O-42)`);
+    if (m.direction === null) add('WARN', 'natTrack', `NAT message ${k + 1} (PDF p${m.pages[0]}-${m.pages[1]}): direction (EAST / WEST levels) not readable`);
+  });
+  const nat = typeof ctx.opts.parseNatTrack === 'function' ? ctx.opts.parseNatTrack : null;
+  if (!nat) { add('INFO', 'natTrack', 'NAT parser not supplied'); if (M.length) add('INFO', 'natTrack', `${M.length} NAT track message(s) read into natMessages[]`); return; }
+  if (!M.length) return;
+  // The flight's direction: the NAT parser's own (from the origin; null = not an Atlantic crossing).
+  const probe = nat(M[0].text, out.origIcao, out.destIcao);
+  if (!probe) { add('INFO', 'natTrack', `${M.length} NAT track message(s) in natMessages[]; the NAT parser reads ${out.origIcao}-${out.destIcao} as no Atlantic crossing: natTrack null`); return; }
+  const dir = probe.flightDir;
+  let cands = M.filter(m => m.direction === dir);
+  if (!cands.length) {
+    cands = M.slice();
+    add('WARN', 'natTrack', `CREW ALERT: the package prints only the ${[...new Set(M.map(m => m.direction || 'unknown'))].join(' / ')} NAT track message (TMI ${M.map(m => m.tmi || '?').join(', ')}); none for this ${dir}BOUND flight. Returned so the crew can check it (O-42, SME-20)`);
+  }
+  const tmiNum = m => (m.tmi === null ? -1 : +m.tmi);
+  const best = cands.reduce((a, b) => (tmiNum(b) > tmiNum(a) ? b : a), cands[0]);
+  const same = cands.filter(m => m !== best && tmiNum(m) === tmiNum(best) && m.direction === best.direction && m.valid === best.valid);
+  if (same.length) add('WARN', 'natTrack', `NAT message TMI ${best.tmi} printed ${same.length + 1} times with the same direction and validity (SME-14); the first is returned`);
+  best.selected = true;
+  const r = nat(best.text, out.origIcao, out.destIcao);
+  // O-43: the filed track from the FPL route string only (never remarks or NOTAM text).
+  const fm = fpl && fpl.found && typeof fpl.route === 'string' ? NAT_MSG.FILED.exec(fpl.route) : null;
+  if (r) {
+    r.assignedId = fm ? fm[1] : null;
+    for (const b of r.blocks || []) for (const t of b.tracks || []) t.assigned = t.id === r.assignedId;
+  }
+  out.natTrack = r;
+  add('INFO', 'natTrack', `${M.length} NAT track message(s); returned TMI ${best.tmi || '?'} (${best.direction || 'direction unknown'}, valid ${best.valid}) for this ${dir}BOUND flight; filed track ${r && r.assignedId ? r.assignedId : 'none (random route)'} (O-42, O-43)`);
+}
+
 // Rows 37, 38 (ADR-005 §2.6): sections[] from content — { id, title, startPage,
 // endPage, anchor } with absolute PDF pages. The anchor is text printed on the
 // start page. The release: the first copy only (§2.6.3; the copies are reported
@@ -2193,6 +2637,28 @@ function _readSections(ctx) {
     });
   };
   runs(PATTERNS.SEC_NAT_PAGE, 'nat', 'NAT Tracks');
+  // O-44 (D42): PACOTS track messages are FIR NOTAM items whose text says "PACOTS
+  // TRACKS" (anywhere, a wrapped headline included). One section per set: one
+  // day's tracks, i.e. PACOTS items printed one after the other in one FIR block
+  // with the same validity end (e.g. "… - 2026-Nov-04 21:00"). The anchor is the
+  // set's first NOTAM ID. No track object (natTrack stays as read).
+  let nPac = 0, nSets = 0;
+  const endOf = t => { const m = /\d{4}-[A-Za-z]{3}-\d{1,2} \d{1,2}:\d{2}\s*-\s*(\d{4}-[A-Za-z]{3}-\d{1,2} \d{1,2}:\d{2}|UFN\S*)/.exec(t.split('\n')[0]); return m ? m[1] : null; };
+  for (const b of ctx.ext.firNotams || []) {
+    let set = null;
+    for (const it of b.items) {
+      const pac = it.origin === 'NOTAM' && /\bPACOTS\s+TRACKS\b/.test(it.text);
+      if (!pac) { set = null; continue; }
+      nPac++;
+      const first = it.source[0].page, last = it.source[it.source.length - 1].page;
+      const k = endOf(it.text);
+      if (set && k && k === set.k) { set.sec.endPage = Math.max(set.sec.endPage, last); continue; }
+      sec('pacots', 'PACOTS Tracks', first, last, it.id || 'PACOTS TRACKS');
+      set = { k, sec: secs[secs.length - 1] };
+      nSets++;
+    }
+  }
+  if (nPac) ctx.add('INFO', 'sections', `${nPac} PACOTS track item(s) in ${nSets} set(s) in the NOTAM Briefing: a PACOTS section each; no NAT track object (O-44)`);
   runs(PATTERNS.SEC_CHART_PAGE, 'charts', 'Charts');
   const tlr = _tlrPages(ctx);
   if (tlr) sec('tlr', 'Takeoff/Landing Report', tlr[0], tlr[1], 'TAKEOFF AND LANDING REPORT');
@@ -2262,7 +2728,7 @@ function validateSchema(ruleset) {
     if (new Set(v).size !== v.length || v.some(x => typeof x !== 'string' || !x)) errors.push(`${k} must be unique non-empty names`);
   };
   list('CORE_FIELDS', 57);
-  list('EXTENSION_FIELDS', 14);
+  list('EXTENSION_FIELDS', 18);
   list('AIRPORT_EXTENSION_FIELDS', 7);
   list('DDG_EXTENSION_FIELDS', 2);
   list('CREW_EXTENSION_FIELDS', 2);

@@ -927,7 +927,9 @@ if (!FIXTURES) {
       assert.equal(r.findings.some(f => /\(SME-18\)$/.test(f.message)), e.takeoffAlternateFlag, `${lbl}: takeoff-alternate flag`);
       for (const a of Object.values(r.airportData)) for (const w of a.remarksWeather)
         assert.ok(!a.weather.includes(w.text), `${lbl}: remarks weather never merged into the briefing weather`);
-      assert.deepEqual(warns(r).filter(f => !(lbl === 'L21' && /\(SME-18\)$/.test(f.message)) && !(lbl === 'T1' && f.field === 'permits')), [], `${lbl}: no other WARN`);
+      // v0.4.0: the briefing WARNs of step 5d-2 (curfew notes O-33 / O-34, NAT crew alert O-42) are TC-163's
+      assert.deepEqual(warns(r).filter(f => !(lbl === 'L21' && /\(SME-18\)$/.test(f.message)) && !(lbl === 'T1' && f.field === 'permits')
+        && !['airportData.curfew', 'natTrack'].includes(f.field)), [], `${lbl}: no other WARN`);
     }
     const has = cat => labelsWhere(r => r.ofpRemarks.some(x => x.category === cat));
     assert.equal(has('raim').length, 26);
