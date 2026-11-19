@@ -65,6 +65,20 @@ CI (`.github/workflows/test.yml`) runs all of these on every PR; it reads the fi
 - An independent session reviews each PR; the authoring session never reviews its own work.
 - Do not put crew names, employee numbers or fixture text in a PR.
 
+## Session workflow (author and QA sessions)
+
+- **Brief first.** The brief (pasted prompt) sets scope, decisions and output. Decisions the Exec has made are binding; the register is `planning/DECISION-REGISTER.md` in the claude.ai Project (mirrored to Drive).
+- **Scoping before code.** A package with judgement calls starts with a read-only scoping pass: counts on the fixtures, every question for the Exec as an open item (O-n) with the options and their impact. No code until the Exec has answered.
+- **Open items.** A question for the Exec is posted as O-n (next free number in the ledger). Continue only with what the brief covers; never guess a safety rule.
+- **Resume.** Push after each part and post a STATUS comment on the PR. A new session with the same prompt resumes from the last STATUS.
+- **Verdicts.** QA's first line is exactly `Verdict: APPROVE-FOR-EXEC` or `Verdict: CHANGES-REQUESTED` (gates: `Gate: GO` / `Gate: NO-GO`). QA writes its expected answers before reading the module.
+- **What blocks.** A QA finding blocks only if the PR newly hides something, gives a wrong result, or is unsafe. Behaviour that is unchanged from main is reported as a known gap, not a blocker. A re-QA checks only what changed since the last verdict.
+- **Privacy.** Delete local PDFs, extracted text, name lists and working files with crew data when done. No personal tokens in sessions; never print or commit a token.
+- **Blank lines.** The app's PDF reader drops empty lines (`src/pdf.html` ~140). Detect blank lines and layout from positioned items, never from blank lines typed into tests.
+- **Cloud sessions** cannot delete branches or force-push. Open PRs with `gh api -X POST repos/<owner>/<repo>/pulls` (GraphQL is blocked).
+- **CI says "Write access to repository not granted":** the `FIXTURES_TOKEN` secret has expired or lost Contents: Read-only on `pilotbrief-fixtures`; report it to the Exec, do not work around it.
+- No suggested follow-up tasks in reports.
+
 ## Style
 
 Match the surrounding code: naming, comment density, idiom. The app is plain browser JavaScript in one file; do not introduce a framework or a new runtime dependency. Test tooling is Node only.
