@@ -1,18 +1,20 @@
 {
- "_about": "NOTAM ruleset v1.14.0 obstacle-rule change list (D67): docs/RPT-NOTAM-ObstacleRule-ChangeList-NEW-20261118-v1.0.md, made by test/corpus/notam-obstacle-changes.js. Keys: NB <fixture> #<piece index of the whole-text split>; FK <package> <locations> <ID> <category>. sha = SHA-256 of the NOTAM text (FlightKeys: trailing white space removed). No NOTAM text, no crew data.",
+ "version": "1.1",
+ "_about": "NOTAM ruleset v1.14.0 obstacle-rule change list (D67): docs/RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.1.md (D67a), made by test/corpus/notam-obstacle-changes.js. Keys: NB <fixture> #<piece index of the whole-text split>; FK <package> <locations> <ID> <category>. sha = SHA-256 of the NOTAM text (FlightKeys: trailing white space removed). No NOTAM text, no crew data.",
  "before": {
   "file": "rules/notam-rules/notam-rules-v1.13.0.js",
   "sha256": "e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b"
  },
  "after": {
   "file": "rules/notam-rules-next/notam-rules-v1.14.0.js",
-  "sha256": "ffee26834e53e934ecb478ab4e305630126487b2360f8f3b278cc12d755e4325"
+  "sha256": "e16fa0b0983932ec19997c488fe5ec3e1e33cb32c4d4a46e089a10c297418933"
  },
  "fkParser": "fd12b6e5cf3d7408885aeddeb85777ede7f36ed20859b1fab30341148d5d72a1",
  "counts": {
-  "B": 132,
-  "C": 12,
-  "U": 221
+  "B": 253,
+  "C": 14,
+  "U": 58,
+  "G": 7
  },
  "stats": {
   "navblue": {
@@ -28,6 +30,420 @@
    "headings": 635
   }
  },
+ "audit": [
+  {
+   "key": "NB EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 #44",
+   "fmt": "NB",
+   "pkg": "EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11",
+   "airport": "EHAM",
+   "id": "A2559/26",
+   "group": "C",
+   "pattern": "MINIMA_CHANGED",
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "1ccacc6b726dee0f925c53978ca0c3758e5975958118f9b0de8522dee1205f70"
+  },
+  {
+   "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #179",
+   "fmt": "NB",
+   "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
+   "airport": "KZAU",
+   "id": "A0207/26",
+   "group": "C",
+   "pattern": "NAVAID",
+   "shown": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "5964b1d6b671b2808910cae041b2114747117bf2b0705e46723e7c29f13d92e9"
+  },
+  {
+   "key": "NB NB_KORD-EDDF_06MAY26_notam_rev10 #189",
+   "fmt": "NB",
+   "pkg": "NB_KORD-EDDF_06MAY26_notam_rev10",
+   "airport": "CYQX",
+   "id": "E2929/26",
+   "group": "C",
+   "pattern": "TWY_AVAILABILITY",
+   "shown": true,
+   "cards": {
+    "DEST": "TAXIWAYS",
+    "ORIG": "TAXIWAYS"
+   },
+   "sha": "250462cc97d8141426c306d8b99ea3f008232f78554e2e2f1bb2d4d92e02ffe2"
+  },
+  {
+   "key": "NB NB_ELLX-KHSV_08MAR26_baseline_rev16 #88",
+   "fmt": "NB",
+   "pkg": "NB_ELLX-KHSV_08MAR26_baseline_rev16",
+   "airport": "KCVG",
+   "id": "A3994/25",
+   "group": "C",
+   "pattern": "NAVAID",
+   "shown": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "f4bd098f8face5dfeef776a5bb886c14756a7bab34a42323a46fc52313672c4f"
+  },
+  {
+   "key": "NB NB_KLAX-ZSAM_11MAR26_etops-rda_rev6 #262",
+   "fmt": "NB",
+   "pkg": "NB_KLAX-ZSAM_11MAR26_etops-rda_rev6",
+   "airport": "KSFO",
+   "id": "A5647/24",
+   "group": "C",
+   "pattern": "NAVAID",
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "f045f59354d84d75c6880232ada4dd7785e218e80368d048b88236cbecbefba2"
+  },
+  {
+   "key": "NB NB_KMIA-EHAM_12MAR26_etp_rev8 #139",
+   "fmt": "NB",
+   "pkg": "NB_KMIA-EHAM_12MAR26_etp_rev8",
+   "airport": "EHAM",
+   "id": "A3013/25",
+   "group": "C",
+   "pattern": "MINIMA_CHANGED",
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "cbccdeabb0b9d9ce2cc3f8ee08c505fe4f5c84ab66ae5dfc6468d51138678c1e"
+  },
+  {
+   "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #88",
+   "fmt": "NB",
+   "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
+   "airport": "EHAM",
+   "id": "A2091/26",
+   "group": "C",
+   "pattern": "MINIMA_CHANGED",
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "16e94e1a2d37bcdf3758eb8708d643edbed74e1c0af76a471abf8e081d3b90f8"
+  },
+  {
+   "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #90",
+   "fmt": "NB",
+   "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
+   "airport": "EHAM",
+   "id": "A2090/26",
+   "group": "C",
+   "pattern": "MINIMA_CHANGED",
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "06017326e3c3648693b6f42187cc3c98fdbd50ead531439661bf257b618af34b"
+  },
+  {
+   "key": "NB EOFP_RJAA-PANC_12SEP26_pkgB_rev3 #146",
+   "fmt": "NB",
+   "pkg": "EOFP_RJAA-PANC_12SEP26_pkgB_rev3",
+   "airport": "PASY",
+   "id": "M0511/26",
+   "group": "C",
+   "pattern": "CLOSED_TO_TRAFFIC",
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
+   "sha": "c0ca40d455a18697ff687198b2dd4734bb70020b7fefa136fe83727ca8db0d80"
+  },
+  {
+   "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #231",
+   "fmt": "NB",
+   "pkg": "EOFP_EHBK-RKSI_09SEP26_pkgC_rev16",
+   "airport": "ZYSH",
+   "id": "A2102/26",
+   "group": "C",
+   "pattern": "MINIMA_CHANGED",
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "c81424ad260e706edc29f68674eb9207088ba94dff034933962c9b82991eecee"
+  },
+  {
+   "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #130",
+   "fmt": "NB",
+   "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+   "airport": "YBRK",
+   "id": "J5859/25",
+   "group": "C",
+   "pattern": "LIGHTING",
+   "shown": true,
+   "cards": {
+    "DEST": "no row (slot 5, INFO)",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "94c872d42d8b2e87e3ea579a53ba558d1e0eb562f0dd5247ad61c138412cfe6c"
+  },
+  {
+   "key": "FK FK_UAAA-EHAM_27OCT26_prototype EHAM A2559/26 APPROACH AND LANDING",
+   "fmt": "FK",
+   "pkg": "FK_UAAA-EHAM_27OCT26_prototype",
+   "airport": "EHAM",
+   "id": "A2559/26",
+   "group": "C",
+   "pattern": "MINIMA_CHANGED",
+   "shown": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "fe439c28a0a8b6ae2de79b8a41c0459d93a8224ee7451220854d1ea4bb424644"
+  },
+  {
+   "key": "FK FK_OMAA-VHHH_03NOV26_etihad-permits_live ZPPP U3512/26 OBSTACLE",
+   "fmt": "FK",
+   "pkg": "FK_OMAA-VHHH_03NOV26_etihad-permits_live",
+   "airport": "ZPPP",
+   "id": "U3512/26",
+   "group": "C",
+   "pattern": "PROCEDURE_AFFECTED",
+   "shown": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "b3200667254b9096095b289ea853f44867edacb0cdda39211efb317d8223652e"
+  },
+  {
+   "key": "FK FK_OMAA-VHHH_03NOV26_etihad-permits_live ZPPP U3121/26 OBSTACLE",
+   "fmt": "FK",
+   "pkg": "FK_OMAA-VHHH_03NOV26_etihad-permits_live",
+   "airport": "ZPPP",
+   "id": "U3121/26",
+   "group": "C",
+   "pattern": "PROCEDURE_AFFECTED",
+   "shown": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
+   "sha": "31c3ca4398a9df6822231940f138b4c015ab72860317be1fef516db3a20f4e86"
+  }
+ ],
+ "beta": {
+  "file": "notam-rules-v1.11.2.js",
+  "sha256": "faa8377dadf6b24dfe1f7a44325647f24de704b4e9e026b6dd266a7ea7438997",
+  "entries": [
+   {
+    "key": "NB EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 #44",
+    "pkg": "EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11",
+    "airport": "EHAM",
+    "id": "A2559/26",
+    "pattern": "MINIMA_CHANGED"
+   },
+   {
+    "key": "NB NB_EBLG-KORD_12OCT26_remarksdump_rev11 #179",
+    "pkg": "NB_EBLG-KORD_12OCT26_remarksdump_rev11",
+    "airport": "KZAU",
+    "id": "A0207/26",
+    "pattern": "NAVAID"
+   },
+   {
+    "key": "NB NB_KCHS-LIBG_12MAR26_lcf_rev16 #48",
+    "pkg": "NB_KCHS-LIBG_12MAR26_lcf_rev16",
+    "airport": "LIBG",
+    "id": "B1380/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_KORD-EDDF_06MAY26_notam_rev10 #167",
+    "pkg": "NB_KORD-EDDF_06MAY26_notam_rev10",
+    "airport": "EIDW",
+    "id": "N0033/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_KORD-EDDF_06MAY26_notam_rev10 #189",
+    "pkg": "NB_KORD-EDDF_06MAY26_notam_rev10",
+    "airport": "CYQX",
+    "id": "E2929/26",
+    "pattern": "TWY_AVAILABILITY"
+   },
+   {
+    "key": "NB NB_ELLX-KHSV_08MAR26_baseline_rev16 #88",
+    "pkg": "NB_ELLX-KHSV_08MAR26_baseline_rev16",
+    "airport": "KCVG",
+    "id": "A3994/25",
+    "pattern": "NAVAID"
+   },
+   {
+    "key": "NB NB_KLAX-ZSAM_11MAR26_etops-rda_rev6 #262",
+    "pkg": "NB_KLAX-ZSAM_11MAR26_etops-rda_rev6",
+    "airport": "KSFO",
+    "id": "A5647/24",
+    "pattern": "NAVAID"
+   },
+   {
+    "key": "NB NB_KMIA-EHAM_12MAR26_etp_rev8 #139",
+    "pkg": "NB_KMIA-EHAM_12MAR26_etp_rev8",
+    "airport": "EHAM",
+    "id": "A3013/25",
+    "pattern": "MINIMA_CHANGED"
+   },
+   {
+    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #88",
+    "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
+    "airport": "EHAM",
+    "id": "A2091/26",
+    "pattern": "MINIMA_CHANGED"
+   },
+   {
+    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #90",
+    "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
+    "airport": "EHAM",
+    "id": "A2090/26",
+    "pattern": "MINIMA_CHANGED"
+   },
+   {
+    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #152",
+    "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
+    "airport": "EIDW",
+    "id": "N0116/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #156",
+    "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
+    "airport": "EIDW",
+    "id": "N0100/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #177",
+    "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
+    "airport": "EIDW",
+    "id": "N0093/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #178",
+    "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
+    "airport": "EIDW",
+    "id": "N0088/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB EOFP_RJAA-PANC_12SEP26_pkgB_rev3 #146",
+    "pkg": "EOFP_RJAA-PANC_12SEP26_pkgB_rev3",
+    "airport": "PASY",
+    "id": "M0511/26",
+    "pattern": "CLOSED_TO_TRAFFIC"
+   },
+   {
+    "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #231",
+    "pkg": "EOFP_EHBK-RKSI_09SEP26_pkgC_rev16",
+    "airport": "ZYSH",
+    "id": "A2102/26",
+    "pattern": "MINIMA_CHANGED"
+   },
+   {
+    "key": "NB NB_NZAA-YSSY_06APR26_qfa_rev3 #77",
+    "pkg": "NB_NZAA-YSSY_06APR26_qfa_rev3",
+    "airport": "YMML",
+    "id": "H0950/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_NZAA-YSSY_06APR26_qfa_rev3 #78",
+    "pkg": "NB_NZAA-YSSY_06APR26_qfa_rev3",
+    "airport": "YMML",
+    "id": "H0788/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #119",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0935/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #120",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0934/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #121",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0933/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #122",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0625/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #123",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0536/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #124",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0423/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #125",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0422/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #127",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0311/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #129",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J0095/26",
+    "pattern": "SURFACE_PENETRATION"
+   },
+   {
+    "key": "NB NB_YSSY-RKSI_11MAR26_rda_rev6 #130",
+    "pkg": "NB_YSSY-RKSI_11MAR26_rda_rev6",
+    "airport": "YBRK",
+    "id": "J5859/25",
+    "pattern": "LIGHTING"
+   }
+  ]
+ },
  "entries": [
   {
    "key": "NB EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 #44",
@@ -41,49 +457,11 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "1ccacc6b726dee0f925c53978ca0c3758e5975958118f9b0de8522dee1205f70"
-  },
-  {
-   "key": "NB EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 #52",
-   "fmt": "NB",
-   "pkg": "EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11",
-   "airport": "EHAM",
-   "id": "A2538/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "5c5a787f9f822890686fff2e566b1d5a33d8f0a6866b02883cda732f45cc826e"
-  },
-  {
-   "key": "NB EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 #58",
-   "fmt": "NB",
-   "pkg": "EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11",
-   "airport": "EHAM",
-   "id": "A2519/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "2e40a25cc337174a4c507aee979c514edc65b5064816402b0573e708d93b0275"
-  },
-  {
-   "key": "NB EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 #70",
-   "fmt": "NB",
-   "pkg": "EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11",
-   "airport": "EHAM",
-   "id": "A2422/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "844eda30baae84eb7f55a42c142b4cbb5aea3f0e4194e38b63f684e9e9088c74"
   },
   {
    "key": "NB EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 #71",
@@ -93,10 +471,14 @@
    "id": "A2421/26",
    "category": null,
    "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
+   "pattern": "TAKEOFF_SIDE_UNSTATED",
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "9092bdafd1fd7b538d78c1d4653077fdab120d5de5aaf625f7ec52af78689bbd"
   },
   {
@@ -106,11 +488,12 @@
    "airport": "EHAM",
    "id": "A2389/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "9e03d9389d9a422234b43bb296794a2a8525ba5ac4d9a395d3f32f9c8d846939"
   },
   {
@@ -120,11 +503,12 @@
    "airport": "EBBR",
    "id": "A3859/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "ec1277ce63128bdf1699e1dd966d6a5d8cb575fda33dcd615d06a82395c087e7"
   },
   {
@@ -134,11 +518,12 @@
    "airport": "KBOS",
    "id": "A3006/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "a2a3152de276bdf613749337ac3a157fa30c0d7f9671cb2ad6967159b673fad1"
   },
   {
@@ -153,6 +538,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "5964b1d6b671b2808910cae041b2114747117bf2b0705e46723e7c29f13d92e9"
   },
   {
@@ -167,21 +556,29 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "650036c3bf059654d0d0fe11e02a5ac9dd9e604b2cfee32b6bb546eb2d290509"
   },
   {
-   "key": "NB NB_KWRI-EPRZ_08APR26_cmb-nat_rev30 #63",
+   "key": "NB NB_KCHS-LIBG_12MAR26_lcf_rev16 #132",
    "fmt": "NB",
-   "pkg": "NB_KWRI-EPRZ_08APR26_cmb-nat_rev30",
-   "airport": "CYYG",
-   "id": "K1125/26",
+   "pkg": "NB_KCHS-LIBG_12MAR26_lcf_rev16",
+   "airport": "EIDW",
+   "id": "B1138/15",
    "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
+   "group": "G",
+   "pattern": "PROCEDURE_CHANGE",
    "byHeadingOnly": false,
-   "before": false,
+   "before": true,
    "after": true,
-   "sha": "c8845e87c793563a73dac25c58a2405fe82339c8554a09f958d76502fbccefeb"
+   "cards": {
+    "DEST": "RWY-16",
+    "ORIG": "RWY-16"
+   },
+   "sha": "2219b90fde5c79e3f9086355cb9b21560a4e711861a1b608e996791ee8e0c472"
   },
   {
    "key": "NB NB_RODN-PANC_13MAR26_etops_rev16 #34",
@@ -195,6 +592,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "af578f11c967b3fafd2864d07e897d9b63558cd67d184063ffec8ca14ffee229"
   },
   {
@@ -209,6 +607,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8e4ca4ebc5b340d4a4eaca6b25d042497912eedeef5f991e991abc15a6973799"
   },
   {
@@ -223,6 +622,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "7d436a2de06d4ea64d7ab3c9c07d95512d36e15a778673c2ebfad34db89e16e8"
   },
   {
@@ -237,6 +637,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "81beb13c83797d17d6ce14a363c319bbe3c11edc29346b393d53d967dd34fc02"
   },
   {
@@ -251,6 +652,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6a62428b4ce7499ebf5881e7e8b23e917b24839bed82f5c5ae94094d7091ac8a"
   },
   {
@@ -265,6 +667,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0f7b620b6e87dbd0e93bf7151207fd600ad977041a0ea343b0d1b7856b1c3be7"
   },
   {
@@ -279,6 +682,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6d78a37164df4d40d47f67a57296cfa095110b9aa22706484d1342d41619ca6a"
   },
   {
@@ -293,6 +697,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "db5f0665cd914591c5869606a373adb5ca586fcf32c1c9221a5076c0a56d9950"
   },
   {
@@ -307,6 +712,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "133f0b696821f7a2974370de567f2e871f57d5fd4ef5d92ad9cd7377c97bdbfc"
   },
   {
@@ -321,6 +727,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "cff6eba3cb6a738e7f1c4abc8791c273c7ff030547b1de6ec1487754e35bb1f8"
   },
   {
@@ -335,6 +742,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "b87179b137652655061a5c5e7ef16e470bee85714351094a93644aa293d928d4"
   },
   {
@@ -349,6 +757,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
    "sha": "ec36dbe1cfe8590996f6b8d34016f9217f2e189ddee21cfe58913c1f8611e39f"
   },
   {
@@ -358,11 +770,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b59316d7dbc841c357ee00e8c2fd9df685e9f19126b1ba6c0a7c6e1eb7530be6"
   },
   {
@@ -377,6 +790,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0f9f525d3a7a2671bf6af1204859269385d5f739459b5879aace781634038dec"
   },
   {
@@ -391,6 +805,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -400,11 +815,12 @@
    "airport": "PHOG",
    "id": "A0731/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "308c80fb43c76c98ac41d0be8275f3e507f2f9e492c38a8de871df66e67d6ee6"
   },
   {
@@ -414,11 +830,12 @@
    "airport": "AYPY",
    "id": "A0228/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "93abd582998604fb3d274c39b6fad3b4498f3dc9757f237eb863f5d2eeb2c438"
   },
   {
@@ -433,35 +850,8 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "cf4219e48bb6f4140c17ee2a07ce95cc45c2a4282021c9294f8e1c8e6329ea51"
-  },
-  {
-   "key": "NB NB_EHAM-RKSI_08MAY26_exemption_rev11 #18",
-   "fmt": "NB",
-   "pkg": "NB_EHAM-RKSI_08MAY26_exemption_rev11",
-   "airport": "EHAM",
-   "id": "A0752/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "ae345204a2532375dcb86cbde8094f65338028b6185a8408fc72b721a13351dc"
-  },
-  {
-   "key": "NB NB_EHAM-RKSI_08MAY26_exemption_rev11 #21",
-   "fmt": "NB",
-   "pkg": "NB_EHAM-RKSI_08MAY26_exemption_rev11",
-   "airport": "EHAM",
-   "id": "A0743/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "b9925555fbbe208371598bfbb392c827c66448bd5c9fb5ce884f77e34e0f10ad"
   },
   {
    "key": "NB NB_EHAM-RKSI_08MAY26_exemption_rev11 #24",
@@ -470,11 +860,12 @@
    "airport": "EHAM",
    "id": "A0621/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "8f78a0d880c87927809280d5e0b388ac991e7749a9c0d2e4dcb95865f86c1f10"
   },
   {
@@ -484,11 +875,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b59316d7dbc841c357ee00e8c2fd9df685e9f19126b1ba6c0a7c6e1eb7530be6"
   },
   {
@@ -503,6 +895,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -517,6 +910,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8e4ca4ebc5b340d4a4eaca6b25d042497912eedeef5f991e991abc15a6973799"
   },
   {
@@ -531,6 +925,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "7d436a2de06d4ea64d7ab3c9c07d95512d36e15a778673c2ebfad34db89e16e8"
   },
   {
@@ -545,6 +940,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "81beb13c83797d17d6ce14a363c319bbe3c11edc29346b393d53d967dd34fc02"
   },
   {
@@ -559,6 +955,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6a62428b4ce7499ebf5881e7e8b23e917b24839bed82f5c5ae94094d7091ac8a"
   },
   {
@@ -573,6 +970,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0f7b620b6e87dbd0e93bf7151207fd600ad977041a0ea343b0d1b7856b1c3be7"
   },
   {
@@ -587,6 +985,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "7e0a0b24d1f2ae13b12c0e1228f3d6c88310fd045edef87956f010f4eac69d99"
   },
   {
@@ -601,6 +1000,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "db5f0665cd914591c5869606a373adb5ca586fcf32c1c9221a5076c0a56d9950"
   },
   {
@@ -615,6 +1015,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "133f0b696821f7a2974370de567f2e871f57d5fd4ef5d92ad9cd7377c97bdbfc"
   },
   {
@@ -629,6 +1030,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "cff6eba3cb6a738e7f1c4abc8791c273c7ff030547b1de6ec1487754e35bb1f8"
   },
   {
@@ -643,21 +1045,8 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "b87179b137652655061a5c5e7ef16e470bee85714351094a93644aa293d928d4"
-  },
-  {
-   "key": "NB NB_KGTB-EDDN_13MAR26_cmb_rev17 #55",
-   "fmt": "NB",
-   "pkg": "NB_KGTB-EDDN_13MAR26_cmb_rev17",
-   "airport": "CYYG",
-   "id": "K4310/25",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "c6676b617b93493e256774348a7f9a4a5f553eb5f8d3930400dfb8578f73f686"
   },
   {
    "key": "NB NB_VHHH-PANC_11MAR26_perishables_rev6 #42",
@@ -671,6 +1060,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8e4ca4ebc5b340d4a4eaca6b25d042497912eedeef5f991e991abc15a6973799"
   },
   {
@@ -685,6 +1075,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "7d436a2de06d4ea64d7ab3c9c07d95512d36e15a778673c2ebfad34db89e16e8"
   },
   {
@@ -699,6 +1090,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "81beb13c83797d17d6ce14a363c319bbe3c11edc29346b393d53d967dd34fc02"
   },
   {
@@ -713,6 +1105,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6a62428b4ce7499ebf5881e7e8b23e917b24839bed82f5c5ae94094d7091ac8a"
   },
   {
@@ -727,6 +1120,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0f7b620b6e87dbd0e93bf7151207fd600ad977041a0ea343b0d1b7856b1c3be7"
   },
   {
@@ -741,6 +1135,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6d78a37164df4d40d47f67a57296cfa095110b9aa22706484d1342d41619ca6a"
   },
   {
@@ -755,6 +1150,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "db5f0665cd914591c5869606a373adb5ca586fcf32c1c9221a5076c0a56d9950"
   },
   {
@@ -769,6 +1165,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "133f0b696821f7a2974370de567f2e871f57d5fd4ef5d92ad9cd7377c97bdbfc"
   },
   {
@@ -783,6 +1180,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "cff6eba3cb6a738e7f1c4abc8791c273c7ff030547b1de6ec1487754e35bb1f8"
   },
   {
@@ -797,35 +1195,26 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "b87179b137652655061a5c5e7ef16e470bee85714351094a93644aa293d928d4"
   },
   {
-   "key": "NB NB_VHHH-PANC_11MAR26_perishables_rev6 #88",
+   "key": "NB NB_VHHH-PANC_11MAR26_perishables_rev6 #91",
    "fmt": "NB",
    "pkg": "NB_VHHH-PANC_11MAR26_perishables_rev6",
    "airport": "ZSPD",
-   "id": "F8408/25",
+   "id": "F4370/25",
    "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
+   "group": "G",
+   "pattern": "PROCEDURE_CHANGE",
    "byHeadingOnly": false,
    "before": true,
    "after": true,
-   "sha": "db90068590a711447ee13ebbc456ca5d91dd487b3a8f9fd4c9a36ffa2a67521b"
-  },
-  {
-   "key": "NB NB_VHHH-PANC_11MAR26_perishables_rev6 #90",
-   "fmt": "NB",
-   "pkg": "NB_VHHH-PANC_11MAR26_perishables_rev6",
-   "airport": "ZSPD",
-   "id": "F8021/25",
-   "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "d5b92add9a5acf472a8d89dbe47c97dc060ab30706493f3b076bb8e90190eba0"
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
+   "sha": "2cdf66164991df19937b53467854bd2c9114091f4ed934e5e572d20528868e95"
   },
   {
    "key": "NB NB_VHHH-PANC_11MAR26_perishables_rev6 #94",
@@ -834,11 +1223,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "baa208f8f2743164bded58858c4ea47cec1f153750b9c9f95c252aeb14c7a9db"
   },
   {
@@ -853,6 +1243,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0f9f525d3a7a2671bf6af1204859269385d5f739459b5879aace781634038dec"
   },
   {
@@ -867,6 +1258,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -881,6 +1273,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -895,49 +1291,29 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
-   "key": "NB NB_VHHH-PANC_05APR26_vzfw_rev29 #94",
+   "key": "NB NB_VHHH-PANC_05APR26_vzfw_rev29 #100",
    "fmt": "NB",
    "pkg": "NB_VHHH-PANC_05APR26_vzfw_rev29",
    "airport": "ZSPD",
-   "id": "F0378/26",
+   "id": "F4370/25",
    "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
+   "group": "G",
+   "pattern": "PROCEDURE_CHANGE",
    "byHeadingOnly": false,
    "before": true,
    "after": true,
-   "sha": "41d79eb1a2c51ecc0db632d3c79819036f88c1a8a84570aae65c14dddd2bfc07"
-  },
-  {
-   "key": "NB NB_VHHH-PANC_05APR26_vzfw_rev29 #97",
-   "fmt": "NB",
-   "pkg": "NB_VHHH-PANC_05APR26_vzfw_rev29",
-   "airport": "ZSPD",
-   "id": "F8408/25",
-   "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "db90068590a711447ee13ebbc456ca5d91dd487b3a8f9fd4c9a36ffa2a67521b"
-  },
-  {
-   "key": "NB NB_VHHH-PANC_05APR26_vzfw_rev29 #99",
-   "fmt": "NB",
-   "pkg": "NB_VHHH-PANC_05APR26_vzfw_rev29",
-   "airport": "ZSPD",
-   "id": "F8021/25",
-   "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "d5b92add9a5acf472a8d89dbe47c97dc060ab30706493f3b076bb8e90190eba0"
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
+   "sha": "f193fd1672e4ce4dbfd3f8dd213bb9e9a9f7d3acbd58abe22fc8280dd744d4b4"
   },
   {
    "key": "NB NB_VHHH-PANC_05APR26_vzfw_rev29 #108",
@@ -946,11 +1322,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b59316d7dbc841c357ee00e8c2fd9df685e9f19126b1ba6c0a7c6e1eb7530be6"
   },
   {
@@ -965,6 +1342,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -974,11 +1352,12 @@
    "airport": "PANC",
    "id": "A3733/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "ed8c751dd176a24bedbd39ac63dc6fbe3918bfb01b5a96917ff99c5c8b639381"
   },
   {
@@ -993,6 +1372,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "03d9cd61fb49cd006a4b075cc68555b7f7d78ae44c3d174a919a13f6097a153a"
   },
   {
@@ -1007,6 +1387,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "26fc9769a64f920f0d12b26b017e2f4ce1c7b589732a98a780ed7f3d5c0561b0"
   },
   {
@@ -1021,6 +1402,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "e7f065bbe3fb0dac48bcdacdb57075af59eb69de1e2478495e99f92d3109ca95"
   },
   {
@@ -1035,6 +1417,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "e38e1f103fd4c97a78ed6c16289c62a7e10df6352d348fec9a9b8b7df1c37e56"
   },
   {
@@ -1049,6 +1432,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0716e5623b434c9c080464453ac8e407df8c9ad4350127b2950a05452d48da4b"
   },
   {
@@ -1063,6 +1447,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "9b274c5844cd6978851a4d8cc2fcd919ae1b80784d989008664bb97ff39cb459"
   },
   {
@@ -1077,6 +1462,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "9f94cc79b6f6cddbcdfdbfaf84451d06bc675d390047f52e2fa4222df59b7059"
   },
   {
@@ -1091,6 +1477,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "dd0a9c1a92fc581eec94b49dcaa8c0a5207b9aa8ebcddb73cbe4d41467023377"
   },
   {
@@ -1105,6 +1492,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d68c9aa6dbaa30e0dc49da234581b43ca1ce7963ee9652bede8d3d55be6f5b30"
   },
   {
@@ -1119,6 +1507,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "4a9e14bfc1e13b61471154f364ff2cd658396a6011d3e32b4fd0dfcbd2dfea5b"
   },
   {
@@ -1133,6 +1522,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "f490a4ad78ea6f444107fba5df3e30438210106e980c0b80becb4d9b01cc7d76"
   },
   {
@@ -1147,6 +1537,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "fbb9db6c69339ed113eb3afc0dede69722de84d4f4e2d87965a6653bd2d3e86d"
   },
   {
@@ -1161,6 +1555,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -1175,6 +1573,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
@@ -1189,49 +1591,29 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
    "sha": "cc6bbd236565e18b9099169f3b7fcc3096bb92ff0de5fbea71ba6b355418410f"
   },
   {
-   "key": "NB NB_VHHH-PANC_11MAY26_wheelsup_rev23 #209",
+   "key": "NB NB_VHHH-PANC_11MAY26_wheelsup_rev23 #220",
    "fmt": "NB",
    "pkg": "NB_VHHH-PANC_11MAY26_wheelsup_rev23",
    "airport": "ZSPD",
-   "id": "F1556/26",
+   "id": "F4370/25",
    "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
+   "group": "G",
+   "pattern": "PROCEDURE_CHANGE",
    "byHeadingOnly": false,
    "before": true,
    "after": true,
-   "sha": "8664b7b8a0946e7f1c29b2c531b80ed1b126276a88a4f66e7348e77ecc4cbe46"
-  },
-  {
-   "key": "NB NB_VHHH-PANC_11MAY26_wheelsup_rev23 #217",
-   "fmt": "NB",
-   "pkg": "NB_VHHH-PANC_11MAY26_wheelsup_rev23",
-   "airport": "ZSPD",
-   "id": "F0378/26",
-   "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "891a09f12de8feacfb202ac0ebd71be2a59ae84d1970b6f46f0252b32c74d54e"
-  },
-  {
-   "key": "NB NB_VHHH-PANC_11MAY26_wheelsup_rev23 #219",
-   "fmt": "NB",
-   "pkg": "NB_VHHH-PANC_11MAY26_wheelsup_rev23",
-   "airport": "ZSPD",
-   "id": "F8021/25",
-   "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "d5b92add9a5acf472a8d89dbe47c97dc060ab30706493f3b076bb8e90190eba0"
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
+   "sha": "e6efc5abf23ec19a448872ba44bad82d513cc9e9e3a0b5a544a3461fcd6eccb0"
   },
   {
    "key": "NB NB_KORD-EDDF_06MAY26_notam_rev10 #0",
@@ -1245,6 +1627,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "ad07deddcff012c83222e5708fdf537bb0cce4641e0b39ca4757800874c19a2b"
   },
   {
@@ -1259,21 +1642,11 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "c2a1a1fbf75f89918cd13fa432999cbe192942d66d220135d05945ac7896a101"
-  },
-  {
-   "key": "NB NB_KORD-EDDF_06MAY26_notam_rev10 #187",
-   "fmt": "NB",
-   "pkg": "NB_KORD-EDDF_06MAY26_notam_rev10",
-   "airport": "CYMX",
-   "id": "E2015/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "1875e3642a770a56a348b088340a2915bee2be4f32b680c415e51f704b593b38"
   },
   {
    "key": "NB NB_KORD-EDDF_06MAY26_notam_rev10 #189",
@@ -1287,35 +1660,11 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "TAXIWAYS",
+    "ORIG": "TAXIWAYS"
+   },
    "sha": "250462cc97d8141426c306d8b99ea3f008232f78554e2e2f1bb2d4d92e02ffe2"
-  },
-  {
-   "key": "NB NB_ELLX-KHSV_08MAR26_baseline_rev16 #13",
-   "fmt": "NB",
-   "pkg": "NB_ELLX-KHSV_08MAR26_baseline_rev16",
-   "airport": "ELLX",
-   "id": "A0487/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "ad2ec8275e474ed2f61ed0233e979ede9cbdeaa54c5bdad6b12319643c7a820d"
-  },
-  {
-   "key": "NB NB_ELLX-KHSV_08MAR26_baseline_rev16 #14",
-   "fmt": "NB",
-   "pkg": "NB_ELLX-KHSV_08MAR26_baseline_rev16",
-   "airport": "ELLX",
-   "id": "A0486/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "6a45f6342bfc012746d37fd3a4e5cd325d4f37b9cb021f7f73c5b6255b22d0ed"
   },
   {
    "key": "NB NB_ELLX-KHSV_08MAR26_baseline_rev16 #34",
@@ -1324,11 +1673,12 @@
    "airport": "KHSV",
    "id": "A0709/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "0b4221b23b38ea8a86ed8547d590249bd92eda10da65538ad56e4152131729d6"
   },
   {
@@ -1343,6 +1693,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "f4bd098f8face5dfeef776a5bb886c14756a7bab34a42323a46fc52313672c4f"
   },
   {
@@ -1357,6 +1711,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "a81449dd1e3f28f538f42727725c2b6d212a2554b4a869db8162d811697de74e"
   },
   {
@@ -1371,6 +1726,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "6eeeed32e2612f071df2c4aa132cc5c161bbd7c0ea2ee95e707dae7337425bc1"
   },
   {
@@ -1385,6 +1744,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "fbb9db6c69339ed113eb3afc0dede69722de84d4f4e2d87965a6653bd2d3e86d"
   },
   {
@@ -1399,6 +1762,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -1413,6 +1780,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
@@ -1422,11 +1793,12 @@
    "airport": "PANC",
    "id": "A3733/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "ed8c751dd176a24bedbd39ac63dc6fbe3918bfb01b5a96917ff99c5c8b639381"
   },
   {
@@ -1441,6 +1813,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "03d9cd61fb49cd006a4b075cc68555b7f7d78ae44c3d174a919a13f6097a153a"
   },
   {
@@ -1455,6 +1828,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "26fc9769a64f920f0d12b26b017e2f4ce1c7b589732a98a780ed7f3d5c0561b0"
   },
   {
@@ -1469,6 +1843,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "e7f065bbe3fb0dac48bcdacdb57075af59eb69de1e2478495e99f92d3109ca95"
   },
   {
@@ -1483,6 +1858,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "e38e1f103fd4c97a78ed6c16289c62a7e10df6352d348fec9a9b8b7df1c37e56"
   },
   {
@@ -1497,6 +1873,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "2032bab535c1af0079395ba8e3d454e13d8cc31eaed5d808ec1d214ca10695da"
   },
   {
@@ -1511,6 +1888,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "9b274c5844cd6978851a4d8cc2fcd919ae1b80784d989008664bb97ff39cb459"
   },
   {
@@ -1525,6 +1903,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "9f94cc79b6f6cddbcdfdbfaf84451d06bc675d390047f52e2fa4222df59b7059"
   },
   {
@@ -1539,6 +1918,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "dd0a9c1a92fc581eec94b49dcaa8c0a5207b9aa8ebcddb73cbe4d41467023377"
   },
   {
@@ -1553,6 +1933,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d68c9aa6dbaa30e0dc49da234581b43ca1ce7963ee9652bede8d3d55be6f5b30"
   },
   {
@@ -1567,6 +1948,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "4a9e14bfc1e13b61471154f364ff2cd658396a6011d3e32b4fd0dfcbd2dfea5b"
   },
   {
@@ -1581,6 +1963,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "f490a4ad78ea6f444107fba5df3e30438210106e980c0b80becb4d9b01cc7d76"
   },
   {
@@ -1590,11 +1973,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "c949315476e77d8e3ffb8999fdffce54bc2dddcb2ea571fb657d332f4cf05fe0"
   },
   {
@@ -1609,6 +1993,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -1623,6 +2008,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
    "sha": "238fa4079dcd0296bcc3004b82ff5a11f0f03a873603adc0e8b92715d07aa4e3"
   },
   {
@@ -1637,6 +2026,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "f045f59354d84d75c6880232ada4dd7785e218e80368d048b88236cbecbefba2"
   },
   {
@@ -1646,11 +2039,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b59316d7dbc841c357ee00e8c2fd9df685e9f19126b1ba6c0a7c6e1eb7530be6"
   },
   {
@@ -1665,6 +2059,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0f9f525d3a7a2671bf6af1204859269385d5f739459b5879aace781634038dec"
   },
   {
@@ -1679,6 +2074,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -1693,6 +2089,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "87e7a85f0981147e6ffbc082d5aef3acf8d5771ae6276496c41ae5c7cb3cbf47"
   },
   {
@@ -1702,11 +2099,12 @@
    "airport": "KMIA",
    "id": "A0550/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "0eb0eb2b4de70901a7704f5510822d7df58901afbe9c3e324c59743b8098efba"
   },
   {
@@ -1716,11 +2114,12 @@
    "airport": "KMIA",
    "id": "A0551/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b6aab652ce74f3c24f85ddd9497c24d12585a76d07ba205228c0d036bc774c05"
   },
   {
@@ -1730,11 +2129,12 @@
    "airport": "KMIA",
    "id": "A0388/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "1c312147cd78d9d49c436d7a895acf5ce9d01c1471f7fc3da399003235761d3a"
   },
   {
@@ -1744,11 +2144,12 @@
    "airport": "KMIA",
    "id": "A0387/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "4e3bd7fbff5c82e6f8bd6b75aa3f05e9bf8c346270798954b15f61fdd89f847e"
   },
   {
@@ -1758,11 +2159,12 @@
    "airport": "KMIA",
    "id": "A3340/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "450370fd758edf0ff77770faef201b62f725f49c557b96019b95bb6224d31fbd"
   },
   {
@@ -1772,11 +2174,12 @@
    "airport": "KMIA",
    "id": "A3337/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "2fbb6b5c988184ab4b7264169209c0ea292564970514daa23f4f74e6d853f897"
   },
   {
@@ -1786,11 +2189,12 @@
    "airport": "KMIA",
    "id": "A3019/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "512290389b6316011cd78a4c9b29a5faa3c481d8391a9f10b495ef51b47777f4"
   },
   {
@@ -1800,11 +2204,12 @@
    "airport": "KMIA",
    "id": "A2939/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "cec85ea17786aef7ccadf872e3c838255470168e0d6b3555f90f5fa0c03b80a6"
   },
   {
@@ -1814,11 +2219,12 @@
    "airport": "KMIA",
    "id": "A2937/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "6bf02fc50be65e3477b7544256f5681c11c02c8e341e3732c4bf3b9cfa206e31"
   },
   {
@@ -1828,11 +2234,12 @@
    "airport": "KMIA",
    "id": "A2938/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "7bd90f1cf5522e303ac99eebbcb7ab27630137d426af1ce070da3ea278b9f6bb"
   },
   {
@@ -1842,11 +2249,12 @@
    "airport": "KMIA",
    "id": "A2936/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "7dff1cd373089e66706858b17ec47d674bd520be9bcb3e5ab216186166c651eb"
   },
   {
@@ -1856,11 +2264,12 @@
    "airport": "KMIA",
    "id": "A2632/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "35d6081595f3e7c0a7739c2b40973d5f04f83484703918728e2e44732c527c07"
   },
   {
@@ -1870,11 +2279,12 @@
    "airport": "KMIA",
    "id": "A2631/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "138037daadb217da4e15d881fb1f842e0d209963a1f44e8a13f060908d6ef152"
   },
   {
@@ -1884,11 +2294,12 @@
    "airport": "KMIA",
    "id": "A2585/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "62f3c596e712b28cf7ae6bb8dd686e25010b6135fc68204239b030ca836eca49"
   },
   {
@@ -1898,11 +2309,12 @@
    "airport": "KMIA",
    "id": "A2584/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "c3356d570a94c622e67a562f1f316802cdb721a676e2708c2da7768f214997ff"
   },
   {
@@ -1912,11 +2324,12 @@
    "airport": "KMIA",
    "id": "A2582/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "099620e2f466b3d489d6b7e16d111d383646600c2e9faa44f80f16368a684227"
   },
   {
@@ -1926,11 +2339,12 @@
    "airport": "KMIA",
    "id": "A2583/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "25c654b4aab61dda119dc6e5d7584e014622bf8b0aa4a3b22d08dc1baeacc8a4"
   },
   {
@@ -1940,11 +2354,12 @@
    "airport": "KMIA",
    "id": "A2580/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "7b5214f11d74c7c83cc2b4fdc3c9f81ff19e7cd64f0ba8a5f6ae51315da84857"
   },
   {
@@ -1954,11 +2369,12 @@
    "airport": "KMIA",
    "id": "A2581/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "183b5e868d52a9f7631084be3f6ceca40b4dc05b83cadd0e33ba1b998efaada5"
   },
   {
@@ -1968,11 +2384,12 @@
    "airport": "KMIA",
    "id": "A2510/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "456deaa3213ce5a65d597225851cad3d0e650eae2c3250bfd92d132a33db3145"
   },
   {
@@ -1982,11 +2399,12 @@
    "airport": "KMIA",
    "id": "A2341/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "a56f1f0dfdf7d7b00bc26a68e6811fecda99b6a789dad553294779a448f655ad"
   },
   {
@@ -1996,11 +2414,12 @@
    "airport": "KMIA",
    "id": "A2340/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "42345c577532f9e446828e3aa61ca7d453e0f3be2460d56b4064e0d6e163b09b"
   },
   {
@@ -2010,11 +2429,12 @@
    "airport": "KMIA",
    "id": "A2062/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "52a0d84bd36c4840eb647cf3105cfdd08301d8273a9411a5048e91413ecaeebf"
   },
   {
@@ -2024,11 +2444,12 @@
    "airport": "KMIA",
    "id": "A1248/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "336fd3b0bc39ffa88941fda33812b4650c22449f0d9bdf085b8a07e0e369e2fa"
   },
   {
@@ -2038,11 +2459,12 @@
    "airport": "KMIA",
    "id": "A1243/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "77a2ac60eb4fe301daed8f7041f61ba055da0f58722810d50d5e3d55cf0489d5"
   },
   {
@@ -2052,11 +2474,12 @@
    "airport": "KMIA",
    "id": "A1015/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "a9aeae9da154dabbd5875eb5c8b40d05a822aa02f10c7be5ff4e1db8f918a2c4"
   },
   {
@@ -2066,11 +2489,12 @@
    "airport": "KMIA",
    "id": "A1014/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "9ba1fa5a3b42f9e169ede089881fb091cdc2bd0b385a9e5797da2b4cdfae0231"
   },
   {
@@ -2080,11 +2504,12 @@
    "airport": "KMIA",
    "id": "A0997/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "568bbe46227100a5b8219bae9657430675bf1ac159ba9816bb0f8431be3d53e5"
   },
   {
@@ -2094,11 +2519,12 @@
    "airport": "KMIA",
    "id": "A0976/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "59913f1d88cf27ce31c4a8a26bcb6430f7d4eceff0b4cc99166faaf3c599cb95"
   },
   {
@@ -2108,11 +2534,12 @@
    "airport": "KMIA",
    "id": "A0975/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "210a11550ac217bb257b943d45909e9bc5ccf5c2f2976ce80138f783d8c09db1"
   },
   {
@@ -2122,11 +2549,12 @@
    "airport": "KMIA",
    "id": "A0974/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "7d3953e46a3e78f7ca51bcc493744f6eb17555981690234980094ea545c7a81b"
   },
   {
@@ -2136,11 +2564,12 @@
    "airport": "KMIA",
    "id": "A0928/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "f5a0969cc562ec5d0304d6f22dae529b66694bb197237f76b5922aa1ddb3e0b8"
   },
   {
@@ -2150,11 +2579,12 @@
    "airport": "KMIA",
    "id": "A0925/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "aa4908c97cf1d0ab169f3e5147d58509732b5bff73177ef5ae9141b7474dcc61"
   },
   {
@@ -2164,11 +2594,12 @@
    "airport": "KMIA",
    "id": "A0816/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "6f6e01d49e2b165f4113c81ff2ddb16c99c082533c15643f3565cd77a7585ddd"
   },
   {
@@ -2178,11 +2609,12 @@
    "airport": "KMIA",
    "id": "A0792/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "274242c5869887304ed1b223d7d77d0c776672114d2aa4e0e0280d87202ecf62"
   },
   {
@@ -2192,11 +2624,12 @@
    "airport": "KMIA",
    "id": "A0791/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "1b16efc520b45ba03e11ae89a7729d8b9a57a87d68a11c548e96d5ed45b90c04"
   },
   {
@@ -2206,11 +2639,12 @@
    "airport": "KMIA",
    "id": "A0703/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "68ce932006aeade79af5907887c369a18ccebd05679e68fa3c32f4ac0a537431"
   },
   {
@@ -2220,11 +2654,12 @@
    "airport": "KMIA",
    "id": "A0114/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "c874400520a0fa5ef7ebcf4b8f0aa218229c8b113f4f6920e7db87abb873e5a9"
   },
   {
@@ -2234,11 +2669,12 @@
    "airport": "EHAM",
    "id": "A0622/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "acd86e2710601433e62264c4bf690ccec954508dfad1172d01f0151f039052b1"
   },
   {
@@ -2248,40 +2684,13 @@
    "airport": "EHAM",
    "id": "A0621/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "8f78a0d880c87927809280d5e0b388ac991e7749a9c0d2e4dcb95865f86c1f10"
-  },
-  {
-   "key": "NB NB_KMIA-EHAM_12MAR26_etp_rev8 #124",
-   "fmt": "NB",
-   "pkg": "NB_KMIA-EHAM_12MAR26_etp_rev8",
-   "airport": "EHAM",
-   "id": "A0527/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "cd6eb6137bc09b2b4f732c4c1b4745ea70115b35eb1abea2182fc8b2841a7b2f"
-  },
-  {
-   "key": "NB NB_KMIA-EHAM_12MAR26_etp_rev8 #129",
-   "fmt": "NB",
-   "pkg": "NB_KMIA-EHAM_12MAR26_etp_rev8",
-   "airport": "EHAM",
-   "id": "A0378/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "13ea9af3fbf142f899cd0a6b198c9260e7f723cf1c3a1ab3326ac5fc2c7b2e43"
   },
   {
    "key": "NB NB_KMIA-EHAM_12MAR26_etp_rev8 #139",
@@ -2295,6 +2704,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "cbccdeabb0b9d9ce2cc3f8ee08c505fe4f5c84ab66ae5dfc6468d51138678c1e"
   },
   {
@@ -2309,6 +2722,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8e4ca4ebc5b340d4a4eaca6b25d042497912eedeef5f991e991abc15a6973799"
   },
   {
@@ -2323,6 +2737,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "edf4890bcfe188a651ce331d487d459561141acf587a2ebea847bb9cef9f82c3"
   },
   {
@@ -2337,6 +2752,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "81beb13c83797d17d6ce14a363c319bbe3c11edc29346b393d53d967dd34fc02"
   },
   {
@@ -2351,6 +2767,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6a62428b4ce7499ebf5881e7e8b23e917b24839bed82f5c5ae94094d7091ac8a"
   },
   {
@@ -2365,6 +2782,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0f7b620b6e87dbd0e93bf7151207fd600ad977041a0ea343b0d1b7856b1c3be7"
   },
   {
@@ -2379,6 +2797,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6d78a37164df4d40d47f67a57296cfa095110b9aa22706484d1342d41619ca6a"
   },
   {
@@ -2393,6 +2812,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "db5f0665cd914591c5869606a373adb5ca586fcf32c1c9221a5076c0a56d9950"
   },
   {
@@ -2407,6 +2827,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "133f0b696821f7a2974370de567f2e871f57d5fd4ef5d92ad9cd7377c97bdbfc"
   },
   {
@@ -2421,6 +2842,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "cff6eba3cb6a738e7f1c4abc8791c273c7ff030547b1de6ec1487754e35bb1f8"
   },
   {
@@ -2435,6 +2857,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "b87179b137652655061a5c5e7ef16e470bee85714351094a93644aa293d928d4"
   },
   {
@@ -2444,11 +2867,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b59316d7dbc841c357ee00e8c2fd9df685e9f19126b1ba6c0a7c6e1eb7530be6"
   },
   {
@@ -2463,6 +2887,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "316895080f5ef3c2b21840db6468bb07e2cac3c99940b2da91202c2fabea1ff4"
   },
   {
@@ -2477,6 +2902,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -2491,6 +2917,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "3a99a7f1e476a761f94ba71c050cbd9e91044bccae0eda3406db3448282b60dc"
   },
   {
@@ -2505,6 +2932,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "05b9e815c5d02d2a4720bc5006d9fb851ee2885c92505c49b7fb2c9498f27025"
   },
   {
@@ -2519,6 +2947,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "4a5fdc4b2bec63868d86087e91970ea3d233b12bccea24e1db3ce1600f15d342"
   },
   {
@@ -2528,11 +2957,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "0308c19820e54b7414520f5b0a13937b9c7ef0f2c579ff9784452494f542fea3"
   },
   {
@@ -2547,6 +2977,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "dcbdcee24a4a24228249e5184413cb823450ccea132f6c53646423f96cb1796f"
   },
   {
@@ -2561,6 +2992,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -2575,6 +3010,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
@@ -2584,11 +3023,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b59316d7dbc841c357ee00e8c2fd9df685e9f19126b1ba6c0a7c6e1eb7530be6"
   },
   {
@@ -2603,6 +3043,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -2617,6 +3058,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "3e35613ef138b6937509a55aa8e44d1902ac8a28fa77bb6fc16359bd62e2c92c"
   },
   {
@@ -2631,6 +3076,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "6b92a272f371418f6222a35c65e98103b230a55d9428a8e6c421b20b9e7b93ea"
   },
   {
@@ -2645,6 +3094,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8e4ca4ebc5b340d4a4eaca6b25d042497912eedeef5f991e991abc15a6973799"
   },
   {
@@ -2659,6 +3109,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "7d436a2de06d4ea64d7ab3c9c07d95512d36e15a778673c2ebfad34db89e16e8"
   },
   {
@@ -2673,6 +3124,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "81beb13c83797d17d6ce14a363c319bbe3c11edc29346b393d53d967dd34fc02"
   },
   {
@@ -2687,6 +3139,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6a62428b4ce7499ebf5881e7e8b23e917b24839bed82f5c5ae94094d7091ac8a"
   },
   {
@@ -2701,6 +3154,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "0f7b620b6e87dbd0e93bf7151207fd600ad977041a0ea343b0d1b7856b1c3be7"
   },
   {
@@ -2715,6 +3169,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6d78a37164df4d40d47f67a57296cfa095110b9aa22706484d1342d41619ca6a"
   },
   {
@@ -2729,6 +3184,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "db5f0665cd914591c5869606a373adb5ca586fcf32c1c9221a5076c0a56d9950"
   },
   {
@@ -2743,6 +3199,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "133f0b696821f7a2974370de567f2e871f57d5fd4ef5d92ad9cd7377c97bdbfc"
   },
   {
@@ -2757,6 +3214,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "cff6eba3cb6a738e7f1c4abc8791c273c7ff030547b1de6ec1487754e35bb1f8"
   },
   {
@@ -2771,6 +3229,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "b87179b137652655061a5c5e7ef16e470bee85714351094a93644aa293d928d4"
   },
   {
@@ -2780,11 +3239,12 @@
    "airport": "PASY",
    "id": "M0200/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b59316d7dbc841c357ee00e8c2fd9df685e9f19126b1ba6c0a7c6e1eb7530be6"
   },
   {
@@ -2799,6 +3259,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d71b27197166a73d826aa132394e27ccc0fa014825cd3b4acbdb6d6b47c70e44"
   },
   {
@@ -2813,6 +3274,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "774d89525fc2899495e4c696370253fbe7e4a47411125bab3fd265c2cbea873b"
   },
   {
@@ -2827,21 +3289,11 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "c92a51f7035bcfe6538e58229384052fc9a0b8d7fe67036d143a0d59177a361b"
-  },
-  {
-   "key": "NB NB_KPSM-ETAR_19APR26_nat_rev12 #52",
-   "fmt": "NB",
-   "pkg": "NB_KPSM-ETAR_19APR26_nat_rev12",
-   "airport": "CYYG",
-   "id": "K1125/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "c8845e87c793563a73dac25c58a2405fe82339c8554a09f958d76502fbccefeb"
   },
   {
    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #19",
@@ -2850,11 +3302,12 @@
    "airport": "KMIA",
    "id": "A2294/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "e6dcebc4c18f30ddc24f03f7902e285ff3f5f23bf642abca71451bc3eebd1c57"
   },
   {
@@ -2864,11 +3317,12 @@
    "airport": "KMIA",
    "id": "A2156/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "520031e6d0bfefbc66c2e454a4113e2d302fd388886aff8e6dc0fd0d50a36a11"
   },
   {
@@ -2878,11 +3332,12 @@
    "airport": "KMIA",
    "id": "A1719/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "10b77a4c09e7d1cafba1bec6e9e43d9042e4e4642442fa85f855be814eb916c2"
   },
   {
@@ -2892,11 +3347,12 @@
    "airport": "KMIA",
    "id": "A1718/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "d217ba8f7a9e1f0b05727363052c8afdbea208de71acb07884b6d13ac5fe31d0"
   },
   {
@@ -2906,11 +3362,12 @@
    "airport": "KMIA",
    "id": "A1717/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "71791b3ab7f9bc0a6d57979a0a1546a34e903ad65ceaf026592cda6e03a5afad"
   },
   {
@@ -2920,11 +3377,12 @@
    "airport": "KMIA",
    "id": "A0936/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "6548d0aa8d41839ea7fa7476d95328f88c2c5a9d94eaadebfb55e937e5bcc92b"
   },
   {
@@ -2934,11 +3392,12 @@
    "airport": "KMIA",
    "id": "A0935/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "c9486ec344cb64fe4c5efeebd2cf65c0a7d708da77801b0c4f135ae3f961052d"
   },
   {
@@ -2948,11 +3407,12 @@
    "airport": "KMIA",
    "id": "A0855/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "11047a0ae4581e37cf74126f1fb008193b6ac21aac85de4ec344a559306b8dfd"
   },
   {
@@ -2962,11 +3422,12 @@
    "airport": "KMIA",
    "id": "A0854/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "16f414188194cad3bead3057dee38d558bd77a2afd5ec6d4a2fcb5080af2a091"
   },
   {
@@ -2976,11 +3437,12 @@
    "airport": "KMIA",
    "id": "A0550/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "1646252dd3314c6abafb183219cfec4f232ccb99d411ef3908d6e417a257ed26"
   },
   {
@@ -2990,11 +3452,12 @@
    "airport": "KMIA",
    "id": "A0551/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b6ce611f7a25136254e4d88f556ec760009fa90c1f99fb5aa46908c1fda2ac66"
   },
   {
@@ -3004,11 +3467,12 @@
    "airport": "KMIA",
    "id": "A0388/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b7b392bb3a173d12be072fa6de0e6c893384658241d2ce9df15765abba434742"
   },
   {
@@ -3018,11 +3482,12 @@
    "airport": "KMIA",
    "id": "A0387/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "bbfd0e8af1c6b65e2f04bf188a1f03cb99ee739cb96379d9b6abd898994a628e"
   },
   {
@@ -3032,11 +3497,12 @@
    "airport": "KMIA",
    "id": "A3340/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "184926c43ec05eb4c70b732fe2bc4c0484b07b91bdd970ce67333ba01b532d1b"
   },
   {
@@ -3046,11 +3512,12 @@
    "airport": "KMIA",
    "id": "A3337/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "4a9b7a109cbf7b6b53c781a3ad4aa954a87fa0fd91a886f32314330b2b085bb7"
   },
   {
@@ -3060,11 +3527,12 @@
    "airport": "KMIA",
    "id": "A3019/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "d5ffa3fe255b4bd1898deefe42526aa7f362647fda1fba09a4a8af8b1799c617"
   },
   {
@@ -3074,11 +3542,12 @@
    "airport": "KMIA",
    "id": "A2632/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "24d374243dbf91b239dd59781607f9565b9213e281c76f3e5186f962d46c2be7"
   },
   {
@@ -3088,11 +3557,12 @@
    "airport": "KMIA",
    "id": "A2631/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "7284ea6a5f861c2e13474ca9e0d1f3353f3723ad21bd93eb46d9b8389eda5075"
   },
   {
@@ -3102,11 +3572,12 @@
    "airport": "KMIA",
    "id": "A2510/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b54f3bbdaf72c086db33d89d16dc781b79490f94ba251d9c92db696a58b3f543"
   },
   {
@@ -3116,11 +3587,12 @@
    "airport": "KMIA",
    "id": "A2341/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "c9531a2e5ea0d3316ed98a6285288a17565726062c5766a13c642feb42b0b7df"
   },
   {
@@ -3130,11 +3602,12 @@
    "airport": "KMIA",
    "id": "A2340/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "3eacd0cf9d9f28901abb0844a53161c3a926570254df1d181ffba92ce500468f"
   },
   {
@@ -3144,11 +3617,12 @@
    "airport": "KMIA",
    "id": "A1248/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "42910756f54339a1cd4f17e7a9317ebee1449550b2445b167d3271dcac8f067b"
   },
   {
@@ -3158,11 +3632,12 @@
    "airport": "KMIA",
    "id": "A1243/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "c96d2c9a9ef70fde15231a16050f5c5c55e2a16141c922725b16696faf2f33d4"
   },
   {
@@ -3172,11 +3647,12 @@
    "airport": "KMIA",
    "id": "A1015/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "c2da2fad5bf52174b134e98336c6efffd6d00123da597be286f6db7902bf7155"
   },
   {
@@ -3186,11 +3662,12 @@
    "airport": "KMIA",
    "id": "A1014/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "83ec0916eb15f7563ab8f4fde9109a21d2c48a474030a984e54bb579cb8c0cbd"
   },
   {
@@ -3200,11 +3677,12 @@
    "airport": "KMIA",
    "id": "A0792/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "2fcbd5caec63aedc763a8a0c629628751a74d0d7c081435d0ead5699aa76b891"
   },
   {
@@ -3214,11 +3692,12 @@
    "airport": "KMIA",
    "id": "A0791/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "5a0c1239fb68e38681acd7af160c239ea5596d9c9a9970ad86d3f921ff9dd700"
   },
   {
@@ -3228,11 +3707,12 @@
    "airport": "KMIA",
    "id": "A0703/25",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "45c8b7b42710676bf112951dc81f2c3387e3145b6160171f3b2b002ef6508036"
   },
   {
@@ -3247,6 +3727,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "16e94e1a2d37bcdf3758eb8708d643edbed74e1c0af76a471abf8e081d3b90f8"
   },
   {
@@ -3261,49 +3745,11 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "06017326e3c3648693b6f42187cc3c98fdbd50ead531439661bf257b618af34b"
-  },
-  {
-   "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #93",
-   "fmt": "NB",
-   "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
-   "airport": "EHAM",
-   "id": "A2049/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "c731787f903555efa7b2e18827b3156d3869a91ba94f37405d3e1f34e03a35b2"
-  },
-  {
-   "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #95",
-   "fmt": "NB",
-   "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
-   "airport": "EHAM",
-   "id": "A2033/26",
-   "category": null,
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "091caa155697fb3c33dc32125dd7f385cf14bdbf8653725746b503d1cc8f8b8d"
-  },
-  {
-   "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #97",
-   "fmt": "NB",
-   "pkg": "EOFP_KMIA-EHAM_06SEP26_pkgA_rev7",
-   "airport": "EHAM",
-   "id": "A2026/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "62c16fca41f357d59a1e6f4185b5b35b2be915d7210431e54169109cc45a2cbf"
   },
   {
    "key": "NB EOFP_KMIA-EHAM_06SEP26_pkgA_rev7 #98",
@@ -3312,11 +3758,12 @@
    "airport": "EHAM",
    "id": "A2018/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "6b30e6d608807f873caa33470922d0fa5c75bdf3d906b13d3ce63d2370ef3712"
   },
   {
@@ -3326,11 +3773,12 @@
    "airport": "EHAM",
    "id": "A1707/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "d399b46ef7a72e5640d92a322f9ebd3f90b42694b335c10a8f6fd1c05736523a"
   },
   {
@@ -3340,11 +3788,12 @@
    "airport": "EBBR",
    "id": "A2522/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "5699a0af4609b0a101e6e7a8baf110c2ffccbe3e5d17da38232266035e445a1c"
   },
   {
@@ -3354,11 +3803,12 @@
    "airport": "EBBR",
    "id": "A2523/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "aa612cea94caa39975df7807a30c1e80039289d69d6ada58fc9aadbc20b78b60"
   },
   {
@@ -3368,11 +3818,12 @@
    "airport": "EBBR",
    "id": "A2519/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "474a0fe69c93e712f4ac0b8d1f1a8dc047e21c7e21e208387ce337fe32265cb7"
   },
   {
@@ -3382,11 +3833,12 @@
    "airport": "EBBR",
    "id": "A2520/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "89605932b0bc0cad4a7e331c1a533672eb16c46577d521323df2293a21f2319f"
   },
   {
@@ -3401,6 +3853,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "605df978a84ec6dc5247ff96ad152592c7846f054e62dd5f8158ac430b7a4e5c"
   },
   {
@@ -3415,6 +3871,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "a15fd7dbdb3197cd2159427de871621fdffdeeb7e2103b394eb89b379423ea0f"
   },
   {
@@ -3429,6 +3889,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "33b0dcc89d02b356c2fc786d5d9ef53786f91e8a19a4477441b1b9cffcd5b00a"
   },
   {
@@ -3443,6 +3907,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "08797dcc0b504c8db1966ad51ed104e98b0397fa027f4702f7e628b92e6a882d"
   },
   {
@@ -3457,6 +3925,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "edc42c69666132e5c076528830a8c17857d1d838dc46e7bcf28630f746a58b69"
   },
   {
@@ -3466,11 +3935,12 @@
    "airport": "PANC",
    "id": "A5438/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "6de83e5c187e6c59018c1212111528b14751578bd724fc364c93043fbc28db3e"
   },
   {
@@ -3480,11 +3950,12 @@
    "airport": "PAED",
    "id": "M1137/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "0c5820221a48f8e864bb48f1053be19c90d6f76b4dc5e51a02cbf11de1213e0a"
   },
   {
@@ -3499,6 +3970,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8fe3e4cab52db452e7a0f0660db9fe27de390a9249c39724945ae5d34a301e41"
   },
   {
@@ -3513,6 +3985,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "86d69c5c2c5098a3ac08b09bcb436f6211eb20f46ce06346f6a1f296c3973db5"
   },
   {
@@ -3527,6 +4000,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d52c019114cb6c3328ed93e4139d71e71c97d9a50c12482c4fa0cf2c5996f613"
   },
   {
@@ -3541,6 +4015,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "dfe46f349d0ee2cb68107ee4ccb985cac3d55fa85b72b9711c31bd3207ffdf36"
   },
   {
@@ -3555,6 +4030,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "9a9141f5a594bbac8e4b56e5ff397974562bd0af314783e7316c7be44a6d65be"
   },
   {
@@ -3569,6 +4045,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "6fe2887eb31cdf8a8ff8342f5e2fa218c1aca4de1c4c0a5143137052f7744c0c"
   },
   {
@@ -3583,6 +4060,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "a89288a218a03f6db5d970bab9789ed5997d42db19fb7677f92b1f93a96dbfaa"
   },
   {
@@ -3597,6 +4075,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d2a88beb5686f9658ea26c73354fff75feaeff3c8cd810d8fa21230e72ab5016"
   },
   {
@@ -3611,6 +4090,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "f56cb07ba7b09f9d3043f754c63ee3d9334dd2a376dc7e91ddb446b41c204a44"
   },
   {
@@ -3625,6 +4105,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "3bc9e705fb5591730827e762714dab55edbc7a5ac4455bf8f13c778295a0bf9b"
   },
   {
@@ -3639,6 +4120,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "916bd6f131e581f0159e5f5790eec1d587bc2214c711003c34165e88408f0f68"
   },
   {
@@ -3653,6 +4135,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "1026f40d795392366858af8d01b913596092780d471cbfd89f34fa1afc433923"
   },
   {
@@ -3667,6 +4150,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
    "sha": "c0ca40d455a18697ff687198b2dd4734bb70020b7fefa136fe83727ca8db0d80"
   },
   {
@@ -3676,11 +4163,12 @@
    "airport": "PASY",
    "id": "M0443/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "174e2001e7f197e59c08c3146f0b63af840358e6c21043a0387063133b93ac03"
   },
   {
@@ -3695,21 +4183,8 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "93b52b25d113f565bef996305a7f25e82c5491b450c643149edd7502af869081"
-  },
-  {
-   "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #40",
-   "fmt": "NB",
-   "pkg": "EOFP_EHBK-RKSI_09SEP26_pkgC_rev16",
-   "airport": "ZUCK",
-   "id": "U1704/26",
-   "category": null,
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "82d4ec4ec16a3e3522a22e22ff03e2456cd57a044f82799324bc1b051535c087"
   },
   {
    "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #56",
@@ -3723,6 +4198,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "6450284a6ee8496e07ccf9b843b5715517f252a396aa29e4387d7f4605c87e9e"
   },
   {
@@ -3732,12 +4211,49 @@
    "airport": "LTAG",
    "id": "D2025/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_PROCEDURE",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "946d76c12468bfd4619e900b6cc2925e66d0c712f462b367238daea621cab410"
+  },
+  {
+   "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #213",
+   "fmt": "NB",
+   "pkg": "EOFP_EHBK-RKSI_09SEP26_pkgC_rev16",
+   "airport": "ZWUQ ZYSH",
+   "id": "A3164/26",
+   "category": null,
+   "group": "G",
+   "pattern": "PROCEDURE_CHANGE",
+   "byHeadingOnly": false,
+   "before": true,
+   "after": true,
+   "cards": {
+    "DEST": "STARs",
+    "ORIG": "GENERAL"
+   },
+   "sha": "fffdd1a176adfa14d1aaf515ca300f40d9ce2cba333fbb5d23e1ff92f3b95122"
+  },
+  {
+   "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #226",
+   "fmt": "NB",
+   "pkg": "EOFP_EHBK-RKSI_09SEP26_pkgC_rev16",
+   "airport": "ZBPE ZGZU ZHWH ZJSA ZLHW ZPKM ZSHA",
+   "id": "A3162/26",
+   "category": null,
+   "group": "G",
+   "pattern": "PROCEDURE_CHANGE",
+   "byHeadingOnly": false,
+   "before": true,
+   "after": true,
+   "cards": {
+    "DEST": "STARs",
+    "ORIG": "GENERAL"
+   },
+   "sha": "15c01fa612aa8ec48fbfb4408e38dd0c8bd5a53cb3e46756a49598bb27e9420e"
   },
   {
    "key": "NB EOFP_EHBK-RKSI_09SEP26_pkgC_rev16 #231",
@@ -3751,6 +4267,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "c81424ad260e706edc29f68674eb9207088ba94dff034933962c9b82991eecee"
   },
   {
@@ -3765,6 +4285,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "d45c1eb24085efe3b9d11b25a89adbb59273f21552a74d8ed5d4589656cf3856"
   },
   {
@@ -3779,6 +4303,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "67497ae9f0ac41f638003e6a4d297350f50f5231525ba413267b790cd95346d6"
   },
   {
@@ -3793,6 +4321,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "9db160ddaa6ae23cc1bce87299ccb8add44660bd05add20aea87bf7ae1f6e565"
   },
   {
@@ -3807,6 +4339,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "884ffe9f1ce555dc12bf15d909eb9af9e243dcda965dc8637dfae6517bdfafc4"
   },
   {
@@ -3821,6 +4357,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "d15edc78f0d2dfe84e72664e8850fe36e17589affd65260bd273e5486b16a6cf"
   },
   {
@@ -3835,6 +4375,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "06f0d120d80e5fd4ead6a15a612c52c771bef0daf117f6d54d2ece4a1f9af6fa"
   },
   {
@@ -3849,6 +4393,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "0dced1f6f004caf75035e86ad82bde1dc8ee3e2ec9d247f807f84bc507bb0017"
   },
   {
@@ -3863,6 +4411,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "edba6adadb8274fcec4b0ce75f58ccb5c568ff9c7b78d5e8ced4d023295fa7ab"
   },
   {
@@ -3877,6 +4429,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "8be896affcbf14089164301dfb59fc88d1c1a8d37f2c64fb242e0853ac661386"
   },
   {
@@ -3891,6 +4447,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "b3bc72016e2370cc8bdc4d1a03219c1afbc823ba9c72171bc2a952973760fd37"
   },
   {
@@ -3905,6 +4465,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "7ca6086e37742dc1caf9a7d2a6fc4f98d58fa6c0beeac6236a7f8fd058f597c9"
   },
   {
@@ -3919,6 +4483,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 5, INFO)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "94c872d42d8b2e87e3ea579a53ba558d1e0eb562f0dd5247ad61c138412cfe6c"
   },
   {
@@ -3933,6 +4501,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
    "sha": "c1e24bbd46c94f2a9d503a4f35b7a6d052e97959915ebbd1b867a19aaa4700e4"
   },
   {
@@ -3947,6 +4519,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
    "sha": "5e075abb6665ccde03ed04f49327ffc911518b5c3e83736e4ab9a1717e8f8007"
   },
   {
@@ -3961,6 +4537,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "3eaf02364dad1e0bfe030f9c2fd2dc6d89957bee827309dfe15c467dea2451c8"
   },
   {
@@ -3975,147 +4555,11 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "74b3c931e8e5dfcb3b38804080e92167ce43c54e3c13a7ab81fa40d097cb3c6a"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #27",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0828/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "3879d37867955af4bbfd70739cdc72b308618f2cb95f0827fdc403a18e82e1a6"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #28",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0827/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "91eee4926f2009511d8238b23ab4a5e25ab72f0e6cd23b388b122325b88b5f02"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #29",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0826/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "a5695ff4eaa20af6231ac1bbbb57f388011b7505ec3e25dc4ff8f814c2b31fcf"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #30",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0825/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "61aa3427a4a0dbd0dbe5f23af9779ea946fc98d5536d0452cb62e3b724949b4b"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #31",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0824/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "537ed28fd64d8d8a17fa9b93f7347feef2ab319bfe958b28b72310013e0fbc04"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #32",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0823/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "30d251e5af25426d1b4103b66ec70e716321af491b4aef3fa267ba428711bc02"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #33",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0822/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "088d6f88ec95c19aaac0936dc57190610fe05881a50c51097fc529394d29d54f"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #34",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0821/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "44f9290972a0c4a2149249b30e5380d322b77cfa7b6d0fa2a28e09b0fd4651dc"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #35",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0820/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "1fee21ace7352d2b3239998a85d2c25237e8b65b117340dc6ee895d35357f3ea"
-  },
-  {
-   "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #36",
-   "fmt": "NB",
-   "pkg": "NB_PGUA-RKSO_05JUN26_dod_rev5",
-   "airport": "RKSO",
-   "id": "M0819/26",
-   "category": null,
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "08136e89d9049c3a258c066a790d005cbcc615a56aa49732744ba87a1c5cc52c"
   },
   {
    "key": "NB NB_PGUA-RKSO_05JUN26_dod_rev5 #43",
@@ -4124,11 +4568,12 @@
    "airport": "RKSO",
    "id": "M0775/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "337613a609e2e656b9c7589079c984b51c93b0fabe6f9154e7db670707bb45c7"
   },
   {
@@ -4138,11 +4583,12 @@
    "airport": "RKSO",
    "id": "M0539/26",
    "category": null,
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "91cda47ee0d732270a63e40944c53a05c57961aa52e361c90597249cf799324f"
   },
   {
@@ -4157,21 +4603,11 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "fe439c28a0a8b6ae2de79b8a41c0459d93a8224ee7451220854d1ea4bb424644"
-  },
-  {
-   "key": "FK FK_UAAA-EHAM_27OCT26_prototype EHAM A2519/26 APPROACH AND LANDING",
-   "fmt": "FK",
-   "pkg": "FK_UAAA-EHAM_27OCT26_prototype",
-   "airport": "EHAM",
-   "id": "A2519/26",
-   "category": "APPROACH AND LANDING",
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "fffea7c6844761faa0cec88c24ecedf511970f8e45a85e38ae85816977a8851c"
   },
   {
    "key": "FK FK_UAAA-EHAM_27OCT26_prototype EHAM A2389/26 APPROACH AND LANDING",
@@ -4180,40 +4616,13 @@
    "airport": "EHAM",
    "id": "A2389/26",
    "category": "APPROACH AND LANDING",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "b67de6f96bcb308087f6b7717d6f7d37ebed4fb818c442b8ce6381c57ab1c03b"
-  },
-  {
-   "key": "FK FK_UAAA-EHAM_27OCT26_prototype EHAM A2422/26 DEPARTURE PROCEDURES",
-   "fmt": "FK",
-   "pkg": "FK_UAAA-EHAM_27OCT26_prototype",
-   "airport": "EHAM",
-   "id": "A2422/26",
-   "category": "DEPARTURE PROCEDURES",
-   "group": "U",
-   "pattern": "SURFACE_PENETRATION",
-   "byHeadingOnly": false,
-   "before": true,
-   "after": true,
-   "sha": "8c0cacd09720d1fefee54b8550f808d71cfe1ea1ab1f363a32fb7c866153259c"
-  },
-  {
-   "key": "FK FK_UAAA-EHAM_27OCT26_prototype EHAM A2538/26 OBSTACLE",
-   "fmt": "FK",
-   "pkg": "FK_UAAA-EHAM_27OCT26_prototype",
-   "airport": "EHAM",
-   "id": "A2538/26",
-   "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "a615b4c74fb346722ffd0706500bbaa71c92dece524b772a89abca3c0590db46"
   },
   {
    "key": "FK FK_UAAA-EHAM_27OCT26_prototype EHAM A2536/26 OBSTACLE",
@@ -4222,11 +4631,12 @@
    "airport": "EHAM",
    "id": "A2536/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "2b82e3f832deaea956ffc1499000582389d39819e761ccddc9ea03f498871826"
   },
   {
@@ -4236,11 +4646,12 @@
    "airport": "EHAM",
    "id": "A2531/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "2b0541b6ecf27baec3e5a52fe28aa2a9c1529346cfbfd456ccbb3313e65dcac5"
   },
   {
@@ -4250,11 +4661,12 @@
    "airport": "EHAM",
    "id": "A2513/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "305f9d60ddd084cf14d8228b454d612319b01450254ebd15724518c9ec0470d0"
   },
   {
@@ -4265,10 +4677,14 @@
    "id": "A2421/26",
    "category": "OBSTACLE",
    "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
+   "pattern": "TAKEOFF_SIDE_UNSTATED",
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "7c3cbe87533fbfb63241897484eaad3247b2a7d3d91dc67809b3ac0297b0ac90"
   },
   {
@@ -4278,11 +4694,12 @@
    "airport": "EBBR",
    "id": "A3859/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "8093beb3eebf8dc61a8e00d471cdc5fa255bfbe7630ddaffd41fe52891657aba"
   },
   {
@@ -4297,6 +4714,10 @@
    "byHeadingOnly": true,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "25f0a83bb8b2c44ca97810d0f130ccfa846326461cfdda5f176ed0e4a7739742"
   },
   {
@@ -4311,6 +4732,10 @@
    "byHeadingOnly": true,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "46c217368c8d36947c54fc071e98109a05241d4ba35d607c341a3d15e7a39aad"
   },
   {
@@ -4325,6 +4750,10 @@
    "byHeadingOnly": true,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "84aa78044b0ffae622dbad1dd76b5e16ba5eb533a42790c6867f52f3e824535d"
   },
   {
@@ -4339,6 +4768,10 @@
    "byHeadingOnly": true,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "a71e958d4841d9e098eacf99eb53c0dcfe6ef16ca4551d4fb22a630bb053cb38"
   },
   {
@@ -4353,6 +4786,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "6c8c590a52bdadd5bbcf72349c632efcd411a540a429bc0febf0a82f84cf678a"
   },
   {
@@ -4367,35 +4804,11 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "da4aa1649ddc3a7a2faafe2c2026e3837fdda41977973b68a3820f4256a666a9"
-  },
-  {
-   "key": "FK FK_KORD-RKSI_05NOV26_crew-ballast-rda_live CYOD C5226/26 OBSTACLE",
-   "fmt": "FK",
-   "pkg": "FK_KORD-RKSI_05NOV26_crew-ballast-rda_live",
-   "airport": "CYOD",
-   "id": "C5226/26",
-   "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "bbab78ce0b51cbe12126e6fbd8375964568031bc7f6c8257c3e998eb4afa6f4d"
-  },
-  {
-   "key": "FK FK_KORD-RKSI_05NOV26_crew-ballast-rda_live CYOD C5006/26 OBSTACLE",
-   "fmt": "FK",
-   "pkg": "FK_KORD-RKSI_05NOV26_crew-ballast-rda_live",
-   "airport": "CYOD",
-   "id": "C5006/26",
-   "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "HEIGHT_NEAR_RUNWAY",
-   "byHeadingOnly": false,
-   "before": false,
-   "after": true,
-   "sha": "82c2a2db9527ad33d3ed99cb278a4d116c78e12cbb44fcf7795aa3289b2809d7"
   },
   {
    "key": "FK FK_KORD-RKSI_05NOV26_crew-ballast-rda_live CYOD C3825/26 OBSTACLE",
@@ -4404,11 +4817,12 @@
    "airport": "CYOD",
    "id": "C3825/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "aac5bc42962580d24c6a81cf4552113a49d44a50b4c9b59a5c37549a333b7b86"
   },
   {
@@ -4423,6 +4837,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "66c97473457abb9e7df8e4e93388d3e6cc8686a5648e792a4a6fc3cafe9ad021"
   },
   {
@@ -4432,11 +4847,12 @@
    "airport": "RCTP",
    "id": "A3647/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_PROCEDURE",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "31b60e446b8b18e30d2a0349fa291d23cd6b7b566a6ba9e42bc71c458dbb9f01"
   },
   {
@@ -4451,6 +4867,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "bb98e791e417c0b7347ea1bc0d8aa28d7f828a1831384d67717e819968dbb458"
   },
   {
@@ -4465,6 +4882,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "350950b9cfd2f77d31c9d93bcec0323cbccf5b06f139c6b57562942ff7c93a73"
   },
   {
@@ -4479,6 +4897,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "9e94a09ab57e30ec4de141559201c8be9bf816df31f9cff1f6f64aba33a047a4"
   },
   {
@@ -4493,6 +4912,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "a1ba291397974020af6db9bbd9f0f6d0206e43361df93ba20b61d99fcfadd8aa"
   },
   {
@@ -4507,6 +4927,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "ef7e5a24d881b642c16c29596c7823655413f2ccab0407abda03c683aa3f08fc"
   },
   {
@@ -4521,6 +4942,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "1108b459b25a7828aa87f080c6e29a1b53425ccce81f30d5c14d7a924a9496b1"
   },
   {
@@ -4535,6 +4957,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "54e9d55c80ddb10b4ccb0662ac45b2cb3c58e3a3902ed87c6620fd5180d9bd33"
   },
   {
@@ -4549,7 +4972,26 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "ef7e5a24d881b642c16c29596c7823655413f2ccab0407abda03c683aa3f08fc"
+  },
+  {
+   "key": "FK FK_LLBG-OMDW_04NOV26_poslaunch-permits_live OMDW A3000/26 OBSTACLE",
+   "fmt": "FK",
+   "pkg": "FK_LLBG-OMDW_04NOV26_poslaunch-permits_live",
+   "airport": "OMDW",
+   "id": "A3000/26",
+   "category": "OBSTACLE",
+   "group": "G",
+   "pattern": "LOW_VIS_OPS",
+   "byHeadingOnly": true,
+   "before": true,
+   "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "GENERAL"
+   },
+   "sha": "1b3495f2cb4307f8a2bf91da38e8d397a4b9ec07a68568f9ca7c0713dca895b6"
   },
   {
    "key": "FK FK_VHHH-PANC_02NOV26_mtow-equipcode_live EDF PAED M1506/26 OBSTACLE",
@@ -4563,6 +5005,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "a3841d5ea69615bded044b54b1d92951d7af4ce63f98894b1eb3b764b21a423a"
   },
   {
@@ -4577,6 +5020,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8079068ce9f0080bacbd7ed776b527da5995fb1df534908255fcc6c3a67d2cb1"
   },
   {
@@ -4586,11 +5030,12 @@
    "airport": "PAED",
    "id": "M1137/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "22d8ba82c8758517d7ff2a345e55b71d646b629dfb95f698a462502fd49a58f3"
   },
   {
@@ -4605,6 +5050,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "c97b606ed8205f25276dac4af222516f5011afb0e5b39a73249bfb040e7cedfc"
   },
   {
@@ -4614,11 +5060,12 @@
    "airport": "PASY",
    "id": "M0645/26",
    "category": "GENERAL",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "a93a57f863d9915333df45edc41e94e1dd4e9a787422ba2b00dfa1d429d97035"
   },
   {
@@ -4633,6 +5080,10 @@
    "byHeadingOnly": true,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "2632b4e2c4f7d402b5f8b443056054f611aa1de74bede98e0171c929774eb5cd"
   },
   {
@@ -4647,6 +5098,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "dcce88ea301694942c437c8a3bddb6318ec7abc099ad5aed44d5bf92011212f6"
   },
   {
@@ -4656,11 +5111,12 @@
    "airport": "EPWA",
    "id": "P3094/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "a241b471825d732bd461a45ca1d737b9f48016e7fc418f57de18761cb8383430"
   },
   {
@@ -4670,11 +5126,12 @@
    "airport": "EPWA",
    "id": "A3094/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_PROCEDURE",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "edd72ff5a91ca05487fd997963d39f1970abcda683d31b8a3b3daa549cd54b1e"
   },
   {
@@ -4684,11 +5141,12 @@
    "airport": "EPWA",
    "id": "P2716/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "5a8bfebca8973c2f8b985be9146c4c5df845c7b067568d4338c289055369fd55"
   },
   {
@@ -4698,11 +5156,12 @@
    "airport": "EPWA",
    "id": "A2716/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_PROCEDURE",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "23fe08a6f7f9d6e89d5b7e79b438a180b8efdfc38df3b1e275cc22e830accde3"
   },
   {
@@ -4717,6 +5176,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "d4b93610b407a865c71c6471e05400bded4d6aa6aa3e30716ea598c5bd5d48ce"
   },
   {
@@ -4731,6 +5191,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "2b8a5faf642e2276635a15899ce3c01c169c44580b42a496cc6a4670006f0e99"
   },
   {
@@ -4745,6 +5206,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "b1b23e7ff14c27715f852986ed9178548bf04e55f3b0697f2425aa3e0b3ac946"
   },
   {
@@ -4754,11 +5216,12 @@
    "airport": "EPLB",
    "id": "U2775/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "68b9bc53ad5c7c9767495906ac6e7e6ac374b13e3963698447a07b2ee3ac2f37"
   },
   {
@@ -4768,11 +5231,12 @@
    "airport": "EPLB",
    "id": "E2775/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": true,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "4a1275f54b62e5089aa27593f89450d44ce95549eba52275187de89bbcfce991"
   },
   {
@@ -4787,6 +5251,10 @@
    "byHeadingOnly": true,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "25f0a83bb8b2c44ca97810d0f130ccfa846326461cfdda5f176ed0e4a7739742"
   },
   {
@@ -4801,6 +5269,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "37115134ae78f9eb6a71f458ebbbee3a55ddeb075e6485838fbd6ade7158af22"
   },
   {
@@ -4815,6 +5287,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "6c8c590a52bdadd5bbcf72349c632efcd411a540a429bc0febf0a82f84cf678a"
   },
   {
@@ -4829,6 +5305,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "da4aa1649ddc3a7a2faafe2c2026e3837fdda41977973b68a3820f4256a666a9"
   },
   {
@@ -4843,6 +5323,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "c97b606ed8205f25276dac4af222516f5011afb0e5b39a73249bfb040e7cedfc"
   },
   {
@@ -4852,11 +5333,12 @@
    "airport": "PASY",
    "id": "M0645/26",
    "category": "GENERAL",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "a93a57f863d9915333df45edc41e94e1dd4e9a787422ba2b00dfa1d429d97035"
   },
   {
@@ -4871,6 +5353,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "a3841d5ea69615bded044b54b1d92951d7af4ce63f98894b1eb3b764b21a423a"
   },
   {
@@ -4885,6 +5368,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8079068ce9f0080bacbd7ed776b527da5995fb1df534908255fcc6c3a67d2cb1"
   },
   {
@@ -4894,11 +5378,12 @@
    "airport": "PAED",
    "id": "M1137/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "22d8ba82c8758517d7ff2a345e55b71d646b629dfb95f698a462502fd49a58f3"
   },
   {
@@ -4908,11 +5393,15 @@
    "airport": "ZPPP",
    "id": "U3512/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
+   "group": "C",
+   "pattern": "PROCEDURE_AFFECTED",
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "b3200667254b9096095b289ea853f44867edacb0cdda39211efb317d8223652e"
   },
   {
@@ -4922,11 +5411,15 @@
    "airport": "ZPPP",
    "id": "U3121/26",
    "category": "OBSTACLE",
-   "group": "U",
-   "pattern": "PROCEDURE_AREA_AFFECTED",
+   "group": "C",
+   "pattern": "PROCEDURE_AFFECTED",
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "31c3ca4398a9df6822231940f138b4c015ab72860317be1fef516db3a20f4e86"
   },
   {
@@ -4941,6 +5434,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "6c8c590a52bdadd5bbcf72349c632efcd411a540a429bc0febf0a82f84cf678a"
   },
   {
@@ -4955,6 +5452,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "da4aa1649ddc3a7a2faafe2c2026e3837fdda41977973b68a3820f4256a666a9"
   },
   {
@@ -4969,6 +5470,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "a3841d5ea69615bded044b54b1d92951d7af4ce63f98894b1eb3b764b21a423a"
   },
   {
@@ -4983,6 +5485,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "8079068ce9f0080bacbd7ed776b527da5995fb1df534908255fcc6c3a67d2cb1"
   },
   {
@@ -4992,11 +5495,12 @@
    "airport": "PAED",
    "id": "M1137/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "22d8ba82c8758517d7ff2a345e55b71d646b629dfb95f698a462502fd49a58f3"
   },
   {
@@ -5011,6 +5515,10 @@
    "byHeadingOnly": false,
    "before": true,
    "after": true,
+   "cards": {
+    "DEST": "GENERAL",
+    "ORIG": "SIDs"
+   },
    "sha": "da4aa1649ddc3a7a2faafe2c2026e3837fdda41977973b68a3820f4256a666a9"
   },
   {
@@ -5025,6 +5533,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "c97b606ed8205f25276dac4af222516f5011afb0e5b39a73249bfb040e7cedfc"
   },
   {
@@ -5034,11 +5543,12 @@
    "airport": "PASY",
    "id": "M0645/26",
    "category": "GENERAL",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "a93a57f863d9915333df45edc41e94e1dd4e9a787422ba2b00dfa1d429d97035"
   },
   {
@@ -5053,6 +5563,7 @@
    "byHeadingOnly": false,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "15012fdec2e83371b1a14b7cb30bc2d988e133312e367602edc6005fe5b98e17"
   },
   {
@@ -5067,6 +5578,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "597550c059d423cc978f4d912df3eaa5cb4a9259b583cf11c31665cacce98a28"
   },
   {
@@ -5076,11 +5591,12 @@
    "airport": "NFTF",
    "id": "P0544/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "c9a5e0f67e05008ad8e56ec5ae2092065a8492d019b670766767a3dbf83e98ec"
   },
   {
@@ -5090,11 +5606,12 @@
    "airport": "NZAA",
    "id": "F3733/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "7fe6283ccf4f06788285f0a2cee0ccdb16caf5412a9099a40d1a6056900bf6b3"
   },
   {
@@ -5104,11 +5621,12 @@
    "airport": "NZAA",
    "id": "F3433/26",
    "category": "OBSTACLE",
-   "group": "U",
+   "group": "B",
    "pattern": "HEIGHT_NEAR_RUNWAY",
    "byHeadingOnly": false,
    "before": true,
-   "after": true,
+   "after": false,
+   "cards": null,
    "sha": "de2f528e057f93448cb1cd5878c343b00a0fe54344d15a5ea927f99842b0c0ce"
   },
   {
@@ -5123,6 +5641,7 @@
    "byHeadingOnly": true,
    "before": true,
    "after": false,
+   "cards": null,
    "sha": "738c118bd7898208e6dd41ba0fbc4ce006e1f4b8fcaa898bce16d3f3ceb0f9c2"
   },
   {
@@ -5137,6 +5656,10 @@
    "byHeadingOnly": false,
    "before": false,
    "after": true,
+   "cards": {
+    "DEST": "no row (slot 7)",
+    "ORIG": "no row (slot 7)"
+   },
    "sha": "712998dfe5ea9ac2f73ccab8515a539978a94a4ca585d45a4840e54fb0680a33"
   }
  ]

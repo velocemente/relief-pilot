@@ -60,6 +60,7 @@ function parseArgs(argv) {
     else if (k === '--json') o.json = argv[++i];
     else if (k === '--report') o.report = argv[++i];
     else if (k === '--data') o.data = argv[++i];
+    else if (k === '--beta') o.beta = argv[++i];
     else { console.error(`unknown argument: ${k}`); process.exit(2); }
   }
   o.before = o.before || path.join(RULES, MAN['notam-rules'].file);
@@ -119,19 +120,50 @@ function notesOf(p, id) {
   return n;
 }
 
-function groupOf(dec, before, after) {
+function groupOf(dec, before, after, diff) {
   if (!dec.obstacle) return null;
   if (dec.group === 'UNDECIDED') return 'U';
   if (before && !after) return 'B';
   if (!before && after) return 'C';
+  if (before && after && diff) return 'G';   // shown by both; only its card group / label set (D67a O-25)
   return null;
+}
+
+// The card group an item lands in (the airport card draws rows for these only, E2), or 'no row'.
+function cardGroupOf(res, raw) {
+  const it = res.issues.find(i => i.notamRaw === raw);
+  if (!it) return '—';
+  if ((res.sidIssues || []).includes(it)) return 'SIDs';
+  if ((res.starIssues || []).includes(it)) return 'STARs';
+  for (const [k, g] of res.rwyGroups) if (g.items.includes(it)) return k;
+  return `no row (slot ${it.slot}${it.category ? ', ' + it.category : ''})`;
+}
+
+// O-28: why v1.13.0's obstacle filter (E1) hid a NOTAM — the obstacle word and where it stands, and
+// the word that carries the content v1.14.0 reads (not an E1 keyword).
+const NB_TRAIL = /\b(?:METAR|TAF|SPECI)\b|NO OPERATIONAL NOTAMS ON FILE|\bOTHER\b(?=\s+(?:METAR|NO\b))/;
+function e1Why(NEW, ruleText, dec) {
+  const t = ruleText.toUpperCase().replace(/\s+/g, ' ');
+  const w = t.match(NEW.OBSTACLE_RULE.obstacleWord);
+  const tr = t.search(NB_TRAIL);
+  const where = w && tr >= 0 && w.index > tr ? 'in the text after the NOTAM (weather / next section)' : 'in the NOTAM text';
+  const n = t.replace(NEW.OBSTACLE_RULE.noEffect, ' ').replace(NEW.OBSTACLE_RULE.obstacleLight, ' ');
+  const grp = dec.group === 'EFFECT' ? 'effect' : 'other';
+  const m = n.match(NEW.OBSTACLE_RULE[grp][dec.pattern]);
+  // the word that carries the content: the first word of the match that is not a verb or a joiner;
+  // for an area closed (CLSD TO ACFT), the area named before it (RAMP, APRON …)
+  const STOP = /^(?:CHANGE|CHANGED|OF|IN|THE|CLSD|CLOSED|TO|ACFT|U\/S|UNUSABLE|AFFECTED|AREA|PATH|CHART,?|SECTOR|LIMIT|ALT|NOT|AVBL|FOR|AND|\d.*)$/;
+  let missing = m ? (m[0].split(' ').find(x => !STOP.test(x)) || null) : null;
+  if (m && !missing) { const a = n.slice(0, m.index).match(/\b(RAMP|APRON|APN|STANDS?|AREA|PARKING|GATES?)\b(?!.*\b(?:RAMP|APRON|APN|STANDS?|AREA|PARKING|GATES?)\b)/); missing = a ? a[1] : m[0].split(' ')[0]; }
+  return { word: w ? w[0] : null, where, content: m ? m[0].slice(0, 60) : null, missing };
 }
 
 function run(o) {
   const OLD = require(path.resolve(o.before));
   const NEW = require(path.resolve(o.after));
   const fixtures = readManifest(o.fixtures).fixtures;
-  const entries = [], stops = [];
+  const entries = [], stops = [], audit = [], beta = [];
+  const BETA = o.beta ? require(path.resolve(o.beta)) : null;   // NOTAM v1.11.2: evalNotams(notams, role, eta, acftType, iso, dep)
   const stats = { navblue: { fixtures: 0, notams: 0, calls: 0 }, flightkeys: { packages: 0, airports: 0, items: 0, calls: 0, headings: 0 } };
 
   // ── NavBlue / eOFP ──
@@ -147,7 +179,6 @@ function run(o) {
       const ev = (M, role, eta, dep, d) => M.evalNotams([p], role, eta, prof, d, dep, AP.getWingspan);
       const b0 = ev(OLD, 'DEST', null, null, fx.date), a0 = ev(NEW, 'DEST', null, null, fx.date);
       const dec = NEW._obstacleRule(p, null);
-      const g = groupOf(dec, shownIn(b0, p), shownIn(a0, p));
       let diff = canon(b0) !== canon(a0) ? 1 : 0, sb = 0, sa = 0, n = 0;
       for (const role of SWEEP.roles) for (const eta of SWEEP.etas) for (const dep of SWEEP.deps) for (const d of [fx.date, null]) {
         const b = ev(OLD, role, eta, dep, d), a = ev(NEW, role, eta, dep, d);
@@ -156,14 +187,28 @@ function run(o) {
         if (shownIn(b, p)) sb++;
         if (shownIn(a, p)) sa++;
       }
+      const g = groupOf(dec, shownIn(b0, p), shownIn(a0, p), diff);
+      const id = idOf(NEW, p);
+      const o14 = ev(NEW, 'ORIG', null, null, fx.date);
+      const cards = shownIn(a0, p) ? { DEST: cardGroupOf(a0, p), ORIG: cardGroupOf(o14, p) } : null;
+      const cards13 = shownIn(b0, p) ? { DEST: cardGroupOf(b0, p), ORIG: cardGroupOf(ev(OLD, 'ORIG', null, null, fx.date), p) } : null;
+      // O-28 (a): hidden by v1.13.0's obstacle filter although it changes something else or affects a procedure
+      if (dec.obstacle && dec.byText && !e1Keyword(p) && !shownIn(b0, p) && ['EFFECT', 'OTHER'].includes(dec.group)) {
+        audit.push({ fmt: 'NB', pkg: fx.id, airport: id.loc, id: id.id, key: `NB ${fx.id} #${k}`, body: bodyLines(NEW, p), why: e1Why(NEW, p, dec),
+          group: g, decision: dec.group, pattern: dec.pattern, shown14: shownIn(a0, p), cards, notes: notesOf(p, id), sha: sha(p) });
+      }
+      // O-28 (c): beta exposure — v1.11.2 (the beta's copy) hides it, v1.14.0 shows it (no window)
+      if (BETA && !shownIn(BETA.evalNotams([p], 'DEST', null, fx.aircraft || '', fx.date, null), p) && shownIn(a0, p)) {
+        beta.push({ pkg: fx.id, airport: id.loc, id: id.id, key: `NB ${fx.id} #${k}`, body: bodyLines(NEW, p), decision: dec.group, pattern: dec.pattern,
+          obstacle: dec.obstacle, why: dec.obstacle && ['EFFECT', 'OTHER'].includes(dec.group) ? e1Why(NEW, p, dec) : null, group: g, cards, notes: notesOf(p, id) });
+      }
       if (g === null && diff) stops.push(`${fx.id} #${k}: result differs (${diff} evaluations) but the NOTAM is not in the change list`);
       if ((g === 'B' || g === 'C') && !diff) stops.push(`${fx.id} #${k}: listed ${g} but no result differs`);
       if (g) {
-        const id = idOf(NEW, p);
         entries.push({ fmt: 'NB', pkg: fx.id, airport: id.loc, id: id.id, category: null, key: `NB ${fx.id} #${k}`,
           group: g, decision: dec.group, pattern: dec.pattern, noEffectStated: dec.noEffectStated, e1: e1Keyword(p),
           before: { noWindow: shownIn(b0, p), sweep: `${sb}/${n}` }, after: { noWindow: shownIn(a0, p), sweep: `${sa}/${n}` },
-          header: !!id.id, notes: notesOf(p, id), body: bodyLines(NEW, p), sha: sha(p) });
+          header: !!id.id, notes: notesOf(p, id), body: bodyLines(NEW, p), cards, cards13, sha: sha(p) });
       }
     });
   }
@@ -199,7 +244,6 @@ function run(o) {
         const evA = (role, eta, d) => NEW.evalNotams(hd ? [hd, p] : [p], role, eta, prof, d, dep, AP.getWingspan);
         const b0 = evB('DEST', null, fx.date), a0 = evA('DEST', null, fx.date);
         const dec = NEW._obstacleRule(p.split('\n').filter((_, k) => !h.headerRows.includes(k)).join('\n'), cat);
-        const g = groupOf(dec, shownIn(b0, q), shownIn(a0, p));
         // compare: notamRaw of the two texts may differ only in a trailing newline; compare with it unified
         const norm = (res, raw) => canon(res).split(JSON.stringify(raw).slice(1, -1)).join('<RAW>');
         let diff = norm(b0, q) !== norm(a0, p) ? 1 : 0;
@@ -211,17 +255,25 @@ function run(o) {
           atWin.push(`${w.name}:${shownIn(b, q) ? 'S' : 'H'}→${shownIn(aa, p) ? 'S' : 'H'}`);
         }
         stats.flightkeys.calls += 2;
+        const g = groupOf(dec, shownIn(b0, q), shownIn(a0, p), diff);
+        const rt = p.split('\n').filter((_, k) => !h.headerRows.includes(k)).join('\n');
+        const cards = shownIn(a0, p) ? { DEST: cardGroupOf(a0, p), ORIG: cardGroupOf(NEW.evalNotams(hd ? [hd, p] : [p], 'ORIG', null, prof, fx.date, dep, AP.getWingspan), p) } : null;
+        const cards13 = shownIn(b0, q) ? { DEST: cardGroupOf(b0, q), ORIG: cardGroupOf(OLD.evalNotams([q], 'ORIG', null, prof, fx.date, dep, AP.getWingspan), q) } : null;
+        if (dec.obstacle && dec.byText && !e1Keyword(rt) && !shownIn(b0, q) && ['EFFECT', 'OTHER'].includes(dec.group)) {
+          audit.push({ fmt: 'FK', pkg: fx.id, airport: icao, id: h.id, key: `FK ${fx.id} ${h.locations.join(' ')} ${h.id} ${cat || '-'}`, category: cat,
+            body: bodyLines(NEW, p), why: e1Why(NEW, rt, dec), group: g, decision: dec.group, pattern: dec.pattern, shown14: shownIn(a0, p), cards, notes: [], sha: sha(p.replace(/\s+$/, '')) });
+        }
         if (g === null && diff) stops.push(`${fx.id} ${icao} ${h.id}: result differs (${diff}) but the item is not in the change list`);
         if ((g === 'B' || g === 'C') && !diff) stops.push(`${fx.id} ${icao} ${h.id}: listed ${g} but no result differs`);
         if (g) entries.push({ fmt: 'FK', pkg: fx.id, airport: icao, id: h.id, category: cat, key: `FK ${fx.id} ${h.locations.join(' ')} ${h.id} ${cat || '-'}`,
           group: g, decision: dec.group, pattern: dec.pattern, noEffectStated: dec.noEffectStated, e1: e1Keyword(p.split('\n').filter((_, k) => !h.headerRows.includes(k)).join('\n')),
           byHeadingOnly: dec.byHeading && !dec.byText,
           before: { noWindow: shownIn(b0, q) }, after: { noWindow: shownIn(a0, p) }, windows: atWin,
-          header: true, body: bodyLines(NEW, p), sha: sha(p.replace(/\s+$/, '')) });
+          header: true, body: bodyLines(NEW, p), cards, cards13, sha: sha(p.replace(/\s+$/, '')) });
       }
     }
   }
-  return { entries, stops, stats, before: path.relative(ROOT, path.resolve(o.before)), after: path.relative(ROOT, path.resolve(o.after)),
+  return { entries, audit, beta, betaFile: o.beta ? path.basename(o.beta) : null, betaSha: o.beta ? sha(fs.readFileSync(o.beta)) : null, stops, stats, before: path.relative(ROOT, path.resolve(o.before)), after: path.relative(ROOT, path.resolve(o.after)),
     sha: { before: sha(fs.readFileSync(o.before)), after: sha(fs.readFileSync(o.after)), fkParser: raw.parser.sha256 }, fkParserFile: raw.parser.file };
 }
 
@@ -230,11 +282,14 @@ function run(o) {
 function slim(res) {
   const cnt = g => res.entries.filter(e => e.group === g).length;
   return {
-    _about: 'NOTAM ruleset v1.14.0 obstacle-rule change list (D67): docs/RPT-NOTAM-ObstacleRule-ChangeList-NEW-20261118-v1.0.md, made by test/corpus/notam-obstacle-changes.js. Keys: NB <fixture> #<piece index of the whole-text split>; FK <package> <locations> <ID> <category>. sha = SHA-256 of the NOTAM text (FlightKeys: trailing white space removed). No NOTAM text, no crew data.',
+    version: '1.1',
+    _about: 'NOTAM ruleset v1.14.0 obstacle-rule change list (D67): docs/RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.1.md (D67a), made by test/corpus/notam-obstacle-changes.js. Keys: NB <fixture> #<piece index of the whole-text split>; FK <package> <locations> <ID> <category>. sha = SHA-256 of the NOTAM text (FlightKeys: trailing white space removed). No NOTAM text, no crew data.',
     before: { file: res.before, sha256: res.sha.before }, after: { file: res.after, sha256: res.sha.after }, fkParser: res.sha.fkParser,
-    counts: { B: cnt('B'), C: cnt('C'), U: cnt('U') }, stats: res.stats,
+    counts: { B: cnt('B'), C: cnt('C'), U: cnt('U'), G: cnt('G') }, stats: res.stats,
+    audit: res.audit.map(e => ({ key: e.key, fmt: e.fmt, pkg: e.pkg, airport: e.airport, id: e.id, group: e.group, pattern: e.pattern, shown: e.shown14, cards: e.cards, sha: e.sha })),
+    beta: res.beta ? { file: res.betaFile, sha256: res.betaSha, entries: res.beta.map(e => ({ key: e.key, pkg: e.pkg, airport: e.airport, id: e.id, pattern: e.pattern })) } : null,
     entries: res.entries.map(e => ({ key: e.key, fmt: e.fmt, pkg: e.pkg, airport: e.airport, id: e.id, category: e.category, group: e.group,
-      pattern: e.pattern, byHeadingOnly: !!e.byHeadingOnly, before: e.before.noWindow, after: e.after.noWindow, sha: e.sha })),
+      pattern: e.pattern, byHeadingOnly: !!e.byHeadingOnly, before: e.before.noWindow, after: e.after.noWindow, cards: e.cards || null, sha: e.sha })),
   };
 }
 
@@ -245,7 +300,7 @@ if (require.main === module) {
   const res = run(o);
   const count = g => res.entries.filter(e => e.group === g).length;
   console.log(JSON.stringify(res.stats));
-  console.log(`B ${count('B')}  C ${count('C')}  U ${count('U')}  (U newly shown: ${res.entries.filter(e => e.group === 'U' && !e.before.noWindow).length})`);
+  console.log(`B ${count('B')}  C ${count('C')}  U ${count('U')}  G ${count('G')}  (U newly shown: ${res.entries.filter(e => e.group === 'U' && !e.before.noWindow).length})  O-28 audit ${res.audit.length}  beta exposure ${res.beta.length}`);
   for (const s of res.stops) console.log(`STOP ${s}`);
   if (o.json) fs.writeFileSync(o.json, JSON.stringify(res, null, 1) + '\n');
   if (o.data) fs.writeFileSync(o.data, JSON.stringify(slim(res), null, 1) + '\n');
