@@ -46,6 +46,13 @@
  *               exposure entries are change-list NOTAMs v1.14.0 shows
  *   TC-172-040  D61, D43 and the aircraft filter unchanged (v1.14.0 = v1.13.0)
  *   TC-172-050  the gate bites: E1 restored, headings not read, the OBSTACLE heading ignored → caught
+ *   TC-172-070  D67b O-29 / F-1: a shown C or U row with no card row → GENERAL on the destination /
+ *               alternate card; the departure card unchanged (step 5e); shown-by-both rows untouched
+ *   TC-172-071  D67b O-31 / F-7: a surface notice that states minima / procedures unchanged → hidden
+ *   TC-172-072  D67b F-5: en-route MEA / MOCA NOTAMs deferred — exactly v1.13.0's result
+ *   TC-172-073  D67b F-2: an area closed (also from the ground to a height) → shown, GENERAL
+ *   TC-172-074  D67b F-3: only the NOTAM's own text is read (weather, FAA domestic NOTAMs after it)
+ *   TC-172-075  D67b F-4: a table's values decide, never its column title
  *   TC-172-090  fixtures missing → the fixture tests FAIL (never skip)
  *
  * Synthetic NOTAMs use airports XXXX / XXX and invented IDs. Fixture tests report counts, package ids,
@@ -72,7 +79,7 @@ const OLD_SRC  = fs.readFileSync(OLD_FILE, 'utf8');
 const M13      = require(OLD_FILE);                                          // v1.13.0 (built into the app)
 const AP       = nodeAircraftProfile();
 const CHANGES  = require('./data/notam-v1.14.0-obstacle-changes.json');
-const REPORT   = path.join(ROOT, 'docs', 'RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.1.md');
+const REPORT   = path.join(ROOT, 'docs', 'RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.2.md');
 const FK_RAW   = path.join('expected', 'notam-rules-v1.14.0', 'fk-notams-raw.json');
 
 const PROF  = AP.buildAcftProfile('B744');
@@ -109,7 +116,7 @@ const NB = body => `- XXXX ${nextId()} 01NOV0000-30NOV2359\n${body}\n`;
 const FK = body => `XXXX XXX ${nextId()}   2026-Nov-01 00:00 - 2026-Nov-30 23:59\nCREATED:2026-Oct-31 12:00   FL: SFC - UNL\n${body}\n`;
 const BASE = 'TEMP CRANE 2NM N OF ARP.';
 // Card rows (E2): the runway groups, GENERAL, TAXIWAYS, SIDs, STARs. The group an issue lands in, or null.
-const O25 = ['APRON_STAND', 'CLOSED_TO_TRAFFIC', 'PROCEDURE_CHANGE', 'LOW_VIS_OPS'];
+const O25 = ['APRON_STAND', 'CLOSED_TO_TRAFFIC', 'AREA_CLOSED', 'PROCEDURE_CHANGE', 'LOW_VIS_OPS'];
 const hasRow = (c, isOrig) => c.category === 'SID' || c.category === 'STAR' ||
   ([3, 6].includes(c.slot) && !!c.label && /^TWY\b/i.test(c.label)) || (isOrig ? [1, 2, 5, 6] : [1, 2, 3, 4]).includes(c.slot);
 function cardGroup(res, raw) {
@@ -132,7 +139,7 @@ test('TC-172-001 v1.14.0: version, manifest, exports, validateSchema, dual conte
   assert.equal(e.file, 'notam-rules-next/notam-rules-v1.14.0.js');
   assert.equal(e.sha256, sha(fs.readFileSync(FILE)));
   // The new exports, and every v1.13.0 export kept in the same order.
-  const NEW = ['FK_TYPE_HEADINGS', '_fkTypeHeading', 'OBSTACLE_RULE', '_obstacleRule'];
+  const NEW = ['FK_TYPE_HEADINGS', '_fkTypeHeading', 'OBSTACLE_RULE', '_obstacleRule', '_ownNotamText'];
   assert.deepEqual(Object.keys(M).filter(k => !NEW.includes(k)), Object.keys(M13));
   for (const k of NEW) assert.ok(k in M, `export ${k}`);
   assert.deepEqual([...M.FK_TYPE_HEADINGS], ['RUNWAY', 'TAXIWAY', 'APPROACH AND LANDING', 'AIRPORT', 'OBSTACLE', 'NAVIGATION',
@@ -189,7 +196,7 @@ test('TC-172-002 every v1.13.0 declaration except the edited ones is unchanged i
   const a = declarations(OLD_SRC), b = declarations(SRC);
   const EDITED = ['RULESET_VERSION', '_splitNotams', '_splitAt', 'evalNotams', 'validateSchema', 'API'];
   const ADDED = ['FK_TYPE_HEADINGS', '_FK_HEADING_MIN_INDENT', '_fkTypeHeading', '_fkHeadingLines', '_fkHeadingPiece',
-    '_OB_SENT', '_OB_US', '_obRe', 'OBSTACLE_RULE', '_obstacleRule', '_OB_CARD_CASES', '_hasCardRow', '_obstacleCardGroup'];
+    '_OB_SENT', '_OB_US', '_obRe', 'OBSTACLE_RULE', '_obstacleRule', '_OB_CARD_CASES', '_hasCardRow', '_obstacleCardGroup', '_ownNotamText'];
   for (const [name, text] of a) {
     assert.ok(b.has(name), `${name} kept`);
     if (!EDITED.includes(name)) assert.equal(b.get(name), text, `${name} unchanged`);
@@ -266,6 +273,7 @@ const OTHER_CASES = [
   ['RWY_AVAILABILITY',       'RWY 09 CLSD.'],
   ['RWY_AVAILABILITY',       'RWY 09/27 NOT AVBL.'],
   ['CLOSED_TO_TRAFFIC',      'EAST RAMP NW CORNER CLSD TO ACFT.'],
+  ['AREA_CLOSED',            'AN AREA BTN FLW PSN CLSD FM GND UP TO 72M 236FT AMSL.'],
   ['TWY_AVAILABILITY',       'TWY B CLSD.'],
   ['TWY_AVAILABILITY',       'TWY A AND B RESTRICTED.'],
   ['APRON_STAND',            'STAND 12 NOT AVBL.'],
@@ -616,7 +624,7 @@ test('TC-172-060 O-28: each kind of NOTAM v1.13.0\'s obstacle filter hid is show
     ['aerodrome beacon outage',       'LIGHTING',           'ABN U/S DUE CRANE.'],
     ['area closed to aircraft',       'CLOSED_TO_TRAFFIC',  'OBST CTN: EAST RAMP NW CORNER CLSD TO ACFT DUE TO CONST.'],
     ['minimum altitude changed',      'MINIMA_CHANGED',     'DUE TO OBST, ATC SURVEILLANCE MINIMUM ALT CHART, SECTOR 15 ALT LIMIT CHANGED TO 600M.'],
-    ['procedure area affected',       'PROCEDURE_AFFECTED', 'ADD NEW TEMPO OBST: CRANE 1 139/3206 76.0 RED LGT. FLT PROCEDURE/TAKE-OFF PATH AREA AFFECTED.'],
+    ['area closed from the ground',   'AREA_CLOSED',        'CRANE ERECTED WI XXXX CTR. AN AREA BTN FLW PSN CLSD FM GND UP TO 74.50M 245FT AMSL.'],
   ];
   for (const [kind, pat, t] of KINDS) for (const mk of [NB, FK]) {
     const x = mk(t);
@@ -631,6 +639,119 @@ test('TC-172-060 O-28: each kind of NOTAM v1.13.0\'s obstacle filter hid is show
   for (const x of [tw, nv]) {
     assert.ok(!shown(M13, [x], x), 'v1.13.0 hid it');
     assert.ok(shown(M, [x], x), 'v1.14.0 shows it');
+  }
+});
+
+// ══ TC-172-070 … 075 D67b ═════════════════════════════════════════════════════
+// Each has a case the D67a head (dcf8378) gets wrong.
+
+test('TC-172-070 D67b O-29 / F-1: a shown C or U row with no card row → GENERAL on the destination card', () => {
+  // C: v1.13.0's E1 hid it (an obstacle word, none of E1's keywords); v1.14.0 shows it
+  const CASES = [
+    ['- XXXX A3994/25 17JUN1409-PERM\nXXX NAV TACAN U/S\nOTHER\nMETAR XXXX 081554Z AUTO 26007KT 10SM CLR 09/03 A3002 RMK AO2 OBST\n', 'C: TACAN U/S, obstacle word only in the weather after it'],
+    ['- XXXX J5859/25 19DEC0517-18MAR0800 2026 EST\nABN U/S\nOTHER\nNO METAR REPORTS FOUND FOR XXXX OBST\n', 'C: aerodrome beacon U/S'],
+    [NB('XXX VORTAC R-285 UNUSABLE BLW 12500 DUE OBST.'), 'C: VORTAC radial unusable'],
+    [NB('CRANE INFRINGES INNER HORIZONTAL SFC BY 74FT.'), 'U: inner horizontal surface infringed'],
+    [NB('NEW OBST PENETRATING TRANSITIONAL SFC, MAX ELEV 40.9M AGL.'), 'U: surface penetrated'],
+  ];
+  for (const [x, what] of CASES) {
+    const r = ev(M, [x], 'DEST');
+    assert.equal(cardGroup(r, x), 'GENERAL', `${what}: GENERAL on the destination card`);
+    const c13 = M13._classifyNotamSlot(x.toUpperCase(), x, 'DEST', PROF.type, true, AP.getWingspan);
+    assert.ok(!hasRow(c13, false), `${what}: v1.13.0's classification has no row (the defect)`);
+    // the departure card is step 5e: unchanged here
+    const o = ev(M, [x], 'ORIG');
+    assert.equal(cardGroup(o, x), null, `${what}: no departure-card row yet (5e)`);
+  }
+  // a NOTAM shown by both versions (an E1 keyword) keeps v1.13.0's result: not moved
+  const both = NB('ODP XXX. TAKEOFF MINIMUMS AND (OBST) DEPARTURE PROCEDURES AMDT 2.');
+  assert.equal(canon(ev(M, [both], 'DEST')), canon(ev(M13, [both], 'DEST')));
+});
+
+test('TC-172-071 D67b O-31 / F-7: a surface notice that states minima / procedures unchanged → hidden', () => {
+  const STATED = [
+    'CRANE EXIST ABV CONICAL SFC 1.PSN : BOUNDED BY FLW POINT 3.RMK : (1)WX MNM,INST APCH PROC,SID,STAR NO CHANGE (2)OBST DAY MARKING INSTL FM SFC TO 221FT AMSL',
+    'HVY EQPT (OBST) EXIST ABV APCH SFC FOR RWY 16R. RMK: WX MNM, INST APCH PROC, SID, STAR NO CHANGE.',
+    'NEW OBST PENETRATING TRANSITIONAL SFC. MINIMA NOT AFFECTED.',
+  ];
+  for (const t of STATED) for (const mk of [NB, FK]) {
+    const x = mk(t);
+    assert.ok(!shown(M, [x], x), `hidden: ${t}`);
+    assert.deepEqual([M._obstacleRule(t).pattern, M._obstacleRule(t).show], ['STATED_UNCHANGED', false], t);
+    // without the statement: undecided, shown (U)
+    const y = mk(t.replace(/(?:RMK ?: ?)?\(1\)WX MNM,INST APCH PROC,SID,STAR NO CHANGE|RMK: WX MNM, INST APCH PROC, SID, STAR NO CHANGE\.|MINIMA NOT AFFECTED\./, ''));
+    assert.ok(shown(M, [y], y), `shown without the statement: ${t}`);
+  }
+});
+
+test('TC-172-072 D67b F-5: en-route MEA / MOCA NOTAMs are deferred — exactly v1.13.0', () => {
+  const EN = [
+    'RTE ZOB SPECIAL NY RTE ZK487 RLANE WAYPOINT TO CIPSI WAYPOINT MEA 4700FT. REASON: NEW CONTROLLING OBST: WINDMILL 595FT AGL/2614FT MSL.',
+    'OH..RTE ZID. V144 APPLETON (APE) VORTAC, OH R-300 TO BUZZI, OH MOCA 2800. TEMPO CRANE 1771 MSL 5.9NM SW OF APPLETON (APE) VORTAC.',
+    // D67a would decide these differently from v1.13.0: the deferral keeps v1.13.0's result
+    'RTE ZXX V38 MOCA RAISED TO 3000 DUE TO OBST.',                                          // D67a: shown (obstacle clearance); v1.13.0: hidden
+    'V144 ABC VORTAC R-300 TO XYZ MOCA 2800. TEMPO CRANE 1771 MSL 2NM SW OF RWY 09 THR.',     // D67a: hidden (height near runway); v1.13.0: shown (RWY)
+  ];
+  for (const t of EN) for (const mk of [NB, FK]) {
+    const x = mk(t);
+    for (const role of ['ORIG', 'DEST']) assert.equal(canon(ev(M, [x], role)), canon(ev(M13, [x], role)), `${t} (${role}): = v1.13.0`);
+    assert.equal(M._obstacleRule(t).group, 'DEFERRED', t);
+  }
+  // "OBSTACLES" (plural) is no obstacle word: shown by both, untouched (KZOB A0409/26)
+  const pl = NB('RTE ZOB RLANE WAYPOINT TO NERGE WAYPOINT MEA 4700FT. REASON: NEW CONTROLLING OBSTACLES: WINDMILLS.');
+  assert.equal(M._obstacleRule(pl).obstacle, false);
+  assert.ok(shown(M, [pl], pl) && shown(M13, [pl], pl));
+  // a NOTAM ID is never read as an airway (A1023/26 … MOCA): an approach MOCA stays an effect
+  const ap = NB('INTERMEDIATE APPROACH MOCA CHANGED FM 530M TO 550M DUE TO OBST.');
+  assert.equal(M._obstacleRule(ap).group, 'EFFECT');
+});
+
+test('TC-172-073 D67b F-2: an area closed — also from the ground to a height around an obstacle → shown, GENERAL', () => {
+  for (const t of ['CRANE ERECTED WI XXXX CTR. AN AREA BTN FLW PSN CLSD FM GND UP TO 74.50M 245FT AMSL: 320152N0345416E 320150N0345416E. LIT AND DAY MARKED.',
+                   'OBST: CRANE. AIRSPACE WI 200M RADIUS CLSD SFC TO 300FT AGL.']) {
+    for (const role of ['DEST', 'ORIG']) {
+      const x = NB(t);
+      const r = ev(M, [x], role);
+      assert.equal(cardGroup(r, x), 'GENERAL', `${t} (${role})`);
+      assert.equal(M._obstacleRule(t).pattern, 'AREA_CLOSED', t);
+      assert.equal(r.issues.find(i => i.notamRaw === x).label, 'AREA CLSD');
+    }
+  }
+  // FlightKeys under OBSTACLE with no obstacle word (LLBG A0720/26)
+  const it = FK('DRILLING TOWER ERECTED WI XXXX CTR. AN AREA BTN FLW PSN CLSD FM GND UP TO 72M 236FT AMSL. LIT AND DAY MARKED.');
+  const r = ev(M, M._splitNotams(`${PAD}OBSTACLE\n${it}`), 'DEST');
+  assert.equal(cardGroup(r, it), 'GENERAL');
+  // negative: the same NOTAM without the closure → hidden
+  const n = NB('CRANE ERECTED WI XXXX CTR. 245FT AMSL. LIT AND DAY MARKED.');
+  assert.ok(!shown(M, [n], n));
+});
+
+test('TC-172-074 D67b F-3: only the NOTAM\'s own text is read — a crane followed by another NOTAM\'s VORTAC U/S stays hidden', () => {
+  const crane = '- XXXX A5647/24 (12/055) 03DEC2109-22AUG2359 2026\nSFO OBST CRANE (ASN 2023-AWP-6491-NRA) 373658N1222318W (0.6NM WSW\nSFO) 210FT (200FT AGL) FLAGGED AND LGTD\n';
+  const after = 'ETP ALTERNATES\nMETAR PAKN 110254Z AUTO 34012G23KT 10SM BKN038 OVC047 M18/M23 A3015\n- AKN 03/022 (A0796/26) AKN NAV VORTAC U/S 2603030944-2604031500EST\n';
+  const x = crane + after;
+  assert.ok(!shown(M, [x], x), 'hidden: the VORTAC U/S belongs to another NOTAM');
+  assert.equal(M._ownNotamText(x), crane.replace(/\n$/, ''), 'own text ends before the section heading');
+  // the FAA domestic NOTAM line alone also ends it
+  const y = crane + '- LOU 09/098 IIU RWY 09 CLSD 2609062258-2610220600\n';
+  assert.ok(!shown(M, [y], y), 'hidden: the RWY CLSD belongs to "- LOU 09/098"');
+  // positive: the outage in the NOTAM's own text → shown
+  const z = crane.replace('FLAGGED AND LGTD', 'FLAGGED AND LGTD. SFO VORTAC U/S');
+  assert.ok(shown(M, [z], z));
+  // FlightKeys items are their own text: unchanged
+  const f = FK('CRANE 200FT AGL 2NM N OF ARP. VORTAC U/S.');
+  assert.equal(M._ownNotamText(f), f);
+});
+
+test('TC-172-075 D67b F-4: a table\'s values decide "procedure affected", never its column title', () => {
+  const head = 'ADD NEW TEMPO OBST WITHIN A CIRCLE WITH A RADIUS OF 15KM(CENTERED ON THE APR):\nOBST ID/DESIGNATION TYPE POSITION MAG BRG(DEGREE)/DIST(M)\nELEVATION(M) MARKING/LIGHTING TYPE AND COLOUR FLIGHT\nPROCEDURE/TAKE-OFF PATH AREA AFFECTED?REMARKS\n';
+  const none = head + 'A01 CRANE  CRANE   013/2,275  2,163.4  RED/LIM/STROBE   -\nA02 CRANE  CRANE   013/2,357  2,154.4  RED/LIM/STROBE   -';
+  const empty = head + 'CRANE 13    CRANE       008/2,712    2,145.3      RED/LIM/STROBE\nCRANE 18    CRANE       021/2,460    2,155.3      RED/LIM/STROBE';
+  const apch = head + 'CRANE 1 CRANE 139/3,206 76.0 RED LGT\nCRANE 5 CRANE 145/3,236 85.5 RED LGT RWY35R VOR/DME\nFINAL APCH';
+  const tkof = head + 'BLDG BLDG 140/6,614 45.0 RED LGT RWY16L\nTAKE-OFF FLT PATH';
+  for (const mk of [NB, FK]) {
+    for (const t of [none, empty]) { const x = mk(t); assert.ok(!shown(M, [x], x), 'every value "-" or empty → not affected, hidden'); }
+    for (const t of [apch, tkof]) { const x = mk(t); assert.equal(M._obstacleRule(t).pattern, 'PROCEDURE_AFFECTED'); assert.ok(shown(M, [x], x), 'a value names a procedure → shown'); }
   }
 });
 
@@ -782,10 +903,24 @@ test('TC-172-032 NavBlue corpus: split unchanged; every NOTAM not in the change 
 
 test('TC-172-033 the change list data and the report agree; recorded from these two modules', () => {
   const md = fs.readFileSync(REPORT, 'utf8');
-  assert.ok(/\*\*Version:\*\* v1\.1-UPD/.test(md) && /## Change log/.test(md), 'v1.1 with its change log');
-  assert.equal(CHANGES.version, '1.1');
+  assert.ok(/\*\*Version:\*\* v1\.2-UPD/.test(md) && /## Change log/.test(md) && /\| \*\*v1\.2\*\* \|/.test(md), 'v1.2 with its change log');
+  assert.equal(CHANGES.version, '1.2');
   const cnt = g => CHANGES.entries.filter(e => e.group === g).length;
-  assert.deepEqual(CHANGES.counts, { B: cnt('B'), C: cnt('C'), U: cnt('U'), G: cnt('G') });
+  assert.deepEqual(CHANGES.counts, { B: cnt('B'), C: cnt('C'), U: cnt('U'), G: cnt('G'), deferred: CHANGES.deferred.length });
+  // D67b F-5: the four en-route NOTAMs, deferred and unchanged from v1.13.0
+  assert.deepEqual(CHANGES.deferred.map(e => `${e.airport} ${e.id}`).sort(), ['KZID A0314/25', 'KZID A0718/26', 'KZOB A0408/26', 'KZOB A0409/26']);
+  for (const e of CHANGES.deferred) assert.equal(e.before, e.after, `${e.key}: unchanged`);
+  assert.ok(new RegExp(`\\| \\*\\*Deferred\\*\\* \\| [^|]+\\| \\*\\*${CHANGES.deferred.length}\\*\\* \\|`).test(md), 'deferred count');
+  // F-8: the split pieces before the first NOTAM are labelled, and the summary counts them apart
+  const secB = md.split('## Group B ')[1].split('\n## ')[0];
+  const pieces = (secB.match(/^\| \d+ \|.*NOT A NOTAM/gm) || []).length;
+  assert.equal(pieces, 6, 'the 6 split pieces labelled NOT A NOTAM');
+  assert.ok(md.includes(`**${cnt('B') - pieces} NOTAMs + ${pieces} split pieces**`), 'B summary: NOTAMs + split pieces');
+  // D67b: the 5e departure-row list, one row per shown row without a departure-card row
+  const dep = CHANGES.entries.filter(e => ['C', 'U', 'G'].includes(e.group) && /^no row/.test(e.cards.ORIG));
+  const sec5e = md.split('## Departure card — step 5e')[1].split('\n## ')[0];
+  assert.equal((sec5e.match(/^\| \d+ \|/gm) || []).length, dep.length, '5e list');
+  assert.ok(/src\/airports\.html.*line 313/.test(sec5e) && /src\/edit\.html.*renderAptIssues/.test(sec5e), '5e list names the src lines');
   for (const g of ['B', 'C', 'U', 'G']) assert.ok(new RegExp(`\\| \\*\\*${g}\\*\\* \\| [^|]+\\| \\*\\*${cnt(g)}\\*\\* \\|`).test(md), `report count ${g} = ${cnt(g)}`);
   for (const g of ['B', 'C', 'U', 'G']) {
     const sec = md.split(`## Group ${g} `)[1].split('\n## ')[0];
@@ -802,6 +937,7 @@ test('TC-172-033 the change list data and the report agree; recorded from these 
   for (const e of CHANGES.entries.filter(x => ['C', 'U', 'G'].includes(x.group))) {
     assert.ok(e.cards && e.cards.DEST && e.cards.ORIG, `${e.key}: card group`);
     if (O25.includes(e.pattern)) assert.ok(!/^no row/.test(e.cards.DEST) && !/^no row/.test(e.cards.ORIG), `${e.key}: O-25 case has a row`);
+    assert.ok(!/^no row/.test(e.cards.DEST), `${e.key}: a row on the destination / alternate card (D67b O-29)`);
   }
   assert.equal(CHANGES.before.sha256, MANIFEST['notam-rules'].sha256, 'recorded from v1.13.0');
   assert.equal(CHANGES.after.sha256, MANIFEST['notam-rules-next'].sha256, 'recorded from this v1.14.0 file');
@@ -827,7 +963,8 @@ test('TC-172-061 O-28 audit: every NOTAM of the corpus v1.13.0\'s obstacle filte
       assert.equal(sha(pc), e.sha);
       assert.ok(!shown(M13, [pc], pc, 'DEST', null, fx.date, null, prof), `${e.key} ${e.id}: hidden by v1.13.0`);
       assert.ok(shown(M, [pc], pc, 'DEST', null, fx.date, null, prof), `${e.key} ${e.id}: shown by v1.14.0`);
-      assert.ok(['EFFECT', 'OTHER'].includes(M._obstacleRule(pc).group));
+      // effect / other, or (D67b F-3) no obstacle NOTAM at all: its obstacle word stands after its own text
+      assert.ok(['EFFECT', 'OTHER', null].includes(M._obstacleRule(pc).group), `${e.key}: decided`);
     });
   }
   for (const { pkg, p, a } of fkAirports(raw)) {
@@ -916,7 +1053,7 @@ test('TC-172-050 the gate bites: broken variants of v1.14.0 are caught', () => {
   assert.ok(!shown(M, pcs, t));
   assert.ok(shown(noCat, pcs, t), 'no-category variant: caught (shown)');
   // (d) the stated non-effect read as an effect: "PROCEDURES NOT AFFECTED" shown.
-  const noNeg = variant(s => s.replace("const n = t.replace(R.noEffect, ' ')", "const n = t"));
+  const noNeg = variant(s => s.replace("let n = t.replace(R.noEffect, ' ')", "let n = t"));
   const x = NB('CRANE 2NM N OF ARP. FLT PROCEDURES NOT AFFECTED.');
   assert.ok(!shown(M, [x], x));
   assert.ok(shown(noNeg, [x], x), 'no-negation variant: caught (shown)');

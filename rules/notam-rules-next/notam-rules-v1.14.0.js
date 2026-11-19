@@ -2137,7 +2137,7 @@ const OBSTACLE_RULE = Object.freeze({
   tableValue: /\bRWY ?\d{2}[LCR]?\b(?:[^.]|\.(?=\d)){0,40}?\b(?:APCH|APPROACH|TAKE-?OFF|TKOF|DEP(?:ARTURE)?|SID|STAR|FINAL|MISSED|CIRCLING|FLT PATH)\b|\b(?:FINAL APCH|TAKE-?OFF FLT PATH|MISSED APCH|SIDS?|STARS?|IAP|IAC|ILS|LOC|VOR\/DME|RNP|RNAV)\b/,
   // D67b F-5: an en-route NOTAM — an airway / route MEA, MOCA (MCA, MRA, MAA) set by an obstacle.
   // Deferred to a later iteration: it is decided exactly as v1.13.0 decided it (E1, e1Keyword).
-  enRoute: /\b(?:RTE|ROUTE|AIRWAY|AWY)\b(?:[^.]|\.(?=\d)){0,160}?\b(?:MEA|MOCA|MCA|MRA|MAA)\b|\b[VJQTLAGRBW]\d{1,4}\b(?:[^.]|\.(?=\d)){0,100}?\b(?:MEA|MOCA)\b/,
+  enRoute: /\b(?:RTE|ROUTE|AIRWAY|AWY)\b(?:[^.]|\.(?=\d)){0,160}?\b(?:MEA|MOCA|MCA|MRA|MAA)\b|\b[VJQT]\d{1,3}\b(?!\/)(?:[^.]|\.(?=\d)){0,100}?\b(?:MEA|MOCA)\b/,   // V / J / Q / T airways; never a NOTAM ID (A1234/26)
   // v1.13.0's E1 keywords (the TKOF keywords and the approach / departure keywords), read only for
   // the deferred en-route NOTAMs and to find the NOTAMs v1.13.0's obstacle filter hid (§ 8b).
   e1Keyword: /\bTAKEOFF\s+MINIMUMS?\b|\bOBST(?:ACLE)?\s+DEP(?:ARTURE)?\s+PROC|\bODP\b|\bMINIMUM\s+CLIMB\b|\bMIN\s+CLIMB\b|\bCLIMB\s+GRADIENT\b|\b(?:ILS|LOC|GLS|RNAV|RNP|NDB|VOR|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|IAP|APCH|PROC|RWY|SID|STAR|CAT\s+I{1,3})\b/i,
