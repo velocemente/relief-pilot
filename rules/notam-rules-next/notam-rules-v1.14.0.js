@@ -22,6 +22,19 @@
  *     runway or a procedure) is shown. Everything else said about an obstacle
  *     is hidden. E1 (shown when the text named any runway, approach, SID or
  *     STAR keyword) is gone. NavBlue and FlightKeys alike.
+ *   CHANGED — D67a (Exec answers of 18 Nov): show an obstacle NOTAM only when a
+ *     procedure (runway, approach, SID, STAR, departure, missed approach, circling)
+ *     is affected. A height near a runway or a procedure with no effect stated is
+ *     hidden (O-22, O-24; reasons HEIGHT_NEAR_RUNWAY / HEIGHT_NEAR_PROCEDURE), as are
+ *     obstacle-light outages and men / equipment near a runway with no height (O-23).
+ *     A procedure stated "affected" and a close-in obstacle are a procedure affected
+ *     (effect PROCEDURE_AFFECTED, CLOSE_IN_OBSTACLE). Undecided, shown: a surface
+ *     penetrated or named, the runway strip, and (O-26) the approach side stated not
+ *     affected with a height near a runway and the take-off side unstated
+ *     (TAKEOFF_SIDE_UNSTATED). The four extra other-content cases (apron / stand,
+ *     area closed to aircraft, a procedure introduced or amended, low-visibility
+ *     operations) are given a card group with a row when the classifier gives them
+ *     none (§ 8b, O-25).
  *   NEW — FlightKeys type headings (§ 2c; grammar §A.6): the 17 printed type
  *     heading lines are headings, never part of an item's text. _splitNotams()
  *     cuts each one out as its own piece; evalNotams() reads a heading piece (or a
@@ -2004,6 +2017,15 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active, getWingspan) {
 //
 //   "Obstacle NOTAMs should only show if it affects a runway, approach, SID or
 //    STAR heights or gradients." Both formats.
+//   D67a (Exec answers, 18 Nov): show an obstacle NOTAM only when a procedure
+//   (runway, approach, SID, STAR, departure, missed approach, circling) is
+//   affected. A height given near a runway or a procedure with no effect stated
+//   (incl. FAA crane NOTAMs), obstacle-light outages, and men / equipment near a
+//   runway with no height are HIDDEN (O-22, O-23); the same test for FlightKeys
+//   items under OBSTACLE with no obstacle word (O-24). The four extra
+//   other-content cases are shown in a card group with a row (O-25, below).
+//   "OCA/H NOT AFFECTED" with a height near a runway and the take-off side not
+//   stated stays undecided, shown (O-26).
 //
 //   OBSTACLE NOTAM  its text (the rule text: FlightKeys D) and body lines) says
 //                   OBST, OBSTACLE or CRANE — the v1.13.0 test, unchanged — or it
@@ -2021,12 +2043,14 @@ function _classifyNotamSlot(nu, notamRaw, role, acftType, active, getWingspan) {
 //                   of a runway, approach, SID or STAR (OBSTACLE_RULE.effect).
 //   2. other      → SHOWN: the NOTAM also changes something else, and is shown by
 //                   its own content exactly as v1.13.0 shows it (OBSTACLE_RULE.other).
-//   3. undecided  → SHOWN: the patterns cannot clearly decide — a surface
-//                   penetrated or named, an obstacle in the runway strip or a
-//                   procedure area "affected", or a height given near a runway or a
-//                   procedure with no effect stated (OBSTACLE_RULE.undecided,
-//                   HEIGHT_NEAR_PROCEDURE, HEIGHT_NEAR_RUNWAY). Listed for the Exec.
-//   4. otherwise  → HIDDEN.
+//   3. undecided  → SHOWN: the patterns cannot clearly decide — a protection
+//                   surface penetrated or named, an obstacle in the runway strip
+//                   (OBSTACLE_RULE.undecided), or (D67a O-26) the approach side
+//                   stated not affected with a height near a runway and the take-off
+//                   side not stated (TAKEOFF_SIDE_UNSTATED). Listed for the Exec.
+//   4. otherwise  → HIDDEN; a height near a procedure or a runway with no effect
+//                   stated is hidden too (D67a O-22; reason HEIGHT_NEAR_PROCEDURE /
+//                   HEIGHT_NEAR_RUNWAY).
 //   The first pattern that matches is the reason (_obstacleRule().pattern).
 //   A NOTAM that is not an obstacle NOTAM is never touched by this rule.
 //   "[^.]" below is "the same sentence": a full stop ends it, a decimal point
@@ -2061,6 +2085,10 @@ const OBSTACLE_RULE = Object.freeze({
     // SID / STAR / approach altitude constraints changed (AT OR ABOVE, ALT RESTRICTION, MIN ALT,
     // ALT:750M on a changed procedure, TURN ALT 600FT VICE 500FT, MSA raised, a procedure coding table).
     PROCEDURE_ALTITUDE: _obRe(String.raw`\b(?:SID|SIDS|STAR|STARS|IAC|IAP|APCH|APPROACH|PROC(?:EDURE)?S?|DEP(?:ARTURE)?S?|ARR(?:IVAL)?S?|TRANSITION|MISSED APCH|MISSED APPROACH|IAF|FAF|SDF|STEP-?DOWN(?: FIX)?|WPT|WAYPOINT|WAY POINT|FIX(?: POINT)?)\b§S{0,200}?(?:\bAT OR (?:ABOVE|ABV|BELOW|BLW)\b|\b(?:ALT(?:ITUDE)?|LEVEL) (?:RESTR(?:ICTION)?S?|CONSTRAINTS?|REQUIREMENTS?|RAISED|INCREASED|CHANGED|AMENDED|REVISED)\b|\bMIN(?:IMUM)? (?:ALT(?:ITUDE)?|CROSSING ALT(?:ITUDE)?)\b|\bMNM ALT\b|\bCROSS(?:ING)? (?:ALT(?:ITUDE)?\b|AT (?:OR (?:ABOVE|ABV) )?\d)|\bALT(?:ITUDE)? ?(?:\((?:M|FT)\))? ?[:=] ?\d|\bALT(?:ITUDE)? \d[\d,]* ?(?:M|FT) VICE\b)|\b(?:MSA|MINIMUM SECTOR ALT(?:ITUDE)?)\b§S{0,40}?\b(?:RAISED|INCREASED|CHANGED|AMENDED|REVISED)\b|\b(?:DATABASE )?CODING TABLE\b`),
+    // D67a: a flight procedure or take-off path stated "affected" (moved from undecided).
+    PROCEDURE_AFFECTED: _obRe(String.raw`\b(?:FLT PROC(?:EDURE)?S?|TAKE-?OFF PATH|PROC(?:EDURE)?S?)\b§S{0,40}?\bAFFECTED\b`),
+    // D67a: a close-in obstacle — noted on the SID / ODP for the departure (moved from undecided).
+    CLOSE_IN_OBSTACLE: _obRe(String.raw`\bCLOSE-? ?(?:IN|END) OBST`),
   }),
   // Item 3: the NOTAM also changes something else — shown by its own content as in v1.13.0.
   // (The order only decides which reason is reported when several match: a navaid, light or
@@ -2080,10 +2108,9 @@ const OBSTACLE_RULE = Object.freeze({
   }),
   // Item 5: the patterns cannot clearly decide → shown, listed for the Exec (group U).
   undecided: Object.freeze({
-    SURFACE_PENETRATION: _obRe(String.raw`\b(?:PENETRAT|INFRING|PROTRUD)\w*§S{0,80}?\b(?:SURFACES?|SFC|OLS|OCS|OFZ|OIS|TOCS|PLANE)\b|\b(?:SURFACES?|OLS|OCS|OFZ|OIS|TOCS)\b§S{0,40}?\b(?:PENETRAT|INFRING)\w*|\bCLOSE-? ?(?:IN|END) OBST`),
+    SURFACE_PENETRATION: _obRe(String.raw`\b(?:PENETRAT|INFRING|PROTRUD)\w*§S{0,80}?\b(?:SURFACES?|SFC|OLS|OCS|OFZ|OIS|TOCS|PLANE)\b|\b(?:SURFACES?|OLS|OCS|OFZ|OIS|TOCS)\b§S{0,40}?\b(?:PENETRAT|INFRING)\w*`),
     SURFACE_NAMED: _obRe(String.raw`\b(?:APCH|APPROACH|TKOF|TAKE-?OFF(?: CLIMB)?|TRANSITION(?:AL)?|INNER HORIZONTAL|HORIZONTAL|CONICAL|BALKED LANDING|CLIMB) (?:SFC|SURFACE)S?\b|\b(?:OLS|OFZ|OBSTACLE FREE ZONE|OBSTACLE LIMITATION SURFACES?)\b`),
     RUNWAY_STRIP: _obRe(String.raw`\b(?:RWY|RUNWAY) STRIP\b|\bGRADED AREA\b|\bRESA\b|\bRUNWAY END SAFETY AREA\b`),
-    PROCEDURE_AREA_AFFECTED: _obRe(String.raw`\b(?:FLT PROC(?:EDURE)?S?|TAKE-?OFF PATH|PROC(?:EDURE)?S?)\b§S{0,40}?\bAFFECTED\b`),
   }),
   // A height (… FT AGL / AMSL / MSL, HGT / HEIGHT / ELEV …, UP TO … M).
   height: _obRe(String.raw`\b\d[\d,]*(?:\.\d+)? ?(?:FT|FEET|M|')?(?: ?\(\d[\d,.]* ?(?:FT|FEET|M)\))? ?\(?(?:AGL|AMSL|MSL|AAL|ASL)\b|\b(?:HGT|HEIGHT|HEIGT|ELEV|ELEVATION)\b\W{0,3}(?:OF )?(?:\( ?)?\d|\bUP TO \d[\d,]* ?(?:FT|M)\b`),
@@ -2091,8 +2118,11 @@ const OBSTACLE_RULE = Object.freeze({
   runwayRef: /\bR(?:WY|UNWAY)S?\b|\bRW\d|\bTHR\d*\b|\bTHRESHOLD\b|\bRCL\b|\bC\/L\b|\b(?:APCH|DEP(?:ARTURE)?) END\b|\bDER\b|\bFINAL\b|\bTORA\b|\bTODA\b|\bASDA\b|\bCLEARWAY\b|\bCWY\b|\bSTOPWAY\b|\bSWY\b/,
   // A procedure named (approach, SID, STAR, ILS, glide path, missed approach, departure procedure …).
   procedureRef: /\b(?:APCH(?! END)|APPROACH(?:ES|ING)?|IAP|IAC|SIDS?|STARS?|ILS|LOC|LLZ|LOCALI[SZ]ER|GP|GS|G\/S|G\/P|GLIDE ?(?:PATH|SLOPE)|RNAV|RNP|LNAV|VNAV|LPV|GLS|MISSED|DEP(?:ARTURE)? PROC\w*|ARR(?:IVAL)? PROC\w*|CIRCLING|PROC(?:EDURE)?S?|ODP|FLT PROC\w*)\b/,
+  // D67a O-26: a stated non-effect that names the approach side only (OCA/OCH, minima, approach,
+  // IAP, STAR) — not the take-off side (SID, departure, take-off) nor all procedures.
+  approachSideOnly: /^(?!.*\b(?:SIDS?|DEP(?:ARTURE)?S?|TKOF|TAKE-?OFF|PROC(?:EDURE)?S?|FLT PROC\w*|OBST(?:ACLE)? CLEARANCE)\b)(?:OCA|OCH|MINIMA|MINIMUMS?|APCH|APPROACH|IAP|STARS?|NO (?:IMPACT|EFFECT|CHANGE) (?:ON|TO) (?:THE )?(?:OCA|OCH|MINIMA|APCH|APPROACH|IAP|STAR))/,
   // Set aside before the patterns are read (see above).
-  noEffect: /\b(?:OCA|OCH|OCA\/H|OCA\/OCH|OCA\((?:H|OCH)\)|MINIMA|MINIMUMS?|PROC(?:EDURE)?S?|APCH|APPROACH(?:ES)?|IAP|SIDS?|STARS?|DEP(?:ARTURE)?S?|FLT PROC(?:EDURE)?S?|OBST(?:ACLE)? CLEARANCE)(?: [A-Z0-9\/()-]+){0,4}? (?:IS |ARE |WILL BE |REMAIN )?(?:NOT AFFECTED|UNAFFECTED|NOT IMPACTED|UNCHANGED|NOT CHANGED)\b|\bNO (?:IMPACT|EFFECT|CHANGE) (?:ON|TO) (?:THE )?(?:OCA\S*|OCH|MINIMA|PROC\w*|APCH|APPROACH|IAP|SID|STAR)\b/g,
+  noEffect: /\b(?:OCA|OCH|OCA\/H|OCA\/OCH|OCA\((?:H|OCH)\)|MINIMA|MINIMUMS?|PROC(?:EDURE)?S?|APCH|APPROACH(?:ES)?|IAP|SIDS?|STARS?|DEP(?:ARTURE)?S?|TKOF|TAKE-?OFF|FLT PROC(?:EDURE)?S?|OBST(?:ACLE)? CLEARANCE)(?: [A-Z0-9\/()-]+){0,4}? (?:IS |ARE |WILL BE |REMAIN )?(?:NOT AFFECTED|UNAFFECTED|NOT IMPACTED|UNCHANGED|NOT CHANGED)\b|\bNO (?:IMPACT|EFFECT|CHANGE) (?:ON|TO) (?:THE )?(?:OCA\S*|OCH|MINIMA|PROC\w*|APCH|APPROACH|IAP|SID|STAR)\b/g,
   obstacleLight: _obRe(String.raw`\b(?:OBST(?:ACLE)?|OBSTRUCTION|TOWER|CRANE|ANTENNA|MAST|BLDG|BUILDING|STACK|CHIMNEY|TURBINES?|WINDMILL|POLE|PWR LINE)S? (?:LGT|LGTS|LIGHT|LIGHTS|LIGHTING)\b§S{0,200}?\b(?:§US|UNLIT|EXTINGUISHED)\b`, 'g'),
 });
 
@@ -2104,6 +2134,8 @@ const OBSTACLE_RULE = Object.freeze({
  *             group: 'EFFECT'|'OTHER'|'UNDECIDED'|'NONE'|null, pattern: string|null,
  *             noEffectStated: boolean }}
  *   obstacle false → the rule does not apply (show true, group null).
+ *   group NONE (hidden): pattern null, or (D67a O-22) HEIGHT_NEAR_PROCEDURE / HEIGHT_NEAR_RUNWAY —
+ *   a height near a procedure or runway with no effect stated.
  */
 function _obstacleRule(ruleText, fkCategory) {
   const R = OBSTACLE_RULE;
@@ -2111,16 +2143,82 @@ function _obstacleRule(ruleText, fkCategory) {
   const byText = R.obstacleWord.test(t);
   const byHeading = fkCategory === 'OBSTACLE';
   if (!byText && !byHeading) return { obstacle: false, byText, byHeading, show: true, group: null, pattern: null, noEffectStated: false };
-  R.noEffect.lastIndex = 0;
-  const noEffectStated = R.noEffect.test(t);
+  const noEffects = t.match(R.noEffect) || [];
+  const noEffectStated = noEffects.length > 0;
   const n = t.replace(R.noEffect, ' ').replace(R.obstacleLight, ' ');
   const out = (show, group, pattern) => ({ obstacle: true, byText, byHeading, show, group, pattern, noEffectStated });
   for (const [id, re] of Object.entries(R.effect))    if (re.test(n)) return out(true, 'EFFECT', id);
   for (const [id, re] of Object.entries(R.other))     if (re.test(n)) return out(true, 'OTHER', id);
   for (const [id, re] of Object.entries(R.undecided)) if (re.test(n)) return out(true, 'UNDECIDED', id);
-  if (R.height.test(n) && R.procedureRef.test(n)) return out(true, 'UNDECIDED', 'HEIGHT_NEAR_PROCEDURE');
-  if (R.height.test(n) && R.runwayRef.test(n))    return out(true, 'UNDECIDED', 'HEIGHT_NEAR_RUNWAY');
+  // D67a O-26: the approach side stated not affected, a height near a runway, the take-off side
+  // not stated → undecided, shown.
+  if (noEffects.length && noEffects.every(p => R.approachSideOnly.test(p)) && R.height.test(n) && R.runwayRef.test(n)) {
+    return out(true, 'UNDECIDED', 'TAKEOFF_SIDE_UNSTATED');
+  }
+  // D67a O-22 / O-24: a height near a procedure or a runway with no effect stated → hidden.
+  if (R.height.test(n) && R.procedureRef.test(n)) return out(false, 'NONE', 'HEIGHT_NEAR_PROCEDURE');
+  if (R.height.test(n) && R.runwayRef.test(n))    return out(false, 'NONE', 'HEIGHT_NEAR_RUNWAY');
   return out(false, 'NONE', null);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 8b · CARD GROUPS OF THE FOUR EXTRA OTHER-CONTENT CASES (v1.14.0; D67a O-25)
+//
+//   The airport card draws a row only for the runway groups (RWY-<rwy>), GENERAL,
+//   TAXIWAYS, SIDs and STARs (E2; src/edit.html, unchanged). An obstacle NOTAM
+//   shown for APRON_STAND, CLOSED_TO_TRAFFIC, PROCEDURE_CHANGE or LOW_VIS_OPS whose
+//   classification gives it none of these is given:
+//     APRON_STAND        → GENERAL              'APRON/STAND CLSD' (… NOT AVBL)
+//     CLOSED_TO_TRAFFIC  → GENERAL              'AREA CLSD TO ACFT'
+//     PROCEDURE_CHANGE   → a SID named, at the departure airport  → SIDs   '<SID> CHANGE'
+//                          a STAR named, at any other airport     → STARs  'STAR <STAR> CHANGE'
+//                          a SID / STAR in the other role, or an approach or other
+//                          procedure                               → its runway
+//                          (RWY-<rwy>) or, with no runway named, GENERAL   '<APCH> PROC CHANGE'
+//     LOW_VIS_OPS        → its runway (RWY-<rwy>) or GENERAL     'LVO CHANGED'
+//   Level yellow. A classification that already has a row is kept (v1.13.0's own).
+//   Runway-group slots: ORIG 5 (approach) / 6 (other ops), DEST 3; GENERAL uses the
+//   same slots with no runway. SID slot 4 (ORIG), STAR slot 5 (DEST).
+// ═══════════════════════════════════════════════════════════════
+
+const _OB_CARD_CASES = Object.freeze(['APRON_STAND', 'CLOSED_TO_TRAFFIC', 'PROCEDURE_CHANGE', 'LOW_VIS_OPS']);
+
+// Does this classification put the item in a card group with a row (the grouping of evalNotams)?
+function _hasCardRow(c, isOrig) {
+  if (c.category === 'SID' || c.category === 'STAR') return true;
+  if ([3, 6].includes(c.slot) && c.label && /^TWY\b/i.test(c.label)) return true;
+  return (isOrig ? [1, 2, 5, 6] : [1, 2, 3, 4]).includes(c.slot);
+}
+
+function _obstacleCardGroup(pattern, nu, isOrig) {
+  const _pad2 = s => s ? s.replace(/^(\d)([LCRB]?)$/, '0$1$2').toUpperCase() : s;
+  const rm = nu.match(NM.RWY_ID) || nu.match(NM.ILS_RWY_EUR);
+  const rwy = rm ? _pad2(rm[1].replace(/\s+/g, '').split(/\/|AND/)[0]) : null;
+  const sfx = rwy ? ` RWY ${rwy}` : '';
+  const base = { level: 'yellow', keyRe: NM.RESTR_WORDS };
+  if (pattern === 'APRON_STAND') {
+    const na = /\bNOT AVBL\b|\bNOT AVAILABLE\b|\bUNAVBL\b|\bWITHDRAWN\b/.test(nu) && !NM.CLSD_WORDS.test(nu);
+    return { ...base, slot: isOrig ? 6 : 3, label: `APRON/STAND ${na ? 'NOT AVBL' : 'CLSD'}`, rwy: null, keyRe: na ? NM.US_WORDS : NM.CLSD_WORDS };
+  }
+  if (pattern === 'CLOSED_TO_TRAFFIC') return { ...base, slot: isOrig ? 6 : 3, label: 'AREA CLSD TO ACFT', rwy: null, keyRe: NM.CLSD_WORDS };
+  if (pattern === 'PROCEDURE_CHANGE') {
+    const sid = nu.match(/\bSIDS?\b/), star = nu.match(/\bSTARS?\b/);
+    if (sid && isOrig) {
+      const nm = nu.match(NM.SID_NAME);
+      return { ...base, slot: 4, label: `${nm ? nm[1] : 'SID'} CHANGE`, rwy: null, category: 'SID' };
+    }
+    if (star && !isOrig) {
+      const nm = nu.match(NM.STAR_NAME);
+      return { ...base, slot: 5, label: `STAR ${nm ? nm[1] + ' ' : ''}CHANGE`, rwy: null, category: 'STAR' };
+    }
+    if (sid || star) {   // a SID at an arrival airport, a STAR at the departure airport: GENERAL / its runway
+      const nm = sid ? nu.match(NM.SID_NAME) : nu.match(NM.STAR_NAME);
+      return { ...base, slot: isOrig ? 5 : 3, label: `${sid ? 'SID' : 'STAR'} ${nm ? nm[1] + ' ' : ''}CHANGE${sfx}`, rwy };
+    }
+    const apch = _apchTypeLabel(nu);
+    return { ...base, slot: isOrig ? 5 : 3, label: `${apch || 'APCH'} PROC CHANGE${sfx}`, rwy };
+  }
+  return { ...base, slot: isOrig ? 6 : 3, label: `LVO CHANGED${sfx}`, rwy };   // LOW_VIS_OPS
 }
 
 // v1.13.0 (D61): the flag on a NOTAM whose own date range is impossible or cannot be read.
@@ -2188,7 +2286,8 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     // OBSTACLE heading) is shown only if it states an effect on the heights or gradients of a
     // runway, approach, SID or STAR, also changes something else, or cannot be decided.
     // Replaces E1 (v1.13.0: shown when it named any approach/departure keyword).
-    if (!_obstacleRule(ruleRaw, itemHeading).show) continue;
+    const obst = _obstacleRule(ruleRaw, itemHeading);
+    if (!obst.show) continue;
 
     // ── Aircraft applicability filter ─────────────────────────────────────
     // Only applied when the NOTAM contains an explicit restriction qualifier.
@@ -2283,8 +2382,13 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     // we conservatively include the NOTAM.
     if (active === false) continue;
 
-    const { slot, level, label, keyRe, rwy, category } =
-      _classifyNotamSlot(nu, ruleRaw, role, (acft && acft.type) || '', active, getWingspan);   // v1.13.0: ruleRaw
+    let cls = _classifyNotamSlot(nu, ruleRaw, role, (acft && acft.type) || '', active, getWingspan);   // v1.13.0: ruleRaw
+    // v1.14.0 (D67a O-25): an obstacle NOTAM shown for one of the four extra other-content cases is
+    // given the card group whose row it belongs in, when the classifier gave it none (§ 8b).
+    if (obst.group === 'OTHER' && _OB_CARD_CASES.includes(obst.pattern) && !_hasCardRow(cls, isOrig)) {
+      cls = _obstacleCardGroup(obst.pattern, nu, isOrig);
+    }
+    const { slot, level, label, keyRe, rwy, category } = cls;
 
     // ── Build display text ────────────────────────────────────────────────
     // Skip: (1) header lines starting with "- ICAO", (2) day-range+time schedule
