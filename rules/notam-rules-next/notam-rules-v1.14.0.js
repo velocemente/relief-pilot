@@ -35,6 +35,16 @@
  *     area closed to aircraft, a procedure introduced or amended, low-visibility
  *     operations) are given a card group with a row when the classifier gives them
  *     none (§ 8b, O-25).
+ *   CHANGED — D67b (Exec answers of 18 Nov) and the independent QA findings:
+ *     the obstacle rule reads only the NOTAM's own text (_ownNotamText: a NavBlue
+ *     piece of the whole OFP text ends at the weather or an FAA domestic NOTAM; F-3);
+ *     a table's column title is no procedure affected, its values decide (F-4);
+ *     "… NO CHANGE" is a stated non-effect, and a surface notice that states one is
+ *     hidden (O-31 / F-7); an area closed from the ground to a height is other
+ *     content, GENERAL (AREA_CLOSED, F-2); en-route NOTAMs (airway MEA / MOCA set by
+ *     an obstacle) are deferred and decided exactly as v1.13.0 (F-5). A NOTAM shown
+ *     now that v1.13.0's obstacle filter hid (C), or an undecided one (U), with no
+ *     card row goes to GENERAL on the destination / alternate card (O-29 / F-1).
  *   NEW — FlightKeys type headings (§ 2c; grammar §A.6): the 17 printed type
  *     heading lines are headings, never part of an item's text. _splitNotams()
  *     cuts each one out as its own piece; evalNotams() reads a heading piece (or a
@@ -2102,6 +2112,8 @@ const OBSTACLE_RULE = Object.freeze({
     THRESHOLD: _obRe(String.raw`\b(?:DSPLCD? (?:THR|THLD?|THRESHOLD)|THRESHOLD (?:RWY \d{2}[LCRB]? )?DISPLACED?|DISPLACED? (?:THR|THLD?|THRESHOLD))\b|\bTHR(?:ESHOLD)? (?:RWY ?)?(?:\d{1,2}[LCRB]? )?(?:IS )?(?:DISPLACED|DSPLCD|RELOCATED|MOVED)\b|\bTEMPO? THR(?:ESHOLD)?\b|\bTEMPORARY THR(?:ESHOLD)?\b`),
     RWY_AVAILABILITY: _obRe(String.raw`\bRWY ?(?:ALL CLSD|\d{1,2}[LCRB]?(?: ?(?:\/|AND) ?\d{1,2}[LCRB]?)? CLSD)\b|\bR(?:WY|UNWAY) ?(?:\d{1,2}[LCRB]?(?: ?\/ ?\d{1,2}[LCRB]?)? )?(?:IS )?(?:CLSD|CLOSED|NOT AVBL|NOT AVAILABLE|UNAVBL|UNUSABLE|UNUSBL|U\/S)\b|\bAD CLSD\b|\bAIRPORT CLSD\b`),
     CLOSED_TO_TRAFFIC: _obRe(String.raw`\bCLSD (?:TO|FOR) (?:ALL )?(?:LDG|TKOF|LANDING|TAKE-?OFF|ACFT|TFC|OPS)\b`),
+    // D67b F-2: an area closed — also from the ground up to a height around an obstacle (LLBG).
+    AREA_CLOSED: _obRe(String.raw`\b(?:AREA|AIRSPACE|ZONE|SECTOR)\b§S{0,80}?\b(?:CLSD|CLOSED)\b|\b(?:CLSD|CLOSED) (?:FM|FROM) (?:GND|SFC)\b`),
     TWY_AVAILABILITY: _obRe(String.raw`\bTWY ?[A-Z0-9]+(?: ?[,\/] ?[A-Z0-9]+)* CLSD\b|\bFLW TWY CLSD\b|\bT(?:WY|AXIWAY)S? [A-Z0-9]+(?: ?(?:[,\/]|AND) ?[A-Z0-9]+)*§S{0,30}?\b(?:CLSD|CLOSED|NOT AVBL|NOT AVAILABLE|UNAVBL|RESTR|RESTRICTED)\b`),
     APRON_STAND: _obRe(String.raw`\b(?:APRON|APN|STANDS?|PRKG|PARKING|GATES?)\b§S{0,40}?\b(?:CLSD|CLOSED|NOT AVBL|NOT AVAILABLE|UNAVBL|WITHDRAWN)\b`),
     LOW_VIS_OPS: _obRe(String.raw`\b(?:LVP|LOW VIS(?:IBILITY)? (?:OPS|OPERATIONS|PROC(?:EDURE)?S?))\b§S{0,40}?\b(?:AMD|AMENDED|CHANGED|REVISED|SUSPENDED|NOT AVBL|IN FORCE|NOT AUTH(?:ORI[SZ]ED)?)\b`),
@@ -2118,11 +2130,27 @@ const OBSTACLE_RULE = Object.freeze({
   runwayRef: /\bR(?:WY|UNWAY)S?\b|\bRW\d|\bTHR\d*\b|\bTHRESHOLD\b|\bRCL\b|\bC\/L\b|\b(?:APCH|DEP(?:ARTURE)?) END\b|\bDER\b|\bFINAL\b|\bTORA\b|\bTODA\b|\bASDA\b|\bCLEARWAY\b|\bCWY\b|\bSTOPWAY\b|\bSWY\b/,
   // A procedure named (approach, SID, STAR, ILS, glide path, missed approach, departure procedure …).
   procedureRef: /\b(?:APCH(?! END)|APPROACH(?:ES|ING)?|IAP|IAC|SIDS?|STARS?|ILS|LOC|LLZ|LOCALI[SZ]ER|GP|GS|G\/S|G\/P|GLIDE ?(?:PATH|SLOPE)|RNAV|RNP|LNAV|VNAV|LPV|GLS|MISSED|DEP(?:ARTURE)? PROC\w*|ARR(?:IVAL)? PROC\w*|CIRCLING|PROC(?:EDURE)?S?|ODP|FLT PROC\w*)\b/,
+  // D67b F-4: a tabular NOTAM's column title "FLT PROC/TAKE-OFF PATH AREA AFFECTED" — never itself a
+  // procedure affected; the values under it decide (tableValue: a runway with an approach / take-off /
+  // departure / missed-approach / circling path or a procedure named; "-" or nothing → not affected).
+  tableTitle: /\b(?:FLT|FLIGHT) PROC(?:EDURE)?S? ?\/ ?TAKE-?OFF (?:FLT |FLIGHT )?PATH(?: AREA)? AFFECTED\b\??(?: ?REMARKS\b)?/,
+  tableValue: /\bRWY ?\d{2}[LCR]?\b(?:[^.]|\.(?=\d)){0,40}?\b(?:APCH|APPROACH|TAKE-?OFF|TKOF|DEP(?:ARTURE)?|SID|STAR|FINAL|MISSED|CIRCLING|FLT PATH)\b|\b(?:FINAL APCH|TAKE-?OFF FLT PATH|MISSED APCH|SIDS?|STARS?|IAP|IAC|ILS|LOC|VOR\/DME|RNP|RNAV)\b/,
+  // D67b F-5: an en-route NOTAM — an airway / route MEA, MOCA (MCA, MRA, MAA) set by an obstacle.
+  // Deferred to a later iteration: it is decided exactly as v1.13.0 decided it (E1, e1Keyword).
+  enRoute: /\b(?:RTE|ROUTE|AIRWAY|AWY)\b(?:[^.]|\.(?=\d)){0,160}?\b(?:MEA|MOCA|MCA|MRA|MAA)\b|\b[VJQTLAGRBW]\d{1,4}\b(?:[^.]|\.(?=\d)){0,100}?\b(?:MEA|MOCA)\b/,
+  // v1.13.0's E1 keywords (the TKOF keywords and the approach / departure keywords), read only for
+  // the deferred en-route NOTAMs and to find the NOTAMs v1.13.0's obstacle filter hid (§ 8b).
+  e1Keyword: /\bTAKEOFF\s+MINIMUMS?\b|\bOBST(?:ACLE)?\s+DEP(?:ARTURE)?\s+PROC|\bODP\b|\bMINIMUM\s+CLIMB\b|\bMIN\s+CLIMB\b|\bCLIMB\s+GRADIENT\b|\b(?:ILS|LOC|GLS|RNAV|RNP|NDB|VOR|LDA|GBAS|GS|G\/S|G\/P|GP|IFR\s+APCH|IAP|APCH|PROC|RWY|SID|STAR|CAT\s+I{1,3})\b/i,
+  // D67b F-3: where a NavBlue NOTAM's own text ends inside its piece of the whole OFP text — the
+  // weather (METAR / TAF), "NO … REPORTS FOUND", "- NO OPERATIONAL NOTAMS", an FAA domestic NOTAM
+  // ("- AKN 03/022 …", "- LOU 09/150 …", not cut by the split), and a section heading just before them.
+  notamEnd: /^\s*(?:(?:METAR|TAF|SPECI)\b|NO (?:METAR|TAF) REPORTS FOUND|-\s+NO OPERATIONAL NOTAMS|-\s+[A-Z0-9]{3}\s+\d{1,2}\/\d{3}\b)/,
+  sectionHeading: /^\s*[A-Z][A-Z \/-]{1,40}$/,
   // D67a O-26: a stated non-effect that names the approach side only (OCA/OCH, minima, approach,
   // IAP, STAR) — not the take-off side (SID, departure, take-off) nor all procedures.
   approachSideOnly: /^(?!.*\b(?:SIDS?|DEP(?:ARTURE)?S?|TKOF|TAKE-?OFF|PROC(?:EDURE)?S?|FLT PROC\w*|OBST(?:ACLE)? CLEARANCE)\b)(?:OCA|OCH|MINIMA|MINIMUMS?|APCH|APPROACH|IAP|STARS?|NO (?:IMPACT|EFFECT|CHANGE) (?:ON|TO) (?:THE )?(?:OCA|OCH|MINIMA|APCH|APPROACH|IAP|STAR))/,
   // Set aside before the patterns are read (see above).
-  noEffect: /\b(?:OCA|OCH|OCA\/H|OCA\/OCH|OCA\((?:H|OCH)\)|MINIMA|MINIMUMS?|PROC(?:EDURE)?S?|APCH|APPROACH(?:ES)?|IAP|SIDS?|STARS?|DEP(?:ARTURE)?S?|TKOF|TAKE-?OFF|FLT PROC(?:EDURE)?S?|OBST(?:ACLE)? CLEARANCE)(?: [A-Z0-9\/()-]+){0,4}? (?:IS |ARE |WILL BE |REMAIN )?(?:NOT AFFECTED|UNAFFECTED|NOT IMPACTED|UNCHANGED|NOT CHANGED)\b|\bNO (?:IMPACT|EFFECT|CHANGE) (?:ON|TO) (?:THE )?(?:OCA\S*|OCH|MINIMA|PROC\w*|APCH|APPROACH|IAP|SID|STAR)\b/g,
+  noEffect: /\b(?:OCA|OCH|OCA\/H|OCA\/OCH|OCA\((?:H|OCH)\)|MINIMA|MINIMUMS?|PROC(?:EDURE)?S?|APCH|APPROACH(?:ES)?|IAP|SIDS?|STARS?|DEP(?:ARTURE)?S?|TKOF|TAKE-?OFF|FLT PROC(?:EDURE)?S?|OBST(?:ACLE)? CLEARANCE)(?: [A-Z0-9\/()-]+){0,4}? (?:IS |ARE |WILL BE |REMAIN )?(?:NOT AFFECTED|UNAFFECTED|NOT IMPACTED|UNCHANGED|NOT CHANGED)\b|\bNO (?:IMPACT|EFFECT|CHANGE) (?:ON|TO) (?:THE )?(?:OCA\S*|OCH|MINIMA|PROC\w*|APCH|APPROACH|IAP|SID|STAR)\b|\b(?:MNM|MINIMA|MINIMUMS?|OCA\S*|OCH|PROC(?:EDURE)?S?|APCH|IAP|SIDS?|STARS?)\b(?:[^.]|\.(?=\d)){0,60}? (?:NO CHANGE|NC)\b/g,
   obstacleLight: _obRe(String.raw`\b(?:OBST(?:ACLE)?|OBSTRUCTION|TOWER|CRANE|ANTENNA|MAST|BLDG|BUILDING|STACK|CHIMNEY|TURBINES?|WINDMILL|POLE|PWR LINE)S? (?:LGT|LGTS|LIGHT|LIGHTS|LIGHTING)\b§S{0,200}?\b(?:§US|UNLIT|EXTINGUISHED)\b`, 'g'),
 });
 
@@ -2139,17 +2167,36 @@ const OBSTACLE_RULE = Object.freeze({
  */
 function _obstacleRule(ruleText, fkCategory) {
   const R = OBSTACLE_RULE;
-  const t = String(ruleText || '').toUpperCase().replace(/\s+/g, ' ');
+  // v1.14.0 (D67b F-3): the NOTAM's own text only — a NavBlue piece of the whole OFP text can run on
+  // into the weather and into FAA domestic NOTAMs the split does not cut (§ 8a).
+  const own = _ownNotamText(String(ruleText || ''));
+  const t = own.toUpperCase().replace(/\s+/g, ' ');
   const byText = R.obstacleWord.test(t);
   const byHeading = fkCategory === 'OBSTACLE';
   if (!byText && !byHeading) return { obstacle: false, byText, byHeading, show: true, group: null, pattern: null, noEffectStated: false };
   const noEffects = t.match(R.noEffect) || [];
   const noEffectStated = noEffects.length > 0;
-  const n = t.replace(R.noEffect, ' ').replace(R.obstacleLight, ' ');
   const out = (show, group, pattern) => ({ obstacle: true, byText, byHeading, show, group, pattern, noEffectStated });
+  // D67b F-5: en-route MEA / MOCA set by an obstacle — deferred: decided exactly as v1.13.0 (E1).
+  if (R.enRoute.test(t)) {
+    const full = String(ruleText || '');
+    const e1Hidden = R.obstacleWord.test(full.toUpperCase()) && !R.e1Keyword.test(full);
+    return out(!e1Hidden, 'DEFERRED', 'EN_ROUTE');
+  }
+  let n = t.replace(R.noEffect, ' ').replace(R.obstacleLight, ' ');
+  // D67b F-4: a table — its column title is no procedure affected; its values decide.
+  const tbl = n.match(R.tableTitle);
+  if (tbl) {
+    const values = n.slice(tbl.index + tbl[0].length);
+    if (R.tableValue.test(values)) return out(true, 'EFFECT', 'PROCEDURE_AFFECTED');
+    n = n.slice(0, tbl.index) + ' ' + values;
+  }
   for (const [id, re] of Object.entries(R.effect))    if (re.test(n)) return out(true, 'EFFECT', id);
   for (const [id, re] of Object.entries(R.other))     if (re.test(n)) return out(true, 'OTHER', id);
-  for (const [id, re] of Object.entries(R.undecided)) if (re.test(n)) return out(true, 'UNDECIDED', id);
+  for (const [id, re] of Object.entries(R.undecided)) if (re.test(n)) {
+    // D67b O-31 / F-7: a surface notice that states minima / procedures unchanged → hidden.
+    return noEffectStated ? out(false, 'NONE', 'STATED_UNCHANGED') : out(true, 'UNDECIDED', id);
+  }
   // D67a O-26: the approach side stated not affected, a height near a runway, the take-off side
   // not stated → undecided, shown.
   if (noEffects.length && noEffects.every(p => R.approachSideOnly.test(p)) && R.height.test(n) && R.runwayRef.test(n)) {
@@ -2159,6 +2206,18 @@ function _obstacleRule(ruleText, fkCategory) {
   if (R.height.test(n) && R.procedureRef.test(n)) return out(false, 'NONE', 'HEIGHT_NEAR_PROCEDURE');
   if (R.height.test(n) && R.runwayRef.test(n))    return out(false, 'NONE', 'HEIGHT_NEAR_RUNWAY');
   return out(false, 'NONE', null);
+}
+
+// v1.14.0 (D67b F-3): a NavBlue NOTAM's own text — its piece up to the first line where another text
+// begins (OBSTACLE_RULE.notamEnd), and without a section heading just before that line. Text with no
+// such line (every FlightKeys item) is returned unchanged.
+function _ownNotamText(text) {
+  const R = OBSTACLE_RULE;
+  const ls = text.split('\n');
+  let k = ls.findIndex((l, i) => i > 0 && R.notamEnd.test(l));
+  if (k < 0) return text;
+  while (k > 1 && R.sectionHeading.test(ls[k - 1]) && !/\d/.test(ls[k - 1]) && !R.obstacleWord.test(ls[k - 1])) k--;
+  return ls.slice(0, k).join('\n');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2181,7 +2240,7 @@ function _obstacleRule(ruleText, fkCategory) {
 //   same slots with no runway. SID slot 4 (ORIG), STAR slot 5 (DEST).
 // ═══════════════════════════════════════════════════════════════
 
-const _OB_CARD_CASES = Object.freeze(['APRON_STAND', 'CLOSED_TO_TRAFFIC', 'PROCEDURE_CHANGE', 'LOW_VIS_OPS']);
+const _OB_CARD_CASES = Object.freeze(['APRON_STAND', 'CLOSED_TO_TRAFFIC', 'AREA_CLOSED', 'PROCEDURE_CHANGE', 'LOW_VIS_OPS']);
 
 // Does this classification put the item in a card group with a row (the grouping of evalNotams)?
 function _hasCardRow(c, isOrig) {
@@ -2200,6 +2259,7 @@ function _obstacleCardGroup(pattern, nu, isOrig) {
     const na = /\bNOT AVBL\b|\bNOT AVAILABLE\b|\bUNAVBL\b|\bWITHDRAWN\b/.test(nu) && !NM.CLSD_WORDS.test(nu);
     return { ...base, slot: isOrig ? 6 : 3, label: `APRON/STAND ${na ? 'NOT AVBL' : 'CLSD'}`, rwy: null, keyRe: na ? NM.US_WORDS : NM.CLSD_WORDS };
   }
+  if (pattern === 'AREA_CLOSED') return { ...base, slot: isOrig ? 6 : 3, label: 'AREA CLSD', rwy: null, keyRe: NM.CLSD_WORDS };   // D67b F-2
   if (pattern === 'CLOSED_TO_TRAFFIC') return { ...base, slot: isOrig ? 6 : 3, label: 'AREA CLSD TO ACFT', rwy: null, keyRe: NM.CLSD_WORDS };
   if (pattern === 'PROCEDURE_CHANGE') {
     const sid = nu.match(/\bSIDS?\b/), star = nu.match(/\bSTARS?\b/);
@@ -2387,6 +2447,14 @@ function evalNotams(notams, role, etaMin, acftProfile, flightDateISO, depMin, ge
     // given the card group whose row it belongs in, when the classifier gave it none (§ 8b).
     if (obst.group === 'OTHER' && _OB_CARD_CASES.includes(obst.pattern) && !_hasCardRow(cls, isOrig)) {
       cls = _obstacleCardGroup(obst.pattern, nu, isOrig);
+    }
+    // v1.14.0 (D67b O-29 / F-1): a NOTAM shown now that v1.13.0's obstacle filter (E1) hid — an
+    // obstacle word anywhere in its text and none of E1's keywords (change list group C) — or an
+    // undecided one (group U), with no card row, goes to the airport's GENERAL group on the
+    // destination / alternate card. The departure card is step 5e (§ 8b).
+    const e1Hid = /\bOBST\b|\bCRANE\b|\bOBSTACLE\b/.test(nu) && !OBSTACLE_RULE.e1Keyword.test(ruleRaw);
+    if (!isOrig && obst.group !== 'DEFERRED' && (e1Hid || obst.group === 'UNDECIDED') && !_hasCardRow(cls, false)) {
+      cls = { ...cls, slot: 4, rwy: null };
     }
     const { slot, level, label, keyRe, rwy, category } = cls;
 
@@ -2626,6 +2694,7 @@ const API = {
   _fkTypeHeading,            // v1.14.0 (§ 2c)
   OBSTACLE_RULE,             // v1.14.0 (D67, § 8a): the obstacle rule's pattern set
   _obstacleRule,             // v1.14.0 (D67, § 8a)
+  _ownNotamText,             // v1.14.0 (D67b F-3, § 8a)
   evalNotams,
   xNW_standalone,
   nwOverlap_standalone,
