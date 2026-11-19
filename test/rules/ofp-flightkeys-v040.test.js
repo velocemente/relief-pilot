@@ -242,6 +242,12 @@ test('TC-163-020 curfews synthetic: O-33 … O-37, positive and negative', () =>
   // O-35: the LCL bracket is dropped; NavBlue's form keeps it and reads its times as a UTC window (NB-F8)
   assert.ok(!/LCL/.test(curfewPkg(SEASONS, { dof: 'DOF/260115 ' }).airportData.KBBB.curfew));
   assert.deepEqual(windowsOf('- WINTER: NOVEMBER TO MARCH 2200-0600 UTC (UTC+1)(2300-0700 LCL)'), ['2200-0600', '2300-0700'], 'NB-F8: the LCL bracket kept → a false window');
+  // NB-F8 is logged, not fixed (D47): NavBlue (locked) still keeps the bracket; the gap is open in test/known-gaps.json
+  const NB = require(path.join(RULES, MANIFEST['ofp-navblue'].file));
+  const nbText = ['STATION COMPANY NOTAMS', 'KBBB COMPANY NOTAMS', 'KBBB-CURFEW Oper: Y', '- WINTER: NOVEMBER TO MARCH 2200-0600 UTC (UTC+1)(2300-0700 LCL)', 'ADMIN COMPANY NOTAMS'].join('\n');
+  assert.equal(NB._ofpRulesetParse(nbText).airportData.KBBB.curfew, '- WINTER: NOVEMBER TO MARCH 2200-0600 UTC (UTC+1)(2300-0700 LCL)', 'NavBlue keeps the LCL bracket (NB-F8)');
+  const gap = JSON.parse(fs.readFileSync(path.join(ROOT, 'test', 'known-gaps.json'), 'utf8'))['navblue-parser'].gaps.find(g => g.id === 'G-NB-8');
+  assert.ok(gap && gap.status === 'open' && /O-35/.test(gap.fix), 'G-NB-8 logged, open');
   // O-36: departure-only qualifier lines kept; other lines without a window dropped (NEGATIVE)
   const dep = curfewPkg(DEP_ONLY).airportData.KBBB.curfew;
   assert.equal(dep, [DEP_ONLY[0], DEP_ONLY[1], DEP_ONLY[3]].join('\n'));

@@ -279,6 +279,17 @@
         "fix": "fix at next NavBlue unlock; the FlightKeys parser returns the airport's actual role codes (Exec D66, ofp-flightkeys v0.3.0)",
         "status": "open",
         "fixtures": []
+      },
+      {
+        "id": "G-NB-8",
+        "what": "Curfew local-time bracket (NB-F8): a SUMMER / WINTER curfew line is kept whole, its local-time bracket included (e.g. '(2300-0700 LCL)'); the app's curfew reader (src/render-descent.html parseCurfewWindows) then reads the local times as a second UTC window.",
+        "file": "rules/ofp-navblue/ofp-navblue-v2.0.1.js",
+        "lines": "1263-1264",
+        "pattern": "const seasonM = line.match(/(?:SUMMER|WINTER)[^0-9]*(\\d{4})Z?[-\u2013](\\d{4})Z?/i); if (seasonM) { curfewLines.push(line.trim()); return; }",
+        "effect": "A false curfew window at the local times (EHAM: 2300-0700 read as UTC) can colour a curfew red or yellow when the ETA is outside the real UTC window.",
+        "fix": "fix at next NavBlue unlock; the FlightKeys parser drops the LCL bracket (Exec O-35, ofp-flightkeys v0.4.0)",
+        "status": "open",
+        "fixtures": []
       }
     ]
   }
