@@ -9,5 +9,6 @@ require('../rules/icao-fpl.test.js');
 require('../rules/ofp-flightkeys.test.js');
 require('../rules/ofp-flightkeys-release.test.js');
 require('../rules/ofp-flightkeys-briefing.test.js');
+require('../rules/ofp-flightkeys-v040.test.js');
 require('../rules/notam-flightkeys.test.js');
 require('../rules/notam-obstacle.test.js');
