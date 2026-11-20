@@ -1,11 +1,11 @@
 # FlightKeys OFP Parser — Revision Ledger
 
-**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261119-v1.4.md` (supersedes ledger v1.3 of 18 Nov)
+**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261120-v1.5.md` (supersedes ledger v1.4 of 19 Nov)
 **Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v0.4.0.js`
 **Current Version:** 0.4.0 (development version, D58)
-**Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50, and the rest of the briefing package (v0.4.0, step 5d-2, O-33 … O-45): rows 42, 46, 47, 49, Company NOTAMs, hazards, PACOTS; airport NOTAM type headings for NOTAM v1.14.0 (D67). Contract 2.4.
-**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22, TC-163 18/18 PASS on the 26 FlightKeys fixtures; independent QA pending (step 5d-2 PR)
-**Last Updated:** 2026-11-19
+**Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50, and the rest of the briefing package (v0.4.0, step 5d-2, O-33 … O-45): rows 42, 46, 47, 49, Company NOTAMs, hazards, PACOTS; airport NOTAM type headings for NOTAM v1.14.0 (D67); the Exec answers O-46 … O-49 (K-11). Contract 2.4.
+**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22, TC-163 27/27 PASS on the 26 FlightKeys fixtures; independent QA pending (step 5d-2 PR)
+**Last Updated:** 2026-11-20
 
 ---
 
@@ -13,7 +13,7 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 10 (K-01 … K-10) |
+| Total entries | 11 (K-01 … K-11) |
 | Current Version | 0.4.0 |
 | Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1`, since K-09 v1.2 (`…-UPD-20261118-v1.2-FieldMap.md`) (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
 | Masters reconciled | none: no master exists; v0.4.0 is not published to Drive (D58) |
@@ -23,6 +23,17 @@
 ---
 
 ## History
+
+### K-11 — v0.4.0 (amended): Exec answers O-46 … O-49 (2026-11-20)
+
+**Type:** UPD · **Brief:** Exec answers O-46 … O-49 (19 Nov); all earlier answers stand · same development version v0.4.0 (D58), contract 2.4 (addendum 4 amended)
+- **O-46:** both Dispatch contact lines stay in the P0110 text as printed (44 short lines in 22 packages, 8 long in L20–L23); new package field `dispatchContact { label, text }` — REQUIRED (short form; also when both), IF QUESTIONS (long form), `null` (neither). On 26: REQUIRED 22, IF QUESTIONS 4, null 0. `EXTENSION_FIELDS` 19.
+- **O-47:** `natTrack.assignedId` from the OFP page 1 route and the ICAO FPL strip route; never remarks or NOTAM text; differ → FPL letter + crew alert (O-51). On 26: L11 `W` from both routes; L08, L12, L22, L23 none.
+- **O-48:** `CURFEW_TYPES` = designator → family + variant names (B762/B763/B764, B744, BLCF, B748, B772/B773/B77L/B77W/B77F); a family name applies to every variant, a variant name to that variant; no match → all lines + note + WARN (unchanged). On 26: no curfew string changed.
+- **O-49:** a FIR NOTAM under more than one FIR block (same ID and text) kept only under FIRs on the OFP (navigation-log FIR lines ∪ FPL EET); other copies out of `firNotams[]` / `enrouteNotams.fir`; none on the OFP → all out; one INFO lists every copy; `firRaw` as printed. On 26: 24 repeats in 10 packages, 6 copies left out (T2 4, L03 1, L16 1), 0 fully. Grammar errata E-1, E-2 in SPEC §8.3 (distinct hazard products: 1,558 by `ID:` line = the scoping method; 1,573 by text).
+- **Byte-identity:** build 1 (`9a76b58`) recorded with its module (`test/rules/data/ofp-flightkeys-v0.4.0-build1-baseline.json`); TC-163-100: only `companyNotams` (22), `firNotams` / `enrouteNotams` (T2, L03, L16) and `dispatchContact` change.
+- **Tests:** TC-163-100, 110/111, 120/121, 130/131, 140/141; TC-160-001, TC-162-001/060, TC-163-001/001b/010/011/020/031 adapted where they named the extension list, the Contact line, the build-1 type table or "repeats kept". Expected values re-exported (fixtures `expected/ofp-flightkeys-v0.4.0/briefing.json`).
+- **Unchanged:** `index.html`, `src/`, `rules/nat*`, NavBlue, the NOTAM modules and the golden snapshots.
 
 ### K-10 — v0.4.0: Company NOTAMs, curfews, ops notes, FIR NOTAMs, hazards, NAT / PACOTS; type headings to the rules (step 5d-2) (2026-11-19)
 
@@ -173,7 +184,7 @@
 | O-19 | ~~Weather order~~ **Closed (Exec D65, 18 Nov): `weather` unchanged, `weatherRaw` in the FlightKeys order** (K-09) | — |
 | O-20 | Sections: names and order at the Exec's visual check (Exec, 18 Nov: step 6) | step 6 |
 | O-33 … O-45 | **Closed (Exec, 19 Nov)**: applied in v0.4.0 (K-10) | — |
-| O-46 | The longer line `Contact Dispatch for a preflight briefing if you have any questions.` (L20–L23, 8 lines) sits inside the P0110 text like the short line; kept in the item (the brief names the short line only) | Exec |
-| O-47 | The app's NAT parser v1.1.0 does not read the FlightKeys track lines: `natTrack.blocks` `[]`, so the app's NAT card shows no track (TMI and direction only) | Exec (NAT ruleset or 5e) |
-| O-48 | The curfew type table (O-33) has no entry for the 767 (`B763`) or the 747-400 LCF (`BLCF`) although the RJAA wording names `B767`; those types get every line + note | Exec |
-| O-49 | Two scoping counts not reproduced (FIR repeats 36 / 12 packages vs 24 / 10 measured; distinct hazard products 1,558 vs 1,573 measured per package); every other count matches | Exec (grammar errata) |
+| O-46 … O-49 | **Closed (Exec, 19 Nov)**: applied in v0.4.0 (K-11). The NAT ruleset revision (FlightKeys track lines) is a separate package | — |
+| O-50 | The departure FIR has no navigation-log FIR line in 12/26 packages: under O-49 its repeat copies are left out (T2 4, L16 1; each still shown under another FIR); a repeat only under the departure FIR and non-OFP FIRs would be left out entirely (0 on 26) | Exec |
+| O-51 | OFP page 1 route and ICAO FPL route name different NAT tracks → FPL letter + crew alert (not seen on 26) | Exec |
+| O-52 | No navigation-log FIR line and no FPL `EET/` read → O-49 leaves nothing out + WARN (not seen on 26) | Exec |
