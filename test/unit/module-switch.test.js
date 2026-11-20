@@ -453,7 +453,7 @@ function synthPackage({ route, orig = 'EDDA', dest = 'KBBB' }) {
 async function gate(route, html) {
   const imp = await importItems(synthPackage({ route }), 'synthetic.pdf', html ? { html } : {});
   const card = imp.app.renderPreflightPhase();
-  const m = card.match(/<div class="section"><div class="callout">[\s\S]*?<span class="callout-title[^"]*"[^>]*>OFP Alerts<\/span>([\s\S]*?)<\/span><\/div><\/div>/);
+  const m = card.match(/<div class="section"><div class="callout"[^>]*>[\s\S]*?<span class="callout-title[^"]*"[^>]*>OFP Alerts<\/span>([\s\S]*?)<\/span><\/div><\/div>/);
   return { imp, stored: imp.S.ofpFindings, list: m ? m[1].split('<br>') : [] };
 }
 const unEsc = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
@@ -517,7 +517,7 @@ test('TC-174-030 findings list: WARNs first, message only, NAT INFOs only, escap
   const list = h.match(/<span class="callout-title[^"]*"[^>]*>OFP Alerts<\/span>([\s\S]*?)<\/span><\/div><\/div>/)[1];
   assert.equal(list, 'WARN ONE &lt;b&gt;&amp;<br>WARN TWO<br>INFO NAT', 'message only, escaped (rule 2), WARN first');
   assert.ok(!/NAT-RANDOM-ROUTE|NAT-FILED|permits|WARN:|INFO:/.test(list), 'no code, field or level shown (O-87)');
-  assert.equal(h.indexOf('<div class="section"><div class="callout">'), 0, 'one list, at the top of the Preflight card');
+  assert.equal(h.indexOf('<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">'), 0, 'one list, at the top of the Preflight card');
   assert.equal(h.split('class="callout"').length, 2, 'one list');
   // existing components only (rule 3): no style attribute, no class but the existing ones
   const block = h.slice(0, h.indexOf('</div></div>') + 12);
@@ -567,8 +567,32 @@ fixtureTest('TC-174-031 findings shown on the 26 by package and code: 7 WARN, 4 
 
 // The list title as drawn: { red } or null when there is no title.
 function alertsTitle(app) {
-  const m = app.renderPreflightPhase().match(/<span class="callout-title( nt-red)?" onclick="ofpAlertsSelect\(\)" role="button" aria-label="OFP Alerts">OFP Alerts<\/span>/);
+  const m = app.renderPreflightPhase().match(/<span class="callout-title( nt-red)?">OFP Alerts<\/span>/);
   return m ? { red: !!m[1] } : null;
+}
+
+// What a tap does (O-98). The Preflight HTML is read as a tree; a tap on an element runs the onclick of the
+// element or of the nearest ancestor that has one (the browser's bubbling). Returns the elements of the page
+// as { tag, cls, text, handler } where handler is the onclick found by bubbling, or null.
+function tapTargets(html) {
+  const VOID = new Set(['br', 'input', 'img', 'hr', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'use', 'meta', 'link']);
+  const out = [], stack = [];
+  const re = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s+[^<>]*?)?)(\/?)>/g;
+  let m, last = 0;
+  const add = (text) => { if (text.trim()) out.push({ tag: '#text', cls: '', text: text.trim(), handler: handlerOf(stack) }); };
+  const handlerOf = st => { for (let i = st.length - 1; i >= 0; i--) if (st[i].onclick) return st[i].onclick; return null; };
+  while ((m = re.exec(html))) {
+    add(html.slice(last, m.index)); last = re.lastIndex;
+    const [, close, tag, attrs, selfc] = m;
+    if (close) { const i = stack.map(e => e.tag).lastIndexOf(tag.toLowerCase()); if (i >= 0) stack.length = i; continue; }
+    const g = n => { const a = attrs.match(new RegExp('\\s' + n + '="([^"]*)"')) || attrs.match(new RegExp('^' + n + '="([^"]*)"')); return a ? a[1] : null; };
+    const el = { tag: tag.toLowerCase(), cls: g('class') || '', onclick: g('onclick') };
+    stack.push(el);
+    out.push({ tag: el.tag, cls: el.cls, text: '', handler: handlerOf(stack) });
+    if (VOID.has(el.tag) || selfc) stack.pop();
+  }
+  add(html.slice(last));
+  return out;
 }
 
 fixtureTest('TC-174-032 O-89 OFP Alerts: red on import; normal after the crew selects it; stored with the flight; a new import red again; pre-O-89 flight safe; no list, no title', async () => {
@@ -617,6 +641,54 @@ fixtureTest('TC-174-032 O-89 OFP Alerts: red on import; normal after the crew se
   for (const v of ['true', 1, {}, false, null]) { app.S.ofpFindings = [{ level: 'WARN', field: 'x', message: 'W' }]; app.S.ofpAlertsSeen = v; assert.deepEqual(alertsTitle(app), { red: true }, JSON.stringify(v)); }
   // the red is the existing class: no new colour in the CSS (src/styles.html unchanged by O-89)
   assert.ok(HTML.includes('.nt-red { color: var(--sys-red);'));
+});
+
+fixtureTest('TC-174-032 O-98 the whole OFP Alerts callout is the tap target: a tap anywhere on it sets the normal colour; a tap outside it leaves the title red', async () => {
+  const pkgWith = fkFixtures().find(f => f.id === 'FK_KDOV-ETAR_03NOV26_pax-nat-random_live');   // L23: WARN + INFO shown
+  const TAP = 'ofpAlertsSelect()';
+  const app = loadApp();
+  await importItems(readItems(pkgWith), 'a.pdf', { app });
+  const shown = app._ofpShownFindings(app.S.ofpFindings);
+  assert.ok(shown.length >= 1);
+  const tapsFresh = () => tapTargets(app.renderPreflightPhase());
+  const els = tapsFresh();
+  // the handler sits on the .callout (one element); the title and the rest of the callout inherit it
+  const withOwn = els.filter(e => e.handler === TAP);
+  assert.ok(withOwn.length > 0);
+  const callouts = els.filter(e => e.tag === 'div' && /(^|\s)callout(\s|$)/.test(e.cls));
+  assert.equal(callouts.length, 1, 'one callout on the Preflight page');
+  assert.equal(app.renderPreflightPhase().split('onclick="ofpAlertsSelect()"').length - 1, 1, 'one handler, on the callout');
+  assert.equal(callouts[0].handler, TAP, 'the callout carries the handler');
+  // POSITIVE: every part of the callout (the icon, the title, every message line) taps the selection
+  const idx = els.indexOf(callouts[0]);
+  const end = els.findIndex((e, i) => i > idx && e.handler !== TAP);
+  const inside = els.slice(idx, end < 0 ? els.length : end);
+  assert.ok(inside.some(e => e.tag === 'svg'), 'the icon is inside the callout');
+  assert.ok(inside.some(e => e.tag === '#text' && e.text === 'OFP Alerts'), 'the title is inside the callout');
+  for (const f of shown) assert.ok(inside.some(e => e.tag === '#text' && e.text.includes(f.message.slice(0, 20).replace(/&/g, '&amp;'))), 'message text is inside the callout: ' + f.field);
+  // each part, tapped alone, sets the normal colour
+  for (const part of inside.filter(e => e.tag === 'svg' || e.tag === '#text' || e.tag === 'span' || e.tag === 'div')) {
+    delete app.S.ofpAlertsSeen;
+    assert.deepEqual(alertsTitle(app), { red: true });
+    assert.equal(part.handler, TAP, `tap on ${part.tag} ${part.cls}${part.text ? ' "' + part.text.slice(0, 12) + '"' : ''}`);
+    app.ofpAlertsSelect();   // what the handler runs
+    assert.deepEqual(alertsTitle(app), { red: false }, 'a tap anywhere on the callout: the normal colour');
+  }
+  // NEGATIVE: a tap outside the callout (every other element of the page, the section around it included) has no
+  // handler: the title stays red
+  delete app.S.ofpAlertsSeen;
+  const after = tapTargets(app.renderPreflightPhase());
+  const outsideNow = after.filter(e => e.handler !== TAP);
+  assert.ok(outsideNow.length > 20, 'the rest of the Preflight page is outside the callout');
+  assert.ok(outsideNow.every(e => e.handler !== TAP));
+  assert.ok(!outsideNow.some(e => e.tag === '#text' && e.text === 'OFP Alerts'), 'the title is not outside');
+  assert.ok(after.filter(e => e.tag === 'div' && /(^|\s)section(\s|$)/.test(e.cls))[0].handler !== TAP, 'the section around the callout is not a tap target');
+  assert.deepEqual(alertsTitle(app), { red: true }, 'no tap reached the handler: the title is still red');
+  // the title has no handler of its own any more (the callout carries it)
+  assert.ok(!/<span class="callout-title[^"]*"[^>]*onclick/.test(app.renderPreflightPhase()));
+  // no list → no callout, no handler
+  app.S.ofpFindings = [];
+  assert.ok(!/ofpAlertsSelect/.test(app.renderPreflightPhase()), 'no list: nothing to tap');
 });
 
 // ══ TC-174-040 safety fields on FlightKeys (rule 6) ═══════════════════════════════
