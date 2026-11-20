@@ -1,17 +1,24 @@
 # SPEC-OFP-FlightKeys
 
-**Version:** v0.4.0 (development version, D58) | **Status:** UPD | **Date:** 2026-11-20 (Exec answers O-46 … O-49 of 19 Nov, O-50 … O-52 of 20 Nov)
+**Version:** v1.0.0 (D58: the first release version; not built into the app until the switch PR, O-74) | **Status:** UPD | **Date:** 2026-11-20 (step 5e-1 PR 1; Exec answers O-74 … O-85)
 **Owner:** Engineering | **Approver:** Exec
 **Tier:** 2 — Platform Architecture
-**Module file:** `rules/ofp-flightkeys/ofp-flightkeys-v0.4.0.js` (SHA-256 in `rules/manifest.json`)
+**Module file:** `rules/ofp-flightkeys/ofp-flightkeys-v1.0.0.js` (SHA-256 in `rules/manifest.json`); the v0.4.0 file is frozen byte for byte as `test/oracle/ofp-flightkeys-v0.4.0.js` (SHA-256 `c4ccb8c4…afb6f`) for the TC-164 comparison
 **Architecture:** ADR-005 §2.1 (module catalogue: "FlightKeys OFP parser"), §2.2 (module standard), §2.4 (output contract, FK-P)
 **Field reference:** `docs/SPRINT-OFP-FlightKeysMigration-UPD-20261118-v1.2-FieldMap.md` (rows, SME answers); `docs/ADR-005-AppendixB-Addendum-NEW-20261117-v1.0.md` (contract 2.1: `specialQualification`, `swa`); `docs/ADR-005-AppendixB-Addendum2-NEW-20261117-v1.0.md` (contract 2.2: `operatingPilots`, crew-record extensions); `docs/ADR-005-AppendixB-Addendum3-NEW-20261118-v1.0.md` (contract 2.3: `notamItems`, `notamsRaw`, `briefing`, `weatherRaw`); `docs/ADR-005-AppendixB-Addendum4-NEW-20261119-v1.0.md` (contract 2.4: `firNotams`, `firRaw`, `natMessages`, `hazards`, `dispatchContact`); grammar `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md`
-**Ledger:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261120-v1.6.md` (beside this file)
-**Supersedes:** SPEC v0.3.0 (same folder; history in §10 and the ledger). The ADR-004 FlightKeys profile (`src/import/atlas-fk.js`) is retired only after this parser is gated and integrated (ADR-005 §2.7).
+**Ledger:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261120-v1.7.md` (beside this file)
+**Supersedes:** SPEC v0.4.0 (same folder; history in §10 and the ledger). The ADR-004 FlightKeys profile (`src/import/atlas-fk.js`) is retired only after this parser is gated and integrated (ADR-005 §2.7).
 
 ---
 
 ## 1. What this module is
+
+**v1.0.0 (step 5e-1 PR 1, 20 Nov; Exec answers O-74 … O-85).** The first release version (D58). It is **not built into `index.html`** and not used by the app until the switch PR (5e-1 PR 2, O-74); its master copy is published to the Drive between the two PRs (CLAUDE.md rule 14). Two changes, everything else byte-identical to v0.4.0 (TC-164-020):
+
+1. **O-68, module side (§5.23):** the filed NAT letter is worked out **before** the NAT call, and the NAT ruleset (`rules/nat-rules-next` v1.2.0, D77) is called as `parseNatTrack(text, orig, dest, { filed, findings })`. The NAT ruleset's findings — `NAT-FILED-NOT-IN-MESSAGE` (D79), `NAT-RANDOM-ROUTE` (D81) and the rest of its closed list — are forwarded into `findings[]` as it gives them, with their `code`.
+2. **O-84:** the deferred-field INFO is version-free: `not read: not in any brief yet (open item)` (was `not read in v0.4.0: …`), so a version bump no longer changes a finding.
+
+On the 26 (the app's NAT parser v1.1.0 → the NAT ruleset v1.2.0 at the switch): `natTrack` changes on L08, L11, L12, L22, L23 (the tracks are read; the TMI, direction and filed letter are unchanged); INFO `NAT-RANDOM-ROUTE` on L08, L12, L22, L23; the O-84 text on all 26. No `NAT-FILED-NOT-IN-MESSAGE` on the 26 (L11's filed `W` is in its message). The display of these findings to the crew is PR 2 (O-76).
 
 **v0.4.0 (step 5d-2, 19 Nov; development version, D58: not built into the app, not published).** It reads everything v0.3.0 read, unchanged except the declared scope-0 change (TC-163-001), plus the rest of the briefing package, under the Exec answers **O-33 … O-45** (19 Nov): the airport NOTAM text keeps the printed type headings for NOTAM v1.14.0 (D67, §5.15a); the **Company NOTAMs** (§5.18); **curfews** (§5.19); **ops notes** (§5.20); the **FIR NOTAM blocks** (§5.21); the **Hazard Briefing** (§5.22); the **NAT track messages** and the **PACOTS** sets (§5.23, §5.24). New top-level extensions `firNotams`, `firRaw`, `natMessages`, `hazards` (contract 2.4, addendum 4). Only `fplEquipment` is still deferred.
 
@@ -40,17 +47,17 @@ The FlightKeys OFP parser reads an Atlas Air / Polar Air Cargo package in the Fl
 
 | 44 airport NOTAMs with the type headings (D67); 46 curfew (SC); 47 ops notes; 49 FIR NOTAMs; 42 NAT, PACOTS; Company NOTAMs; hazards | **v0.4.0** | `notams` + headings; `companyNotams[]`; `airportData[icao].curfew` / `opsNotes`; `enrouteNotams.fir`; `natTrack`; extensions `firNotams[]`, `firRaw[]`, `natMessages[]`, `hazards[]` (addendum 4); PACOTS `sections[]` |
 
-| Not read in v0.4.0 | Step | Explicit empty |
+| Not read in v1.0.0 | Step | Explicit empty |
 | :--- | :--- | :--- |
 | Extension `fplEquipment` (D41) | open — no brief yet | `null` |
 
-The list is exported as `DEFERRED_FIELDS` (step `5d` or `open`). The entry gives exactly one INFO finding, `not read in v0.4.0: not in any brief yet (open item)`. An airport entry carries `curfew` / `opsNotes` only when the package prints one for it (as NavBlue).
+The list is exported as `DEFERRED_FIELDS` (step `5d` or `open`). The entry gives exactly one INFO finding, `not read: not in any brief yet (open item)` (v1.0.0, O-84: version-free; up to v0.4.0 the text named the version). An airport entry carries `curfew` / `opsNotes` only when the package prints one for it (as NavBlue).
 
 ---
 
 ## 2. Module standard (ADR-005 §2.2)
 
-As v0.1.0: one standalone file, no `require`; dual context (`module.exports`, browser global **`OfpFlightKeys`**); metadata `RULESET_TYPE 'ofp'`, `OFP_FORMAT 'flightkeys'`, `RULESET_VERSION '0.4.0'`, `SCHEMA_VERSION 2`, `CONTRACT_VERSION '2.4'`, `RULESET_SOURCE`; `validateSchema()`; no app state, DOM, UI, storage, network or clock; strict mode; all times UTC.
+As v0.1.0: one standalone file, no `require`; dual context (`module.exports`, browser global **`OfpFlightKeys`**); metadata `RULESET_TYPE 'ofp'`, `OFP_FORMAT 'flightkeys'`, `RULESET_VERSION '1.0.0'`, `SCHEMA_VERSION 2`, `CONTRACT_VERSION '2.4'`, `RULESET_SOURCE`; `validateSchema()`; no app state, DOM, UI, storage, network or clock; strict mode; all times UTC.
 
 ---
 
@@ -80,7 +87,7 @@ module.exports = {
 
 ### 3.2 `parseFlightKeys(input, options)`
 
-Input, options and the null rule as v0.1.0 (`{ text, pages }` from the extractor; `{ icaoFpl, aircraftProfile, parseNatTrack }`). **v0.4.0:** `options.parseNatTrack` is called (§5.23). **v0.3.0:** `options.notamRules` — the NOTAM ruleset (`rules/notam-rules`, v1.13.0); the parser calls only its `_splitNotams` and `_fkHeader` (§5.15). The briefing is read from `input.pages`; without positioned items it is not read (one WARN). **Change (QA F4):** `icaoFpl.parseIcaoFpl()` is given the body lines of the first release copy, not the whole package. An FPL quoted anywhere else is never read. No release means no FPL, plus a WARN. On the 26 fixtures the result is unchanged (TC-161-001), because the first `(FPL-` block was already inside the release in every package.
+Input, options and the null rule as v0.1.0 (`{ text, pages }` from the extractor; `{ icaoFpl, aircraftProfile, notamRules, parseNatTrack }`). **v1.0.0 (O-68):** `options.parseNatTrack` is the NAT ruleset's `parseNatTrack` (`rules/nat-rules-next` v1.2.0) and is called for the chosen message with a fourth argument `{ filed, findings }` (§5.23); the probe call that reads the flight's direction has no options. A parser that ignores the options (the app's `src/nat.html` v1.1.0) still works: `assignedId` and the marked track are set by the module as in v0.4.0. **v0.4.0:** `options.parseNatTrack` is called (§5.23). **v0.3.0:** `options.notamRules` — the NOTAM ruleset (`rules/notam-rules`, v1.13.0); the parser calls only its `_splitNotams` and `_fkHeader` (§5.15). The briefing is read from `input.pages`; without positioned items it is not read (one WARN). **Change (QA F4):** `icaoFpl.parseIcaoFpl()` is given the body lines of the first release copy, not the whole package. An FPL quoted anywhere else is never read. No release means no FPL, plus a WARN. On the 26 fixtures the result is unchanged (TC-161-001), because the first `(FPL-` block was already inside the release in every package.
 
 ### 3.3 `validateSchema(ruleset?)`
 
@@ -461,7 +468,15 @@ On the 26: 5 packages, 6 messages, all complete; L12 (westbound) returns **307**
 | L22 | none | — | — | FIR NOTAM text names `NATX` |
 | L23 | none | — | — | FIR NOTAM text names `NATX`; the remarks name NAT tracks |
 
-**Limit:** the app's NAT parser v1.1.0 does not read the FlightKeys track lines (`blocks: []`, `rawFallback ''`): `natTrack` carries the TMI, the direction and `assignedId` only. The NAT ruleset revision is a separate package (Exec, O-47); `rules/nat*` is not changed here.
+**v1.0.0 — the NAT call with `{ filed, findings }` (O-68, module side; D78, D79, D81).** The filed letter above is worked out **before** the NAT call (the D74 crew-alert WARN for differing routes is added first, unchanged). The call for the chosen message is `parseNatTrack(text, origIcao, destIcao, { filed, findings })`: `filed` = the letter, or `null` for a random route; `findings` = a fresh array the NAT ruleset pushes `{ level, field: 'natTrack', code, message }` to. Its entries are appended to `findings[]` unchanged (with `code`), after the D74 WARN and before the `natTrack` INFO. So:
+
+- filed letter **not printed** in the chosen message → WARN `NAT-FILED-NOT-IN-MESSAGE` `FILED NAT x NOT IN TRACK MESSAGE TMI nnn (DIR) – CHECK OCEANIC CLEARANCE` (D79, no full stop); `assignedId` = the letter, no track marked; no search of the other direction;
+- **no filed letter** → INFO `NAT-RANDOM-ROUTE` `NO FILED NAT TRACK LETTER: NO TRACK MARKED (TMI nnn)` (D81);
+- the other codes of the NAT ruleset's closed list (`FINDING_CODES`: `NAT-NO-TRACKS`, `NAT-TRACK-UNREADABLE`, `NAT-WAYPOINT-UNREAD`, `NAT-TRACK-DUPLICATE`, `NAT-MULTI-MESSAGE` WARN; `NAT-FILED-IGNORED`, `NAT-VALIDITY-UNREADABLE`, `NAT-REMARKS-DIRECTION` INFO) arrive the same way; none fire on the 26.
+
+The probe call (the flight's direction) passes no options, so a finding is never given twice. With the NAT ruleset v1.2.0 the module's own `assignedId` / `assigned` lines change nothing; they keep v0.4.0's result with a parser that ignores the options. On the 26: L11 filed `W`, marked, no NAT finding; L08, L12, L22, L23 one `NAT-RANDOM-ROUTE` INFO each. **Findings shape:** the parser's own findings stay `{ level, field, message }`; a forwarded NAT finding is `{ level, field, code, message }` (TC-164-013).
+
+**Limit (v0.4.0 with the app's NAT parser v1.1.0):** v1.1.0 does not read the FlightKeys track lines (`blocks: []`, `rawFallback ''`): `natTrack` carried the TMI, the direction and `assignedId` only. With the NAT ruleset v1.2.0 (D77, at the switch) the tracks are read (TC-173-041).
 
 ### 5.24 PACOTS (O-44; D42)
 
@@ -471,7 +486,7 @@ A FIR NOTAM item whose text says `PACOTS TRACKS` anywhere (a headline wrapped ov
 
 ## 6. Tests (run by `npm test`)
 
-| ID | What | Result (2026-11-18) |
+| ID | What | Result (2026-11-20) |
 | :--- | :--- | :--- |
 | TC-160-001 … 040 | the v0.1.0 battery (`test/rules/ofp-flightkeys.test.js`), scoped to the v0.1.0 fields; version / contract / airport keys / deferred-list asserts updated for v0.3.0 | 20/20 PASS |
 | TC-161-001 | **v0.1.0 fields byte-identical**: SHA-256 per field vs the recorded v0.1.0 output (`test/rules/data/ofp-flightkeys-v0.1.0-baseline.json`) on 26 fixtures; v0.1.0 findings kept in order; one airport entry added (L15 PWAK) | PASS |
@@ -535,6 +550,22 @@ A FIR NOTAM item whose text says `PACOTS TRACKS` anywhere (a headline wrapped ov
 | **TC-163-140 / 141** | **O-49 / O-50** synthetic: repeat kept under the OFP FIR and left out under a non-OFP FIR; every copy left out when no FIR is on the OFP; same ID with other text kept (D43); twice in one block kept; firRaw unchanged; the INFO list; EET as a source; no OFP FIR read → all kept + WARN; Company item never a repeat / on 26: the rule applied independently (navigation-log FIR lines and EET from the text, items from firRaw) = the copies left out (O-50: the first FIR block counts as on the OFP): 24 repeats in 10 packages, 53 copies, 1 left out (L03 1; T2 4 and L16 1 kept under the departure FIR), 0 under every block; firRaw = build 1 | PASS |
 | **TC-163-142** | **O-50** synthetic: positive — a repeat under the departure FIR with no navigation-log line is kept, also when printed only under the departure FIR and a non-OFP FIR; negative — a repeat under a non-OFP, non-departure FIR (second block, last block) is still left out, every copy out when none is on the OFP or the departure FIR; the INFO names the departure FIR; EET as the only source; only the departure FIR on the OFP; no OFP FIR read → all kept + WARN (O-52); firRaw unchanged; twice in one block kept | PASS |
 | *TC-160 / 161 / 162 in v0.4.0* | changed only where they named the version, the extension list (18, 19 with `dispatchContact`), the deferred list (`fplEquipment` only) or v0.3.0's heading-free NOTAM text (read through a helper that drops the heading lines); TC-162-050 leaves out the PACOTS sections; TC-161-050 leaves out the 5d-2 WARNs | 69/69 PASS |
+
+| **TC-164-001** | **v1.0.0 identity** (`test/rules/ofp-flightkeys-v100.test.js`): type, format, version 1.0.0, schema 2, contract 2.4; manifest entry, file and SHA-256; v0.4.0 no longer in `rules/`, frozen in `test/oracle/` (SHA-256 `c4ccb8c4…`); the NAT, NOTAM and NavBlue manifest entries unchanged; NEGATIVE a changed byte fails the manifest check | PASS |
+| TC-164-002 | not built in (O-74; TC-160-004 still holds): `index.html`, `build/build.js`, `src/` do not name it; APP_VERSION, CACHE_NAME, `manifest.json` stay 1.9.9-hf6 (O-75) | PASS |
+| TC-164-003 | `validateSchema()` valid; NEGATIVE broken objects (version `1.0`, missing export, contract, extension list, deferred field) rejected | PASS |
+| **TC-164-010** | **O-68**: the call for the chosen message gets exactly `{ filed, findings }`; the letter is known at the call; the probe has no options; a spy finding is forwarded once, as given, after the D74 WARN and before the `natTrack` INFO; random route → `filed: null`; NEGATIVE no NAT pages → no call; the app's v1.1.0 (ignores options) still gives the letter and the marked track | PASS |
+| **TC-164-011** | **D79 (SC, rule 6)** synthetic: letter absent from the message (FPL route, page 1 route, eastbound) → exactly one WARN `NAT-FILED-NOT-IN-MESSAGE` with the D79 text, nothing marked; NEGATIVE letter printed (A, B) → no WARN, that track marked, no NAT finding | PASS |
+| TC-164-012 | **D81** synthetic: no letter → INFO `NAT-RANDOM-ROUTE`, nothing marked, no WARN; remarks naming a track change nothing; NEGATIVE a filed letter (printed or not), no NAT pages, no NAT parser → none | PASS |
+| TC-164-013 | findings shape: own `{ level, field, message }`; forwarded `{ level, field, code, message }` with field `natTrack` and the code's level from the NAT ruleset's closed list; NEGATIVE malformed records are caught | PASS |
+| TC-164-014 | **D74 kept**: routes differ → the crew-alert WARN once, the FPL letter marked; NEGATIVE routes agree → none; both D74 and D79 → D74 first | PASS |
+| TC-164-015 | `notamRules` not supplied → the existing WARNs kept (O-18 is PR 2); NEGATIVE supplied → none | PASS |
+| TC-164-016 | **O-80** text only → WARN `read from text only`, release data still read; NEGATIVE positions → none | PASS |
+| TC-164-017 | **O-84** the deferred INFO is `not read: not in any brief yet (open item)`; NEGATIVE no finding names a version; v0.4.0 named it | PASS |
+| **TC-164-020** | **all 26 vs v0.4.0** (the frozen copy): with the app's NAT v1.1.0 (the app today) only `natTrack` on L08, L11, L12, L22, L23; findings = v0.4.0's in order with the O-84 text (26) + one INFO `NAT-RANDOM-ROUTE` on L08, L12, L22, L23; with NAT v1.2.0 (3 arguments) `natTrack` equal on all 26, the same findings changes; every other field equal | PASS |
+| TC-164-021 | pinned values on all 26 (fixtures `expected/ofp-flightkeys-v1.0.0/nat.json`): `natTrack` hash, filed letter and marked track, forwarded NAT findings; shape; 0 `NAT-FILED-NOT-IN-MESSAGE`; L11 `W` marked, no NAT finding | PASS |
+| TC-164-090 | fixtures missing → FAIL, never skip | PASS |
+| *TC-160 / 162 / 163 in v1.0.0 (O-84)* | TC-160-001 / 002 pin 1.0.0 and the v1.0.0 file; TC-160-005, TC-162-001, TC-163-001b and TC-163-100 compare the deferred INFO version-free | 97/97 PASS |
 
 Expected values (`test/rules/data/ofp-flightkeys-expected-v0.2.0.json`) were taken from the release text by a separate, simpler extraction (one pattern per field) and checked against the field map v1.1 counts. They hold no crew data, and free text (MEL titles, Remarks, the permits block) only as SHA-256.
 
@@ -618,6 +649,18 @@ Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) 
 | Hazard blocks / empty / products | 221 / 66 / 1,980 | 221 / 66 / 1,980 | yes |
 | Distinct hazard products | 1,558 | 1,558 by product `ID:` line; 1,573 by product text | method — errata E-2 (§8.3) |
 
+### 8.4 v1.0.0 — against v0.4.0 (step 5e-1 PR 1, TC-164-020)
+
+| Item | Scoping (brief, O-85) | Build | Match |
+| :--- | :--- | :--- | :---: |
+| Packages compared | 26 | 26 | yes |
+| `natTrack` changed (vs v0.4.0 + the app's NAT v1.1.0) | 5: L08, L11, L12, L22, L23 | 5: L08, L11, L12, L22, L23 | yes |
+| `natTrack` changed (vs v0.4.0 + NAT v1.2.0, 3 arguments) | — | 0 | — |
+| INFO `NAT-RANDOM-ROUTE` added | 4: L08, L12, L22, L23 | 4: L08, L12, L22, L23 | yes |
+| WARN `NAT-FILED-NOT-IN-MESSAGE` | 0 | 0 | yes |
+| Deferred INFO text (O-84) | 26 | 26 | yes |
+| Any other field or finding | 0 | 0 | yes |
+
 ### 8.3 Grammar errata (O-49, Exec 19 Nov: the measured counts with their method)
 
 For the grammar report `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md` (§A.8, §A.9) and the scoping pass. Measured on the 26 with module v0.4.0 (`test/rules/ofp-flightkeys-v040.test.js` TC-163-031, TC-163-040b, TC-163-141).
@@ -641,7 +684,11 @@ For the grammar report `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.
 
 | Item | Note |
 | :--- | :--- |
-| Integration | v0.4.0 must not be integrated (D58: v1.0.0 at 5e). `notams` now carries the type headings for NOTAM v1.14.0: it must not be given to NOTAM v1.13.0 (O-12). |
+| Integration | v1.0.0 is not built in (O-74): the switch PR (5e-1 PR 2) builds it in with NOTAM v1.14.0 and the NAT ruleset v1.2.0, passes `options.notamRules` (O-18) and shows the findings (O-76). `notams` carries the type headings for NOTAM v1.14.0: it must not be given to NOTAM v1.13.0 (O-12). Without `notamRules` the module keeps its WARN (TC-164-015). |
+| O-68 NAT findings to the crew | **Module side done in v1.0.0:** `{ filed, findings }` passed, NAT findings in `findings[]` (§5.23). The crew display is PR 2 (O-76). |
+| O-80 pasted text | **As built:** without `input.pages` the release is read from the text with the WARN `positioned items (input.pages) not supplied; read from text only`; the briefing is not read (TC-164-016). No module change. |
+| O-84 version in a finding | **Closed (Exec, 20 Nov):** the deferred INFO is version-free (§1). |
+| O-85 package label | **Closed (Exec, 20 Nov):** the brief's "L10" means L08; the declared `natTrack` changes are L08, L11, L12, L22, L23. |
 | O-46 Dispatch contact | **Closed (Exec, 19 Nov):** both lines stay in the P0110 text; `dispatchContact` REQUIRED / IF QUESTIONS (§5.18). |
 | O-47 filed NAT track | **Closed (Exec, 19 Nov):** read from the OFP page 1 route and the ICAO FPL route (§5.23). The NAT ruleset revision (FlightKeys track lines) is a separate package. |
 | O-48 curfew types | **Closed (Exec, 19 Nov):** family / variant matching, table with B762/B763/B764, B744, BLCF, B748, B772/B773/B77L/B77W/B77F (§5.19). |
@@ -686,3 +733,4 @@ For the grammar report `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.
 | **0.3.0** | 2026-11-18 | UPD (development, D58 amended) | Step 5d, D64: the briefing reader from the positioned items only (§5.13); airport blocks with every role window (`briefing`, SME-1); airport NOTAMs — items cut by the NOTAM ruleset under each printed type heading, `notams` in the v1.13.0 form, `notamItems[]` (ID, category, source positions), `notamsRaw` (the printed layout); weather in NavBlue's form; E-WINS from the `* PRIO *` TAF as NavBlue sets it; an entry for every briefing airport in card order; `sections[]`. Contract 2.3 (addendum 3). New option `notamRules`. v0.2.0 output byte-identical (TC-162-001; one entry moves, L15 PWAK). Exec answers (18 Nov): **D65** `weatherRaw` (the Weather Briefing block as printed; `weather` unchanged); **D66** `ewinsWindow` `''`, `ewinsRole` = the airport's role (NavBlue faults NB-F6 / NB-F7 logged, not copied); field map v1.2 and grammar v1.1 corrected (O-13, O-16, O-17); every other value byte-identical to e96ed88 (TC-162-060). |
 | **0.4.0** | 2026-11-19 | UPD (development, D58) | Step 5d-2, Exec answers O-33 … O-45: `notams` keeps the type headings for NOTAM v1.14.0 (D67); `companyNotams[]` (298); curfews (CURFEW key, closed type table, season effectivity, UTC only; NB-F8 logged); `opsNotes` (O-38 repeats out); FIR NOTAMs — `enrouteNotams.fir`, `firNotams[]`, `firRaw[]` (D64); `hazards[]`; NAT — `natMessages[]`, `natTrack` through the NAT parser (direction first, then TMI; crew alert); PACOTS sections. Contract 2.4 (addendum 4). Everything else byte-identical to v0.3.0 (TC-163-001). |
 | **0.4.0** (amended) | 2026-11-20 | UPD (development, D58) | Exec answers O-46 … O-49 (19 Nov) and O-50 … O-52 (20 Nov), same development version: Dispatch contact lines kept in the P0110 text + `dispatchContact` (O-46; addendum 4, 19 extensions); filed NAT track from the OFP page 1 route and the ICAO FPL route (O-47); curfew family / variant table (O-48); FIR repeats kept only under FIRs on the OFP and the departure FIR (the first FIR block, always on the OFP), the other copies left out with an INFO (O-49, O-50; O-51 and O-52 as built); grammar errata E-1, E-2 (§8.3). Everything else byte-identical to build 1 (TC-163-100). |
+| **1.0.0** | 2026-11-20 | UPD (release version, D58; not built in, O-74) | Step 5e-1 PR 1, Exec answers O-74 … O-85: the filed NAT letter is worked out before the NAT call; the NAT ruleset is called with `{ filed, findings }` and its findings forwarded into `findings[]` with their code (O-68, module side; D79, D81); the deferred INFO is version-free (O-84). Everything else byte-identical to v0.4.0 on all 26 (TC-164-020). |

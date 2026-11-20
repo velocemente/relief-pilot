@@ -773,8 +773,8 @@ if (!FIXTURES) {
     const NOW_READ = ['enrouteNotams', 'natTrack', 'airportData.curfew', 'airportData.opsNotes', 'companyNotams'];
     for (const fx of fk) {
       const r = run(fx), lbl = L(fx);
-      assert.equal(r.findings.filter(f => NOW_READ.includes(f.field) && /^not read in/.test(f.message)).length, 0, `${lbl}: no "not read" INFO for the fields read now`);
-      assert.equal(r.findings.filter(f => f.field === 'fplEquipment' && /^not read in v0\.4\.0: not in any brief yet/.test(f.message)).length, 1, `${lbl}: fplEquipment still deferred`);
+      assert.equal(r.findings.filter(f => NOW_READ.includes(f.field) && /^not read\b/.test(f.message)).length, 0, `${lbl}: no "not read" INFO for the fields read now`);
+      assert.equal(r.findings.filter(f => f.field === 'fplEquipment' && /^not read: not in any brief yet/.test(f.message)).length, 1, `${lbl}: fplEquipment still deferred (v1.0.0, O-84: version-free text)`);
       const bad = r.findings.filter(f => f.level === 'WARN' && !['permits', 'altData', 'airportData.curfew', 'natTrack'].includes(f.field));
       assert.deepEqual(bad, [], `${lbl}: no WARN outside the known ones`);
     }
@@ -789,7 +789,7 @@ if (!FIXTURES) {
         if (isNew(f)) continue;
         if (f.field === 'fplEquipment') {
           for (const k of ['enrouteNotams', 'natTrack', 'airportData.curfew', 'airportData.opsNotes', 'companyNotams']) back.push({ level: 'INFO', field: k, message: 'not read in v0.3.0: read in 5d' });
-          back.push(Object.assign({}, f, { message: f.message.replace('v0.4.0', 'v0.3.0') }));
+          back.push(Object.assign({}, f, { message: f.message.replace(/^not read: /, 'not read in v0.3.0: ') }));   // O-84: compared version-free
           continue;
         }
         back.push(f);
@@ -1134,7 +1134,9 @@ if (!FIXTURES) {
       });
       // findings: build 1 in order, except the NAT "filed track" INFO (reworded, O-47) and the new O-46 / O-49 findings
       const isNew = f => f.field === 'dispatchContact' || (f.field === 'enrouteNotams' && /\(O-49\)$/.test(f.message));
-      const mine = r.findings.filter(f => !isNew(f) && !(f.field === 'natTrack' && /; filed track /.test(f.message))).map(f => sha(JSON.stringify(f)));
+      // O-84 (v1.0.0): the deferred INFO is version-free; compared version-free (build 1 printed "not read in v0.4.0: …")
+      const vfree = f => (f.level === 'INFO' && /^not read: /.test(f.message) ? Object.assign({}, f, { message: f.message.replace(/^not read: /, 'not read in v0.4.0: ') }) : f);
+      const mine = r.findings.filter(f => !isNew(f) && !(f.field === 'natTrack' && /; filed track /.test(f.message))).map(f => sha(JSON.stringify(vfree(f))));
       assert.deepEqual(mine, b.findings.filter(f => !f.filedTrack).map(f => f.sha256), `${lbl}: the other findings = build 1, in order`);
       assert.equal(r.findings.filter(f => f.field === 'natTrack' && /; filed track /.test(f.message)).length, b.findings.filter(f => f.filedTrack).length);
       findings += mine.length;

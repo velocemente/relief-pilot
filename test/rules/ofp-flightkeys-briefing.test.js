@@ -406,15 +406,15 @@ if (!FIXTURES) {
       const moved = Object.keys(r.airportData).slice(0, v2.length).filter((k, i) => k !== v2[i]);
       if (moved.length) orderMoves.push(`${lbl} ${v2.filter(k => !Object.keys(r.airportData).slice(0, v2.length).includes(k)).join(',')}`);
       // the v0.2.0 findings, in order, inside the v0.3.0 findings (the INFOs of the fields read now dropped;
-      // the deferred INFOs name the version)
-      const norm = f => JSON.stringify(Object.assign({}, f, { message: f.message.replace(/^not read in v0\.[234]\.0:/, 'not read in v0.x:') }));
+      // the deferred INFOs named the version up to v0.4.0; v1.0.0 (O-84) prints none: compared version-free)
+      const norm = f => JSON.stringify(Object.assign({}, f, { message: f.message.replace(/^not read(?: in v0\.[234]\.0)?:/, 'not read in v0.x:') }));
       const want = b.findings.filter(f => !(f.level === 'INFO' && NOW_READ.includes(f.field) && /^not read in/.test(f.message))).map(norm);
       const got = r.findings.map(norm);
       let j = 0;
       for (const g of got) if (j < want.length && g === want[j]) j++;
       assert.equal(j, want.length, `${lbl}: v0.2.0 findings kept, in order`);
       findings += want.length;
-      assert.equal(r.findings.filter(f => NOW_READ.includes(f.field) && /^not read in/.test(f.message)).length, 0, `${lbl}: no "not read" INFO for the fields read now`);
+      assert.equal(r.findings.filter(f => NOW_READ.includes(f.field) && /^not read\b/.test(f.message)).length, 0, `${lbl}: no "not read" INFO for the fields read now`);
     }
     // The only entry that changes place: L15 PWAK (v0.2.0's remarks-weather entry; an EA airport) now stands
     // with the other IA/TA/EA airports after the briefing alternates (card order, SME-1).

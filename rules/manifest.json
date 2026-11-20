@@ -27,7 +27,7 @@
   "ofp-flightkeys": {
     "version": "1.0.0",
     "file": "ofp-flightkeys/ofp-flightkeys-v1.0.0.js",
-    "sha256": "9790d35608d58e3b9f173bf955e383aff72a82fbf30b28c74a923d2b3b829630"
+    "sha256": "8a7d3e8fbf02ebae421739dfd65f8598d47e4d016ae1e7a3a2a791389e548e40"
   },
   "nat-rules-next": {
     "version": "1.2.0",

@@ -114,7 +114,7 @@ const parseText = (text, opts = OPTS) => mod.parseFlightKeys({ text, pages: [] }
 test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'ofp');
   assert.equal(mod.OFP_FORMAT, 'flightkeys');
-  assert.equal(mod.RULESET_VERSION, '0.4.0');
+  assert.equal(mod.RULESET_VERSION, '1.0.0');
   assert.equal(mod.SCHEMA_VERSION, 2);
   assert.equal(mod.CONTRACT_VERSION, '2.4');
   assert.ok(mod.RULESET_SOURCE.length > 10);
@@ -159,11 +159,11 @@ test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () 
 
 // ══ TC-160-002 manifest ══════════════════════════════════════════════════════
 
-test('TC-160-002 rules/manifest.json lists ofp-flightkeys 0.4.0 with its SHA-256', () => {
+test('TC-160-002 rules/manifest.json lists ofp-flightkeys 1.0.0 with its SHA-256', () => {
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
   assert.equal(e.version, mod.RULESET_VERSION);
-  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v0.4.0.js');
+  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v1.0.0.js');
   assert.equal(e.sha256, crypto.createHash('sha256').update(fs.readFileSync(MOD_FILE)).digest('hex'));
 });
 
@@ -566,8 +566,9 @@ if (!FIXTURES) {
         for (const k of mod.AIRPORT_EXTENSION_FIELDS) assert.ok(k in a, `${lbl} ${icao}: ${k}`);
       for (const f of Object.keys(mod.DEFERRED_FIELDS)) {
         const n = r.findings.filter(x => x.level === 'INFO' && x.field === f
-          && /^not read in v0\.4\.0: (read in 5d|not in any brief yet \(open item\))$/.test(x.message)).length;
-        assert.equal(n, 1, `${lbl}: one INFO for ${f}`);
+          && /^not read: (read in 5d|not in any brief yet \(open item\))$/.test(x.message)).length;
+        assert.equal(n, 1, `${lbl}: one INFO for ${f} (v1.0.0, O-84: version-free text)`);
+        assert.equal(r.findings.filter(x => /^not read in v/.test(x.message)).length, 0, `${lbl}: no INFO names a version (O-84)`);
       }
       // v0.4.0: natTrack, enrouteNotams, curfew, opsNotes and companyNotams are read (TC-163); the NavBlue types
       assert.ok(r.natTrack === null || (typeof r.natTrack === 'object' && r.natTrack.trackType === 'NAT'), `${lbl}: natTrack`);

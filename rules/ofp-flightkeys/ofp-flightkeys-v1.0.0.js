@@ -14,7 +14,8 @@
  * track letter is worked out BEFORE the NAT call, and the NAT ruleset
  * (rules/nat-rules-next v1.2.0) is called with { filed, findings }; its findings
  * (NAT-FILED-NOT-IN-MESSAGE, D79; NAT-RANDOM-ROUTE, D81; …) are forwarded into
- * findings[] with their code. Everything else is byte-identical to v0.4.0.
+ * findings[] with their code. The deferred-field INFO is version-free ("not
+ * read: …", O-84). Everything else is byte-identical to v0.4.0.
  * v0.2.0 read the OFP
  * release: identity and header, airports and times, fuel, weights, DOT
  * exemption, slot, ETOPS, POR, ETP/CFS, nav log (for TOC and the ETOPS/ETP/POR
@@ -592,7 +593,8 @@ function parseFlightKeys(input, options) {
   _readSections(ctx);      // § 7 (v0.3.0): sections[] (rows 37, 38); PACOTS (v0.4.0, O-44)
 
   // ── Deferred fields: explicit empties, one INFO each ───────────────
-  for (const f of Object.keys(DEFERRED_FIELDS)) add('INFO', f, `not read in v${RULESET_VERSION}: ${DEFERRED_STEPS[DEFERRED_FIELDS[f]]}`);
+  // v1.0.0 (O-84): the text is version-free, so a version bump does not change it.
+  for (const f of Object.keys(DEFERRED_FIELDS)) add('INFO', f, `not read: ${DEFERRED_STEPS[DEFERRED_FIELDS[f]]}`);
 
   // ── Assemble: core fields in CORE_FIELDS order, then the extensions ─
   const res = {};
