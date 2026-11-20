@@ -50,7 +50,15 @@
  *   TC-163-131  O-48 on all 26: every OFP type in the table; curfew strings unchanged
  *   TC-163-140  O-49 synthetic: repeat kept under an OFP FIR, copy left out under a non-OFP FIR, every copy
  *               left out when no FIR matches, firRaw unchanged, the INFO, EET source, no OFP FIR → kept + WARN
- *   TC-163-141  O-49 on all 26: the rule applied independently = the copies left out; firRaw = build 1
+ *   TC-163-141  O-49 / O-50 on all 26: the rule applied independently = the copies left out; firRaw = build 1
+ *
+ * Exec answer O-50 (20 Nov 2026), same development version: the departure FIR (the first FIR block of the
+ * NOTAM Briefing) always counts as on the OFP, with or without a navigation-log line for it:
+ *   TC-163-142  O-50 synthetic: positive (a repeat under the departure FIR, no nav-log line, is kept; a repeat
+ *               printed only under the departure FIR and non-OFP FIRs keeps its departure copy); negative (a
+ *               repeat under a non-OFP, non-departure FIR is still left out, also the second block; every copy
+ *               out when no FIR matches and none is the departure FIR); the INFO names the departure FIR;
+ *               no FIR of the OFP read → nothing left out + WARN (O-52, unchanged); firRaw unchanged
  *
  * Synthetic packages use invented identifiers (KAAA, KBBB, KXXX …). Fixture tests assert counts, package
  * labels, ICAO codes, NOTAM IDs and hashes; the fixture values themselves are in the private fixtures repo
@@ -603,7 +611,7 @@ test('TC-163-140 O-49 FIR repeats synthetic: kept under an OFP FIR, copy left ou
   ]);
   const info = infos(r, /^enrouteNotams$/).filter(f => /\(O-49\)$/.test(f.message) && /cop(y|ies) left out/.test(f.message));
   assert.equal(info.length, 1);
-  assert.match(info[0].message, /^2 FIR NOTAM\(s\) printed under more than one FIR block; 4 copies left out .*OFP FIRs from the navigation log FIR lines and the FPL EET: KXXX\): .*; 1 NOTAM\(s\) left out under every block; firRaw as printed \(O-49\)$/);
+  assert.match(info[0].message, /^2 FIR NOTAM\(s\) printed under more than one FIR block; 4 copies left out of firNotams\[\] and enrouteNotams\.fir \(FIR not on the OFP and not the departure FIR KXXX; OFP FIRs from the navigation log FIR lines and the FPL EET: KXXX\): .*; 1 NOTAM\(s\) left out under every block; firRaw as printed \(O-49\)$/);
   // firRaw exactly as printed: every copy still there (D64)
   const raw = r.firRaw.map(b => b.raw).join('\n');
   assert.equal((raw.match(/A0501\/26/g) || []).length, 2); assert.equal((raw.match(/A0502\/26/g) || []).length, 3);
@@ -611,7 +619,7 @@ test('TC-163-140 O-49 FIR repeats synthetic: kept under an OFP FIR, copy left ou
   // the FPL EET is a source too (no nav-log FIR line)
   const eet = pkg({ firs, dof: 'DOF/261103 EET/KZZZ0100 ' });
   assert.deepEqual(eet.firNotams.find(b => b.code === 'KZZZ').items.map(i => i.id), ['A0501/26', 'A0502/26', 'A0503/26', 'A0505/26'], 'EET KZZZ: R1 and R2 kept under KZZZ');
-  assert.deepEqual(eet.firNotams.find(b => b.code === 'KXXX').items.map(i => i.id), ['A0503/26', 'A0504/26', 'A0504/26'], 'R1 left out under KXXX');
+  assert.deepEqual(eet.firNotams.find(b => b.code === 'KXXX').items.map(i => i.id), ['A0501/26', 'A0503/26', 'A0504/26', 'A0504/26'], 'R1 kept under KXXX too: the first FIR block is the departure FIR (O-50), on the OFP with no nav-log line');
   // NEGATIVE: no FIR of the OFP read → nothing left out, WARN
   const none = pkg({ firs });
   assert.equal(none.firNotams.reduce((n, b) => n + b.items.length, 0), 10, 'every printed copy kept');
@@ -622,6 +630,60 @@ test('TC-163-140 O-49 FIR repeats synthetic: kept under an OFP FIR, copy left ou
   // the FIR-keyed Company item (O-40) is never a repeat
   const co = pkg({ firs, navFirs, company: coItem('', 'A0040/26', 'KZZZ-GUARD', ['MONITOR GUARD.']) });
   assert.ok(co.firNotams.find(b => b.code === 'KZZZ').items.some(i => i.id === 'A0040/26' && i.origin === 'COMPANY'));
+});
+
+test('TC-163-142 O-50 departure FIR synthetic: always on the OFP; a repeat under a non-OFP, non-departure FIR still left out; no OFP FIR read → all kept + WARN', () => {
+  const A = fkItem('KXXX KYYY', 'A0601/26', ['UNDER DEPARTURE AND YANKEE.']);
+  const B = fkItem('KXXX KYYY KZZZ', 'A0602/26', ['UNDER DEPARTURE, YANKEE AND ZULU.']);
+  const C = fkItem('KZZZ KWWW', 'A0603/26', ['UNDER ZULU AND WHISKEY.']);
+  const D = fkItem('KYYY KWWW', 'A0604/26', ['UNDER YANKEE AND WHISKEY ONLY.']);
+  const E = fkItem('KXXX KWWW', 'A0605/26', ['UNDER DEPARTURE AND WHISKEY ONLY.']);
+  const firs = [
+    ...firHead('XRAY FIR', 'KXXX'), heading('AIRSPACE'), ...A, ...B, ...E,
+    ...firHead('YANKEE FIR', 'KYYY'), heading('AIRSPACE'), ...A, ...B, ...D,
+    ...firHead('ZULU FIR', 'KZZZ'), heading('AIRSPACE'), ...B, ...C,
+    ...firHead('WHISKEY FIR', 'KWWW'), heading('AIRSPACE'), ...C, ...D, ...E,
+  ];
+  // the navigation log prints a FIR line for KZZZ only: KXXX (departure) has none
+  const navFirs = ['(KZZZ) AT AAAAA 00.10 ZULU FIR'];
+  const r = pkg({ firs, navFirs });
+  const ids = c => r.firNotams.find(x => x.code === c).items.map(i => i.id);
+  // POSITIVE: the departure FIR counts as on the OFP with no nav-log line for it
+  assert.deepEqual(ids('KXXX'), ['A0601/26', 'A0602/26', 'A0605/26'], 'every repeat under the departure FIR kept (A0605: printed only under the departure FIR and a non-OFP FIR)');
+  assert.deepEqual(ids('KZZZ'), ['A0602/26', 'A0603/26'], 'the OFP FIR keeps its copies (unchanged)');
+  // NEGATIVE: a non-OFP, non-departure FIR (the second block KYYY and the last KWWW) still loses its copies
+  assert.deepEqual(ids('KYYY'), [], 'A0601 and A0602 left out under the second block (not departure, not on the OFP); A0604 left out under every block');
+  assert.deepEqual(ids('KWWW'), [], 'A0603, A0604, A0605 left out under the non-OFP block');
+  assert.ok(!r.firNotams.some(b => b.items.some(i => i.id === 'A0604/26')), 'no copy of a repeat whose FIRs are neither on the OFP nor the departure FIR');
+  assert.deepEqual(leftOut(r), [
+    { id: 'A0601/26', name: 'YANKEE FIR', code: 'KYYY', all: false },
+    { id: 'A0602/26', name: 'YANKEE FIR', code: 'KYYY', all: false },
+    { id: 'A0605/26', name: 'WHISKEY FIR', code: 'KWWW', all: false },
+    { id: 'A0604/26', name: 'YANKEE FIR', code: 'KYYY', all: true },
+    { id: 'A0604/26', name: 'WHISKEY FIR', code: 'KWWW', all: true },
+    { id: 'A0603/26', name: 'WHISKEY FIR', code: 'KWWW', all: false },
+  ]);
+  const info = infos(r, /^enrouteNotams$/).filter(f => /cop(y|ies) left out/.test(f.message) && /\(O-49\)$/.test(f.message));
+  assert.equal(info.length, 1);
+  assert.match(info[0].message, /^5 FIR NOTAM\(s\) printed under more than one FIR block; 6 copies left out of firNotams\[\] and enrouteNotams\.fir \(FIR not on the OFP and not the departure FIR KXXX; OFP FIRs from the navigation log FIR lines and the FPL EET: KZZZ\): .*; 1 NOTAM\(s\) left out under every block; firRaw as printed \(O-49\)$/);
+  // enrouteNotams.fir = the same items
+  assert.deepEqual(r.enrouteNotams.fir.split('\n\n').map(b => b.split('\n')[0]), ['XRAY FIR (KXXX)', 'ZULU FIR (KZZZ)']);
+  // firRaw as printed
+  assert.deepEqual(r.firRaw, pkg({ firs }).firRaw, 'firRaw unchanged by the rule');
+  // the rule does not need a nav-log line for the departure FIR: with the FPL EET naming KZZZ the result is the same
+  const eet = pkg({ firs, dof: 'DOF/261103 EET/KZZZ0100 ' });
+  assert.deepEqual(eet.firNotams.map(b => b.items.map(i => i.id)), r.firNotams.map(b => b.items.map(i => i.id)), 'EET as the only source: same copies kept');
+  // NEGATIVE (O-52, unchanged): no FIR of the OFP read → nothing left out + WARN, whatever the departure FIR
+  const none = pkg({ firs });
+  assert.equal(none.firNotams.reduce((n, b) => n + b.items.length, 0), 3 + 3 + 2 + 3, 'every printed copy kept');
+  assert.equal(warns(none, /^enrouteNotams$/).filter(f => /no FIR of the OFP was read .*every copy kept \(O-49\)$/.test(f.message)).length, 1);
+  // only the departure FIR on the OFP: its copies kept, every other copy left out
+  const dep = pkg({ firs, navFirs: ['(KXXX) AT AAAAA 00.10 XRAY FIR'] });
+  assert.deepEqual(dep.firNotams.map(b => b.items.map(i => i.id)), [['A0601/26', 'A0602/26', 'A0605/26'], [], [], []], 'the departure FIR alone on the OFP: its copies kept, every other copy left out')
+  // a single FIR block: its repeat check has nothing to compare; the first block is the departure FIR only when it exists
+  const one = pkg({ firs: [...firHead('XRAY FIR', 'KXXX'), heading('AIRSPACE'), ...A, ...A], navFirs });
+  assert.deepEqual(one.firNotams[0].items.map(i => i.id), ['A0601/26', 'A0601/26'], 'twice in one block kept (unchanged)');
+  assert.equal(one.findings.filter(f => /O-49/.test(f.message)).length, 0);
 });
 
 // ══ fixtures ═══════════════════════════════════════════════════════════════════════════════════
@@ -1079,8 +1141,8 @@ if (!FIXTURES) {
     }
     assert.deepEqual(Object.keys(changed).sort(), ['companyNotams', 'enrouteNotams', 'firNotams'], 'only the named fields change (dispatchContact is added)');
     assert.deepEqual(changed.companyNotams.slice().sort(), ['L01', 'L02', 'L03', 'L04', 'L05', 'L06', 'L07', 'L08', 'L09', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15', 'L16', 'L17', 'L18', 'L19', 'T1', 'T2', 'T3'], 'companyNotams: the 22 packages printing the short Contact line');
-    assert.deepEqual(changed.firNotams.slice().sort(), ['L03', 'L16', 'T2']);
-    assert.deepEqual(changed.enrouteNotams.slice().sort(), ['L03', 'L16', 'T2']);
+    assert.deepEqual(changed.firNotams.slice().sort(), ['L03'], 'O-50: T2 and L16 lose no copy now (their repeats are under the departure FIR)');
+    assert.deepEqual(changed.enrouteNotams.slice().sort(), ['L03']);
     console.log(`TC-163-100: = build 1 on 26: ${fields} top-level fields, ${values} airport values, ${recs} Company records (Contact line out; positions widened to the line in ${widened}), ${findings} findings; changed as named: companyNotams ${changed.companyNotams.length}, firNotams / enrouteNotams ${changed.firNotams.join(' ')}; dispatchContact added`);
   });
 
@@ -1158,9 +1220,9 @@ if (!FIXTURES) {
   });
 
   // ── TC-163-141 O-49 on all 26 ──
-  test('TC-163-141 O-49 on all 26: repeats measured independently; copies left out only under FIRs not on the OFP; firRaw unchanged', () => {
+  test('TC-163-141 O-49 / O-50 on all 26: repeats measured independently; copies left out only under FIRs not on the OFP and not the departure FIR; firRaw unchanged', () => {
     let reps = 0, copies = 0, dropped = 0, all = 0;
-    const repPk = new Set(), dropPk = {};
+    const repPk = new Set(), dropPk = {}, depKept = {};
     for (const fx of fk) {
       const r = run(fx), lbl = L(fx), b = B1.fixtures[fx.id];
       assert.equal(sha(JSON.stringify(r.firRaw)), b.sha256.firRaw, `${lbl}: firRaw = build 1 (as printed, D64)`);
@@ -1170,6 +1232,7 @@ if (!FIXTURES) {
       const fpl = t.slice(t.findIndex(l => /^\(FPL-/.test(l))).join(' ');
       const em = /\bEET\/((?:\s*[A-Z]{4}\d{4})+)/.exec(fpl);
       if (em) em[1].trim().split(/\s+/).forEach(x => ofp.add(x.slice(0, 4)));
+      const dep = r.firRaw[0].code;   // O-50: the departure FIR = the first FIR block of the NOTAM Briefing
       // independent: the items of every block from firRaw (heading lines out, cut by the NOTAM ruleset)
       const printed = r.firRaw.map(x => NR._splitNotams(x.raw.split('\n').filter(l => !isHeadingLine(l) && !/THERE ARE NO ACTIVE NOTAMS|^NIL$|PERIOD THAT MATCHES/.test(l.trim())).join('\n'))
         .map(p => p.replace(/\n$/, '')).filter(p => NR._fkHeader(p) && NR._fkHeader(p).id));
@@ -1179,7 +1242,8 @@ if (!FIXTURES) {
       for (const [k, bis] of groups) {
         if (new Set(bis).size < 2) continue;
         reps++; repPk.add(lbl); copies += bis.length;
-        const keep = bis.filter(bi => ofp.has(r.firRaw[bi].code));
+        const keep = bis.filter(bi => ofp.has(r.firRaw[bi].code) || r.firRaw[bi].code === dep);   // O-50: the first FIR block is on the OFP
+        for (const bi of keep) if (r.firRaw[bi].code === dep && !ofp.has(dep)) depKept[lbl] = (depKept[lbl] || 0) + 1;   // kept only because it is the departure FIR (O-50)
         for (const bi of bis) if (!keep.includes(bi)) want.push({ id: k.split('\n')[0], code: r.firRaw[bi].code, all: !keep.length });
       }
       const got = leftOut(r).map(x => ({ id: x.id, code: x.code, all: x.all }));
@@ -1199,9 +1263,10 @@ if (!FIXTURES) {
     }
     assert.deepEqual([reps, repPk.size], [24, 10], '24 FIR NOTAMs printed under more than one FIR block (same ID and text), in 10 packages');
     assert.equal(copies, 53, 'their printed copies');
-    assert.deepEqual(dropPk, { T2: 4, L03: 1, L16: 1 }, 'copies left out per package');
-    assert.deepEqual([dropped, all], [6, 0], '6 copies left out; no NOTAM left out under every block on the 26');
-    console.log(`TC-163-141: ${reps} repeats in ${repPk.size} packages (${copies} printed copies); ${dropped} copies left out (${Object.entries(dropPk).map(([k, v]) => `${k} ${v}`).join(', ')}); ${all} NOTAMs left out under every block; firRaw = build 1 on 26`);
+    assert.deepEqual(dropPk, { L03: 1 }, 'copies left out per package (O-50: T2 4 and L16 1, under their departure FIR, are kept)');
+    assert.deepEqual([dropped, all], [1, 0], '1 copy left out (L03, under a FIR that is neither on the OFP nor the departure FIR); no NOTAM left out under every block on the 26');
+    assert.deepEqual(depKept, { T2: 4, L16: 1 }, 'copies kept only because the departure FIR counts as on the OFP (no nav-log line for it): T2 under ZPKM, L16 under ZHWH');
+    console.log(`TC-163-141: ${reps} repeats in ${repPk.size} packages (${copies} printed copies); ${dropped} copies left out (${Object.entries(dropPk).map(([k, v]) => `${k} ${v}`).join(', ')}); ${all} NOTAMs left out under every block; firRaw = build 1 on 26; O-50: ${Object.entries(depKept).map(([k, v]) => `${k} ${v}`).join(', ')} kept under the departure FIR (6 left out before O-50)`);
   });
 }
 

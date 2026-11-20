@@ -2503,14 +2503,17 @@ function _firBlocksOf(doc) {
 //   O-49 (Exec, 19 Nov): a FIR NOTAM printed under more than one FIR block (the same
 //     ID and the same text) is kept only under the blocks whose FIR is on the OFP;
 //     its other copies are left out of firNotams[] and enrouteNotams.fir. None of
-//     its FIRs on the OFP → every copy left out. One INFO lists every copy left
+//     its FIRs on the OFP → every copy left out. O-50 (Exec, 20 Nov): the departure
+//     FIR — the first FIR block of the NOTAM Briefing — always counts as on the OFP,
+//     whether or not the navigation log prints a line for it. One INFO lists every copy left
 //     out. firRaw stays as printed (D64). A NOTAM printed under one block only
 //     (twice in one block included) is unchanged.
 
 // O-49: the FIRs on the OFP — the FIR lines of the release navigation log,
 // "(IIII) <position or AT fix> <time> <FIR name>" (first release copy), and the
 // FIRs of the ICAO FPL field 18 EET/ ("IIIIhhmm"). The departure FIR is printed
-// in the navigation log only when the log prints its boundary.
+// in the navigation log only when the log prints its boundary; O-50: it counts as
+// on the OFP all the same (_firRepeats).
 const FIR_ON_OFP = Object.freeze({
   NAVLOG: /^\(([A-Z]{4})\)\s+\S/,
   EET:    /\b([A-Z]{4})\d{4}\b/g,
@@ -2524,7 +2527,8 @@ function _ofpFirs(ctx) {
 }
 
 // O-49: leave out the copies of a FIR NOTAM printed under more than one block
-// whose FIR is not on the OFP. recs: the FIR block records (items: origin NOTAM
+// whose FIR is not on the OFP and is not the departure FIR (O-50: the first FIR
+// block of the NOTAM Briefing). recs: the FIR block records (items: origin NOTAM
 // only at this point). Returns the copies left out: [{ id, name, code, all }].
 function _firRepeats(ctx, recs) {
   const { add } = ctx;
@@ -2542,15 +2546,16 @@ function _firRepeats(ctx, recs) {
     add('WARN', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block, but no FIR of the OFP was read (navigation log FIR lines, FPL EET): every copy kept (O-49)`);
     return [];
   }
+  const dep = recs[0].code;   // O-50: the departure FIR, always on the OFP
   const out = [], drop = new Set();
   for (const g of reps) {
-    const keep = g.filter(x => firs.all.has(recs[x.bi].code));
+    const keep = g.filter(x => firs.all.has(recs[x.bi].code) || recs[x.bi].code === dep);
     for (const x of g) if (!keep.includes(x)) { drop.add(x.it); out.push({ id: x.it.id, name: recs[x.bi].name, code: recs[x.bi].code, all: !keep.length }); }
   }
   if (!out.length) return out;   // every copy under a FIR on the OFP: nothing left out, no finding
   for (const b of recs) b.items = b.items.filter(it => !drop.has(it));
   const ids = new Set(out.filter(x => x.all).map(x => x.id));
-  add('INFO', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block; ${out.length} cop${out.length === 1 ? 'y' : 'ies'} left out of firNotams[] and enrouteNotams.fir (FIR not on the OFP; OFP FIRs from the navigation log FIR lines and the FPL EET: ${[...firs.all].join(' ')}): ${out.map(x => `${x.id} under ${x.name} (${x.code})${x.all ? ' [all copies: none of its FIRs is on the OFP]' : ''}`).join('; ')}${ids.size ? `; ${ids.size} NOTAM(s) left out under every block` : ''}; firRaw as printed (O-49)`);
+  add('INFO', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block; ${out.length} cop${out.length === 1 ? 'y' : 'ies'} left out of firNotams[] and enrouteNotams.fir (FIR not on the OFP and not the departure FIR ${dep}; OFP FIRs from the navigation log FIR lines and the FPL EET: ${[...firs.all].join(' ')}): ${out.map(x => `${x.id} under ${x.name} (${x.code})${x.all ? ' [all copies: none of its FIRs is on the OFP]' : ''}`).join('; ')}${ids.size ? `; ${ids.size} NOTAM(s) left out under every block` : ''}; firRaw as printed (O-49)`);
   return out;
 }
 

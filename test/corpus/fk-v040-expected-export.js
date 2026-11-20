@@ -41,7 +41,7 @@ const OPTS = {
   parseNatTrack: win.parseNatTrack,
 };
 const res = {
-  _about: 'ofp-flightkeys v0.4.0 (step 5d-2, with the Exec answers O-46 … O-49) values on the 26 FlightKeys packages, for TC-163 (relief-pilot test/rules/ofp-flightkeys-v040.test.js); made by test/corpus/fk-v040-expected-export.js. Private: holds curfew text.',
+  _about: 'ofp-flightkeys v0.4.0 (step 5d-2, with the Exec answers O-46 … O-50) values on the 26 FlightKeys packages, for TC-163 (relief-pilot test/rules/ofp-flightkeys-v040.test.js); made by test/corpus/fk-v040-expected-export.js. Private: holds curfew text.',
   module: { version: mod.RULESET_VERSION, sha256: sha(fs.readFileSync(modFile)) },
   packages: {},
 };
