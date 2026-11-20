@@ -11,6 +11,10 @@
  * Changes for v0.3.0 only where the battery named the version, the airport keys or the deferred list:
  * TC-160-001/002 (version 0.3.0, contract 2.3, 7 airport extensions incl. weatherRaw, D65), TC-160-013 (the airport entry's
  * keys), TC-160-005 (airportData.weather / .notams and sections are read now: TC-162).
+ * Changes for v0.4.0 only where the battery named the version, the extension list or the deferred list:
+ * TC-160-001/002 (version 0.4.0, contract 2.4, 19 extensions: firNotams, firRaw, natMessages, hazards, dispatchContact),
+ * TC-160-005 (natTrack, enrouteNotams, curfew, opsNotes, companyNotams are read now: TC-163), TC-160-040
+ * (enrouteNotams and natTrack are not compared with the EOFP: TC-163).
  *
  * A NEW format parser (ADR-005 §2.1): parseFlightKeys(input, options) reads a FlightKeys package
  * (the extractor's text + positioned items) and returns the briefing contract (57 core fields with
@@ -110,14 +114,16 @@ const parseText = (text, opts = OPTS) => mod.parseFlightKeys({ text, pages: [] }
 test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'ofp');
   assert.equal(mod.OFP_FORMAT, 'flightkeys');
-  assert.equal(mod.RULESET_VERSION, '0.3.0');
+  assert.equal(mod.RULESET_VERSION, '0.4.0');
   assert.equal(mod.SCHEMA_VERSION, 2);
-  assert.equal(mod.CONTRACT_VERSION, '2.3');
+  assert.equal(mod.CONTRACT_VERSION, '2.4');
   assert.ok(mod.RULESET_SOURCE.length > 10);
   assert.deepEqual(mod.validateSchema(), { valid: true, errors: [] });
   assert.deepEqual([...mod.CORE_FIELDS], [...navblue.CORE_FIELDS], 'core fields = NavBlue core fields, same order');
-  assert.deepEqual(mod.EXTENSION_FIELDS.filter(f => f !== 'swa' && f !== 'operatingPilots'), [...navblue.EXTENSION_FIELDS],
-    'extensions = contract v2.0 list + swa (addendum 1) + operatingPilots (addendum 2, D62)');
+  const ADD4 = ['firNotams', 'firRaw', 'natMessages', 'hazards', 'dispatchContact'];
+  assert.deepEqual(mod.EXTENSION_FIELDS.filter(f => f !== 'swa' && f !== 'operatingPilots' && !ADD4.includes(f)), [...navblue.EXTENSION_FIELDS],
+    'extensions = contract v2.0 list + swa (addendum 1) + operatingPilots (addendum 2, D62) + addendum 4 (v0.4.0)');
+  assert.deepEqual(mod.EXTENSION_FIELDS.slice(-7), [...ADD4, 'sections', 'findings'], 'addendum 4 fields before sections');
   assert.deepEqual([...mod.CREW_EXTENSION_FIELDS], ['firstName', 'toLndgExpiry']);
   assert.deepEqual([...mod.AIRPORT_EXTENSION_FIELDS], [...navblue.AIRPORT_EXTENSION_FIELDS, 'specialQualification',
     'notamItems', 'notamsRaw', 'briefing', 'weatherRaw'], 'airport extensions: v2.0 + specialQualification (addendum 1) + addendum 3 (v0.3.0, D65)');
@@ -153,11 +159,11 @@ test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () 
 
 // ══ TC-160-002 manifest ══════════════════════════════════════════════════════
 
-test('TC-160-002 rules/manifest.json lists ofp-flightkeys 0.3.0 with its SHA-256', () => {
+test('TC-160-002 rules/manifest.json lists ofp-flightkeys 0.4.0 with its SHA-256', () => {
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
   assert.equal(e.version, mod.RULESET_VERSION);
-  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v0.3.0.js');
+  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v0.4.0.js');
   assert.equal(e.sha256, crypto.createHash('sha256').update(fs.readFileSync(MOD_FILE)).digest('hex'));
 });
 
@@ -560,18 +566,20 @@ if (!FIXTURES) {
         for (const k of mod.AIRPORT_EXTENSION_FIELDS) assert.ok(k in a, `${lbl} ${icao}: ${k}`);
       for (const f of Object.keys(mod.DEFERRED_FIELDS)) {
         const n = r.findings.filter(x => x.level === 'INFO' && x.field === f
-          && /^not read in v0\.3\.0: (read in 5d|not in any brief yet \(open item\))$/.test(x.message)).length;
+          && /^not read in v0\.4\.0: (read in 5d|not in any brief yet \(open item\))$/.test(x.message)).length;
         assert.equal(n, 1, `${lbl}: one INFO for ${f}`);
       }
-      // explicit empties with the NavBlue types (the fields still deferred: 5d / open)
-      assert.equal(r.natTrack, null);
-      assert.deepEqual(r.enrouteNotams, { route: '', fir: '', airway: '', waypoint: '', geographic: '' });
-      // v0.3.0: airportData weather / notams and sections are read (TC-162); curfew / opsNotes still deferred
+      // v0.4.0: natTrack, enrouteNotams, curfew, opsNotes and companyNotams are read (TC-163); the NavBlue types
+      assert.ok(r.natTrack === null || (typeof r.natTrack === 'object' && r.natTrack.trackType === 'NAT'), `${lbl}: natTrack`);
+      assert.deepEqual(Object.keys(r.enrouteNotams), ['route', 'fir', 'airway', 'waypoint', 'geographic']);
+      assert.ok(Object.values(r.enrouteNotams).every(v => typeof v === 'string'), `${lbl}: enrouteNotams strings`);
       for (const a of Object.values(r.airportData)) {
         assert.equal(typeof a.weather, 'string'); assert.equal(typeof a.notams, 'string');
-        assert.ok(!('curfew' in a) && !('opsNotes' in a), `${lbl}: no curfew/opsNotes keys before 5d (as NavBlue when nothing is printed; QA F3)`);
+        assert.ok(!('curfew' in a) || (typeof a.curfew === 'string' && a.curfew), `${lbl}: curfew a string when present`);
+        assert.ok(!('opsNotes' in a) || (typeof a.opsNotes.header === 'string' && typeof a.opsNotes.body === 'string'), `${lbl}: opsNotes { header, body } when present`);
       }
-      assert.deepEqual(r.companyNotams, [], `${lbl}: companyNotams`);
+      assert.ok(Array.isArray(r.companyNotams), `${lbl}: companyNotams`);   // cut into items with the NOTAM ruleset only (TC-163)
+      for (const k of ['firNotams', 'firRaw', 'natMessages', 'hazards']) assert.ok(Array.isArray(r[k]), `${lbl}: ${k}`);
       assert.ok(Array.isArray(r.sections), `${lbl}: sections`);
       assert.equal(r.fplEquipment, null, `${lbl}: fplEquipment`);
       assert.equal(typeof r.rawOFP, 'string');
@@ -720,7 +728,10 @@ if (!FIXTURES) {
     // The v0.1.0 fields only; the fields read since v0.2.0 are compared in TC-161-040.
     const V02_FIELDS = ['crewMembers', 'hasPerishables', 'hasTemperatureControl', 'catIiIiiApproaches', 'ddgItems',
       'melItems', 'overflightPerms', 'oeiData'];
-    const NOT_COMPARED = new Set([...Object.keys(mod.DEFERRED_FIELDS).filter(k => !k.includes('.')), ...V02_FIELDS, 'airportData', 'rawOFP']);
+    // v0.4.0: enrouteNotams and natTrack are read now (TC-163); the EOFP prints no NAT track and NavBlue never
+    // fills enrouteNotams (the FK value is compared with the printed FIR blocks in TC-163-030).
+    const V04_FIELDS = ['enrouteNotams', 'natTrack'];
+    const NOT_COMPARED = new Set([...Object.keys(mod.DEFERRED_FIELDS).filter(k => !k.includes('.')), ...V02_FIELDS, ...V04_FIELDS, 'airportData', 'rawOFP']);
     const equal = [], differ = [];
     for (const f of mod.CORE_FIELDS) {
       if (NOT_COMPARED.has(f)) continue;

@@ -77,6 +77,15 @@ const GRAMMAR  = fs.readFileSync(path.join(ROOT, 'docs', 'RPT-OFP-FlightKeys-Bri
 const FIELDMAP = fs.readFileSync(path.join(ROOT, 'docs', 'SPRINT-OFP-FlightKeysMigration-UPD-20261118-v1.2-FieldMap.md'), 'utf8');
 
 const sha   = s => crypto.createHash('sha256').update(s).digest('hex');
+// v0.4.0 (D67, step 5d-2 scope 0): airportData notams keeps the printed type heading lines for NOTAM
+// v1.14.0. Without them the text is v0.3.0's byte for byte (TC-163-001); the TC-162 checks, written for
+// NOTAM v1.13.0, read that form.
+// The top-level extensions added in v0.4.0 (contract 2.4, addendum 4) and the fields read since v0.4.0:
+// left out of the comparisons with the v0.2.0 / v0.3.0-e96ed88 records here; TC-163-001 checks every value
+// against the final v0.3.0 output.
+const V04_NEW  = ['firNotams', 'firRaw', 'natMessages', 'hazards', 'dispatchContact'];
+const V04_READ = ['enrouteNotams', 'natTrack', 'companyNotams', 'airportData.curfew', 'airportData.opsNotes'];
+const v03 = t => t.split('\n').filter(l => !(/^\s{21,}\S/.test(l) && fkb.CATEGORIES.includes(l.trim()))).join('\n');
 const warns = (r, re) => r.findings.filter(f => f.level === 'WARN' && (!re || re.test(f.field)));
 const infos = (r, re) => r.findings.filter(f => f.level === 'INFO' && (!re || re.test(f.field)));
 const ROLES_LAST = ['IA', 'TA', 'EA'];
@@ -189,7 +198,7 @@ test('TC-162-005 reader synthetic: furniture by shape; continuation joined; spli
   const a = r.airportData.KAAA;
   assert.ok(a, 'KAAA entry');
   assert.deepEqual(a.notamItems.map(i => i.id), ['A0101/26', 'A0102/26']);
-  const parts = NR._splitNotams(a.notams);
+  const parts = NR._splitNotams(v03(a.notams));
   assert.deepEqual(parts.map(p => p.replace(/\n$/, '').split('\n').length), [4, 3], 'item 1 = 4 lines (column continuation joined), item 2 = 3 lines (page continuation joined)');
   assert.ok(!/Page \d+ of|XYZ9999|TST0001/.test(a.notams + a.notamsRaw), 'no footer, no running header (any flight number) in the text');
   assert.deepEqual(a.notamItems[0].source.map(s => [s.page, s.column]), [[1, 'L'], [1, 'R']], 'item 1 spans the two columns');
@@ -234,7 +243,7 @@ test('TC-162-011 airport blocks synthetic: roles anchored to the window; negativ
   assert.deepEqual(e.roles.map(x => `${x.role} ${x.start} - ${x.end}`), ['DEPARTURE 10 21:40 - 10 22:55', 'TA 10 22:00 - 11 01:00', 'TA 11 03:00 - 11 04:00'], 'every window kept, the same role twice');
   assert.ok(!('XXX' in r.airportData) && Object.keys(r.airportData).length === 2, 'a name-like line without an APT line is not a block');
   assert.deepEqual(r.airportData.EPPW.notamItems.map(i => i.id), ['A0002/26']);
-  assert.ok(NR._splitNotams(r.airportData.EPPW.notams).slice(-1)[0].includes('NOT A BLOCK'), 'that line stays body text of the item above (nothing lost)');
+  assert.ok(NR._splitNotams(v03(r.airportData.EPPW.notams)).slice(-1)[0].includes('NOT A BLOCK'), 'that line stays body text of the item above (nothing lost)');
   // the role list is closed and taken at the window: a name ending in a role word is not split on spaces
   const t = mod.PATTERNS.BR_APT_NAME.exec(pad(18, 'IAD - WASHINGTON DULLES INTL TA       ALTN 1  04 10:00 - 04 12:00'));
   assert.deepEqual([t[1], t[2], t[3]], ['IAD', 'WASHINGTON DULLES INTL TA', 'ALTN 1']);
@@ -246,7 +255,10 @@ test('TC-162-024 NOTAM synthetic: category, empty state, weather-only airport, n
   const r = synth(smallBriefing());
   const a = r.airportData.KAAA;
   assert.deepEqual(a.notamItems.map(i => `${i.id} ${i.category}`), ['A0101/26 RUNWAY', 'A0102/26 TAXIWAY', 'A0103/26 TAXIWAY']);
-  assert.ok(!/RUNWAY\n|TAXIWAY\n/.test(a.notams.replace(/RWY 09\/27 CLSD/, '')) && !a.notams.split('\n').some(l => ['RUNWAY', 'TAXIWAY'].includes(l.trim())), 'headings removed from the item text');
+  // v0.4.0 (D67): the type headings stay in notams, centred, in printed order, before their items; they are
+  // in no item (notamItems / v03 form) — NOTAM v1.14.0 reads them as headings (its §5b).
+  assert.deepEqual(a.notams.split('\n').filter(l => /^\s{21,}\S/.test(l)), [heading('RUNWAY'), heading('TAXIWAY')], 'v0.4.0: headings kept, as printed');
+  assert.ok(!v03(a.notams).split('\n').some(l => ['RUNWAY', 'TAXIWAY'].includes(l.trim())), 'headings removed from the item text');
   assert.ok(a.notams.includes('RWY 09/27 CLSD\nDUE TO WIP.'), 'line break inside the item kept (D54)');
   assert.ok(!/COMPANY TEXT|A0001\/26|A0900\/26|FIR TEXT/.test(a.notams), 'no Company or FIR item in the airport NOTAMs');
   assert.deepEqual(a.notamsRaw.split('\n').filter(l => /^\s{21,}\S/.test(l)).map(l => l.trim()), ['RUNWAY', 'TAXIWAY'], 'raw layout keeps the headings');
@@ -370,12 +382,12 @@ if (!FIXTURES) {
   test('TC-162-001 v0.2.0 byte-identical: v0.3.0 = the recorded v0.2.0 output on all 26 fixtures', () => {
     assert.equal(fk.length, 26);
     assert.deepEqual(fk.map(f => f.id).sort(), Object.keys(BASELINE.fixtures).sort());
-    const NOW_READ = ['airportData.weather', 'airportData.notams', 'sections'];
+    const NOW_READ = ['airportData.weather', 'airportData.notams', 'sections', ...V04_READ];
     let fields = 0, values = 0, findings = 0, orderMoves = [];
     for (const fx of fk) {
       const r = run(fx), b = BASELINE.fixtures[fx.id], lbl = b.label;
-      assert.deepEqual(Object.keys(r), b.keys, `${lbl}: top-level keys and order`);
-      for (const f of BASELINE.fields) { assert.equal(sha(JSON.stringify(r[f])), b.sha256[f], `${lbl}: ${f} unchanged`); fields++; }
+      assert.deepEqual(Object.keys(r).filter(k => !V04_NEW.includes(k)), b.keys, `${lbl}: top-level keys and order`);
+      for (const f of BASELINE.fields.filter(x => !V04_READ.includes(x))) { assert.equal(sha(JSON.stringify(r[f])), b.sha256[f], `${lbl}: ${f} unchanged`); fields++; }
       // every v0.2.0 airport entry: its keys first, in order; every value unchanged except weather / notams,
       // which were the explicit empty '' in v0.2.0 and are read now
       const v2 = Object.keys(b.airportData);
@@ -395,7 +407,7 @@ if (!FIXTURES) {
       if (moved.length) orderMoves.push(`${lbl} ${v2.filter(k => !Object.keys(r.airportData).slice(0, v2.length).includes(k)).join(',')}`);
       // the v0.2.0 findings, in order, inside the v0.3.0 findings (the INFOs of the fields read now dropped;
       // the deferred INFOs name the version)
-      const norm = f => JSON.stringify(Object.assign({}, f, { message: f.message.replace(/^not read in v0\.[23]\.0:/, 'not read in v0.x:') }));
+      const norm = f => JSON.stringify(Object.assign({}, f, { message: f.message.replace(/^not read in v0\.[234]\.0:/, 'not read in v0.x:') }));
       const want = b.findings.filter(f => !(f.level === 'INFO' && NOW_READ.includes(f.field) && /^not read in/.test(f.message))).map(norm);
       const got = r.findings.map(norm);
       let j = 0;
@@ -512,7 +524,7 @@ if (!FIXTURES) {
     return { role: x.role === 'DEPARTURE' ? 'ORIG' : 'DEST', eta: (s.m + Math.round(((e.d - s.d) * 1440 + e.m - s.m) / 2) + 1440) % 1440, name: x.role };
   });
   const depOf = r => /^\d{4}$/.test(r.offFromOFP) ? (+r.offFromOFP.slice(0, 2)) * 60 + +r.offFromOFP.slice(2) : null;
-  const piecesOf = a => a.notams === '' ? [] : NR._splitNotams(a.notams).map(p => p.replace(/\n$/, ''));
+  const piecesOf = a => a.notams === '' ? [] : NR._splitNotams(v03(a.notams)).map(p => p.replace(/\n$/, ''));
   const shown = (r, fx, text, w) => NR.evalNotams([text], w.role, w.eta, AP.buildAcftProfile(r.acftType), fx.date, depOf(r), AP.getWingspan).issues.some(i => i.notamRaw === text);
 
   // Rows of one source span, rebuilt from the positioned items (test code): { y, text } (compared without spaces).
@@ -540,7 +552,7 @@ if (!FIXTURES) {
         const pcs = piecesOf(a);
         // the split of the airport's NOTAM text gives back exactly its items (FK-P: the form v1.13.0 splits)
         assert.equal(pcs.length, a.notamItems.length, `${lbl} ${icao}: _splitNotams(notams) = notamItems`);
-        assert.equal(NR._splitNotams(a.notams).join(''), a.notams, `${lbl} ${icao}: the pieces are the text (D54)`);
+        assert.equal(NR._splitNotams(v03(a.notams)).join(''), v03(a.notams), `${lbl} ${icao}: the pieces are the text (D54)`);
         a.notamItems.forEach((it, k) => {
           const h = NR._fkHeader(pcs[k]);
           assert.ok(h && h.id === it.id, `${lbl} ${icao}: item ${k} ID ${it.id} = its header`);
@@ -656,7 +668,7 @@ if (!FIXTURES) {
       let n = 0, readable = 0, shownAny = 0, evals = 0;
       for (const [icao, a] of Object.entries(r.airportData)) {
         if (!a.notamItems || !a.notamItems.length) continue;
-        const pcs = NR._splitNotams(a.notams);
+        const pcs = NR._splitNotams(v03(a.notams));
         const set = new Set(pcs);
         const shownIds = new Set();
         for (const w of windowsOf(a)) {
@@ -937,7 +949,8 @@ if (!FIXTURES) {
         if (p.part === 'blank') continue;
         if (MAP[p.part]) want.push(`${MAP[p.part][0]} ${p.start}-${p.end}`);
       }
-      const got = r.sections.filter(s => !['companyNotams', 'notamBriefing', 'weatherBriefing', 'hazardBriefing'].includes(s.id)).map(s => `${s.id} ${s.startPage}-${s.endPage}`);
+      // v0.4.0: the PACOTS sections (O-44) sit inside the NOTAM Briefing; TC-163-060 checks them.
+      const got = r.sections.filter(s => !['companyNotams', 'notamBriefing', 'weatherBriefing', 'hazardBriefing', 'pacots'].includes(s.id)).map(s => `${s.id} ${s.startPage}-${s.endPage}`);
       assert.deepEqual(got, want, `${lbl}: sections = field map §1.1`);
       const s = id => r.sections.find(x => x.id === id);
       assert.equal(s('notamBriefing').startPage, Math.min(...Object.values(r.airportData).flatMap(a => (a.notamItems || []).map(i => i.source[0].page)).concat([s('notamBriefing').startPage])), `${lbl}: NOTAM Briefing starts at its first airport block`);
@@ -965,21 +978,21 @@ if (!FIXTURES) {
     const changed = [];
     for (const fx of fk) {
       const r = run(fx), b = HEAD.fixtures[fx.id], lbl = b.label;
-      assert.deepEqual(Object.keys(r), b.keys, `${lbl}: top-level keys`);
-      for (const [k, h] of Object.entries(b.sha256)) { assert.equal(sha(JSON.stringify(r[k])), h, `${lbl}: ${k} unchanged`); fields++; }
-      assert.equal(sha(JSON.stringify(r.findings)), b.findings, `${lbl}: findings unchanged`);
+      assert.deepEqual(Object.keys(r).filter(k => !V04_NEW.includes(k)), b.keys, `${lbl}: top-level keys`);
+      // v0.4.0: the fields read since v0.4.0, sections (PACOTS, O-44) and the findings are checked by TC-163-001
+      for (const [k, h] of Object.entries(b.sha256)) { if (V04_READ.includes(k) || k === 'sections' || k === 'findings') continue; assert.equal(sha(JSON.stringify(r[k])), h, `${lbl}: ${k} unchanged`); fields++; }
       assert.deepEqual(Object.keys(r.airportData), Object.keys(b.airportData), `${lbl}: airport entries and card order unchanged`);
       for (const [icao, be] of Object.entries(b.airportData)) {
         const e = r.airportData[icao];
-        assert.deepEqual(Object.keys(e), [...be.keys, 'weatherRaw'], `${lbl} ${icao}: keys = head keys + weatherRaw`);
+        assert.deepEqual(Object.keys(e).filter(k => k !== 'curfew' && k !== 'opsNotes'), [...be.keys, 'weatherRaw'], `${lbl} ${icao}: keys = head keys + weatherRaw (+ curfew / opsNotes, v0.4.0)`);
         for (const k of be.keys) {
-          if (sha(JSON.stringify(e[k])) === be.sha256[k]) { values++; continue; }
+          if (sha(JSON.stringify(k === 'notams' ? v03(e[k]) : e[k])) === be.sha256[k]) { values++; continue; }
           changed.push(`${lbl} ${icao}.${k}`);
         }
       }
     }
     assert.deepEqual(changed.sort(), Object.entries(CHANGED_AT_HEAD).flatMap(([a, ks]) => ks.map(k => `${a}.${k}`)).sort(), 'only the intended values changed');
-    console.log(`TC-162-060: ${fields} fields, ${values} airport values and the findings equal the head e96ed88; changed: ${changed.join(', ') || 'none'}`);
+    console.log(`TC-162-060: ${fields} fields, ${values} airport values equal the head e96ed88 (findings: TC-163-001); changed: ${changed.join(', ') || 'none'}`);
   });
 }
 

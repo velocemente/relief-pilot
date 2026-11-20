@@ -1,11 +1,11 @@
 # FlightKeys OFP Parser — Revision Ledger
 
-**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261118-v1.3.md` (supersedes ledger v1.2 of 17 Nov)
-**Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v0.3.0.js`
-**Current Version:** 0.3.0 (development version, D58 amended)
-**Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, and the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50. Contract 2.3.
-**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22 PASS on the 26 FlightKeys fixtures; v0.3.0 Exec answers of 18 Nov applied (K-09); independent QA pending (relief-pilot PR #63)
-**Last Updated:** 2026-11-18
+**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261120-v1.6.md` (supersedes ledger v1.5 of 20 Nov)
+**Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v0.4.0.js`
+**Current Version:** 0.4.0 (development version, D58)
+**Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50, and the rest of the briefing package (v0.4.0, step 5d-2, O-33 … O-45): rows 42, 46, 47, 49, Company NOTAMs, hazards, PACOTS; airport NOTAM type headings for NOTAM v1.14.0 (D67); the Exec answers O-46 … O-49 (K-11) and O-50 … O-52 (K-12). Contract 2.4.
+**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22, TC-163 28/28 PASS on the 26 FlightKeys fixtures; independent QA pending (step 5d-2 PR)
+**Last Updated:** 2026-11-20
 
 ---
 
@@ -13,16 +13,52 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 9 (K-01 … K-09) |
-| Current Version | 0.3.0 |
+| Total entries | 12 (K-01 … K-12) |
+| Current Version | 0.4.0 |
 | Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1`, since K-09 v1.2 (`…-UPD-20261118-v1.2-FieldMap.md`) (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
-| Masters reconciled | none: no master exists; v0.2.0 is not published to Drive (D58) |
+| Masters reconciled | none: no master exists; v0.4.0 is not published to Drive (D58) |
 | Gate Status | development version; not gated |
-| Integration | none; must not be integrated (curfew, ops notes, Company / en-route NOTAMs and NAT are explicit empties) |
+| Integration | none; must not be integrated (D58: integration at v1.0.0, step 5e) |
 
 ---
 
 ## History
+
+### K-12 — v0.4.0 (amended): Exec answers O-50 … O-52 (2026-11-20)
+
+**Type:** UPD · **Brief:** Exec answers O-50 … O-52 (20 Nov); all earlier answers stand · same development version v0.4.0 (D58), contract 2.4 unchanged
+- **O-50:** for the O-49 FIR-repeat rule the departure FIR — the first FIR block of the NOTAM Briefing — always counts as on the OFP, with or without a navigation-log FIR line for it. The O-49 INFO names it (`not on the OFP and not the departure FIR IIII`). On the 26: copies left out 6 → **1** (T2 4 → 0, L16 1 → 0, L03 1 unchanged: A4854/26 under ZGZU, not under its departure FIR PAZA); 0 NOTAMs left out under every block; `firRaw` unchanged. Only L03 now differs from build 1 in `firNotams[]` / `enrouteNotams.fir`.
+- **O-51:** as built (FPL letter marked + crew-alert WARN). No change.
+- **O-52:** as built (nothing left out + WARN when no navigation-log FIR line and no FPL `EET/` is read; the departure FIR does not change this). No change.
+- **Byte-identity:** against the previous head (`50e13b0`) on all 26 only `firNotams[]` and `enrouteNotams.fir` (T2, L16) and the O-49 INFO (T2, L16 gone; L03's text names the departure FIR) differ; every other field and finding, and `firRaw`, are identical. TC-163-100: `firNotams` / `enrouteNotams` change only in L03 against build 1.
+- **Tests:** TC-163-142 (O-50 synthetic, positive and negative, CLAUDE.md rule 6); TC-163-140 (EET case: the departure FIR keeps its copy) and TC-163-141 (rule applied independently incl. the departure FIR; T2 4 and L16 1 kept under it) updated; TC-163-100 changed list L03. Expected values re-exported (fixtures `expected/ofp-flightkeys-v0.4.0/briefing.json`: T2 +4, L16 +1 items, module SHA-256).
+- **Module:** `ofp-flightkeys-v0.4.0.js` (`_firRepeats`, 3 lines + comments); `rules/manifest.json` SHA-256 updated. The Drive master copy of the module is not touched here.
+- **Unchanged:** `index.html`, `src/`, `rules/nat*`, NavBlue, the NOTAM modules and the golden snapshots.
+
+### K-11 — v0.4.0 (amended): Exec answers O-46 … O-49 (2026-11-20)
+
+**Type:** UPD · **Brief:** Exec answers O-46 … O-49 (19 Nov); all earlier answers stand · same development version v0.4.0 (D58), contract 2.4 (addendum 4 amended)
+- **O-46:** both Dispatch contact lines stay in the P0110 text as printed (44 short lines in 22 packages, 8 long in L20–L23); new package field `dispatchContact { label, text }` — REQUIRED (short form; also when both), IF QUESTIONS (long form), `null` (neither). On 26: REQUIRED 22, IF QUESTIONS 4, null 0. `EXTENSION_FIELDS` 19.
+- **O-47:** `natTrack.assignedId` from the OFP page 1 route and the ICAO FPL strip route; never remarks or NOTAM text; differ → FPL letter + crew alert (O-51). On 26: L11 `W` from both routes; L08, L12, L22, L23 none.
+- **O-48:** `CURFEW_TYPES` = designator → family + variant names (B762/B763/B764, B744, BLCF, B748, B772/B773/B77L/B77W/B77F); a family name applies to every variant, a variant name to that variant; no match → all lines + note + WARN (unchanged). On 26: no curfew string changed.
+- **O-49:** a FIR NOTAM under more than one FIR block (same ID and text) kept only under FIRs on the OFP (navigation-log FIR lines ∪ FPL EET); other copies out of `firNotams[]` / `enrouteNotams.fir`; none on the OFP → all out; one INFO lists every copy; `firRaw` as printed. On 26: 24 repeats in 10 packages, 6 copies left out (T2 4, L03 1, L16 1), 0 fully. Grammar errata E-1, E-2 in SPEC §8.3 (distinct hazard products: 1,558 by `ID:` line = the scoping method; 1,573 by text).
+- **Byte-identity:** build 1 (`9a76b58`) recorded with its module (`test/rules/data/ofp-flightkeys-v0.4.0-build1-baseline.json`); TC-163-100: only `companyNotams` (22), `firNotams` / `enrouteNotams` (T2, L03, L16) and `dispatchContact` change.
+- **Tests:** TC-163-100, 110/111, 120/121, 130/131, 140/141; TC-160-001, TC-162-001/060, TC-163-001/001b/010/011/020/031 adapted where they named the extension list, the Contact line, the build-1 type table or "repeats kept". Expected values re-exported (fixtures `expected/ofp-flightkeys-v0.4.0/briefing.json`).
+- **Unchanged:** `index.html`, `src/`, `rules/nat*`, NavBlue, the NOTAM modules and the golden snapshots.
+
+### K-10 — v0.4.0: Company NOTAMs, curfews, ops notes, FIR NOTAMs, hazards, NAT / PACOTS; type headings to the rules (step 5d-2) (2026-11-19)
+
+**Type:** UPD · **Brief:** Exec brief v0.4.0 (step 5d-2) and the Exec answers O-33 … O-45 (19 Nov) · module v0.4.0 (development, D58), contract 2.4 (addendum 4)
+- **Scope 0 (D67):** `airportData[icao].notams` keeps the printed type heading lines before their items; without them the text is v0.3.0's. NOTAM v1.14.0 on all 26 (724 evaluations): every item shown / hidden as with v0.3.0's text except the 24 OBSTACLE-category items of the change list v1.2 (TC-163-002).
+- **Scope 1 (§A.7, O-40):** `companyNotams[]` — 298 = 26 HSCN + 272, as printed, `origin` and `severity`; P0110 pair kept; the `Contact Dispatch for a preflight briefing.` line in no item (44 lines).
+- **Scope 2 (row 46, O-33 … O-37):** `airportData[icao].curfew` from the `IIII-CURFEW` key only; closed type table `CURFEW_TYPES` (planned FK-P exception); registration lists never matched; season effectivity with changeover month; LCL bracket dropped — NavBlue fault **NB-F8** logged as G-NB-8 (open, D47); departure-only qualifiers kept; curfew-like items under other keys named in an INFO. 16 items, 10 packages.
+- **Scope 3 (row 47, O-38, O-39):** `airportData[icao].opsNotes` per airport with an entry; repeats of the OFP Remarks left out (L06 LEZG, L09 VHHH, L21 NZWN); no entry created (L13 UAAA).
+- **Scope 4 (row 49, O-40, O-41, D64):** `enrouteNotams.fir`, `firNotams[]`, `firRaw[]` — 221 blocks, 989 items, 43 empty; 3 FIR-keyed Company items with their FIR; repeats kept.
+- **Scope 5 (row 42, O-42 … O-44):** `natMessages[]` (6 in 5 packages), `natTrack` through the injected NAT parser (L12 → 307; L08, L22 crew-alert WARN; filed track from the route string only); PACOTS: 38 items, 13 sets → `sections[]` entries, no track object.
+- **Scope 6 (O-45):** `hazards[]` — 221 blocks, 66 empty, 1,980 products, as printed, never weather / E-WINS.
+- **Byte-identity:** v0.3.0 output recorded before the change (`test/rules/data/ofp-flightkeys-v0.3.0-baseline.json`); TC-163-001: every other v0.3.0 field, airport value and finding unchanged.
+- **Tests:** TC-163 (18); TC-160 / TC-161 / TC-162 adapted only where they named the version, the extension list, the deferred list or v0.3.0's heading-free text. Pinned values in the fixtures repo `expected/ofp-flightkeys-v0.4.0/briefing.json` (exporter `test/corpus/fk-v040-expected-export.js`).
+- **Unchanged:** `index.html`, `src/`, `build/`, NavBlue, the NOTAM modules and the golden snapshots.
 
 ### K-09 — v0.3.0: Exec answers of 18 Nov — D65, D66, document corrections (2026-11-18)
 
@@ -141,7 +177,7 @@
 | O-1 | ~~NavBlue does not return the addendum fields~~ **Closed (Exec, 17 Nov): ignore NavBlue**; the contract 2.2 fields are FlightKeys only | — |
 | O-2 | `porWpt` for a fix-plus-distance POR carries the lat/long in the same string (SME-11) | Exec (confirm at the visual check) |
 | O-3 | `navLog` stays `[]` by FK-P; a real nav log would change the en-route screen | Exec |
-| O-4 | Step 5d: ~~airport NOTAMs, weather incl. the `* PRIO *` E-WINS TAF, sections~~ **done in v0.3.0 (K-08)**; still open: Company NOTAMs, curfew, opsNotes, en-route NOTAMs, NAT; SME-18 "not noted twice" against the Company NOTAM repeat | later brief |
+| O-4 | ~~Step 5d~~ **done: airport NOTAMs, weather, sections in v0.3.0 (K-08); Company NOTAMs, curfew, opsNotes, en-route NOTAMs, NAT and the SME-18 repeat in v0.4.0 (K-10)** | later brief |
 | O-5 | ~~L07 security line~~ **Closed (Exec, 17 Nov): Preflight card only** (`securityMessages[]`, D45) | — |
 | O-6 | ~~Duplicate MEL items~~ **Closed (Exec, 17 Nov): keep all items**, a repeat is not an anomaly | — |
 | O-7 | `fplEquipment` (D41: filed 10a and the codes the MEL notes remove) has no brief. **Exec, 17 Nov: a later issue** | Exec (later brief) |
@@ -149,7 +185,7 @@
 | O-9 | ~~D63 outside a marked block~~ **Closed (Exec D63a, 17 Nov): paragraph grouping** (K-04) | — |
 | O-10 | ~~D63a readings~~ **Closed (Exec, 17 Nov): both confirmed** (K-05; TC-161-202, 203) | — |
 | O-11 | ~~Blank line inside a marked block~~ **Closed (Exec, 18 Nov): D63 stands as written**; only the marker starts a new remark, a blank line inside a marked item stays part of it (K-07; TC-161-103) | — |
-| O-12 | A type heading left at the end of an item: `OBSTACLE` would hide the item in NOTAM v1.13.0. **Exec, 18 Nov:** no parser change; the Exec's rule (D67) goes into NOTAM v1.14.0 (step 5c-2); headings stay out of the item text | NOTAM 5c-2 |
+| O-12 | ~~A trailing type heading~~ **Closed: NOTAM v1.14.0 (D67, #64) reads the headings; v0.4.0 passes them in `notams` (K-10). `notams` must not go to NOTAM v1.13.0** | — |
 | O-13 | ~~Grammar §A.4 roles~~ **Closed (Exec, 18 Nov): grammar v1.1** (K-09) | — |
 | O-14 | ~~E-WINS window~~ **Closed (Exec D66, 18 Nov): `ewinsWindow` `''`**; NavBlue fault NB-F6 / G-NB-6 (K-09) | — |
 | O-15 | ~~`ewinsRole`~~ **Closed (Exec D66, 18 Nov): the airport's own role codes**; NavBlue fault NB-F7 / G-NB-7 (K-09) | — |
@@ -158,3 +194,8 @@
 | O-18 | The app must pass `options.notamRules` at integration (Exec, 18 Nov: 5e) | integration brief (5e) |
 | O-19 | ~~Weather order~~ **Closed (Exec D65, 18 Nov): `weather` unchanged, `weatherRaw` in the FlightKeys order** (K-09) | — |
 | O-20 | Sections: names and order at the Exec's visual check (Exec, 18 Nov: step 6) | step 6 |
+| O-33 … O-45 | **Closed (Exec, 19 Nov)**: applied in v0.4.0 (K-10) | — |
+| O-46 … O-49 | **Closed (Exec, 19 Nov)**: applied in v0.4.0 (K-11). The NAT ruleset revision (FlightKeys track lines) is a separate package | — |
+| O-50 | ~~Departure FIR~~ **Closed (Exec, 20 Nov):** the departure FIR (first FIR block) always counts as on the OFP; T2 keeps 4 copies, L16 1, L03's 1 removed copy unchanged (K-12) | — |
+| O-51 | ~~Routes disagree~~ **Closed (Exec, 20 Nov): as built** — FPL letter + crew alert (K-12) | — |
+| O-52 | ~~No OFP FIR read~~ **Closed (Exec, 20 Nov): as built** — nothing left out + WARN (K-12) | — |
