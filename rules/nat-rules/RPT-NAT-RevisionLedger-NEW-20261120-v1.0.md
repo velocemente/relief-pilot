@@ -1,8 +1,8 @@
 # NAT Ruleset — Revision Ledger
 
 **File Standard:** `RPT-NAT-RevisionLedger-NEW-20261120-v1.0.md` (first ledger of this module in the repository)
-**Module:** `nat-rules` — file `rules/nat-rules-next/nat-rules-v1.2.0.js` (manifest key `nat-rules-next`)
-**Current Version:** 1.2.0 (development; not built into the app)
+**Module:** `nat-rules` — file `rules/nat-rules/nat-rules-v1.2.0.js` (manifest key `nat-rules`; `nat-rules-next` until step 5e-1, O-79)
+**Current Version:** 1.2.0 (built into the app at step 5e-1, D77)
 **Contents:** `parseNatTrack()` for NavBlue / eOFP (v1.1.0 verbatim + O-65) and FlightKeys track messages (O-57 … O-67, D74); `levelText()`
 **QA Status:** TC-173-001 … 090 PASS; independent QA pending
 **Last Updated:** 2026-11-20
@@ -18,7 +18,7 @@
 | Sources | `src/nat.html` v1.1.0 (built into `index.html`); FlightKeys track messages on 5 of the 26 packages; Exec answers O-57 … O-67 (sheet "Scoping Decisions", tab 5d-3, 19 Nov) and D74 |
 | Masters reconciled | Drive master "nat-rules" v1.0.0 (Exec's folder "00_General Rulesets") is replaced at 5e; not read or written in this PR (O-63) |
 | Gate Status | pending Exec gate and independent QA |
-| Integration | none. `src/nat.html` and `index.html` are untouched. Switch at 5e together with `ofp-flightkeys` passing `{ filed, findings }` (open item O-68) |
+| Integration | **built in** by the switch PR (step 5e-1 PR 2, D77; TC-174): `build/build.js` inserts it just above `src/nat.html`, which binds `window.parseNatTrack = NatRules.parseNatTrack` and keeps `renderNatTrack` unchanged; the v1.1.0 parser left `src/nat.html` (frozen copy `test/oracle/nat-v1.1.0.html`, O-79). NavBlue: the 26 `fl` lines (O-65 / D83) on the app path, nothing else. `ofp-flightkeys` v1.0.0 passes `{ filed, findings }` (O-68); its NAT findings reach the crew on the Preflight card (O-76, O-88). Module file unchanged (SHA-256 `a0ed2a31…a80d`) |
 
 ---
 

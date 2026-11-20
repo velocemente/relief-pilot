@@ -18,7 +18,7 @@
 | Sources | ICAO Doc 4444 Appendix 2 and 3; the NavBlue parser's FPL patterns (`rules/ofp-navblue/ofp-navblue-v2.0.0.js` lines 111–125, on `main` at `ad7e431`) as the consistency reference |
 | Masters reconciled | none: no ICAO FPL master exists in "00_General Rulesets" (ADR-005 §2.1: "new") |
 | Gate Status | pending Exec gate (ADR-005 §2.2.6) and independent QA; master copy to be written to Drive at the gate |
-| Integration | not integrated; users are the FlightKeys parser (step 6) and the D41 equipment check (later) |
+| Integration | **built in** by the switch PR (step 5e-1 PR 2, TC-152-004, TC-174-014): `build/build.js` inserts it before `ofp-flightkeys`; the router in `src/ofp-parse.html` passes it to the FlightKeys parser as `options.icaoFpl`. Not used by the NavBlue path (D47). D41 equipment check: later |
 
 ---
 

@@ -15,9 +15,9 @@
 | Metric | Value |
 |:-------|:------|
 | Total Patches | 26 (P-01 through P-26) |
-| Current Version | 1.14.0 (not built; app 1.13.0) |
+| Current Version | 1.14.0 (built into the app at step 5e-1) |
 | First Integration | v1.9.7 |
-| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 on `main` (P-23); module 1.12.0 on `main` (P-24); module 1.13.0 on `main` (P-25, velocemente/relief-pilot#61); module 1.14.0 not built (P-26, velocemente/relief-pilot#64; step 5e) |
+| Latest Integration | app 1.9.9-hf3 (P-14 … P-21: module 1.11.0, velocemente/relief-pilot#39 and #40); module 1.11.1 on `main` (P-22, velocemente/relief-pilot#41); module 1.11.2 on `main` (P-23); module 1.12.0 on `main` (P-24); module 1.13.0 on `main` (P-25, velocemente/relief-pilot#61); module 1.14.0 built in by the switch PR (P-26; step 5e-1 PR 2, O-21 / O-27; file moved to `rules/notam-rules/` unchanged, key `notam-rules-next` and the v1.13.0 file removed, O-79; v1.13.0 frozen as `test/oracle/notam-rules-v1.13.0.js`). On the app path at the OFP ETA (30 NavBlue / eOFP fixtures): 156 shown → hidden (all change-list group B), 10 hidden → shown (groups C / U), 1 card colour (ETAR red → yellow, P2531/26, D67a) — TC-174-005 / 006 |
 | Gate Status | P-01 … P-21 PASS (1.9.9-hf3 gate GO); P-22 independent QA APPROVE-FOR-EXEC, merged (#41); P-23 merged; P-24 merged; P-25 merged (#61); P-26 pending the Exec's review of the change list and independent QA (ADR-005 §2.2.6) |
 | Open DEFs Against This Ruleset | 4 (ARCH-03 through ARCH-06, all DEFERRED S4). ARCH-01 and ARCH-02 closed by P-21. |
 

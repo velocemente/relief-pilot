@@ -1,9 +1,9 @@
 # SPEC-NAT-Ruleset
 
-**Version:** v1.2.0 | **Status:** NEW (development, not built into the app) | **Date:** 2026-11-20
+**Version:** v1.2.0 | **Status:** NEW (built into the app at step 5e-1, D77) | **Date:** 2026-11-20
 **Owner:** Engineering | **Approver:** Exec
 **Tier:** 2 — Platform Architecture
-**Module file:** `rules/nat-rules-next/nat-rules-v1.2.0.js` (manifest key `nat-rules-next`, SHA-256 in `rules/manifest.json`)
+**Module file:** `rules/nat-rules/nat-rules-v1.2.0.js` (manifest key `nat-rules`, SHA-256 in `rules/manifest.json`; `rules/nat-rules-next/`, key `nat-rules-next` until step 5e-1, O-79)
 **Architecture:** ADR-005 §2.1, §2.2; Appendix B addendum 4 (`natTrack`, `natMessages[]`)
 **Ledger:** `RPT-NAT-RevisionLedger-NEW-20261120-v1.0.md` (beside this file)
 **Supersedes:** v1.1.0 (`src/nat.html`, built into `index.html`) at step 5e. The Drive master "nat-rules" (v1.0.0, in the Exec's folder "00_General Rulesets") is replaced at 5e; nothing is published to Drive now (O-63).
@@ -66,6 +66,10 @@ Each is `{ level, field: 'natTrack', code, message }`, pushed to `options.findin
 
 On the 26 FlightKeys packages: 5 packages with NAT pages, 6 messages, **42 tracks**, **36** short coordinates (`9999/99` form) converted; L11 `W` filed; L12 TMI 307 returned; L08 / L22 one direction; random routes L08, L12, L22, L23; PBCS list lines in 3 of 6 messages never tracks; no validity WARN. On the 30 NavBlue / eOFP fixtures: 126 Atlantic tracks printed (31 gapped lists), 113 in the output (ELLX-KHSV, 13 tracks, stays `null`), **26 changed `fl` lines**, nothing else changed. `ofp-flightkeys` v0.4.0 (file unchanged) with v1.2.0 injected: 21 of 26 packages byte-identical, the 5 NAT packages differ in `natTrack` only.
 
-## 6. Open for 5e
+## 6. Integration (step 5e-1)
+
+Built into `index.html` by the switch PR (D77, O-79): just above `src/nat.html`, which binds `window.parseNatTrack = NatRules.parseNatTrack`; the v1.1.0 parser is removed from `src/nat.html` (frozen copy `test/oracle/nat-v1.1.0.html`); the renderer is unchanged. `ofp-flightkeys` v1.0.0 passes `{ filed, findings }` (O-68). Tests TC-174-003, TC-174-004, TC-174-020 … 022.
+
+### Before the switch: open for 5e
 
 `ofp-flightkeys` v0.4.0 calls the parser with three arguments and sets the filed letter after the call. To get the O-59 WARN and the INFO into its findings, a later version passes `{ filed, findings }`; that is the integration step (O-68).

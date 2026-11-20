@@ -3,7 +3,7 @@
 **Version:** v1.14.0 | **Status:** UPD | **Date:** 2026-11-18, updated 2026-11-19 (Exec answers D67a, D67b; independent QA F-1 … F-8)
 **Owner:** Engineering | **Approver:** Exec
 **Tier:** 2 — Platform Architecture
-**Module file:** `rules/notam-rules-next/notam-rules-v1.14.0.js` (manifest entry `notam-rules-next`, SHA-256 in `rules/manifest.json`). **Not built into the app:** `index.html` keeps v1.13.0 (manifest entry `notam-rules`) until step 5e (§12).
+**Module file:** `rules/notam-rules/notam-rules-v1.14.0.js` (manifest entry `notam-rules`, SHA-256 in `rules/manifest.json`). **Built into the app at step 5e-1** (the switch PR, O-21 / O-27, §12); until then `rules/notam-rules-next/`, entry `notam-rules-next`, with v1.13.0 built in.
 **Exec decision:** D67 (18 Nov) — obstacle NOTAMs "should only show if it affects a runway, approach, SID or STAR heights or gradients", both formats (§8a).
 **Exec answers:** D67a (18 Nov) — O-22 … O-28; D67b (18 Nov) — O-29, O-31, F-5, the departure card (5e), and the planning-chat rulings F-6, O-30, O-21; all binding (§8a, §8b, §8c, §12).
 **Change list:** `docs/RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.2.md` (groups B, C, U, G, deferred; the departure-card list for 5e; O-28 audit; reviewed by the Exec before publishing)
@@ -420,7 +420,7 @@ To run the existing NOTAM tests against the module by hand: `PB_NOTAM_ENGINE=mod
 
 ## 12. Integration notes
 
-**v1.14.0 (step 5e).** v1.14.0 is not built into the app by this revision (D67a, D67b: no `index.html` / `src` change). O-21 (D67b, planning chat): `rules/notam-rules-next/` and the manifest key `notam-rules-next` stay until 5e, where v1.14.0 replaces `notam-rules` (O-27).
+**v1.14.0 (step 5e).** v1.14.0 was not built into the app by this revision (D67a, D67b: no `index.html` / `src` change). O-21 (D67b, planning chat): `rules/notam-rules-next/` and the manifest key `notam-rules-next` stayed until 5e, where v1.14.0 replaced `notam-rules` (O-27). **Done in step 5e-1 (the switch PR):** the file moved to `rules/notam-rules/` unchanged, the `notam-rules` entry points at it, the `notam-rules-next` entry and the v1.13.0 file are removed (frozen copy `test/oracle/notam-rules-v1.13.0.js`, O-79); TC-120-001, TC-151-001, TC-171-001 and TC-162-022 re-pointed; on the app path 156 NOTAMs shown → hidden (all group B), 10 hidden → shown (C / U), 1 card colour (TC-174-005). The departure-card rows below (D67b) are not in 5e-1 (O-81).
 
 **Departure card, for 5e (D67b).** The Exec wants approach-type NOTAMs (e.g. the EHAM circling OCA/H increases) on the departure card too, in GENERAL. These 42 change-list rows (39 NOTAMs) have a destination / alternate row but none on the departure card today. What drops them — there is no line that filters by role or by NOTAM type:
 1. `src/airports.html` `evalAirport`, line 313: `const evalRole = aptRole === 'ORIG' ? 'ORIG' : 'DEST';` — the departure airport is evaluated with role `ORIG`. The module's ORIG classification (`_classifyNotamSlot`, ORIG branch) has no approach-minima, navaid or undecided-obstacle rule, so these items fall into catch-all slot 7; the D67b GENERAL fallback (§8b) is applied for role `DEST` only.
