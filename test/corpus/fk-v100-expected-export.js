@@ -33,7 +33,7 @@ const OPTS = {
   icaoFpl: require(path.join(RULES, MAN['icao-fpl'].file)),
   aircraftProfile: require(path.join(RULES, MAN['aircraft-profile'].file)),
   notamRules: require(path.join(RULES, MAN['notam-rules'].file)),
-  parseNatTrack: require(path.join(RULES, MAN['nat-rules-next'].file)).parseNatTrack,
+  parseNatTrack: require(path.join(RULES, MAN['nat-rules'].file)).parseNatTrack,
 };
 const LBL = Object.fromEntries(Object.entries(require('../rules/data/ofp-flightkeys-v0.3.0-baseline.json').fixtures).map(([id, b]) => [id, b.label]));
 const res = {

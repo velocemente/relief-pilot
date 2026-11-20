@@ -94,11 +94,23 @@ async function importFixture(fx, fixturesDir, opts = {}) {
 
 // NOTAM header: "- ICAO [ICAO ...] A1234/YY ..." -> { loc, id } (D43 key, as evalNotams builds it).
 const NOTAM_ID_RE = /^\s*-\s+((?:[A-Z]{4}\s+)+)([A-Z]\d{1,4}\/\d{2})(?=\s|$)/;
+// FlightKeys item header (step 5e-1: FlightKeys NOTAM text reaches the app): read with the
+// built NOTAM ruleset's own reader, _fkHeader (rules/notam-rules, §5a) -> the same { loc, id }.
+const NOTAM_RULES = require(path.join(__dirname, '..', '..', 'rules',
+  JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'rules', 'manifest.json'), 'utf8'))['notam-rules'].file));
 function notamKey(notamRaw) {
   const m = (notamRaw || '').match(NOTAM_ID_RE);
   if (m) return { loc: m[1].trim().split(/\s+/).join(' '), id: m[2] };
+  const fk = NOTAM_RULES._fkHeader(notamRaw || '');
+  if (fk && fk.id) return { loc: fk.locations.join(' '), id: fk.id };
   return null;
 }
+// A FlightKeys type heading piece of the v1.14.0 split (§5b): heading lines and blank lines only.
+// It is no NOTAM: it sets the category (e.g. OBSTACLE) of the items after it.
+function isFkHeadingPiece(piece) {
+  const lines = (piece || '').split('\n');
+  return lines.some(l => l.trim()) && lines.every(l => !l.trim() || NOTAM_RULES._fkTypeHeading(l));
+}
 
-module.exports = { findFixtures, requireFixtures, readManifest, importFixture, peek, notamKey, NOTAM_ID_RE,
+module.exports = { findFixtures, requireFixtures, readManifest, importFixture, peek, notamKey, NOTAM_ID_RE, isFkHeadingPiece,
                    isLiveFlightKeys, snapshotFixtures };

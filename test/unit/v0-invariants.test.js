@@ -14,7 +14,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { findFixtures, readManifest, importFixture, notamKey } = require('../lib/app-path');
+const { findFixtures, readManifest, importFixture, notamKey, isFkHeadingPiece } = require('../lib/app-path');
 const { appSnapshot, notamSnapshot, evalArgsFor, callEvalNotams, notamIdOf } = require('../lib/v0-snapshots');
 const { normalize } = require('../golden/serialize');
 const oracle = require('../oracle/notam-oracle');
@@ -223,15 +223,20 @@ test('V0 negative: the weight checks flag a broken relation, and BALLAST only ap
 // on its own (so it is in effect and passes the obstacle and aircraft filters), must also
 // be reported when given with all the others. Anything else was merged away by another
 // NOTAM (the 1.9.9-hf1 merge on slot:level:label, fixed by D43 / HF-6).
+// Step 5e-1 (FlightKeys text, NOTAM v1.14.0 §5b): a type heading piece is no NOTAM; an item
+// is evaluated "on its own" with the heading it is printed under (its category, e.g. OBSTACLE,
+// is part of the item), and FlightKeys items are keyed by their printed location(s) and ID.
 function droppedNewIds(notamArr, evalFn) {
   const seenKeys = new Set();
   const dropped = [];
   const full = evalFn(notamArr).issues.map(i => i.notamRaw);
+  let heading = null;
   for (const chunk of notamArr) {
+    if (isFkHeadingPiece(chunk)) { heading = chunk; continue; }
     const key = notamIdOf(chunk);
     if (seenKeys.has(key)) continue;          // same ID again: a duplicate, allowed to merge
     seenKeys.add(key);
-    const alone = evalFn([chunk]).issues.some(i => i.notamRaw === chunk);
+    const alone = evalFn(heading ? [heading, chunk] : [chunk]).issues.some(i => i.notamRaw === chunk);
     if (alone && !full.includes(chunk)) dropped.push(key);
   }
   return dropped;

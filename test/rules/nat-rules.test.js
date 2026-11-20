@@ -1,11 +1,13 @@
 'use strict';
 /**
- * TC-173 — NAT ruleset v1.2.0 (rules/nat-rules-next, step 5d-3). Exec answers O-57 … O-67 and D74 (19–20 Nov 2026).
- * The series is TC-173: TC-172 (NOTAM v1.14.0) was the last used.
+ * TC-173 — NAT ruleset v1.2.0 (rules/nat-rules, step 5d-3; built into the app at step 5e-1, D77). Exec answers
+ * O-57 … O-67 and D74 (19–20 Nov 2026). The series is TC-173: TC-172 (NOTAM v1.14.0) was the last used.
+ * Step 5e-1 (O-79): the manifest key is nat-rules (folder rules/nat-rules/); the v1.1.0 parser is removed from
+ * src/nat.html; its frozen copy test/oracle/nat-v1.1.0.html (src/nat.html at v1.1.0, byte for byte) is "v1.1.0" here.
  *
- *   TC-173-001  module identity: listed in rules/manifest.json as nat-rules-next 1.2.0 with its SHA-256; NOT built
- *               into index.html; src/nat.html and index.html untouched (v1.1.0 pinned)            (O-63)
- *   TC-173-002  NavBlue code verbatim from src/nat.html v1.1.0 — one edited line (O-65); the region sets equal;
+ *   TC-173-001  module identity: listed in rules/manifest.json as nat-rules 1.2.0 with its SHA-256; built into
+ *               index.html once, before src/nat.html, which binds window.parseNatTrack to it; v1.1.0 oracle pinned (D77, O-79)
+ *   TC-173-002  NavBlue code verbatim from src/nat.html v1.1.0 (the oracle copy) — one edited line (O-65); the region sets equal;
  *               a changed copy is detected (negative)                                               (scope 0)
  *   TC-173-003  levelText: contiguous → range, gapped → as posted, one level; negatives              (O-65)
  *   TC-173-010  NavBlue / eOFP on the 30 fixtures: byte-identical to v1.1.0 except the level text of gapped
@@ -23,7 +25,7 @@
  *               TRACK V / W NOTAM text                                                               (O-57, O-58)
  *   TC-173-032  O-60: no validity check, no validity WARN (L12 and synthetic)
  *   TC-173-040  one direction only / both (O-67; D74): L08 west-only, L22 east-only, L12 both; each message is read
- *   TC-173-041  ofp-flightkeys v0.4.0 (file unchanged) with v1.2.0 injected: the 21 packages without NAT byte-identical,
+ *   TC-173-041  ofp-flightkeys (the manifest version) with v1.2.0 injected, 3 arguments: the 21 packages without NAT byte-identical,
  *               the 5 NAT packages differ in natTrack only, findings identical, a track object on all 5 (scope 3, 4)
  *   TC-173-042  scope 3 synthetic: every unreadable case is a named WARN / INFO, never raw text
  *   TC-173-050  O-62 shape: key order, coordinate forms, validity MM/DD-HHMM, mach '', rawFallback ''
@@ -45,7 +47,7 @@ const { assemble, MODULES } = require('../../build/build');
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
-const NAT_REL  = MANIFEST['nat-rules-next'].file;
+const NAT_REL  = MANIFEST['nat-rules'].file;
 const natSrc   = fs.readFileSync(path.join(RULES, NAT_REL), 'utf8');
 const nat      = require(path.join(RULES, NAT_REL));
 const fkMod    = require(path.join(RULES, MANIFEST['ofp-flightkeys'].file));
@@ -58,12 +60,12 @@ const BASE_OPTS = {
 const EXPECTED_FILE = path.join('expected', 'nat-rules-v1.2.0', 'nat.json');
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 
-// The app's own NAT parser v1.1.0 (src/nat.html, window.parseNatTrack), loaded unchanged.
-const appSrc = fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8');
+// The app's NAT parser v1.1.0 before step 5e-1 (src/nat.html, window.parseNatTrack): the frozen copy (O-79).
+const appSrc = fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'nat-v1.1.0.html'), 'utf8');
 const appWin = {};
 vm.runInNewContext(appSrc, { window: appWin });
 const v11 = appWin.parseNatTrack;
-const SRC_NAT_SHA256 = '4fa953e938dd09805eee31f4cf88b0f718109afb50333cb43be0686be5fb78a0';   // src/nat.html v1.1.0 (O-63: untouched)
+const SRC_NAT_SHA256 = '4fa953e938dd09805eee31f4cf88b0f718109afb50333cb43be0686be5fb78a0';   // src/nat.html v1.1.0 = test/oracle/nat-v1.1.0.html
 
 const flat = r => r.blocks.flatMap(b => b.tracks.map(t => [b.dir, t]));
 const codes = f => f.map(x => x.level + ':' + x.code);
@@ -76,7 +78,7 @@ let _man = null, _fk = null, _nb = null, _pinned = null;
 const manifest = () => (_man = _man || readManifest(FIX));
 const pinned = () => (_pinned = _pinned || JSON.parse(fs.readFileSync(path.join(FIX, EXPECTED_FILE), 'utf8')));
 
-// FlightKeys packages with NAT pages, parsed by the unchanged ofp-flightkeys v0.4.0 (v1.1.0 injected): { fx, text, r }.
+// FlightKeys packages with NAT pages, parsed by ofp-flightkeys (the manifest version) with v1.1.0 injected: { fx, text, r }.
 function fkPackages() {
   if (_fk) return _fk;
   _fk = [];
@@ -123,25 +125,29 @@ const E3 = () => [eTrack('V', 'NICSO 48/50 51/40 53/30 53/20 MALOT GISTI'), eTra
 const run = (t, o, d, opts) => { const f = []; const r = nat.parseNatTrack(t, o, d, { findings: f, ...(opts || {}) }); return { r, f }; };
 
 // ══ TC-173-001 / 002 / 003 ═════════════════════════════════════════════════
-test('TC-173-001 module identity: manifest entry and SHA-256; not built into index.html; src/nat.html and index.html untouched (O-63)', () => {
-  const e = MANIFEST['nat-rules-next'];
+test('TC-173-001 module identity: manifest entry nat-rules and SHA-256; built into index.html once, before src/nat.html; v1.1.0 oracle pinned (D77, O-79)', () => {
+  const e = MANIFEST['nat-rules'];
   assert.equal(e.version, '1.2.0');
-  assert.equal(e.file, 'nat-rules-next/nat-rules-v1.2.0.js');
+  assert.equal(e.file, 'nat-rules/nat-rules-v1.2.0.js');
   assert.equal(e.sha256, sha(fs.readFileSync(path.join(RULES, NAT_REL))));
   assert.equal(nat.RULESET_TYPE, 'nat-rules'); assert.equal(nat.RULESET_VERSION, '1.2.0');
   assert.deepEqual(Object.keys(nat).sort(), ['FINDING_CODES', 'RULESET_SOURCE', 'RULESET_TYPE', 'RULESET_VERSION', 'SCHEMA_VERSION', 'levelText', 'parseNatTrack']);
-  assert.ok(!MODULES.some(m => m && m.rule === 'nat-rules-next'), 'build/build.js does not list nat-rules-next');
-  assert.ok(!assemble().toString('utf8').includes('NatRules'), 'the assembled app does not contain the module');
-  assert.equal(sha(fs.readFileSync(path.join(ROOT, 'src', 'nat.html'))), SRC_NAT_SHA256, 'src/nat.html is v1.1.0, unchanged');
+  assert.equal(MODULES.filter(m => m && m.rule === 'nat-rules').length, 1, 'build/build.js lists nat-rules once');
+  assert.equal(MODULES.findIndex(m => m && m.rule === 'nat-rules') + 1, MODULES.indexOf('nat.html'), 'just before src/nat.html');
+  assert.ok(!MANIFEST['nat-rules-next'] && !MODULES.some(m => m && m.rule === 'nat-rules-next'), 'no nat-rules-next key (O-79)');
+  const app = assemble().toString('utf8');
+  assert.equal(app.split(natSrc).length, 2, 'the assembled app contains the module once, byte for byte');
+  assert.equal(sha(Buffer.from(appSrc)), SRC_NAT_SHA256, 'the v1.1.0 oracle is src/nat.html v1.1.0, byte for byte');
   assert.equal(appWin.NAT_RULES_VERSION, '1.1.0');
-  assert.ok(assemble().equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html is the build of src/ and rules/: unchanged by this PR');
+  assert.ok(!/function parseNatTrack\(/.test(fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8')), 'src/nat.html has no parser of its own');
+  assert.ok(assemble().equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html is the build of src/ and rules/');
   // negative: one byte of the module changed → the SHA-256 no longer matches
   assert.notEqual(e.sha256, sha(Buffer.from(natSrc.replace('1.2.0', '1.2.1'))));
 });
 
 test('TC-173-002 NavBlue code verbatim from src/nat.html v1.1.0, one edited line (O-65); regions equal; a changed copy is detected', () => {
   const lines = appSrc.split('\n');
-  const body = lines.slice(58, 184).join('\n');                                  // lines 59–184 of src/nat.html
+  const body = lines.slice(58, 184).join('\n');                                  // lines 59–184 of src/nat.html v1.1.0 (the oracle copy)
   const EDIT_OLD = "            fl = 'FL' + flListM[2] + '\\u2013' + flListM[3];";
   assert.equal(body.split(EDIT_OLD).length, 2, 'the one line v1.2.0 edits is in v1.1.0 once');
   const first = natSrc.indexOf('function _parseOfpText(t, origIcao, destIcao) {\n') + 'function _parseOfpText(t, origIcao, destIcao) {\n'.length;
@@ -270,7 +276,7 @@ fixtureTest('TC-173-020 FlightKeys messages on the fixtures: 5 packages, 6 messa
   assert.equal(msgs.length, 6);
   let tracks = 0, short = 0, shortOut = 0;
   const pin = pinned();
-  assert.equal(pin.module.sha256, MANIFEST['nat-rules-next'].sha256, 'the pinned values are of this module');
+  assert.equal(pin.module.sha256, MANIFEST['nat-rules'].sha256, 'the pinned values are of this module');
   for (const { p, m } of msgs) {
     const filed = p.r.natTrack ? p.r.natTrack.assignedId : null;
     const { r, f } = run(m.text, p.r.origIcao, p.r.destIcao, { filed });
@@ -447,8 +453,8 @@ fixtureTest('TC-173-040 a package carries westbound only, eastbound only or both
   assert.deepEqual(nat.parseNatTrack(both, 'KJFK', 'EGLL').blocks.map(b => b.dir), ['EAST', 'WEST']);
 });
 
-fixtureTest('TC-173-041 ofp-flightkeys v0.4.0 (file unchanged) with v1.2.0 injected, all 26: 21 packages byte-identical, the 5 NAT packages differ in natTrack only; a track object on all 5', () => {
-  assert.equal(sha(fs.readFileSync(path.join(RULES, MANIFEST['ofp-flightkeys'].file))), MANIFEST['ofp-flightkeys'].sha256, 'ofp-flightkeys is the v0.4.0 master, unchanged');
+fixtureTest('TC-173-041 ofp-flightkeys (manifest version) with NAT v1.1.0 vs v1.2.0 injected (3 arguments), all 26: 21 packages byte-identical, the 5 NAT packages differ in natTrack only; a track object on all 5 (O-86)', () => {
+  assert.equal(sha(fs.readFileSync(path.join(RULES, MANIFEST['ofp-flightkeys'].file))), MANIFEST['ofp-flightkeys'].sha256, 'ofp-flightkeys is the manifest file, unchanged');
   let same = 0; const diff = [];
   for (const fx of manifest().fixtures.filter(f => f.format === 'flightkeys')) {
     const text = readText(fx), items = JSON.parse(fs.readFileSync(path.join(FIX, fx.files.items), 'utf8'));

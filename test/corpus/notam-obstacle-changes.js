@@ -7,8 +7,8 @@
 //        [--fixtures <dir>]
 //        [--before <module.js>] [--after <module.js>] [--json <file.json>] [--report <file.md>]
 //
-//   --before     defaults to the 'notam-rules' module of rules/manifest.json (v1.13.0, built into the app)
-//   --after      defaults to the 'notam-rules-next' module (v1.14.0)
+//   --before     defaults to v1.13.0, frozen as test/oracle/notam-rules-v1.13.0.js (built into the app until step 5e-1)
+//   --after      defaults to the 'notam-rules' module (v1.14.0, built in since step 5e-1)
 //   --fk-parser  a FlightKeys parser that gives airportData[icao].notamsRaw (ofp-flightkeys v0.3.0 or
 //                later; merged in velocemente/relief-pilot#63)
 //   --fk-raw     or the parser's output as exported by test/corpus/fk-notams-raw-export.js (fixtures
@@ -63,8 +63,8 @@ function parseArgs(argv) {
     else if (k === '--beta') o.beta = argv[++i];
     else { console.error(`unknown argument: ${k}`); process.exit(2); }
   }
-  o.before = o.before || path.join(RULES, MAN['notam-rules'].file);
-  o.after = o.after || path.join(RULES, MAN['notam-rules-next'].file);
+  o.before = o.before || path.join(ROOT, 'test', 'oracle', 'notam-rules-v1.13.0.js');   // v1.13.0, frozen (O-79)
+  o.after = o.after || path.join(RULES, MAN['notam-rules'].file);
   if (!o.fkParser && !o.fkRaw) { console.error('--fk-raw <fk-notams-raw.json> or --fk-parser <ofp-flightkeys.js with notamsRaw> is required'); process.exit(2); }
   o.fixtures = findFixtures(o.fixtures);
   if (!o.fixtures) { console.error('fixtures directory not found (use --fixtures or PB_FIXTURES)'); process.exit(2); }

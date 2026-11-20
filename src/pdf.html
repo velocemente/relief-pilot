@@ -89,6 +89,7 @@ async function processPDF(file) {
     const pdf = await pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise;
 
     let fullText = '';
+    const pages = [];
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const pg   = await pdf.getPage(i);
@@ -141,9 +142,26 @@ async function processPDF(file) {
       });
 
       fullText += '\n'; // page break
+
+      // Positioned text items of the page, in document order (non-empty str only),
+      // y measured from the top: the FlightKeys parser reads the briefing from them.
+      pages.push({
+        n: i,
+        width: vp.width,
+        height: vp.height,
+        items: tc.items.filter(it => it.str).map(it => ({
+          str: it.str,
+          x: it.transform[4],
+          y: vp.height - it.transform[5],
+          w: it.width,
+          h: it.height,
+          font: it.fontName,
+        })),
+      });
     }
 
     pdfRawText = fullText;
+    pdfPages = pages;
     showToast('ok', `✓ Loaded ${pdf.numPages} pages — parsing OFP…`);
     setTimeout(() => { parseOFP(); push('screen-flight'); }, 400);
   } catch(err) { showToast('err', 'Error: ' + err.message); }

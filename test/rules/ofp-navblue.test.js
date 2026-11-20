@@ -408,7 +408,10 @@ test('TC-130-004 ONE copy: index.html runs the module, built in byte for byte; n
   assert.equal(once(ofp, 'const { deriveCallsign } = AircraftProfile;'), 1, 'src/ofp-parse.html takes deriveCallsign from the aircraft-profile module');
   assert.equal(once(ofp, 'function deriveCallsign('), 0, 'src/ofp-parse.html keeps no deriveCallsign copy');
   assert.equal(once(MOD_SRC, 'function deriveCallsign('), 0, 'deriveCallsign is not in the NavBlue module');
-  assert.ok(/^function parseOFP\(\) \{\n  const result = _ofpRulesetParse\(pdfRawText\);\n/m.test(ofp), 'parseOFP() parses through the adapter');
+  // Step 5e-1: parseOFP() parses through the router; for NavBlue text the router returns the adapter's
+  // result, unchanged (D47): `if (_ofpDetectFormat(rawText) !== 'flightkeys') return _ofpRulesetParse(rawText);`
+  assert.ok(/^function parseOFP\(\) \{\n  let result;\n  try \{\n    result = _ofpParse\(pdfRawText, pdfPages\);\n/m.test(ofp), 'parseOFP() parses through the router');
+  assert.equal(once(ofp, "  if (_ofpDetectFormat(rawText) !== 'flightkeys') return _ofpRulesetParse(rawText);\n"), 1, 'the router: NavBlue text → the adapter, unchanged');
   // The ENR V2 helpers left in the app are the module's § 9b, byte for byte.
   const pre = fs.readFileSync(path.join(srcDir, 'render-preflight.html'), 'utf8');
   const B = block(pre, '// ── ENR TIMELINE V2 — INJECTED FUNCTIONS', 'function applyNavlogEtpTimes(', false);

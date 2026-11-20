@@ -1,12 +1,7 @@
 {
   "notam-rules": {
-    "version": "1.13.0",
-    "file": "notam-rules/notam-rules-v1.13.0.js",
-    "sha256": "e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b"
-  },
-  "notam-rules-next": {
     "version": "1.14.0",
-    "file": "notam-rules-next/notam-rules-v1.14.0.js",
+    "file": "notam-rules/notam-rules-v1.14.0.js",
     "sha256": "139ce1691574a440a2c371296aea82985bfe26904d77114fa81969c8e86621cb"
   },
   "ofp-navblue": {
@@ -29,9 +24,9 @@
     "file": "ofp-flightkeys/ofp-flightkeys-v1.0.0.js",
     "sha256": "8a7d3e8fbf02ebae421739dfd65f8598d47e4d016ae1e7a3a2a791389e548e40"
   },
-  "nat-rules-next": {
+  "nat-rules": {
     "version": "1.2.0",
-    "file": "nat-rules-next/nat-rules-v1.2.0.js",
+    "file": "nat-rules/nat-rules-v1.2.0.js",
     "sha256": "a0ed2a31a344680424e96fd31d3046ac8cd65244e58cebd553fe5021fa2ca80d"
   }
 }

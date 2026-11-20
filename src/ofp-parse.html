@@ -11,6 +11,57 @@ function _ofpRulesetParse(rawText) {
 }
 
 // ═══════════════════════════════════════════════════════
+//  OFP FORMAT DETECTOR + ROUTER (step 5e-1, O-78)
+//  FlightKeys: any page has the release footer line
+//    "FUFI: <UUID> PAGE n/N" and no page has "BRIEF PAGE n OF N".
+//  NavBlue: "BRIEF PAGE n OF N" and no FUFI: footer, or neither marker
+//  (as before the switch). Both markers → a named error, nothing parsed.
+//  The FlightKeys parser is rules/ofp-flightkeys (global OfpFlightKeys),
+//  built into index.html just above this fragment with rules/icao-fpl
+//  (IcaoFpl). The NavBlue call above is unchanged (D47).
+// ═══════════════════════════════════════════════════════
+const _OFP_FK_FOOTER = /^\s*FUFI: [0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12} PAGE \d+\/\d+\s*$/m;
+const _OFP_NB_PAGE   = /\bBRIEF\s+PAGE\s+\d+\s+OF\s+\d+/;
+
+function _ofpDetectFormat(rawText) {
+  const t  = rawText || '';
+  const fk = _OFP_FK_FOOTER.test(t);
+  const nb = _OFP_NB_PAGE.test(t);
+  if (fk && nb) {
+    const e = new Error('OFP format not recognised: both FlightKeys (FUFI:) and NavBlue (BRIEF PAGE) pages found');
+    e.name = 'OfpFormatMixedError';
+    throw e;
+  }
+  return fk ? 'flightkeys' : 'navblue';
+}
+
+// pages: the positioned items processPDF() keeps (pdfPages), or null for pasted text
+// (O-80: FlightKeys text is then read from the text only and the parser says so in a WARN).
+function _ofpParse(rawText, pages) {
+  if (_ofpDetectFormat(rawText) !== 'flightkeys') return _ofpRulesetParse(rawText);
+  const input = pages ? OfpFlightKeys.inputFromExtractor(rawText, { pages }) : { text: rawText };
+  return OfpFlightKeys.parseFlightKeys(input, {
+    icaoFpl:         IcaoFpl,
+    aircraftProfile: AircraftProfile,
+    notamRules:      NotamRules,            // O-18
+    parseNatTrack:   window.parseNatTrack,  // NatRules.parseNatTrack (D77, O-68)
+  });
+}
+
+// ── Findings shown to the crew (O-76, O-87, O-88) ────────────────────
+// Every WARN; the NAT ruleset's INFOs (a finding with a NAT code, O-68);
+// no other INFO. WARNs first, then INFOs, each in parser order. The list
+// shows the message only; level, field and code stay for logic and tests.
+function _ofpShownFindings(findings) {
+  const list = Array.isArray(findings) ? findings : [];
+  const natCodes = NatRules.FINDING_CODES || {};
+  const isNatInfo = f => f.level === 'INFO' && typeof f.code === 'string' && Object.prototype.hasOwnProperty.call(natCodes, f.code);
+  const ok = f => f && typeof f.message === 'string' && f.message;
+  return list.filter(f => ok(f) && f.level === 'WARN')
+    .concat(list.filter(f => ok(f) && isNatInfo(f)));
+}
+
+// ═══════════════════════════════════════════════════════
 //  OFP PARSER — adapter (bridges ruleset to app state)
 // ═══════════════════════════════════════════════════════
 function fuelK(raw) {
@@ -26,7 +77,13 @@ function fuelK(raw) {
 const { deriveCallsign } = AircraftProfile;
 
 function parseOFP() {
-  const result = _ofpRulesetParse(pdfRawText);
+  let result;
+  try {
+    result = _ofpParse(pdfRawText, pdfPages);
+  } catch (err) {
+    if (err && err.name === 'OfpFormatMixedError') { showToast('err', err.message); return; }
+    throw err;
+  }
   if (!result) return;
 
   // Merge parsed airportData into global (preserves any user edits already present)
@@ -115,6 +172,9 @@ function parseOFP() {
       verbalCallsign: result.parsedVerbalCallsign,
     } : {}),
   });
+  // Parser findings (FlightKeys only; the NavBlue call returns none). Saved with S;
+  // a flight saved without them has no list (O-76).
+  if (Array.isArray(result.findings)) S.ofpFindings = result.findings;
   if (result.zfwIncrFactor != null)
     S.zfwIncrFactor = result.zfwIncrFactor;
   S.rawOFP = result.rawOFP || '';  // retained for ENR Timeline V2 navlog extraction

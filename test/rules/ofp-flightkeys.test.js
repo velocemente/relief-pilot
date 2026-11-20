@@ -25,7 +25,10 @@
  *   TC-160-003  dual context (Node, rules-loader, browser global OfpFlightKeys); loaded and run with
  *               window, document, storage, Date and app globals that THROW on access — none touched;
  *               the shared modules are used only when passed in
- *   TC-160-004  not in the app: index.html, build/build.js and src/ do not name it
+ *   TC-160-004  in the app (flipped at step 5e-1, the switch PR): built into index.html once, byte for
+ *               byte, after icao-fpl and before src/ofp-parse.html; src/ names it only in the router
+ *               (src/ofp-parse.html), which calls parseFlightKeys once; NEGATIVE the module is not run
+ *               for NavBlue text (the router's detector)
  *   TC-160-005  contract shape on every FlightKeys fixture: 57 core fields in order, 13 extensions,
  *               airport extensions on every airportData entry, NavBlue types; every deferred field
  *               an explicit empty with exactly one INFO finding naming its step (5b-2 / 5d)
@@ -236,17 +239,28 @@ test('TC-160-003 dual context; no window / DOM / storage / clock / app globals; 
   assert.equal(rn.natTrack, null);
 });
 
-// ══ TC-160-004 not in the app ════════════════════════════════════════════════
+// ══ TC-160-004 in the app (flipped at step 5e-1) ═════════════════════════════
 
-test('TC-160-004 not built into the app: index.html, build/build.js and src/ do not name it', () => {
+test('TC-160-004 built into the app at step 5e-1 (flipped): once, byte for byte, in build order; only the router calls it', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const build = fs.readFileSync(path.join(ROOT, 'build', 'build.js'), 'utf8');
-  for (const s of ['OfpFlightKeys', 'parseFlightKeys', 'ofp-flightkeys']) assert.ok(!html.includes(s), `index.html: ${s}`);
-  assert.ok(!build.includes('ofp-flightkeys'));
+  const { MODULES } = require('../../build/build');
+  assert.equal(html.split(fs.readFileSync(MOD_FILE, 'utf8')).length, 2, 'index.html carries the module once, byte for byte');
+  const at = MODULES.findIndex(m => m && m.rule === 'ofp-flightkeys');
+  assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
+  assert.ok(at > MODULES.findIndex(m => m && m.rule === 'icao-fpl') && at < MODULES.indexOf('ofp-parse.html'),
+    'after icao-fpl, before src/ofp-parse.html (ofp-navblue stays just above it, TC-130-005)');
   const srcFiles = fs.readdirSync(path.join(ROOT, 'src'), { recursive: true })
     .filter(f => fs.statSync(path.join(ROOT, 'src', f)).isFile());
-  for (const f of srcFiles)
-    assert.ok(!/OfpFlightKeys|parseFlightKeys|ofp-flightkeys/.test(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')), `src/${f}`);
+  assert.deepEqual(srcFiles.filter(f => /OfpFlightKeys|parseFlightKeys/.test(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'))), ['ofp-parse.html']);
+  const router = fs.readFileSync(path.join(ROOT, 'src', 'ofp-parse.html'), 'utf8');
+  assert.equal((router.match(/OfpFlightKeys\.parseFlightKeys\(/g) || []).length, 1, 'one call');
+  // NEGATIVE: NavBlue text never reaches the module (the detector routes it to the NavBlue call).
+  const { loadApp } = require('../harness');
+  const app = loadApp();
+  const calls = [];
+  app.sandbox.OfpFlightKeys.parseFlightKeys = (...a) => { calls.push(a); return null; };
+  app._ofpParse('ATLAS AIR BRIEF PAGE 1 OF 1\nFLT GTI0000/01\n', null);
+  assert.equal(calls.length, 0, 'NavBlue text: not called');
 });
 
 // ══ synthetic: input, dates, airport lines, Q ════════════════════════════════

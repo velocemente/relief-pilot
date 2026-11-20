@@ -63,7 +63,10 @@ const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
 const MOD_FILE = path.join(RULES, MANIFEST['notam-rules'].file);
 const MOD_SRC  = fs.readFileSync(MOD_FILE, 'utf8');
-const M        = require(MOD_FILE);
+const M        = require(MOD_FILE);                                   // the built-in module: v1.14.0 since step 5e-1 (O-27)
+// v1.13.0 frozen byte for byte (O-79): TC-171-030 is v1.13.0's own record against v1.12.0; v1.14.0 against
+// v1.13.0 is TC-172-031 / 032 (every NOTAM outside the change list identical).
+const M13      = require(path.join(ROOT, 'test', 'oracle', 'notam-rules-v1.13.0.js'));
 const AP       = nodeAircraftProfile();
 const RECORD   = path.join(__dirname, 'data', 'notam-v1.12.0-navblue.json');
 
@@ -133,15 +136,18 @@ const hm = s => parseInt(s.slice(0, 2), 10) * 60 + parseInt(s.slice(2), 10);
 
 // ══ TC-171-001 ═══════════════════════════════════════════════════════════════
 
-test('TC-171-001 v1.13.0: version, manifest, exports; the v1.12.0 file is gone', () => {
-  assert.equal(M.RULESET_VERSION, '1.13.0');
+test('TC-171-001 v1.13.0 properties in the built module (v1.14.0 since step 5e-1): version, manifest, exports; v1.12.0 and v1.13.0 files gone from rules/', () => {
+  assert.equal(M.RULESET_VERSION, '1.14.0');
+  assert.equal(M13.RULESET_VERSION, '1.13.0');
+  assert.deepEqual(Object.keys(M13).filter(k => !(k in M)), [], 'every v1.13.0 export is kept');
   assert.equal(M.SCHEMA_VERSION, 2, 'export shape and evalNotams() return shape unchanged → SCHEMA_VERSION stays 2');
   assert.deepEqual(M.validateSchema(), { valid: true, errors: [] });
   const e = MANIFEST['notam-rules'];
-  assert.equal(e.version, '1.13.0');
-  assert.equal(e.file, 'notam-rules/notam-rules-v1.13.0.js');
+  assert.equal(e.version, '1.14.0');
+  assert.equal(e.file, 'notam-rules/notam-rules-v1.14.0.js');
   assert.equal(e.sha256, crypto.createHash('sha256').update(fs.readFileSync(MOD_FILE)).digest('hex'));
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.12.0.js')), 'v1.12.0 removed from rules/');
+  assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.13.0.js')), 'v1.13.0 removed from rules/ (O-79)');
   for (const n of ['_fkHeader', '_fkWindow', '_fkScheduleText']) assert.equal(typeof M[n], 'function', `exports ${n}`);
   // The module never reads positions (brief 5c §2): no x/y, items, pages or width in its code.
   const code = MOD_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
@@ -654,7 +660,10 @@ const D61_NAVBLUE = [
   'NB_PANC-KORD_10APR26_maxldgw_rev6 KZMP A0144/22',
 ];
 
-test('TC-171-030 NavBlue unchanged except D61: no FlightKeys header; split, windows and results equal v1.12.0 except the D61 list', () => {
+// Step 5e-1: run on the frozen v1.13.0 (M13): this is v1.13.0's record. The built module (v1.14.0) is held to
+// v1.13.0 on NavBlue by TC-172-031 / 032 (only change-list NOTAMs differ).
+test('TC-171-030 NavBlue unchanged except D61 (v1.13.0, frozen copy): no FlightKeys header; split, windows and results equal v1.12.0 except the D61 list', () => {
+  const M = M13;
   const dir = requireFixturesDir();
   const rec = JSON.parse(fs.readFileSync(RECORD, 'utf8'));
   assert.equal(rec.recordedFrom.sha256, '0d615a13f8cfcb7afc625f825a086d47beedbfc47afa9a7c51f7c47ba9162557', 'recorded from the v1.12.0 file');
@@ -723,7 +732,7 @@ test('TC-171-031 the gate bites: broken variants of the FlightKeys code are caug
   const v4 = variant(s => s.replace('if (!_validDateParts(yr, mo, dd, hh, mi)) return null;\n  return Date.UTC(yr, mo, dd, hh, mi);\n}\n\n/**\n * The FlightKeys item header', 'return Date.UTC(yr, mo, dd, hh, mi);\n}\n\n/**\n * The FlightKeys item header'));
   assert.notEqual(v4.xNW_standalone(fkItem({ start: '2026-Nov-31 10:00', end: '2026-Dec-02 10:00' }), D0), null, 'variant 4 guesses a date');
   // 5. The NavBlue split cut inside FlightKeys text: a Company body line "- FIRE RESCUE …" becomes an item.
-  const v5 = variant(s => s.replace('if (fkStarts.length) return _splitAt(text, fkStarts);', ''));
+  const v5 = variant(s => s.replace(/if \(fkStarts\.length\) return _splitAt\(text, fkStarts[^;\n]*\);/, ''));   // v1.13.0 and v1.14.0 forms
   const co = fkItem({ ...W, loc: '', subject: 'XXXX-ETOPS', body: ['- FIRE RESCUE PH: 000', '- CHECK OPSPEC'] });
   assert.equal(M._splitNotams([co, co].join('\n')).length, 2);
   assert.notEqual(v5._splitNotams([co, co].join('\n')).length, 2, 'variant 5 splits wrongly');

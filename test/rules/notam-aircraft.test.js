@@ -104,12 +104,13 @@ test('TC-151-001 the NOTAM module has no aircraft table, getWingspan or buildAcf
   assert.equal(typeof notam.buildAcftProfile, 'undefined', 'buildAcftProfile is not exported');
   assert.equal(typeof notam.getWingspan, 'undefined');
   assert.equal(typeof notam._acftApplies, 'function', '_acftApplies stays in the NOTAM module');
-  assert.equal(notam.RULESET_VERSION, '1.13.0');   // v1.13.0 (P-25) keeps every TC-151 property
+  assert.equal(notam.RULESET_VERSION, '1.14.0');   // v1.13.0 (P-25) and v1.14.0 (P-26, built in at step 5e-1) keep every TC-151 property
   assert.equal(notam.SCHEMA_VERSION, 2);
   assert.deepEqual(notam.validateSchema(), { valid: true, errors: [] });
   const e = MANIFEST['notam-rules'];
-  assert.equal(e.version, '1.13.0');
-  assert.equal(e.file, 'notam-rules/notam-rules-v1.13.0.js');
+  assert.equal(e.version, '1.14.0');
+  assert.equal(e.file, 'notam-rules/notam-rules-v1.14.0.js');
+  assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.13.0.js')), 'v1.13.0 is removed from rules/ (O-79)');
   assert.equal(e.sha256, sha(fs.readFileSync(NOTAM_FILE)));
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.11.2.js')), 'v1.11.2 is removed from rules/');
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.12.0.js')), 'v1.12.0 is removed from rules/');

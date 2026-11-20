@@ -94,6 +94,17 @@ function renderAtisParking(idSuffix) {
 function renderPreflightPhase() {
   let h = '';
 
+  // ── OFP findings (step 5e-1, O-76 / O-87 / O-88): one general list, the
+  //    import screen's .section + .callout as they are; message text only. ──
+  const _findings = _ofpShownFindings(S.ofpFindings);
+  if (_findings.length) {
+    h += `<div class="section"><div class="callout">`;
+    h += `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 7h.01"/></svg>`;
+    h += `<span class="callout-text"><span class="callout-title">OFP findings</span>`;
+    h += _findings.map(f => esc(f.message)).join('<br>');
+    h += `</span></div></div>`;
+  }
+
   // ── "Departure" subcard (ATIS + Parking + OEI + STAB) ──
   h += `<div class="subcard">`;
   h += `<div class="subcard-header">Departure</div>`;

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Exports the values the NAT ruleset v1.2.0 (rules/nat-rules-next, step 5d-3) gives on the fixtures, for the
+// Exports the values the NAT ruleset v1.2.0 (rules/nat-rules, step 5d-3; key nat-rules-next before 5e-1) gives on the fixtures, for the
 // pinned checks of TC-173 (test/rules/nat-rules.test.js):
 //   fk       per FlightKeys package with NAT pages: the filed track letter ofp-flightkeys reads (O-57), and per
 //            NAT message: TMI, direction, validity, the natTrack the parser returns for it (tracks: id, waypoints,
 //            posted levels, validity, assigned), SHA-256 of the two comment strings
 //   navblue  the NavBlue / eOFP calls: how many, how many return a track object, the tracks, and every track whose
-//            output differs from src/nat.html v1.1.0 (O-65): fixture, direction, track, old → new
+//            output differs from src/nat.html v1.1.0 (now test/oracle/nat-v1.1.0.html, O-79) (O-65): fixture, direction, track, old → new
 //
 //   node test/corpus/nat-v120-expected-export.js [--fixtures <dir>]
 //        --out <fixtures>/expected/nat-rules-v1.2.0/nat.json
@@ -31,10 +31,10 @@ if (!out) { console.error('--out <file> is required'); process.exit(2); }
 const FIX = findFixtures(opt('--fixtures'));
 if (!FIX) { console.error('fixtures directory not found'); process.exit(2); }
 
-const modFile = path.join(RULES, MAN['nat-rules-next'].file);
+const modFile = path.join(RULES, MAN['nat-rules'].file);
 const nat = require(modFile);
 const win = {};
-vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8'), { window: win });
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'nat-v1.1.0.html'), 'utf8'), { window: win });   // NAT v1.1.0, frozen (O-79)
 const v11 = win.parseNatTrack;
 const fkMod = require(path.join(RULES, MAN['ofp-flightkeys'].file));
 const nbMod = require(path.join(RULES, MAN['ofp-navblue'].file));

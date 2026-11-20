@@ -118,7 +118,7 @@ const idOf = raw => { const k = notamKey(raw); return k ? `${k.loc} ${k.id}` : '
 
 test('TC-120-001 metadata present; validateSchema() is valid; a broken ruleset is rejected', () => {
   assert.equal(mod.RULESET_TYPE, 'notam');
-  assert.equal(mod.RULESET_VERSION, '1.13.0');
+  assert.equal(mod.RULESET_VERSION, '1.14.0');   // built in at step 5e-1 (O-21, O-27)
   assert.equal(mod.SCHEMA_VERSION, 2, 'SCHEMA_VERSION stays at the current contract value (rules-loader: notam >= 2)');
   assert.equal(typeof mod.RULESET_SOURCE, 'string');
   assert.ok(mod.RULESET_SOURCE.trim().length > 0);

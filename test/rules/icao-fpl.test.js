@@ -11,8 +11,9 @@
  *   TC-152-003  dual context: Node (module.exports), rules-loader (new Function), browser (plain
  *               script → one global IcaoFpl); loaded and run in a context whose window, document,
  *               storage and app globals throw on access — none touched
- *   TC-152-004  not in the app: index.html and build/build.js do not carry or name the module;
- *               index.html is still the build of src/ + rules/
+ *   TC-152-004  in the app since step 5e-1 (was: not in the app): built into index.html once, byte for
+ *               byte, before the FlightKeys parser; only the router (src/ofp-parse.html) names it, and
+ *               passes it to OfpFlightKeys; index.html is the build of src/ + rules/
  *   TC-152-010  synthetic FPLs (Doc 4444 field rules), positive: a full block; line breaks inside
  *               fields 7–18; 0, 1 and 2 alternates; field 18 with and without DOF/REG/SEL/RMK, and
  *               "0"; flight rules I, V, Y, Z with and without a type of flight; number of aircraft;
@@ -258,19 +259,20 @@ test('TC-152-003 dual context: Node, rules-loader, browser global; no window / D
     assert.ok(!new RegExp(`\\b${g}\\b`).test(code), `the module code names ${g}`);
 });
 
-// ══ TC-152-004 not in the app ════════════════════════════════════════════════
+// ══ TC-152-004 in the app (step 5e-1) ════════════════════════════════════════
 
-test('TC-152-004 not built into the app: index.html and build/build.js do not carry it; the build is unchanged', () => {
+test('TC-152-004 built into the app at step 5e-1 (was: not built in): once, byte for byte, before ofp-flightkeys; only the router names it', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const build = fs.readFileSync(path.join(ROOT, 'build', 'build.js'), 'utf8');
-  for (const s of ['IcaoFpl', 'parseIcaoFpl', 'icao-fpl'])
-    assert.ok(!html.includes(s), `index.html does not contain ${s}`);
-  assert.ok(!build.includes('icao-fpl'), 'build/build.js does not list icao-fpl');
+  const { MODULES } = require('../../build/build');
+  assert.equal(html.split(fs.readFileSync(MOD_FILE, 'utf8')).length, 2, 'index.html carries the module once, byte for byte');
+  const at = MODULES.findIndex(m => m && m.rule === 'icao-fpl');
+  assert.equal(MODULES.filter(m => m && m.rule === 'icao-fpl').length, 1, 'build/build.js lists icao-fpl once');
+  assert.ok(at >= 0 && at < MODULES.findIndex(m => m && m.rule === 'ofp-flightkeys'), 'before the FlightKeys parser');
   const srcFiles = fs.readdirSync(path.join(ROOT, 'src'), { recursive: true })
     .filter(f => fs.statSync(path.join(ROOT, 'src', f)).isFile());
   assert.ok(srcFiles.length >= 20, 'src/ files found');
-  for (const f of srcFiles)
-    assert.ok(!/IcaoFpl|parseIcaoFpl|icao-fpl/.test(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')), `src/${f} does not use the module`);
+  assert.deepEqual(srcFiles.filter(f => /IcaoFpl|parseIcaoFpl|icao-fpl/.test(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'))), ['ofp-parse.html'],
+    'only the router names it (it passes it to OfpFlightKeys; the NavBlue parser keeps its own FPL patterns, D47)');
   assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html is the build of src/ + rules/');
 });
 

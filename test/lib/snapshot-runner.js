@@ -4,7 +4,8 @@
 //   node test/golden/<name>.js update  [--fixtures <dir>]
 // Snapshots are read from / written to <fixtures>/<dirName>/<id>.json.
 // Missing fixtures, a missing snapshot, or a snapshot with no fixture all FAIL.
-// Live FlightKeys fixtures are not selected (app-path.js snapshotFixtures).
+// Live FlightKeys fixtures are not selected (app-path.js snapshotFixtures), unless the caller passes its own
+// select(manifest) — the app-path golden selects every fixture since step 5e-1 (the FlightKeys parser is built in).
 const fs = require('fs');
 const path = require('path');
 const { normalize, stringify } = require('../golden/serialize');
@@ -24,13 +25,13 @@ function parseArgs(argv, usage) {
   return o;
 }
 
-async function run({ name, dirName, build }) {
+async function run({ name, dirName, build, select = snapshotFixtures }) {
   const opt = parseArgs(process.argv.slice(2), `usage: ${name}.js compare|update [--fixtures <dir>] [--max-lines <n>]`);
   const manifest = readManifest(opt.dir);
   const snapDir = path.join(opt.dir, dirName);
   const failures = [];
   let same = 0, written = 0;
-  const selected = snapshotFixtures(manifest);
+  const selected = select(manifest);
   const notSelected = manifest.fixtures.length - selected.length;
   if (notSelected) console.log(`${name}: ${notSelected} live FlightKeys fixture(s) not compared (no snapshots)`);
 

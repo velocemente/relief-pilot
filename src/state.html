@@ -407,6 +407,7 @@ const S = {
 };
 let airportData = {};   // icao → { notams:'', weather:'' }
 let pdfRawText    = '';
+let pdfPages      = null;   // processPDF(): positioned text items per page (the FlightKeys parser reads them); null for pasted text
 let pdfArrayBuffer = null;   // ArrayBuffer of original PDF — slice a fresh Uint8Array for each pdf.js call so the master is never transferred/neutered
 let _pdfDocProxy  = null;    // active PDFDocumentProxy — nulled before each new load (M3)
 
@@ -449,8 +450,10 @@ function resetStateForNewFlight() {
     blockFuelEntered:null, zfwEntered:null, togwEntered:null,
     showFuelRaw:false, showWeightRaw:false,
   });
+  delete S.ofpFindings;   // parser findings (FlightKeys); set by parseOFP() only when the parser returns them
   airportData = {};
   pdfRawText = '';
+  pdfPages = null;
   pdfArrayBuffer = null;
   _pdfDocProxy = null;
   _fcirActive = false;
