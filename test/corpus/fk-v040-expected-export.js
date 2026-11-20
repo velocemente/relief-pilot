@@ -2,8 +2,9 @@
 // Exports the values the FlightKeys parser v0.4.0 (step 5d-2) reads from the 26 FlightKeys packages, for
 // the pinned checks of TC-163 (test/rules/ofp-flightkeys-v040.test.js): per package the Company NOTAMs
 // (ID, location, SUBJECT, origin, text hash), the curfew strings, the opsNotes body hashes, the FIR blocks
-// (code, empty, items: ID, category, origin, text hash), the hazard blocks (code, empty, text hash) and the
-// NAT messages (TMI, direction, validity, parts, pages, selected, text hash) with the returned natTrack.
+// (code, empty, items: ID, category, origin, text hash; O-49 copies left out), the hazard blocks (code, empty,
+// text hash), the NAT messages (TMI, direction, validity, parts, pages, selected, text hash) with the returned
+// natTrack, and the Dispatch contact (O-46).
 //
 //   node test/corpus/fk-v040-expected-export.js [--fixtures <dir>]
 //        --out <fixtures>/expected/ofp-flightkeys-v0.4.0/briefing.json
@@ -40,7 +41,7 @@ const OPTS = {
   parseNatTrack: win.parseNatTrack,
 };
 const res = {
-  _about: 'ofp-flightkeys v0.4.0 (step 5d-2) values on the 26 FlightKeys packages, for TC-163 (relief-pilot test/rules/ofp-flightkeys-v040.test.js); made by test/corpus/fk-v040-expected-export.js. Private: holds curfew text.',
+  _about: 'ofp-flightkeys v0.4.0 (step 5d-2, with the Exec answers O-46 … O-49) values on the 26 FlightKeys packages, for TC-163 (relief-pilot test/rules/ofp-flightkeys-v040.test.js); made by test/corpus/fk-v040-expected-export.js. Private: holds curfew text.',
   module: { version: mod.RULESET_VERSION, sha256: sha(fs.readFileSync(modFile)) },
   packages: {},
 };
@@ -59,6 +60,7 @@ for (const fx of readManifest(FIX).fixtures.filter(f => f.format === 'flightkeys
       natMessages: r.natMessages.map(m => [m.tmi, m.direction, m.valid, m.parts, m.pages, m.selected, sha(m.text)]),
       natTrack: r.natTrack ? [r.natTrack.tmi, r.natTrack.flightDir, r.natTrack.assignedId] : null,
     },
+    dispatchContact: r.dispatchContact,
   };
 }
 fs.mkdirSync(path.dirname(out), { recursive: true });

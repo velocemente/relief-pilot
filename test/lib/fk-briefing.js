@@ -19,7 +19,8 @@
  * next item header, category heading (§A.6), airport or FIR block (§A.4, §A.8), empty-state box,
  * or document end. Page furniture (footer + running header) inside an item is removed by shape
  * (§A.3, §A.10 row 10), unless keepFurniture is set. "Contact Dispatch for a preflight
- * briefing." belongs to no item (§A.7) and is dropped.
+ * briefing." belongs to no item (§A.7) and is dropped, unless keepDispatch is set (O-46, Exec
+ * 19 Nov: the line stays in the P0110 text as printed).
  *
  * Nothing here is copied into the app or the module.
  */
@@ -135,6 +136,8 @@ const isDispatchLine = line => /^Contact Dispatch for\s+a preflight briefing\.$/
 /**
  * Items of one document: [{ text, page, pageEnd, crossesPage, furnitureInside, headerSplit }].
  * opts.keepFurniture: leave the footer/running header lines inside an item (raw order).
+ * opts.keepDispatch: keep the "Contact Dispatch for a preflight briefing." line in the item it is
+ * printed in (O-46).
  */
 function segment(doc, opts = {}) {
   const lines = readingOrder(doc);
@@ -150,7 +153,7 @@ function segment(doc, opts = {}) {
       if (cur) { cur.furnitureInside = true; if (opts.keepFurniture) cur.lines.push(l); }
       continue;
     }
-    if (isDispatchLine(l.text)) continue;
+    if (isDispatchLine(l.text) && !opts.keepDispatch) continue;
     if (HDR.test(l.text)) { close(); cur = { lines: [l], furnitureInside: false }; continue; }
     if (isCategory(l.text) || isBlockLine(l.text)) { close(); continue; }
     if (cur) cur.lines.push(l);

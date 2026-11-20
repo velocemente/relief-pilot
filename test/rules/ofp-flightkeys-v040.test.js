@@ -75,6 +75,13 @@ const OPTS = { icaoFpl, aircraftProfile: acProf, notamRules: NR, parseNatTrack }
 const sha   = s => crypto.createHash('sha256').update(s).digest('hex');
 const warns = (r, re) => r.findings.filter(f => f.level === 'WARN' && (!re || re.test(f.field)));
 const infos = (r, re) => r.findings.filter(f => f.level === 'INFO' && (!re || re.test(f.field)));
+// O-49: the copies left out, from the one INFO that lists them: [{ id, name, code, all }]
+const leftOut = r => {
+  const f = r.findings.find(x => x.level === 'INFO' && x.field === 'enrouteNotams' && /left out of firNotams\[\] and enrouteNotams\.fir \(FIR not on the OFP/.test(x.message));
+  if (!f) return [];
+  const list = f.message.slice(f.message.indexOf('): ') + 3).split('; ').filter(p => / under .+ \([A-Z]{4}\)/.test(p));
+  return list.map(p => { const m = /^(\S+) under (.+?) \(([A-Z]{4})\)( \[all copies[^\]]*\])?$/.exec(p); return { id: m[1], name: m[2], code: m[3], all: !!m[4] }; });
+};
 const isHeadingLine = l => /^\s{21,}\S/.test(l) && fkb.CATEGORIES.includes(l.trim());
 const v03 = t => t.split('\n').filter(l => !isHeadingLine(l)).join('\n');
 const win = w => `${String(Math.floor(w.start / 60)).padStart(2, '0')}${String(w.start % 60).padStart(2, '0')}-${String(Math.floor(w.end / 60)).padStart(2, '0')}${String(w.end % 60).padStart(2, '0')}`;
@@ -107,23 +114,27 @@ const firHead = (name, code) => [pad(18, name), pad(2, `FIR${code}`)];
 const EMPTY_FIR = code => [pad(17, `THERE ARE NO ACTIVE NOTAMS FOR FIR ${code} WITHIN THE GIVEN TIME`), 'NIL', pad(17, 'PERIOD THAT MATCHES THE FILTERING CRITERIA.')];
 
 // The release (text pages): FPL type, date of flight, route, origin, destination, remarks.
-function releasePages({ type = 'B744/H', dof = 'DOF/261103 ', route = 'N0481F320 DCT AAAAA DCT BBBBB', orig = 'KAAA', dest = 'KBBB', remarks = null } = {}) {
+function releasePages({ type = 'B744/H', dof = 'DOF/261103 ', route = 'N0481F320 DCT AAAAA DCT BBBBB', orig = 'KAAA', dest = 'KBBB', remarks = null, p1route = null, navFirs = null } = {}) {
   const hdr = `TST0001/03NOV/${orig}-${dest}/N000ZZ`;
   const page = (n, of, body) => [hdr, 'OPERATIONAL FLIGHT PLAN RLS 01 03NOV26 12:00', ...body, `FUFI: 00000000-0000-0000-0000-000000000000 PAGE ${n}/${of}`].join('\n');
   const p1 = [`TST0001/03 ${orig} - ${dest} 03 NOV 26 N000ZZ`, 'COST INDEX 020 Revision: 1.0', 'B747-400F / CF6-80C2-B1F / KG / IFR / FF +4.0',
-    'PROGS 031200 Release Valid Until 2300Z 03NOV26', `ORIG ${orig}/AAA ALPHA INTL N40000W080000 1755Z`, `DEST ${dest}/BBB BRAVO INTL N41000W081000 0328Z`];
+    'PROGS 031200 Release Valid Until 2300Z 03NOV26', `ORIG ${orig}/AAA ALPHA INTL N40000W080000 1755Z`, `DEST ${dest}/BBB BRAVO INTL N41000W081000 0328Z`,
+    ...(p1route ? [...p1route, 'Coldest Fuel Temp: -30/BBBBB A/WC: H009 T-DEV: P01'] : [])];
   const rem = remarks ? ['Remarks', 'DISPATCHER DESK: 00', ...remarks, 'RAIM VALIDATION PASSED', 'MEL/CDL', 'Flight Release Authorization'] : [];
   const fpl = ['(FPL-TST0001-IS', `-${type}-SDE1E2E3FGHIJ3J5M1P2RWXYZ/LB1D1`, `-${orig}1755`, `-${route}`, `-${dest}0933 KCCC`, `-PBN/A1B1 ${dof}REG/N000ZZ SEL/ABCD RMK/TCAS II EQUIPPED)`];
-  return [page(1, 2, p1), page(2, 2, [...rem, 'TIME FUEL', ...fpl])];
+  // navFirs: nav-log FIR lines "(IIII) <position> <time> <FIR name>" (O-49)
+  return [page(1, 2, p1), page(2, 2, [...rem, 'TIME FUEL', ...fpl, ...(navFirs || [])])];
 }
 
 // A whole package: release (text), HSCN, Company + NOTAM Briefing, Weather + Hazard Briefing (positions),
 // NAT track pages (text).
 function pkg(o = {}) {
   const orig = o.orig || 'KAAA', dest = o.dest || 'KBBB';
+  const contact = o.contact === undefined ? ['Contact Dispatch for a preflight briefing.'] : o.contact;   // O-46: printed after the P0110-type text
+  const p1Text = o.p1Text || ['HIGH SEVERITY TEXT.', '  INDENTED SECOND LINE.'];
   const company = [pad(30, 'COMPANY NOTAMS'), pad(36, 'GENERAL'),
-    ...coItem('', 'P0001/26', 'TEST OFP', ['HIGH SEVERITY TEXT.', '  INDENTED SECOND LINE.']),
-    'Contact Dispatch for a preflight briefing.',
+    ...coItem('', 'P0001/26', 'TEST OFP', p1Text),
+    ...contact,
     ...coItem('', 'A0002/26', 'ADMIN-TEST', ['GENERAL TEXT.']),
     ...coItem('', 'A0003/26', 'PUBS- 999 TEST', ['PUBLICATIONS TEXT.']),
     ...(o.company || [])];
@@ -154,12 +165,12 @@ function pkg(o = {}) {
     ...firHead('EMPTY FIR', 'KYYY'), pad(37, 'SIGMET'), pad(17, 'THERE ARE NO ACTIVE SIGMET FOR FIR WITHIN THE GIVEN TIME'), 'NIL', pad(17, 'PERIOD.'),
   ];
   const brief = [
-    briefPage(1, 1, U1, { L: [pad(21, 'HIGH SEVERITY COMPANY NOTAMS'), ...coItem('', 'P0001/26', 'TEST OFP', ['HIGH SEVERITY TEXT.', '  INDENTED SECOND LINE.']), 'Contact Dispatch for a preflight briefing.'] }),
+    briefPage(1, 1, U1, { L: [pad(21, 'HIGH SEVERITY COMPANY NOTAMS'), ...coItem('', 'P0001/26', 'TEST OFP', p1Text), ...(o.hscnContact === undefined ? contact : o.hscnContact)] }),
     briefPage(1, 2, U2, { L: company.slice(0, 50), R: company.slice(50) }),
     briefPage(2, 2, U2, { L: airports, R: firs }),
     briefPage(1, 1, U3, { L: wx, R: hazards }),
   ];
-  const rel = releasePages({ type: o.type, dof: o.dof, route: o.route, orig, dest, remarks: o.remarks });
+  const rel = releasePages({ type: o.type, dof: o.dof, route: o.route, orig, dest, remarks: o.remarks, p1route: o.p1route, navFirs: o.navFirs });
   const nat = o.nat || [];
   const texts = [...rel, ...brief.map((_, i) => `BRIEFING PAGE ${i + 1}`), ...nat.map(p => p.join('\n'))];
   const pages = [...rel.map(() => ({ width: W, height: H, items: [] })), ...brief, ...nat.map(() => ({ width: W, height: H, items: [] }))];
@@ -169,7 +180,7 @@ function pkg(o = {}) {
 
 // ══ TC-163-010 Company NOTAMs, synthetic ══════════════════════════════════════════════════════
 
-test('TC-163-010 Company NOTAMs synthetic: fields, line breaks, GENERAL, severity, origin; Contact line; pair kept', () => {
+test('TC-163-010 Company NOTAMs synthetic: fields, line breaks, GENERAL, severity, origin; Contact line in the text (O-46); pair kept', () => {
   const r = pkg({ company: coItem('KBBB', 'A0010/26', 'KBBB-FREQ', ['GROUND FREQ 121.9.', '  SECOND LINE.']) });
   const c = r.companyNotams;
   assert.deepEqual(c.map(x => [x.id, x.location, x.subject, x.severity, x.origin]), [
@@ -180,10 +191,10 @@ test('TC-163-010 Company NOTAMs synthetic: fields, line breaks, GENERAL, severit
     ['A0010/26', 'KBBB', 'KBBB-FREQ', 'normal', 'COMPANY'],
   ], 'every item as printed; the HSCN / Company pair of one ID kept as two records (never merged, D43)');
   assert.deepEqual(Object.keys(c[0]), ['id', 'location', 'subject', 'start', 'end', 'severity', 'origin', 'text', 'source']);
-  assert.equal(c[1].text, [pad(16, 'P0001/26        2026-Nov-01 00:00 - UFN'), CREATED, 'SUBJECT: TEST OFP', 'HIGH SEVERITY TEXT.', '  INDENTED SECOND LINE.'].join('\n'),
-    'text as printed: header rows, line breaks and indentation kept (D54)');
+  assert.equal(c[1].text, [pad(16, 'P0001/26        2026-Nov-01 00:00 - UFN'), CREATED, 'SUBJECT: TEST OFP', 'HIGH SEVERITY TEXT.', '  INDENTED SECOND LINE.',
+    'Contact Dispatch for a preflight briefing.'].join('\n'), 'text as printed: header rows, line breaks and indentation kept (D54); the Dispatch contact line stays in the text (O-46)');
   assert.deepEqual([c[4].start, c[4].end], ['2026-Nov-01 00:00', 'UFN']);
-  assert.ok(c.every(x => !/Contact Dispatch/.test(x.text)), '"Contact Dispatch for a preflight briefing." belongs to no item');
+  assert.deepEqual(c.map(x => /^Contact Dispatch for a preflight briefing\.$/m.test(x.text)), [true, true, false, false, false], 'O-46: the Contact line in the P0110-type pair only, as printed');
   assert.deepEqual(c[4].source.map(s => s.page), [4], 'source positions: absolute PDF page');
   assert.ok(c.every(x => !/COMPANY NOTAMS|^\s+GENERAL$/m.test(x.text)), 'no document heading in an item');
   assert.equal(infos(r, /^companyNotams$/).filter(f => /^5 Company NOTAMs read \(1 High Severity, 4 Company\)/.test(f.message)).length, 1);
@@ -216,13 +227,11 @@ test('TC-163-020 curfews synthetic: O-33 … O-37, positive and negative', () =>
     const s = curfewPkg(BY_TYPE, { type: ty }).airportData.KBBB.curfew;
     assert.equal(s, 'B767, B777, B748 CURFEW = 1500-2100Z DAILY', `${ty} → the B767, B777, B748 line only`);
   }
-  const r763 = curfewPkg(BY_TYPE, { type: 'B763/H' });
-  assert.equal(r763.airportData.KBBB.curfew, [BY_TYPE[2], BY_TYPE[3], BY_TYPE[4], mod.CURFEW_NOTES.type].join('\n'),
-    'a type outside the table (B763) → every line and the note (the table is closed: O-33)');
-  assert.equal(warns(r763, /^airportData\.curfew$/).filter(f => /no curfew line for aircraft type B763/.test(f.message)).length, 1);
-  assert.deepEqual(Object.keys(mod.CURFEW_TYPES), ['B747-400/F', 'B767, B777, B748']);
-  assert.deepEqual(mod.CURFEW_TYPES['B747-400/F'], ['B744', 'B747-400F']);
-  assert.deepEqual(mod.CURFEW_TYPES['B767, B777, B748'], ['B77L', 'B777F', 'B748']);
+  // O-48: B763 now takes the B767 family line (TC-163-130); a type outside the table → every line and the note
+  const r752 = curfewPkg(BY_TYPE, { type: 'B752/M' });
+  assert.equal(r752.airportData.KBBB.curfew, [BY_TYPE[2], BY_TYPE[3], BY_TYPE[4], mod.CURFEW_NOTES.type].join('\n'),
+    'a type outside the table (B752) → every line and the note (the table is closed: O-33, O-48)');
+  assert.equal(warns(r752, /^airportData\.curfew$/).filter(f => /no curfew line for aircraft type B752/.test(f.message)).length, 1);
   // O-34 / SME-22a: dated seasons — the season in force only, no note (NEGATIVE for the note) …
   const jan = curfewPkg(SEASONS, { dof: 'DOF/260115 ' });
   assert.equal(jan.airportData.KBBB.curfew, '- WINTER: NOVEMBER TO MARCH 2200-0600 UTC (UTC+1)', 'January → WINTER only, no note');
@@ -485,8 +494,8 @@ if (!FIXTURES) {
     const changed = {}, notamsChanged = [];
     for (const fx of fk) {
       const r = run(fx), b = BASE.fixtures[fx.id], lbl = b.label;
-      assert.deepEqual(Object.keys(r).filter(k => !['firNotams', 'firRaw', 'natMessages', 'hazards'].includes(k)), b.keys, `${lbl}: v0.3.0 keys, in order`);
-      assert.deepEqual(Object.keys(r).slice(-6), ['firNotams', 'firRaw', 'natMessages', 'hazards', 'sections', 'findings'], `${lbl}: the 4 new fields before sections`);
+      assert.deepEqual(Object.keys(r).filter(k => !['firNotams', 'firRaw', 'natMessages', 'hazards', 'dispatchContact'].includes(k)), b.keys, `${lbl}: v0.3.0 keys, in order`);
+      assert.deepEqual(Object.keys(r).slice(-7), ['firNotams', 'firRaw', 'natMessages', 'hazards', 'dispatchContact', 'sections', 'findings'], `${lbl}: the 5 new fields before sections`);
       for (const [k, h] of Object.entries(b.sha256)) {
         if (sha(JSON.stringify(r[k])) === h) { fields++; continue; }
         (changed[k] = changed[k] || []).push(lbl);
@@ -528,7 +537,7 @@ if (!FIXTURES) {
     // removed deferred INFOs put back
     for (const fx of fk) {
       const r = run(fx), b = BASE.fixtures[fx.id];
-      const NEW_FIELDS = ['companyNotams', 'airportData.curfew', 'airportData.opsNotes', 'enrouteNotams', 'hazards', 'natTrack'];
+      const NEW_FIELDS = ['companyNotams', 'airportData.curfew', 'airportData.opsNotes', 'enrouteNotams', 'hazards', 'natTrack', 'dispatchContact'];
       const isNew = f => NEW_FIELDS.includes(f.field) || (f.field === 'sections' && /PACOTS/.test(f.message));
       const back = [];
       for (const f of r.findings) {
@@ -608,18 +617,19 @@ if (!FIXTURES) {
       // the HSCN item is also printed in the Company NOTAMs: both kept (O-40)
       for (const x of h) if (k.some(y => y.id === x.id)) pairs++;
       // independent reading (test/lib/fk-briefing.js): the same texts, in order
-      const ind = fkb.packageItems(load(fx).items);
+      const ind = fkb.packageItems(load(fx).items, { keepDispatch: true });   // O-46: the Contact line stays in its item
       assert.deepEqual(h.map(x => x.text), ind.filter(x => x.kind === 'HSCN').map(x => x.text), `${lbl}: HSCN texts = the independent reading`);
       assert.deepEqual(k.map(x => x.text), ind.filter(x => x.kind === 'COMPANY').map(x => x.text), `${lbl}: Company texts = the independent reading (line breaks kept)`);
-      assert.ok(c.every(x => !/^Contact Dispatch for a preflight briefing\.$/m.test(x.text)), `${lbl}: the Contact Dispatch line in no item`);
-      contact += load(fx).items.pages.reduce((n, p) => n + fkb.pageLines(p).left.concat(fkb.pageLines(p).right).filter(t => /^\s*Contact Dispatch for a preflight briefing\.$/.test(t)).length, 0);
+      const printed = load(fx).items.pages.reduce((n, p) => n + fkb.pageLines(p).left.concat(fkb.pageLines(p).right).filter(t => /^\s*Contact Dispatch for a preflight briefing\.$/.test(t)).length, 0);
+      assert.equal(c.filter(x => /^Contact Dispatch for a preflight briefing\.$/m.test(x.text)).length, printed, `${lbl}: every printed Contact Dispatch line is in its item (O-46)`);
+      contact += printed;
       // pinned values (fixtures expected/)
       assert.deepEqual(c.map(x => [x.id, x.location, x.subject, x.origin, sha(x.text)]), EXP.packages[fx.id].companyNotams, `${lbl}: = expected/`);
       hscn += h.length; co += k.length;
     }
     assert.deepEqual([hscn, co, hscn + co], [26, 272, 298]);
     assert.equal(pairs, 26, 'the P0110-type pair in 26/26, never merged');
-    console.log(`TC-163-011: ${hscn + co} Company NOTAMs (${hscn} HSCN + ${co} Company) = grammar §A.2 and the independent reading; HSCN/Company pairs kept ${pairs}; "Contact Dispatch for a preflight briefing." lines left out: ${contact}`);
+    console.log(`TC-163-011: ${hscn + co} Company NOTAMs (${hscn} HSCN + ${co} Company) = grammar §A.2 and the independent reading; HSCN/Company pairs kept ${pairs}; "Contact Dispatch for a preflight briefing." lines kept in their item (O-46): ${contact}`);
   });
 
   // ── TC-163-021 curfews ──
@@ -681,14 +691,20 @@ if (!FIXTURES) {
   });
 
   // ── TC-163-031 FIR NOTAMs ──
-  test('TC-163-031 FIR NOTAMs on all 26: 221 blocks, 989 items, 43 empty; = the independent reading; firRaw; repeats kept', () => {
+  test('TC-163-031 FIR NOTAMs on all 26: 221 blocks, 989 items printed, 43 empty; = the independent reading; firRaw; repeats (O-49)', () => {
     needExp();
     let blocks = 0, items = 0, empty = 0, noHead = 0, company = 0, rawHeadings = 0;
     const repeats = [], noHeadAt = new Set();
     for (const fx of fk) {
       const r = run(fx), lbl = L(fx);
       assert.equal(r.firNotams.length, grammar[lbl].firNotam, `${lbl}: FIR blocks = grammar §A.2`);
-      const nItems = r.firNotams.reduce((n, b) => n + b.items.filter(i => i.origin === 'NOTAM').length, 0);
+      // O-49: the copies left out (listed in one INFO) count as printed; each has a kept copy on the 26
+      const out = leftOut(r).map(x => {
+        const kept = r.firNotams.flatMap(b => b.items).find(i => i.origin === 'NOTAM' && i.id === x.id);
+        assert.ok(kept, `${lbl} ${x.id}: a copy left out has a kept copy (no NOTAM left out under every block on the 26)`);
+        return Object.assign({ text: kept.text }, x);
+      });
+      const nItems = r.firNotams.reduce((n, b) => n + b.items.filter(i => i.origin === 'NOTAM').length, 0) + out.length;
       assert.equal(nItems, grammar[lbl].firItems, `${lbl}: FIR items = grammar §A.2`);
       blocks += r.firNotams.length; items += nItems;
       empty += r.firNotams.filter(b => b.empty).length;
@@ -698,7 +714,7 @@ if (!FIXTURES) {
       const apt = Object.values(r.airportData).flatMap(a => a.notams ? NR._splitNotams(v03(a.notams)).map(p => p.replace(/\n$/, '')) : []);
       const rest = ind.slice();
       for (const t of apt) { const k = rest.indexOf(t); assert.ok(k >= 0, `${lbl}: airport item in the independent reading`); rest.splice(k, 1); }
-      const mine = r.firNotams.flatMap(b => b.items.filter(i => i.origin === 'NOTAM').map(i => i.text));
+      const mine = [...r.firNotams.flatMap(b => b.items.filter(i => i.origin === 'NOTAM').map(i => i.text)), ...out.map(x => x.text)];
       assert.deepEqual(mine.slice().sort(), rest.sort(), `${lbl}: FIR item texts = the independent reading`);
       // firRaw: every item once, under its heading, in printed order; no Company item
       r.firRaw.forEach((raw, bi) => {
@@ -718,28 +734,31 @@ if (!FIXTURES) {
         }
         for (; at < lines.length; at++) if (isHeadingLine(lines[at])) rawHeadings++;
         assert.ok(!b.items.filter(i => i.origin === 'COMPANY').some(i => raw.raw.includes(i.text.split('\n')[0])), `${lbl} ${b.code}: no Company item in firRaw`);
-        assert.equal(b.empty, !b.items.length);
+        assert.equal(b.empty, !b.items.length && !out.some(x => x.code === b.code), `${lbl} ${b.code}: empty = prints the empty-state box`);
         if (b.empty) assert.ok(/THERE ARE NO ACTIVE NOTAMS FOR FIR/.test(raw.raw), `${lbl} ${b.code}: empty block prints the empty-state box`);
       });
       // the FIR text: the non-empty blocks, block name first, no heading, no empty block
       const txt = r.enrouteNotams.fir;
       assert.ok(!txt.split('\n').some(isHeadingLine), `${lbl}: no type heading in enrouteNotams.fir`);
-      assert.deepEqual(txt.split('\n\n').map(s => s.split('\n')[0]), r.firNotams.filter(b => !b.empty).map(b => `${b.name} (${b.code})`), `${lbl}: one block per non-empty FIR, name first`);
-      // repeats: the same location(s) + ID under more than one FIR block — kept (O-41)
+      assert.deepEqual(txt.split('\n\n').map(s => s.split('\n')[0]), r.firNotams.filter(b => b.items.length).map(b => `${b.name} (${b.code})`), `${lbl}: one block per FIR with items, name first`);
+      // repeats as printed: the same location(s) + ID under more than one FIR block (O-41; O-49 leaves out copies)
       const seen = new Map();
-      for (const b of r.firNotams) for (const i of b.items.filter(x => x.origin === 'NOTAM')) {
-        const h = NR._fkHeader(i.text), key = `${h.locations.join(' ')} ${h.id}`;
+      const note = (code, text) => {
+        const h = NR._fkHeader(text), key = `${h.locations.join(' ')} ${h.id}`;
         if (!seen.has(key)) seen.set(key, new Set());
-        seen.get(key).add(b.code);
-      }
+        seen.get(key).add(code);
+      };
+      for (const b of r.firNotams) for (const i of b.items.filter(x => x.origin === 'NOTAM')) note(b.code, i.text);
+      for (const x of out) note(x.code, x.text);
       for (const [k, s] of seen) if (s.size > 1) repeats.push(`${lbl} ${k}`);
       assert.deepEqual(r.firNotams.map(b => [b.code, b.empty, b.items.map(i => [i.id, i.category, i.origin, sha(i.text)])]), EXP.packages[fx.id].firNotams, `${lbl}: firNotams = expected/`);
     }
     assert.deepEqual([blocks, items, empty], [221, 989, 43]);
+    assert.equal(repeats.length, 24, 'FIR NOTAMs printed under more than one FIR block (by location(s) + ID)');
     assert.equal(company, 3, 'O-40: RCAA-GUARD (L04, L09) and VGFR-VGFRADC (L17) listed with their FIR');
     assert.equal(noHead, 4); assert.deepEqual([...noHeadAt], ['L15'], 'the 4 ASHTAMs without a heading (L15)');
     const repPk = new Set(repeats.map(x => x.split(' ')[0]));
-    console.log(`TC-163-031: ${blocks} FIR blocks, ${items} items (= grammar §A.2 and the independent reading), ${empty} empty, ${company} Company items with their FIR, ${noHead} items with no heading; headings in firRaw ${rawHeadings}; FIR NOTAMs printed under more than one FIR block: ${repeats.length} in ${repPk.size} packages (kept)`);
+    console.log(`TC-163-031: ${blocks} FIR blocks, ${items} items (= grammar §A.2 and the independent reading), ${empty} empty, ${company} Company items with their FIR, ${noHead} items with no heading; headings in firRaw ${rawHeadings}; FIR NOTAMs printed under more than one FIR block: ${repeats.length} in ${repPk.size} packages (O-49: TC-163-141)`);
   });
 
   // ── TC-163-040 hazards ──

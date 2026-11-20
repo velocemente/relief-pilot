@@ -83,7 +83,7 @@ const sha   = s => crypto.createHash('sha256').update(s).digest('hex');
 // The top-level extensions added in v0.4.0 (contract 2.4, addendum 4) and the fields read since v0.4.0:
 // left out of the comparisons with the v0.2.0 / v0.3.0-e96ed88 records here; TC-163-001 checks every value
 // against the final v0.3.0 output.
-const V04_NEW  = ['firNotams', 'firRaw', 'natMessages', 'hazards'];
+const V04_NEW  = ['firNotams', 'firRaw', 'natMessages', 'hazards', 'dispatchContact'];
 const V04_READ = ['enrouteNotams', 'natTrack', 'companyNotams', 'airportData.curfew', 'airportData.opsNotes'];
 const v03 = t => t.split('\n').filter(l => !(/^\s{21,}\S/.test(l) && fkb.CATEGORIES.includes(l.trim()))).join('\n');
 const warns = (r, re) => r.findings.filter(f => f.level === 'WARN' && (!re || re.test(f.field)));

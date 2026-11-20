@@ -12,7 +12,7 @@
  * TC-160-001/002 (version 0.3.0, contract 2.3, 7 airport extensions incl. weatherRaw, D65), TC-160-013 (the airport entry's
  * keys), TC-160-005 (airportData.weather / .notams and sections are read now: TC-162).
  * Changes for v0.4.0 only where the battery named the version, the extension list or the deferred list:
- * TC-160-001/002 (version 0.4.0, contract 2.4, 18 extensions: firNotams, firRaw, natMessages, hazards),
+ * TC-160-001/002 (version 0.4.0, contract 2.4, 19 extensions: firNotams, firRaw, natMessages, hazards, dispatchContact),
  * TC-160-005 (natTrack, enrouteNotams, curfew, opsNotes, companyNotams are read now: TC-163), TC-160-040
  * (enrouteNotams and natTrack are not compared with the EOFP: TC-163).
  *
@@ -120,10 +120,10 @@ test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () 
   assert.ok(mod.RULESET_SOURCE.length > 10);
   assert.deepEqual(mod.validateSchema(), { valid: true, errors: [] });
   assert.deepEqual([...mod.CORE_FIELDS], [...navblue.CORE_FIELDS], 'core fields = NavBlue core fields, same order');
-  const ADD4 = ['firNotams', 'firRaw', 'natMessages', 'hazards'];
+  const ADD4 = ['firNotams', 'firRaw', 'natMessages', 'hazards', 'dispatchContact'];
   assert.deepEqual(mod.EXTENSION_FIELDS.filter(f => f !== 'swa' && f !== 'operatingPilots' && !ADD4.includes(f)), [...navblue.EXTENSION_FIELDS],
     'extensions = contract v2.0 list + swa (addendum 1) + operatingPilots (addendum 2, D62) + addendum 4 (v0.4.0)');
-  assert.deepEqual(mod.EXTENSION_FIELDS.slice(-6), [...ADD4, 'sections', 'findings'], 'addendum 4 fields before sections');
+  assert.deepEqual(mod.EXTENSION_FIELDS.slice(-7), [...ADD4, 'sections', 'findings'], 'addendum 4 fields before sections');
   assert.deepEqual([...mod.CREW_EXTENSION_FIELDS], ['firstName', 'toLndgExpiry']);
   assert.deepEqual([...mod.AIRPORT_EXTENSION_FIELDS], [...navblue.AIRPORT_EXTENSION_FIELDS, 'specialQualification',
     'notamItems', 'notamsRaw', 'briefing', 'weatherRaw'], 'airport extensions: v2.0 + specialQualification (addendum 1) + addendum 3 (v0.3.0, D65)');

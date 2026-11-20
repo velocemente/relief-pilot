@@ -33,8 +33,12 @@
  * (airportData opsNotes); the FIR NOTAM blocks (enrouteNotams.fir, firNotams[],
  * firRaw[], D64); the NAT track messages (natMessages[], natTrack through the
  * injected NAT parser) and the PACOTS sections; the Hazard Briefing per FIR
- * (hazards[], text as printed, never evaluated). v0.4.0 must not be integrated
- * (D58: integration at v1.0.0, step 5e).
+ * (hazards[], text as printed, never evaluated). Exec answers O-46 … O-49
+ * (19 Nov, same development version): the Dispatch contact lines stay in the
+ * Company NOTAM text and give dispatchContact (O-46); the filed NAT track from
+ * the OFP page 1 route and the ICAO FPL route (O-47); curfew lines by aircraft
+ * family and variant (O-48); FIR NOTAM repeats kept only under the FIRs on the
+ * OFP (O-49). v0.4.0 must not be integrated (D58: integration at v1.0.0, step 5e).
  *
  * INPUT  parseFlightKeys(input, options)
  *   input   { text, pages:[{ page, width, height, items:[{ str, x, y, w, h,
@@ -85,8 +89,8 @@ const SCHEMA_VERSION   = 2;
 // contract 2.1); operatingPilots (D62) and the crew-record extensions
 // firstName, toLndgExpiry (SME-9) (contract 2.2); the airport extensions
 // notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65) (contract 2.3, addendum 3);
-// the top-level extensions firNotams, firRaw (D64, O-41), natMessages (O-43) and hazards (O-45)
-// (contract 2.4, addendum 4).
+// the top-level extensions firNotams, firRaw (D64, O-41), natMessages (O-43), hazards (O-45)
+// and dispatchContact (O-46) (contract 2.4, addendum 4).
 // Adding fields is a minor contract version (ADR-005 §2.4).
 const CONTRACT_VERSION = '2.4';
 const RULESET_SOURCE   = 'FlightKeys OFP issued by Atlas Air / Polar Air Cargo dispatch (release, ICAO FPL and briefing package); field map SPRINT-OFP-FlightKeysMigration v1.1; ICAO Doc 4444 App 2/3 through icao-fpl';
@@ -113,12 +117,12 @@ const CORE_FIELDS = Object.freeze([
 
 // Appendix B — top-level extensions, in order (contract v2.0 list with `swa`
 // (addendum 1), `operatingPilots` (addendum 2, D62) and `firNotams`, `firRaw`,
-// `natMessages`, `hazards` (addendum 4, v0.4.0) added before `sections`).
+// `natMessages`, `hazards`, `dispatchContact` (addendum 4, v0.4.0) added before `sections`).
 const EXTENSION_FIELDS = Object.freeze([
   'revision', 'companyNotams', 'ofpRemarks', 'fplEquipment',
   'catIiIiiRestrictions', 'securityMessages', 'extraFuel', 'pcf', 'permits',
   'designator', 'swa', 'operatingPilots', 'firNotams', 'firRaw', 'natMessages', 'hazards',
-  'sections', 'findings',
+  'dispatchContact', 'sections', 'findings',
 ]);
 // Extensions on core records. specialQualification: addendum (SME-2).
 // notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65): addendum 3 (v0.3.0).
@@ -508,7 +512,7 @@ function _emptyExtensions() {
   return {
     revision: null, companyNotams: [], ofpRemarks: [], fplEquipment: null,
     catIiIiiRestrictions: [], securityMessages: [], extraFuel: null, pcf: null, permits: [],
-    designator: '', swa: null, operatingPilots: null, firNotams: [], firRaw: [], natMessages: [], hazards: [],
+    designator: '', swa: null, operatingPilots: null, firNotams: [], firRaw: [], natMessages: [], hazards: [], dispatchContact: null,
     sections: [], findings: [],
   };
 }
@@ -2188,22 +2192,48 @@ function _readBriefing(ctx) {
 // NAT track message, which FlightKeys prints on its own text pages (no footer,
 // one column; § 7 _readSections finds them the same way).
 
-// §A.7: "Contact Dispatch for a preflight briefing." belongs to no item (Exec brief
-// v0.4.0 scope 1). Only this exact line; the longer "… if you have any questions."
-// (L20–L23) is printed inside the P0110 text and stays in it (open item).
-const COMPANY_NO_ITEM_LINE = /^Contact Dispatch for a preflight briefing\.$/;
+// O-46 (Exec, 19 Nov): the Dispatch contact lines stay in the Company NOTAM text
+// exactly as printed — the short line after the P0110 text and, in L20–L23, the
+// long line inside it — and give the package-level dispatchContact: the short form
+// REQUIRED, the long form IF QUESTIONS; both printed → REQUIRED; neither → null.
+// Each form is one whole printed line (trimmed), as printed (case kept).
+const DISPATCH_CONTACT = Object.freeze({
+  REQUIRED:       /^Contact Dispatch for a preflight briefing\.$/,
+  'IF QUESTIONS': /^Contact Dispatch for a preflight briefing if you have any questions\.$/,
+});
 // §A.7: a Company key that names no location (O-40: "PUBS- is not an airport").
 const COMPANY_NON_LOCATION_KEYS = Object.freeze(['PUBS']);
 
-// O-33 (Exec, 19 Nov): the closed table from the OFP aircraft type to the wording
-// of a curfew line by aircraft type (field map row 46, SME-12). A line by type
-// applies only to the types listed for its wording; a registration list is never
-// matched. No line for the OFP type → every line and a note (a planned FK-P
-// exception: NavBlue applies every line).
+// O-33, O-48 (Exec, 19 Nov): the closed table from the OFP aircraft type (ICAO
+// designator, FPL field 9) to its family and variant names (field map row 46,
+// SME-12). A curfew line by aircraft type lists names; a FAMILY name (B747, B767,
+// B777) applies to every variant of that family, a VARIANT name (B763, B748,
+// B747-400/F …) only to the designator(s) it names. "B767, B777, B748" → all 767s,
+// all 777s, the 747-8 only; "B747-400/F" → B744 and BLCF. A registration list is
+// never matched. No line for the OFP type (or a type not in the table) → every
+// line and a note + WARN (a planned FK-P exception: NavBlue applies every line).
 const CURFEW_TYPES = Object.freeze({
-  'B747-400/F':       Object.freeze(['B744', 'B747-400F']),
-  'B767, B777, B748': Object.freeze(['B77L', 'B777F', 'B748']),
+  B762: Object.freeze({ family: 'B767', variants: Object.freeze(['B762']) }),
+  B763: Object.freeze({ family: 'B767', variants: Object.freeze(['B763']) }),
+  B764: Object.freeze({ family: 'B767', variants: Object.freeze(['B764']) }),
+  B744: Object.freeze({ family: 'B747', variants: Object.freeze(['B744', 'B747-400/F']) }),
+  BLCF: Object.freeze({ family: 'B747', variants: Object.freeze(['BLCF', 'B747-400/F']) }),
+  B748: Object.freeze({ family: 'B747', variants: Object.freeze(['B748']) }),
+  B772: Object.freeze({ family: 'B777', variants: Object.freeze(['B772']) }),
+  B773: Object.freeze({ family: 'B777', variants: Object.freeze(['B773']) }),
+  B77L: Object.freeze({ family: 'B777', variants: Object.freeze(['B77L']) }),
+  B77W: Object.freeze({ family: 'B777', variants: Object.freeze(['B77W']) }),
+  B77F: Object.freeze({ family: 'B777', variants: Object.freeze(['B77F']) }),
 });
+// Every family and variant name of the table: a list token that is one of these is
+// an aircraft-type token (so "B77L" is never read as a registration).
+const CURFEW_TYPE_NAMES = Object.freeze([...new Set(Object.values(CURFEW_TYPES).flatMap(t => [t.family, ...t.variants]))]);
+// O-48: does a type-line token name the OFP type? Family name → every variant of
+// the family; variant name → only the designators it is listed for.
+const _curfewTypeMatch = (token, acftType) => {
+  const t = Object.prototype.hasOwnProperty.call(CURFEW_TYPES, acftType) ? CURFEW_TYPES[acftType] : null;
+  return !!t && (token === t.family || t.variants.includes(token));
+};
 // The notes added to a curfew string (O-33, O-34). No digits: the app reads every
 // "HHMM-HHMM" in the string as a window (src/render-descent.html parseCurfewWindows).
 const CURFEW_NOTES = Object.freeze({
@@ -2236,7 +2266,7 @@ function _companyFrom(ctx, lines, origin) {
   const { add } = ctx;
   const nr = ctx.opts.notamRules;
   const title = l => _isHeading(l) && (PATTERNS.BR_HSCN_HEAD.test(l.text.trim()) || PATTERNS.BR_CN_HEAD.test(l.text.trim()));
-  const body = lines.filter(l => !title(l) && !_isCategory(l) && !COMPANY_NO_ITEM_LINE.test(l.text.trim()));
+  const body = lines.filter(l => !title(l) && !_isCategory(l));
   if (!body.length) return [];
   const text = body.map(l => l.text).join('\n');
   const pieces = nr._splitNotams(text);
@@ -2288,6 +2318,20 @@ function _readCompany(ctx) {
   ext.companyNotams = recs.map(r => { const o = Object.assign({}, r); delete o._subjectRow; return o; });
   const n = o => recs.filter(r => r.origin === o).length;
   add('INFO', 'companyNotams', `${recs.length} Company NOTAMs read (${n('HSCN')} High Severity, ${n('COMPANY')} Company), as printed`);
+  // O-46: dispatchContact { label, text } from the Dispatch contact line(s) printed in
+  // the Company NOTAMs (HSCN and Company): REQUIRED wins over IF QUESTIONS; none → null.
+  const found = {};
+  for (const r of recs) for (const t of r.text.split('\n').map(x => x.trim())) {
+    for (const [label, re] of Object.entries(DISPATCH_CONTACT)) {
+      if (!re.test(t)) continue;
+      if (!found[label]) found[label] = { text: t, at: [] };
+      found[label].at.push(`${r.id || '(no ID)'} ${r.origin}`);
+    }
+  }
+  const label = found.REQUIRED ? 'REQUIRED' : found['IF QUESTIONS'] ? 'IF QUESTIONS' : null;
+  ext.dispatchContact = label ? { label, text: found[label].text } : null;
+  if (label) add('INFO', 'dispatchContact', `Dispatch contact ${label}: "${found[label].text}" (${found[label].at.join(', ')})${found.REQUIRED && found['IF QUESTIONS'] ? `; the IF QUESTIONS form is also printed (${found['IF QUESTIONS'].at.join(', ')}): REQUIRED (O-46)` : ' (O-46)'}`);
+  else add('INFO', 'dispatchContact', 'no Dispatch contact line printed in the Company NOTAMs: dispatchContact null (O-46)');
 }
 
 // An item's text lines after its SUBJECT row (the item's own text, §A.7).
@@ -2312,7 +2356,7 @@ function _curfewOf(r, acftType, flightISO) {
       let kind = 'general', wording = null;
       if (lm) {
         const toks = lm[1].split(/\s*,\s*/).map(x => x.trim()).filter(Boolean);
-        if (toks.length && toks.every(x => CURFEW.TYPE_TOKEN.test(x))) { kind = 'type'; wording = toks.join(', '); }
+        if (toks.length && toks.every(x => CURFEW_TYPE_NAMES.includes(x) || CURFEW.TYPE_TOKEN.test(x))) { kind = 'type'; wording = toks; }
         else if (toks.length && toks.every(x => CURFEW.REG_TOKEN.test(x))) kind = 'registration';
       }
       kept.push({ text, kind, wording, season: sm ? sm[1] : season, months: CURFEW.MONTHS.exec(t) });
@@ -2321,11 +2365,12 @@ function _curfewOf(r, acftType, flightISO) {
     if (CURFEW.QUAL_FLOW.test(t) && CURFEW.QUAL_WORD.test(t) && !/\d/.test(t)) kept.push({ text: t, kind: 'qualifier' });
   }
   let out = kept;
-  // 2. Lines by aircraft type (O-33): the line(s) whose wording maps to the OFP type;
-  //    other type lines and registration lists out. None for the type → all + note.
+  // 2. Lines by aircraft type (O-33, O-48): the line(s) with a token naming the OFP
+  //    type (its family, or its variant); other type lines and registration lists
+  //    out. None for the type → all + note.
   const byList = out.filter(x => x.kind === 'type' || x.kind === 'registration');
   if (byList.length) {
-    const mine = out.filter(x => x.kind === 'type' && CURFEW_TYPES[x.wording] && CURFEW_TYPES[x.wording].includes(acftType));
+    const mine = out.filter(x => x.kind === 'type' && x.wording.some(tok => _curfewTypeMatch(tok, acftType)));
     if (mine.length) out = out.filter(x => (x.kind !== 'type' && x.kind !== 'registration') || mine.includes(x));
     else { notes.push(CURFEW_NOTES.type); warns.push(`no curfew line for aircraft type ${acftType || '(none read)'}; all lines shown with a note (O-33)`); }
   }
@@ -2455,6 +2500,60 @@ function _firBlocksOf(doc) {
 //     its items as printed (line breaks kept, no type heading), a Company item after
 //     a "[COMPANY NOTAM]" line; blocks separated by a blank line. route, airway,
 //     waypoint, geographic: '' (FlightKeys prints en-route NOTAMs per FIR only).
+//   O-49 (Exec, 19 Nov): a FIR NOTAM printed under more than one FIR block (the same
+//     ID and the same text) is kept only under the blocks whose FIR is on the OFP;
+//     its other copies are left out of firNotams[] and enrouteNotams.fir. None of
+//     its FIRs on the OFP → every copy left out. One INFO lists every copy left
+//     out. firRaw stays as printed (D64). A NOTAM printed under one block only
+//     (twice in one block included) is unchanged.
+
+// O-49: the FIRs on the OFP — the FIR lines of the release navigation log,
+// "(IIII) <position or AT fix> <time> <FIR name>" (first release copy), and the
+// FIRs of the ICAO FPL field 18 EET/ ("IIIIhhmm"). The departure FIR is printed
+// in the navigation log only when the log prints its boundary.
+const FIR_ON_OFP = Object.freeze({
+  NAVLOG: /^\(([A-Z]{4})\)\s+\S/,
+  EET:    /\b([A-Z]{4})\d{4}\b/g,
+});
+function _ofpFirs(ctx) {
+  const nav = [], eet = [];
+  for (const l of ctx.rel ? ctx.rel.lines : []) { const m = FIR_ON_OFP.NAVLOG.exec(l.trim()); if (m && !nav.includes(m[1])) nav.push(m[1]); }
+  const e = ctx.fpl && ctx.fpl.found && ctx.fpl.other && typeof ctx.fpl.other.EET === 'string' ? ctx.fpl.other.EET : '';
+  for (const m of e.matchAll(FIR_ON_OFP.EET)) if (!eet.includes(m[1])) eet.push(m[1]);
+  return { nav, eet, all: new Set([...nav, ...eet]) };
+}
+
+// O-49: leave out the copies of a FIR NOTAM printed under more than one block
+// whose FIR is not on the OFP. recs: the FIR block records (items: origin NOTAM
+// only at this point). Returns the copies left out: [{ id, name, code, all }].
+function _firRepeats(ctx, recs) {
+  const { add } = ctx;
+  const groups = new Map();
+  recs.forEach((b, bi) => b.items.forEach(it => {
+    if (it.origin !== 'NOTAM' || !it.id) return;
+    const k = it.id + '\n' + it.text;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push({ bi, it });
+  }));
+  const reps = [...groups.values()].filter(g => new Set(g.map(x => x.bi)).size > 1);
+  if (!reps.length) return [];
+  const firs = _ofpFirs(ctx);
+  if (!firs.all.size) {
+    add('WARN', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block, but no FIR of the OFP was read (navigation log FIR lines, FPL EET): every copy kept (O-49)`);
+    return [];
+  }
+  const out = [], drop = new Set();
+  for (const g of reps) {
+    const keep = g.filter(x => firs.all.has(recs[x.bi].code));
+    for (const x of g) if (!keep.includes(x)) { drop.add(x.it); out.push({ id: x.it.id, name: recs[x.bi].name, code: recs[x.bi].code, all: !keep.length }); }
+  }
+  if (!out.length) return out;   // every copy under a FIR on the OFP: nothing left out, no finding
+  for (const b of recs) b.items = b.items.filter(it => !drop.has(it));
+  const ids = new Set(out.filter(x => x.all).map(x => x.id));
+  add('INFO', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block; ${out.length} cop${out.length === 1 ? 'y' : 'ies'} left out of firNotams[] and enrouteNotams.fir (FIR not on the OFP; OFP FIRs from the navigation log FIR lines and the FPL EET: ${[...firs.all].join(' ')}): ${out.map(x => `${x.id} under ${x.name} (${x.code})${x.all ? ' [all copies: none of its FIRs is on the OFP]' : ''}`).join('; ')}${ids.size ? `; ${ids.size} NOTAM(s) left out under every block` : ''}; firRaw as printed (O-49)`);
+  return out;
+}
+
 function _readFirs(ctx) {
   const { out, ext, add } = ctx;
   const docs = (ctx.briefDocs || []).filter(d => d.kind === 'NOTAM');
@@ -2466,6 +2565,8 @@ function _readFirs(ctx) {
     const items = nt.items.map((it, k) => ({ id: it.id, category: it.category, origin: 'NOTAM', text: nt.texts[k], source: it.source }));
     recs.push({ name: b.name, code: b.code, empty: !items.length, items, raw: nt.notamsRaw });
   }
+  const nItems = recs.reduce((n, x) => n + x.items.length, 0);   // as printed (before O-49)
+  _firRepeats(ctx, recs);  // O-49
   // O-40: a general Company item keyed "IIII-…" where IIII is a FIR of this package.
   for (const r of (ctx.company || []).filter(x => x.origin === 'COMPANY' && x.location === 'GENERAL')) {
     const m = /^([A-Z]{4})-/.exec(r.subject);
@@ -2481,14 +2582,15 @@ function _readFirs(ctx) {
   ext.firNotams = recs.map(x => ({ name: x.name, code: x.code, empty: x.empty, items: x.items }));
   ext.firRaw = recs.map(x => ({ name: x.name, code: x.code, raw: x.raw }));
   const txt = [];
-  for (const x of recs.filter(y => !y.empty)) {
+  const emptied = recs.filter(y => !y.empty && !y.items.length);   // O-49: every item a repeat left out
+  if (emptied.length) add('INFO', 'enrouteNotams', `${emptied.length} FIR block(s) hold only repeats printed under another block and are left out of enrouteNotams.fir: ${emptied.map(x => x.code).join(', ')} (O-49)`);
+  for (const x of recs.filter(y => y.items.length)) {
     const ls = [`${x.name} (${x.code})`];
     for (const it of x.items) { if (it.origin === 'COMPANY') ls.push('[COMPANY NOTAM]'); ls.push(it.text); }
     txt.push(ls.join('\n'));
   }
   out.enrouteNotams = { route: '', fir: txt.join('\n\n'), airway: '', waypoint: '', geographic: '' };
   const empties = recs.filter(x => x.empty);
-  const nItems = recs.reduce((n, x) => n + x.items.filter(i => i.origin === 'NOTAM').length, 0);
   if (!docs.length) add('WARN', 'enrouteNotams', 'no NOTAM Briefing document: FIR NOTAMs not read');
   else add('INFO', 'enrouteNotams', `${recs.length} FIR blocks in the NOTAM Briefing, ${nItems} FIR NOTAM items; route, airway, waypoint and geographic are empty: FlightKeys prints en-route NOTAMs per FIR only (§A.8)`);
   if (empties.length) add('INFO', 'enrouteNotams', `${empties.length} FIR block(s) print no active NOTAMs and are left out of enrouteNotams.fir: ${empties.map(x => x.code).join(', ')} (O-41)`);
@@ -2515,15 +2617,29 @@ function _readHazards(ctx) {
 // (natTrack, through the injected NAT parser): the flight's direction first, then
 // the higher TMI (an unreadable TMI counts lowest, WARN). Only the opposite
 // direction printed → that message, with a crew-alert WARN. The filed track is
-// read from the FPL route string only (O-43).
+// read from the OFP page 1 route and the ICAO FPL strip route only (O-43, O-47).
 const NAT_MSG = Object.freeze({
   PART:  /^\(NAT-(\d+)\/(\d+)\s+TRACKS\b/,
   END:   /\bEND OF PART\b.*\bPARTS?\)\s*$/,
   TMI:   /\bTMI\s+IS\s+(\d{3})\b/,
   EAST:  /^EAST LVLS\s+(.*)$/,
   WEST:  /^WEST LVLS\s+(.*)$/,
-  FILED: /\bNAT([A-Z])\b/,
+  FILED: /\bNAT([A-Z])\b/g,
+  // O-47: the OFP page 1 route — from "IIII/Fnnn …" (the origin and initial level)
+  // to the line before "Coldest Fuel Temp" (release page 1, first copy).
+  P1_ROUTE_START: /^[A-Z]{4}\/[FA]\d{3}\s/,
+  P1_ROUTE_END:   /^Coldest Fuel Temp\b/,
 });
+// O-47: the OFP page 1 route as one string, or null when not printed.
+function _p1Route(p1) {
+  const s = p1.findIndex(l => NAT_MSG.P1_ROUTE_START.test(l.trim()));
+  if (s < 0) return null;
+  const e = p1.findIndex((l, i) => i > s && NAT_MSG.P1_ROUTE_END.test(l.trim()));
+  if (e < 0) return null;
+  return p1.slice(s, e).map(l => l.trim()).join(' ');
+}
+// O-47: the NAT track letters a route names ("NATx"), in order, without repeats.
+const _natLetters = route => (typeof route === 'string' ? [...new Set(Array.from(route.matchAll(NAT_MSG.FILED), m => m[1]))] : []);
 function _readNat(ctx) {
   const { out, ext, add, fpl } = ctx;
   const lines = [];
@@ -2588,14 +2704,23 @@ function _readNat(ctx) {
   if (same.length) add('WARN', 'natTrack', `NAT message TMI ${best.tmi} printed ${same.length + 1} times with the same direction and validity (SME-14); the first is returned`);
   best.selected = true;
   const r = nat(best.text, out.origIcao, out.destIcao);
-  // O-43: the filed track from the FPL route string only (never remarks or NOTAM text).
-  const fm = fpl && fpl.found && typeof fpl.route === 'string' ? NAT_MSG.FILED.exec(fpl.route) : null;
+  // O-43, O-47: the filed track from the OFP page 1 route and the ICAO FPL strip route
+  // only (never remarks or NOTAM text). Both name one letter → that letter. Only one
+  // names it → that one. They differ (or a route names two letters) → the FPL strip's
+  // first letter (the plan filed with ATC) and a crew-alert WARN (open item O-50).
+  const p1L = _natLetters(_p1Route(ctx.p1 || []));
+  const fplL = _natLetters(fpl && fpl.found ? fpl.route : null);
+  const src = [p1L.length ? 'OFP page 1 route' : '', fplL.length ? 'ICAO FPL route' : ''].filter(Boolean);
+  const filed = fplL.length ? fplL[0] : p1L.length ? p1L[0] : null;
+  const all = [...new Set([...p1L, ...fplL])];
+  if (all.length > 1 || (p1L.length && fplL.length && p1L[0] !== fplL[0]))
+    add('WARN', 'natTrack', `CREW ALERT: the filed NAT track differs: OFP page 1 route ${p1L.length ? p1L.map(x => 'NAT' + x).join(', ') : 'none'}, ICAO FPL route ${fplL.length ? fplL.map(x => 'NAT' + x).join(', ') : 'none'}; NAT${filed} (the FPL) is marked (O-47)`);
   if (r) {
-    r.assignedId = fm ? fm[1] : null;
+    r.assignedId = filed;
     for (const b of r.blocks || []) for (const t of b.tracks || []) t.assigned = t.id === r.assignedId;
   }
   out.natTrack = r;
-  add('INFO', 'natTrack', `${M.length} NAT track message(s); returned TMI ${best.tmi || '?'} (${best.direction || 'direction unknown'}, valid ${best.valid}) for this ${dir}BOUND flight; filed track ${r && r.assignedId ? r.assignedId : 'none (random route)'} (O-42, O-43)`);
+  add('INFO', 'natTrack', `${M.length} NAT track message(s); returned TMI ${best.tmi || '?'} (${best.direction || 'direction unknown'}, valid ${best.valid}) for this ${dir}BOUND flight; filed track ${r && r.assignedId ? `${r.assignedId} (${src.join(' and ')})` : 'none (random route: no NAT track in the OFP page 1 route or the ICAO FPL route)'} (O-42, O-43, O-47)`);
 }
 
 // Rows 37, 38 (ADR-005 §2.6): sections[] from content — { id, title, startPage,
@@ -2728,7 +2853,7 @@ function validateSchema(ruleset) {
     if (new Set(v).size !== v.length || v.some(x => typeof x !== 'string' || !x)) errors.push(`${k} must be unique non-empty names`);
   };
   list('CORE_FIELDS', 57);
-  list('EXTENSION_FIELDS', 18);
+  list('EXTENSION_FIELDS', 19);
   list('AIRPORT_EXTENSION_FIELDS', 7);
   list('DDG_EXTENSION_FIELDS', 2);
   list('CREW_EXTENSION_FIELDS', 2);
@@ -2760,7 +2885,7 @@ const API = {
   CORE_FIELDS, EXTENSION_FIELDS, AIRPORT_EXTENSION_FIELDS, DDG_EXTENSION_FIELDS,
   CREW_EXTENSION_FIELDS,
   DEFERRED_FIELDS,
-  CURFEW_TYPES, CURFEW_NOTES,   // v0.4.0: the O-33 type table and the curfew notes (O-33, O-34)
+  CURFEW_TYPES, CURFEW_NOTES,   // v0.4.0: the O-33 / O-48 type table and the curfew notes (O-33, O-34)
 };
 return API;
 });
