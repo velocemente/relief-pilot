@@ -25,9 +25,9 @@
     "sha256": "d7b432506f32a3675ce3ffa68a07b7e194ed523c9e8dcbd3177f78da36d49ad2"
   },
   "ofp-flightkeys": {
-    "version": "0.4.0",
-    "file": "ofp-flightkeys/ofp-flightkeys-v0.4.0.js",
-    "sha256": "c4ccb8c4656aed7ba8dbeaf81a67e7d7037541b6dd78bfd82223663a1a1afb6f"
+    "version": "1.0.0",
+    "file": "ofp-flightkeys/ofp-flightkeys-v1.0.0.js",
+    "sha256": "9790d35608d58e3b9f173bf955e383aff72a82fbf30b28c74a923d2b3b829630"
   },
   "nat-rules-next": {
     "version": "1.2.0",
