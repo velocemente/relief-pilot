@@ -33,6 +33,9 @@
  *   TC-174-030  findings list (O-76, O-87, O-88): WARNs first, message only, NAT INFOs only, esc();
  *               NavBlue: no list; a saved flight without findings reads safely
  *   TC-174-031  the findings shown on the 26, by package and code (7 WARN, 4 INFO); every INFO code listed
+ *   TC-174-032  O-89: the list title "OFP Alerts" is red (the existing .nt-red) until the crew selects it, then
+ *               the normal title colour; the selection is stored with the flight; a new import starts red; a
+ *               flight saved before O-89 (no state) reads safely (red); no list → no title
  *   TC-174-040  safety fields on FlightKeys (rule 6): crew count, CAT II/III, DOT exemption, ETOPS, slot,
  *               block and minimum fuel = the parser's values on all 26; a package without the field →
  *               empty, never carried over from the flight before
@@ -450,7 +453,7 @@ function synthPackage({ route, orig = 'EDDA', dest = 'KBBB' }) {
 async function gate(route, html) {
   const imp = await importItems(synthPackage({ route }), 'synthetic.pdf', html ? { html } : {});
   const card = imp.app.renderPreflightPhase();
-  const m = card.match(/<div class="section"><div class="callout">[\s\S]*?<span class="callout-title">OFP findings<\/span>([\s\S]*?)<\/span><\/div><\/div>/);
+  const m = card.match(/<div class="section"><div class="callout">[\s\S]*?<span class="callout-title[^"]*"[^>]*>OFP Alerts<\/span>([\s\S]*?)<\/span><\/div><\/div>/);
   return { imp, stored: imp.S.ofpFindings, list: m ? m[1].split('<br>') : [] };
 }
 const unEsc = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
@@ -511,7 +514,7 @@ test('TC-174-030 findings list: WARNs first, message only, NAT INFOs only, escap
   assert.deepEqual(app._ofpShownFindings(F).map(f => f.message), ['WARN ONE <b>&', 'WARN TWO', 'INFO NAT']);
   app.S.ofpFindings = F;
   const h = app.renderPreflightPhase();
-  const list = h.match(/<span class="callout-title">OFP findings<\/span>([\s\S]*?)<\/span><\/div><\/div>/)[1];
+  const list = h.match(/<span class="callout-title[^"]*"[^>]*>OFP Alerts<\/span>([\s\S]*?)<\/span><\/div><\/div>/)[1];
   assert.equal(list, 'WARN ONE &lt;b&gt;&amp;<br>WARN TWO<br>INFO NAT', 'message only, escaped (rule 2), WARN first');
   assert.ok(!/NAT-RANDOM-ROUTE|NAT-FILED|permits|WARN:|INFO:/.test(list), 'no code, field or level shown (O-87)');
   assert.equal(h.indexOf('<div class="section"><div class="callout">'), 0, 'one list, at the top of the Preflight card');
@@ -519,21 +522,21 @@ test('TC-174-030 findings list: WARNs first, message only, NAT INFOs only, escap
   // existing components only (rule 3): no style attribute, no class but the existing ones
   const block = h.slice(0, h.indexOf('</div></div>') + 12);
   assert.ok(!/style=/.test(block));
-  assert.deepEqual([...new Set([...block.matchAll(/class="([^"]+)"/g)].map(m => m[1]))], ['section', 'callout', 'callout-text', 'callout-title']);
-  for (const c of ['.section {', '.callout {', '.callout-text {', '.callout-title {']) assert.ok(HTML.includes(c), `${c} exists`);
+  assert.deepEqual([...new Set([...block.matchAll(/class="([^"]+)"/g)].map(m => m[1]))], ['section', 'callout', 'callout-text', 'callout-title nt-red']);
+  for (const c of ['.section {', '.callout {', '.callout-text {', '.callout-title {', '.nt-red {']) assert.ok(HTML.includes(c), `${c} exists`);
   // nothing to show → no list
   app.S.ofpFindings = [{ level: 'INFO', field: 'crewMembers', message: 'X' }];
-  assert.ok(!app.renderPreflightPhase().includes('OFP findings'));
+  assert.ok(!app.renderPreflightPhase().includes('OFP Alerts'));
   for (const v of [undefined, null, [], 'x', [null, {}, { level: 'WARN' }]]) {
     app.S.ofpFindings = v;
-    assert.ok(!app.renderPreflightPhase().includes('OFP findings'), JSON.stringify(v));
+    assert.ok(!app.renderPreflightPhase().includes('OFP Alerts'), JSON.stringify(v));
   }
   // a flight saved before the switch (no ofpFindings in its state) loads and renders with no list
   const entry = { id: 'f_1', fltNum: 'GTI0001/01', date: '01 NOV 26', state: { fltNum: 'GTI0001/01', date: '01 NOV 26', origIcao: 'KAAA', destIcao: 'KBBB' }, raw: '', aptData: {} };
   app.S.ofpFindings = F;
   app.loadFlight(entry);
   assert.ok(!('ofpFindings' in app.S), 'the previous flight\'s findings are not carried over');
-  assert.ok(!app.renderPreflightPhase().includes('OFP findings'));
+  assert.ok(!app.renderPreflightPhase().includes('OFP Alerts'));
 });
 
 fixtureTest('TC-174-031 findings shown on the 26 by package and code: 7 WARN, 4 INFO (NAT-RANDOM-ROUTE); NavBlue: none', async () => {
@@ -556,8 +559,64 @@ fixtureTest('TC-174-031 findings shown on the 26 by package and code: 7 WARN, 4 
   assert.deepEqual(Object.keys(infoCodes).filter(k => k.startsWith('NAT-')), ['NAT-RANDOM-ROUTE']);
   for (const fx of nbFixtures().slice(0, 3)) {
     const imp = await imported(fx);
-    assert.ok(!('ofpFindings' in imp.S) && !imp.app.renderPreflightPhase().includes('OFP findings'), `${fx.id}: NavBlue, no list`);
+    assert.ok(!('ofpFindings' in imp.S) && !imp.app.renderPreflightPhase().includes('OFP Alerts'), `${fx.id}: NavBlue, no list`);
   }
+});
+
+// ══ TC-174-032 O-89 the OFP Alerts title ═════════════════════════════════════════
+
+// The list title as drawn: { red } or null when there is no title.
+function alertsTitle(app) {
+  const m = app.renderPreflightPhase().match(/<span class="callout-title( nt-red)?" onclick="ofpAlertsSelect\(\)" role="button" aria-label="OFP Alerts">OFP Alerts<\/span>/);
+  return m ? { red: !!m[1] } : null;
+}
+
+fixtureTest('TC-174-032 O-89 OFP Alerts: red on import; normal after the crew selects it; stored with the flight; a new import red again; pre-O-89 flight safe; no list, no title', async () => {
+  const pkgWith = fkFixtures().find(f => f.id === 'FK_EBLG-KORD_03NOV26_nat-random_live');      // L12: one NAT INFO shown
+  const pkgOther = fkFixtures().find(f => f.id === 'FK_KDOV-ETAR_03NOV26_pax-nat-random_live'); // L23: WARN + INFO shown
+  const pkgNone = fkFixtures().find(f => f.id === 'FK_KCVG-KSEA_04NOV26_pax-catiii_live');      // L05: nothing shown
+  const app = loadApp();
+  // red on import
+  await importItems(readItems(pkgWith), 'a.pdf', { app });
+  assert.deepEqual(alertsTitle(app), { red: true }, 'a new import: the title is red');
+  assert.ok(!('ofpAlertsSeen' in app.S));
+  // normal colour after the crew selects it; stored with the flight
+  app.ofpAlertsSelect();
+  assert.equal(app.S.ofpAlertsSeen, true);
+  assert.deepEqual(alertsTitle(app), { red: false }, 'selected: the normal title colour');
+  const saved = plain(app.getFlights().find(f => f.fltNum === app.S.fltNum));
+  assert.equal(saved.state.ofpAlertsSeen, true, 'the selection is saved with the flight');
+  app.ofpAlertsSelect();
+  assert.deepEqual(alertsTitle(app), { red: false }, 'selecting again keeps it normal (one way)');
+  // the saved flight reopens in the normal colour (another session)
+  const app2 = loadApp();
+  app2.loadFlight(saved);
+  assert.deepEqual(alertsTitle(app2), { red: false }, 'the saved flight reopens in the normal colour');
+  // a new import (another package, same session) starts red again
+  await importItems(readItems(pkgOther), 'b.pdf', { app });
+  assert.ok(!('ofpAlertsSeen' in app.S), 'the selection is not carried over');
+  assert.deepEqual(alertsTitle(app), { red: true }, 'a new import: red again');
+  // re-importing the selected flight's package also starts red
+  await importItems(readItems(pkgWith), 'a.pdf', { app });
+  assert.deepEqual(alertsTitle(app), { red: true });
+  // a flight saved before O-89 (findings, no selection state) reads safely: red until selected
+  const before = JSON.parse(JSON.stringify(saved)); delete before.state.ofpAlertsSeen;
+  const app3 = loadApp();
+  app3.loadFlight(before);
+  assert.deepEqual(alertsTitle(app3), { red: true });
+  // a flight saved before the switch (no findings at all): no list, no title, selecting does nothing harmful
+  const old = { id: 'f_1', fltNum: 'GTI0001/01', date: '01 NOV 26', state: { fltNum: 'GTI0001/01', date: '01 NOV 26' }, raw: '', aptData: {} };
+  app3.loadFlight(old);
+  assert.equal(alertsTitle(app3), null);
+  // NEGATIVE: no list → no title (a package with nothing to show; a NavBlue package)
+  await importItems(readItems(pkgNone), 'c.pdf', { app });
+  assert.equal(alertsTitle(app), null, 'no shown finding: no title');
+  const nb = await imported(nbFixtures()[0]);
+  assert.equal(alertsTitle(nb.app), null, 'NavBlue: no title');
+  // NEGATIVE: only a stored true counts as selected
+  for (const v of ['true', 1, {}, false, null]) { app.S.ofpFindings = [{ level: 'WARN', field: 'x', message: 'W' }]; app.S.ofpAlertsSeen = v; assert.deepEqual(alertsTitle(app), { red: true }, JSON.stringify(v)); }
+  // the red is the existing class: no new colour in the CSS (src/styles.html unchanged by O-89)
+  assert.ok(HTML.includes('.nt-red { color: var(--sys-red);'));
 });
 
 // ══ TC-174-040 safety fields on FlightKeys (rule 6) ═══════════════════════════════

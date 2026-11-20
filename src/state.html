@@ -451,6 +451,7 @@ function resetStateForNewFlight() {
     showFuelRaw:false, showWeightRaw:false,
   });
   delete S.ofpFindings;   // parser findings (FlightKeys); set by parseOFP() only when the parser returns them
+  delete S.ofpAlertsSeen; // O-89: the OFP Alerts title selected by the crew; a new import starts red
   airportData = {};
   pdfRawText = '';
   pdfPages = null;

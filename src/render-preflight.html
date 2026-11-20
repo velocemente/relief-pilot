@@ -68,6 +68,16 @@ function setPhase(phase) {
   _saveResumeView();
 }
 
+// ── OFP Alerts title selected by the crew (O-89) ──────────────────────────
+// The title is red until the crew selects it, then the normal title colour.
+// Stored with the flight (S.ofpAlertsSeen); a new import starts red again.
+function ofpAlertsSelect() {
+  if (S.ofpAlertsSeen === true) return;
+  S.ofpAlertsSeen = true;
+  saveFlight();
+  renderNote();
+}
+
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
 
 // ── ATIS + Parking compact rows (used in preflight + descent) ──
@@ -94,13 +104,15 @@ function renderAtisParking(idSuffix) {
 function renderPreflightPhase() {
   let h = '';
 
-  // ── OFP findings (step 5e-1, O-76 / O-87 / O-88): one general list, the
-  //    import screen's .section + .callout as they are; message text only. ──
+  // ── OFP Alerts (step 5e-1, O-76 / O-87 / O-88 / O-89): one general list, the
+  //    import screen's .section + .callout as they are; message text only. The
+  //    title is red (the existing .nt-red) until the crew selects it (O-89). ──
   const _findings = _ofpShownFindings(S.ofpFindings);
   if (_findings.length) {
+    const _alertsSeen = S.ofpAlertsSeen === true;
     h += `<div class="section"><div class="callout">`;
     h += `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 7h.01"/></svg>`;
-    h += `<span class="callout-text"><span class="callout-title">OFP findings</span>`;
+    h += `<span class="callout-text"><span class="callout-title${_alertsSeen ? '' : ' nt-red'}" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">OFP Alerts</span>`;
     h += _findings.map(f => esc(f.message)).join('<br>');
     h += `</span></div></div>`;
   }
