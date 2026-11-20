@@ -3,7 +3,8 @@
 // O-46 … O-49) on the 26 FlightKeys packages, as SHA-256 only, for TC-163-100 (everything the answers do
 // not name stays byte-identical to build 1). Per package: top-level keys in order and the SHA-256 of each
 // field; each finding's SHA-256 in order; per airport entry its keys and the SHA-256 of each value; per FIR
-// block its code and the SHA-256 of each item; the SHA-256 of each Company NOTAM record; per finding its
+// block its code and the SHA-256 of each item; per Company NOTAM record the SHA-256 without its source
+// positions, and the positions (page, column, y range: no text); per finding its
 // field and whether it is the NAT "filed track" INFO. No fixture text.
 //
 //   git show 9a76b58:rules/ofp-flightkeys/ofp-flightkeys-v0.4.0.js > <scratch>/fk-build1.js
@@ -45,7 +46,7 @@ for (const fx of readManifest(FIX).fixtures.filter(f => f.format === 'flightkeys
     keys: Object.keys(r),
     sha256: Object.fromEntries(Object.keys(r).filter(k => k !== 'findings').map(k => [k, sha(JSON.stringify(r[k]))])),
     findings: r.findings.map(f => ({ sha256: sha(JSON.stringify(f)), field: f.field, filedTrack: f.field === 'natTrack' && /; filed track /.test(f.message) })),
-    companyNotams: r.companyNotams.map(c => sha(JSON.stringify(c))),
+    companyNotams: r.companyNotams.map(c => { const o = Object.assign({}, c); delete o.source; return { sha256: sha(JSON.stringify(o)), source: c.source }; }),
     airportData: Object.fromEntries(Object.entries(r.airportData).map(([i, e]) => [i, { keys: Object.keys(e), sha256: Object.fromEntries(Object.entries(e).map(([k, v]) => [k, sha(JSON.stringify(v))])) }])),
     firNotams: r.firNotams.map(b => ({ code: b.code, name: sha(b.name), empty: b.empty, items: b.items.map(i => sha(JSON.stringify(i))) })),
   };

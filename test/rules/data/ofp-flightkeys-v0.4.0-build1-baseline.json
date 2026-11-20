@@ -252,17 +252,173 @@
     }
    ],
    "companyNotams": [
-    "6c99bad4618c4ce1e1e5d2a3b6d6c3fd693b397259b5178929a1bbff45d3c4e4",
-    "36156086810516876c30d9160e479ae9ca6683de6c859a9021afa3c587b7eeb5",
-    "b4706d8f4d637d9e2482f3d2d9c334b2416c883ec4c97ee1136847028c587803",
-    "98685e33017607aee23cb8ef347137805c6712519b5c9ed635a5c207657ac4a9",
-    "e8b6e4fc55dcb793e8a6e9c54e10e61944c2a21b09b0954826756566572deb11",
-    "e7b16415eacfa6920049536a7a3cdb9778d20891db5177928a69eef987849d5b",
-    "02dd43d31c98d970fe0209febe56bd87f314f2831f57000d3db7f55543759d12",
-    "39bd1c894be59d71ae5f7c3f9a90c5337b484920a6e58ff392d6f96e86cb49f0",
-    "f5dd230f0aa80d5a8b44aabadd256d46a764690180fdbe1f7dd2b13be8011932",
-    "b89e01d53045b9397f9d65aaaa3ee6fde2be26e857c7f8f7a97d8fec7552ffb4",
-    "7b0662612567e0b4dd4e3f0967beab8266b66df49648800fa381c948f3697d11"
+    {
+     "sha256": "1b594951587d0dac828127a1c5758197ea28a3b956277ef2971ace804b226596",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        62.23,
+        492.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "254d71f0d9a1e0a29c56847d0cb22cb8cbac3e48f1ca89f4af51b3a807a18f3a",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        62.23,
+        492.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        515.83,
+        562.23
+       ]
+      },
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        35.03,
+        313.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "e0cfc138a951004886262ef9be9aaf8087d91daaebe54b2173b43224ca9b04df",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        327.03,
+        402.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c31b1b9bf7260662085550f3f56d6f233eb76dc3bb282715829379cc9e1ad0b2",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        415.83,
+        481.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d7f21743b65ccafc60db71b8e194d9c3fba2cce6e6222450daf59dade2aec1a4",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        495.03,
+        560.63
+       ]
+      },
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        35.03,
+        63.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2815aa2f34748b6377d6d26666c28bda7f74cf402713d8a11c492b9123f84372",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        77.43,
+        152.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "1e37fb75925f11eb4c9c63052c77f703581cb7a520f7ce8a41ea9bf1e3c4e787",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        166.23,
+        270.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        283.83,
+        445.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        459.03,
+        563.03
+       ]
+      },
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        35.03,
+        92.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "7bf0ee64198f144a97327d5ce525fad560a60af904109a11f8fddbf6c8cac49d",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        106.23,
+        191.03
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "UAAA": {
@@ -929,15 +1085,139 @@
     }
    ],
    "companyNotams": [
-    "6c99bad4618c4ce1e1e5d2a3b6d6c3fd693b397259b5178929a1bbff45d3c4e4",
-    "cd5fcb14dd506d25af1e34b1ca6644080ba93ba65ad1614a861a350855059f6b",
-    "2eef62f96e415c4b4faf2e0d748333f343b415d17a7bfd953379132d5b0969b8",
-    "35b08a8c788b282e5d34ce8ae1d8542a57f09d5634087926186eca8e0f7791ba",
-    "3c37b32cb98a4b31f35606b164c390c3758a03adba86ceee15ce0be01e4287eb",
-    "898ae4108c85c861a488af393b026188af5bca2a8524cf6e466166411ad91793",
-    "efb466c01f49453c4eca11ff4ae74f715de8287d972e4c92609b2eff0aca9c7e",
-    "fd2793a3bf5b654a9e6d786950a8addd7630e97cc745ad2bbd6311f5b3ec84de",
-    "a2c78037de054961112c389f62eef4a4d73db843e76f983fe99b824a16e42206"
+    {
+     "sha256": "1b594951587d0dac828127a1c5758197ea28a3b956277ef2971ace804b226596",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        62.23,
+        492.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "254d71f0d9a1e0a29c56847d0cb22cb8cbac3e48f1ca89f4af51b3a807a18f3a",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        62.23,
+        492.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        515.83,
+        562.23
+       ]
+      },
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        35.03,
+        313.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "94438c645f18a7f9f950b2edbbcca23ab9bbeff531f5c550bcc85527f9a00c9c",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        327.03,
+        411.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "e0cfc138a951004886262ef9be9aaf8087d91daaebe54b2173b43224ca9b04df",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        425.43,
+        500.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c31b1b9bf7260662085550f3f56d6f233eb76dc3bb282715829379cc9e1ad0b2",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        514.23,
+        560.63
+       ]
+      },
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        35.03,
+        44.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        58.23,
+        219.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        233.43,
+        404.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "7bf0ee64198f144a97327d5ce525fad560a60af904109a11f8fddbf6c8cac49d",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        418.23,
+        503.03
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "ZUCK": {
@@ -1479,17 +1759,165 @@
     }
    ],
    "companyNotams": [
-    "5bf1188ee09eb7892ebfb98815fa81e6fd0be6763446310fcb43a0385b003bc6",
-    "53436750156d4385f4abe7a54841140af5289c8ec76f560f992e0e0dec4638a2",
-    "ee6a32b9f2cd82aec9996cb3a8a46dccac8af6ea81693084303ced7761948c61",
-    "0549ceb03665e46d772fd75006b35cc5b6e5f84db41629b309d5301def83fcb8",
-    "123bb65936aac21b6bd7f441f22c08902f7307d8ea4c2e9e3a5e22a8da32008d",
-    "818db78f2e8ea5de7b518616ba0fc4cf689d2ec13b2a9d8c46e0793a07c44fc0",
-    "b14507d06274bd851bb43cc416e93a7825ba9ef6adb378c51ed8a63722c2daf6",
-    "48845ce9d0330e02ee7864491a2957ae4aeed3ef785bb19dfa25dabbf6f22dd4",
-    "13ce3b1b5a409db06afb771fa0e4cc71f6d60fde03473b008c719a19504fd917",
-    "c99347fbc81126fe616b53d5d797b151abe7db3068643d6bddd71fb5492214d6",
-    "3bbd8875bd8a65761f5c3fc50a085fa474a9b8ef4f20bd3cb36ca2ab3e755fee"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        62.23,
+        550.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        62.23,
+        550.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        37.03,
+        371.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3240cab13d62982e8a6fba63701f12ec3e34a2a2bb67641b1fdb9425e7db065a",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        385.03,
+        431.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5726ae3363d4c936d70e429ead3f905bd7819d0cb632d9bfa7ee091a7e034379",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        445.03,
+        501.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c462a369d4737e830501c8897698fd21706c4891b3f8d0427aaca729800576b0",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        514.63,
+        561.03
+       ]
+      },
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        35.03,
+        44.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "974c316650118c6aaff7318c989eb1feff9e967e450ab7176558e40d7ff8bc24",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        58.23,
+        133.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "01f84a49d869d12fb8203107709522d61a0146c963d704d37df9ca48b7988390",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        147.03,
+        203.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        216.63,
+        378.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        391.83,
+        553.43
+       ]
+      },
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        35.03,
+        35.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "8485b1f48af4a9fb40c17e6cbd2e1d259f350db7c211e6ad10907893e01319b3",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        48.63,
+        133.43
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KLAX": {
@@ -2081,16 +2509,160 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "845ed237a0e35eca9a2d223f2266700d3bd6d303f8a73937daf232e9a6dcc1c3",
-    "9b32f6ba2daa65fb5f69cf12755f5439ffdf142c78b6030c67c2b35aed2fdfb9",
-    "f3784fc55159e361ed0769059e2ac75468201c25442408299fc4218b84a9087c",
-    "b5914f744e167da698cb740b4579369011a7b00adb39580fdf731bf3e598ca89",
-    "06f2f75b065291833377211a289c3d567149d362a208165ad99859f8b3efef96",
-    "05dce610557940a71d033a8e1413c0aad9a1130985525b1cc7385b3417ff8b19",
-    "22904920ddb781f75b673737ac38fa549f2d9c37d5b927deef8840c761900d2f",
-    "f39e40a645a93a433ff3af693fe7d9e15a79bd29ff39bc0f3da4dd9d1fb43c3c",
-    "345d63166ffe7166093ee0794cdb4c50eebcb53ec70f6bafb81aeae17f4c19c7"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 8,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 8,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 8,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "99892bb71523baea298c137bf0b7c54b544a33605594d7d953d6ab766c0888d0",
+     "source": [
+      {
+       "page": 8,
+       "column": "R",
+       "y": [
+        163.83,
+        402.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "dc8bb047c547205906aef9febf5f502368db1ff6c5e3c3d4ad098d007973e24e",
+     "source": [
+      {
+       "page": 8,
+       "column": "R",
+       "y": [
+        415.83,
+        491.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3ded15c48235591c9e5fdbe454cf7095482892d10cc1eefed1e4267469ee6365",
+     "source": [
+      {
+       "page": 8,
+       "column": "R",
+       "y": [
+        504.63,
+        560.63
+       ]
+      },
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        35.03,
+        73.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        87.03,
+        258.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "0d63c2da09b2274e8f0b8c4c6c38dc08f60300b9006e0e7450e60e401d0e5e8f",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        271.83,
+        347.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5c0ac290c79b3f987272432cd418ec6d5e7b073361bd69f7063ee1f7766342b6",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        360.63,
+        474.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "743c74427148365b178416caa6688a27a8a2d7d01243b6c87d53135e733b0748",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        487.83,
+        563.03
+       ]
+      },
+      {
+       "page": 9,
+       "column": "R",
+       "y": [
+        35.03,
+        92.63
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "MKJP": {
@@ -2565,21 +3137,225 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "8fb848518e44656910092992c7fb27358337971436a104af28bf864a0c749a73",
-    "1e930db0b2d0f7bf4018e6f6b19970f0efc2f100af8a922d71494cb0a0c59712",
-    "1a1974822b03203e730fff7d16dce1e41f9193ac7f7ec10277a3e28126cd41fe",
-    "6f24acf2cabfd2b4edd80429df61ff677dffd5c51f1a9336bdadfd9a61713789",
-    "afd951d2e48f89ce9cdaddde037a8be74f7f993b372a404691f73ea69e3add9f",
-    "f907462637a15460e08fc598eeb26b3069131a9774f56654e979effb52c2214b",
-    "cb183f1f1946fe402a79210ec32c76c7ccfa07e6cc42b80cbf99a8c11ea88bc9",
-    "896a2c0d5083f783f103c55318acb4be463cd43efe090de742fab50bf10264bf",
-    "22c7f9d64bb0b3b68130bb8e71f11dbcc633ac02f93aa3c46cf83c2a4ae32dd0",
-    "773398ea4b208ae8e34df220b9de487961a664c0088a599845ae503626171d53",
-    "88ec61e6fa0cdc0bc8fc0a685e3bb7443fed6f71a1940b863e38271080477759",
-    "9ceae70a7374d7ebfb01c57d64fca870d0aa6df44cb2e5429e34aa12825b8bd9",
-    "cbc4b22cdf2bbdff32638e1c2c498d2cc4142b0370bfde6ea2575acf5f5bdc77",
-    "4e2dd781c74586062613515d63789a8204c6bf38cb15abb5d2485000f772bb7e"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 32,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 32,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 32,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 32,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "88ac625cc1e5a017485bb20ad8c0c027ae7ba80d437f23e6b44f177505b232e4",
+     "source": [
+      {
+       "page": 32,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        35.03,
+        54.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3240cab13d62982e8a6fba63701f12ec3e34a2a2bb67641b1fdb9425e7db065a",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        67.83,
+        114.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5726ae3363d4c936d70e429ead3f905bd7819d0cb632d9bfa7ee091a7e034379",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        127.83,
+        183.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c462a369d4737e830501c8897698fd21706c4891b3f8d0427aaca729800576b0",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        197.43,
+        263.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ad1909f7dbc385075aa99a52fceb66c3f6071d62b20faa007c6f242743250143",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        276.63,
+        361.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "410100d6f7ab383a60dfb0f7f5e787414ed483b2a2bb4fbd998e0cfcbc9a69a5",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        375.03,
+        440.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f9b5ccb3498335ec050828cf970c2e578da3cfe54f96f277ea5efb98ddb69d4c",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        454.23,
+        529.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "13fdc4132ccb28aa91a5272587e28379bde631c9e50eec548b7970ef8e5c4897",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        543.03,
+        552.63
+       ]
+      },
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        37.03,
+        89.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        102.63,
+        264.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        277.83,
+        449.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2097f17be7400c66dbd4a651cfbc441ecb09c99ccebf78a90ca85d82cf747b39",
+     "source": [
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        462.63,
+        547.43
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KORD": {
@@ -3246,20 +4022,212 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "712d47643063fa1a6ae4dceddd1e4d2abc95ce33508b7c1ae446400e413ffd79",
-    "ef01590d09be3522ab267bae78655954312d43f03aca7b8a4c9ba011b1a169cf",
-    "7f42ac2a155473a90b038004fec173b2eb6413fdd4533cf7d4eb56f5e06ef0f5",
-    "bbb8d8965bef071352c35ee961b64af370f66d91bfbbbf9e9ac03691223504f4",
-    "83924319b6a666efcebac76f27bb7262b8ddd50e6520d709eac31efb56395148",
-    "a40910007c5ee8efa9379d529ebb8cf5216d810ccceb2eaeeab0f8cb638c275c",
-    "c7953d27e53a61a805406fc0989254d905a51cc39da092cf0ee0699437e16b61",
-    "ead8d9f618468bb876bc9eb36263f2b00001906d2da02b0cbfc41e841e96a861",
-    "22259c357b70e2353a02ae13493f1d5baa7a4012dd560e42d035d5d46f539f88",
-    "8622a155266c423ada823e86360c76e0a8dd2b7a905e0fe818c627eb99b31da1",
-    "c87c6c5e3ec61a8f64ab0410be32809400577e9764316632cce413b9d3e1db91",
-    "e8dda770396ba83f3c51d997928fac225dc3f675f5f622c41b6931135f30a242",
-    "8de6d27896a29ce676950077203cf903260ff889d1f69757f89b8c6fcb97a38c"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "0afe6ebce4df5bb853fc362b0994d46c1f8b34acfe488d1d1784e731a7e8af46",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        189.43,
+        226.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        239.83,
+        545.43
+       ]
+      },
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        35.03,
+        198.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "0ee0fb431c896f5e69d9489c826c697a2509e23dd3b2a889e11d3ca7d55028a7",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        221.43,
+        354.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "6eea9754963075550e972750d582e5917f1c97f7b3334ad115584f569361355e",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        367.83,
+        452.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "974c316650118c6aaff7318c989eb1feff9e967e450ab7176558e40d7ff8bc24",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        466.23,
+        541.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "8a9c740814e49b1dc1273c091e32704d3a8476d5fe67d93fbbe60df7d4312446",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        555.03,
+        555.08
+       ]
+      },
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        35.03,
+        119.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "01f84a49d869d12fb8203107709522d61a0146c963d704d37df9ca48b7988390",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        133.43,
+        189.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "fcef2d03b0f6306bcaae37082f5166080d03dc1693188502bcba2d58d429c943",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        203.03,
+        297.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "207de89ec00fda2724b6a3639fb77a271b744895e17ae74ed853ea0b80adbd91",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        311.03,
+        405.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "4f3eb26876232923225342856af4288052ee185b431539c774be0c17ea49e5c9",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        419.03,
+        532.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        546.23,
+        555.83
+       ]
+      },
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        37.03,
+        185.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ce4c35ac5fa629ca9565ea09a8ddc492475ed333c74aa92dacfbc9d28a0e3129",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        198.63,
+        283.43
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "PANC": {
@@ -3831,15 +4799,139 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "845ed237a0e35eca9a2d223f2266700d3bd6d303f8a73937daf232e9a6dcc1c3",
-    "9b32f6ba2daa65fb5f69cf12755f5439ffdf142c78b6030c67c2b35aed2fdfb9",
-    "6b89a8c2e4daf9213aeeb69b1fd3e582f490cc2ab5213c8fc298796e1c7126e8",
-    "83f6421c77d4d884e216d60abaa4eb0ff562b1b4db0f6fe32fa0d478ed5ee854",
-    "ee433f6673b4dc1e0f70087b8717c88b681e4c4f2a672c8d59adb502943b5441",
-    "81b7e707dc4d7d2634ba4837c0e9c40087c8b7f7b52c6b54d9d9cdcc0d9d1528",
-    "26cea4869a1b7700b588f4b34051a0ba887ad1587a4d523ca9a4f863fa13a5ef",
-    "2fd37fb0d480cd03a1ccf95ec2b3b04c959574d25c9d66bced3c5b490bcfd2de"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 8,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 8,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 8,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 8,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d29f77d7e9d6ca432afa04b7f03a326006c472e72c2222d714f2acdedfb46dee",
+     "source": [
+      {
+       "page": 8,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        35.03,
+        44.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "1a90ba0b31dd6baaa9001c525be60ce9f3f48e1e302a0fb05cfffbe497f88da4",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        58.23,
+        162.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "a02f0a913c74d966c6931d91e5c9739b55965367217591bfc5396492ee0aa0dc",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        175.83,
+        270.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        283.83,
+        455.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "67c46891929f0cd79101c7ce26f776365bf13e1c5a1c45b52fbfc827320183d0",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        468.63,
+        543.83
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "RCTP": {
@@ -4268,14 +5360,126 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "0589be369cf950ef9d3fbe240d7ea1382ac9747035d6a430463129f23768aa84",
-    "288e2b14ddc0ed4e8c453da0bd71ec0ee3f17e937a6a1319a7fbb4ec313d23ad",
-    "5964b701f4bd01a3b154b4ec9d589ba3f4f21e8de5988e2b6b3654618932e652",
-    "49803b5fa31f3aa5895186a3dd9d6afe28847a693403dea27447abb88aa6e7f6",
-    "18cfd129ac7dc223f4a3e37149d0acd8bc27e1c5481a903e93fe2fcf9f2cdcb8",
-    "2331ba11add60a3dd6a21c8b4286845c590212c70b15fb3b7e0bbd013027faba",
-    "5c16403b36603ceb01eca9bdce1b0fe0ed3200bebd58f34e380d641bffd31065"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 7,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 7,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 7,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 7,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 7,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 8,
+       "column": "L",
+       "y": [
+        35.03,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "53cf6028119bb55fdbdff9310b335f61319013ac8b059e69c2b1ad7bd78635f0",
+     "source": [
+      {
+       "page": 8,
+       "column": "L",
+       "y": [
+        154.23,
+        373.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 8,
+       "column": "L",
+       "y": [
+        387.03,
+        558.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "52ce6feb48e0319aac6dcfba0e2a6112aaa01048e84cd3eb8ff699aa6a71d97a",
+     "source": [
+      {
+       "page": 8,
+       "column": "R",
+       "y": [
+        37.03,
+        150.63
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KCVG": {
@@ -4785,17 +5989,173 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "00a9ab37d5266ef7935e279439f754c81408a51b2c0e8ed41e51c6ddaead9b03",
-    "d776e52d790b213b089a9220967c31738b3ebbeed1919a17b51bdb66b1db1057",
-    "b411d5560b6973232f8bbf62d7a138f8f684823f1a382b661070b338d66c3bb1",
-    "183730f60e7b0283f0a3bb90949f5912b0118749856bb8d73a399a94e75838e0",
-    "816f1488ecaa633961ef327b05528a16284170734f9b038b483bbd4360e4dbe3",
-    "8f0959e4000fcf4039bb4c5f5ae719445f99a28065add46a43bb46b871704a8f",
-    "be57346a5f1dcc20c1a467b7dd8ad007b870e18c41774f9d5fe8091b7033e8a5",
-    "38e6bfeb6c92a1b8aa4843e3d0e1aa45b9035065aefdd7d18b8ca19b4a56074c",
-    "2d1313e9f4f9437ddedf6f62a8eb0de6ccb56e991ea8d6394798737ed125bb97",
-    "4c2316111959c0254571a4dc89c12830ffe2528724796651883e8c86470a22e4"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "66091456e123d7a57965c88171ba61e4567febe402d0960b6c6176869ae8a9d0",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        35.03,
+        54.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "a2569dc4421efbda2b593f15a428958fb6d853bdfbf7aa8562dc91a6edd7193b",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        67.83,
+        152.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c2f4a0a589737805c16a4591254e73f02a9377af6be1b00181d45b9d08f422ea",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        166.23,
+        241.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "a192685c1db305e2601053e001659fe3f1bf89e87194647ac779edd86cdf4670",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        255.03,
+        426.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d7cecb64f538d90fa898e3a500089af2e15a52fcd49de5e85dc3e78b6ecd0b75",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        439.83,
+        563.03
+       ]
+      },
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        35.03,
+        92.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        106.23,
+        277.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "70b61c54b9c262f5db17cd26ace51de7f4973efa404d3801b01c43756482f6f7",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        291.03,
+        375.83
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "LEZG": {
@@ -5313,14 +6673,126 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "60e848c178603405eccdbb735d20dc117c99ef75b660dfa8fc6f013a83863cb7",
-    "d8a971909e0b3f13e48f721c7f580f0a890fa48037b3c34701b3783d0b3cca55",
-    "88afd6491a6750acb8eb73953073ec2f7cbe51224dae4337d9a994f6e4cad312",
-    "0d13cc959ac52403b06f1b8cd2dda79d95c44344906ea643be97e2cee820a810",
-    "4c4d52656329a487dd65f9bbc85657acb6729d5e36c51f4727a0e29a193e7129",
-    "ad4b0c5ecfb5a918e85b3fd4d751384b0240aa5e6ce32d43268951885c253780",
-    "8ee7f200f2351f0f3645f735eecb48fa59dd5b20ae8c87150d263066c916de4a"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "66091456e123d7a57965c88171ba61e4567febe402d0960b6c6176869ae8a9d0",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        35.03,
+        54.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "a2569dc4421efbda2b593f15a428958fb6d853bdfbf7aa8562dc91a6edd7193b",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        67.83,
+        152.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        166.23,
+        337.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "70b61c54b9c262f5db17cd26ace51de7f4973efa404d3801b01c43756482f6f7",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        351.03,
+        435.83
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "LLBG": {
@@ -5838,14 +7310,126 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "00a9ab37d5266ef7935e279439f754c81408a51b2c0e8ed41e51c6ddaead9b03",
-    "d776e52d790b213b089a9220967c31738b3ebbeed1919a17b51bdb66b1db1057",
-    "a390ec7ceb47e1ddec0ef89637ac1ef76af007be57d31109ba0c17819c65f34d",
-    "ba96ef4970973d4bc1f65731dfa192193b55e8b0f4f0f0ffe018b201872c7209",
-    "245ef9984f4dcc4d52cc23dd222865397a3bec1834dbd7b1ad20a34f1bb395a6",
-    "0c243993a330da4a10bfe5238fc9fc24133dcd328988f1b4ba9460304b77902b",
-    "c490eb62a9476e12b824ad3927cdccf265f692a95a7cb6194b642948ece65874"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "536f952e79d67dd79c984f193a6e12d87637c4424d1a556a9b80fdf68abcaeb2",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        163.83,
+        315.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3ded15c48235591c9e5fdbe454cf7095482892d10cc1eefed1e4267469ee6365",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        329.43,
+        433.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "373edd811a43f0b8f42b24ea2aeb225a9841d381ac47712730b8501a016b720a",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        447.03,
+        531.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        545.43,
+        555.03
+       ]
+      },
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        37.03,
+        185.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "8ba9c38d36ba6af68201a02efa2182cc451960098bd67121c9c740a85b3a560a",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        198.63,
+        283.43
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KMIA": {
@@ -6509,21 +8093,233 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "712d47643063fa1a6ae4dceddd1e4d2abc95ce33508b7c1ae446400e413ffd79",
-    "22674c363f5b4dff4e994c79071ce52310c72b881f546ae755e146b3944d62e1",
-    "51c201d7ef04f40ccd4746d66439066adcb36a67802b2eb066cc94cc9c17c8a6",
-    "03b657cbd712b6872245ce90e144cf9db3f9b85dbc8d57d52235cc1a22f63077",
-    "17d4f77b20c02ca344b33949f4d4d2dbbe57c9e78202c162acdd6f691ddd0e8d",
-    "0a14c7273cbf32f2562a9d2759cba488e90ba2e6160dcc2951a5ca88168bfb88",
-    "e49c70719f064d068b8921ab8af200dc7a62fae6e99e514b5150894ce689e2ec",
-    "52bb7fe587504803183bf9497f306d0fbd86351d4179fb0abc825762df1b4dc1",
-    "5986552a4b04231c28be8ffe29848fb6fe2624647227a6694294a96055735097",
-    "be3c57688fd5bca4fc8b93dd15e55f374a1048e1bdb3d480f127deb3f498352f",
-    "b98456493227cf0c84558cf2f3c052a8c931e2ec16b5767d3b8e8e4092129022",
-    "5da1254b7022b2536eef6e854ac070c22b95ca459beef1491e1027ad0eb54e0b",
-    "0b5afdc499783cfbb2a09fa94a7633b6a512a79cc1bc2a37700390a197ae8e12",
-    "86f04155cc9151ff37048b457f056421ded41da1c8e2c7f6e241928118cac83c"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "0bec2b2a84f410e26d6d7a6af60377f1bf624364b2c10cf3ee7b8b4164f6c12f",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        163.83,
+        200.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        214.23,
+        548.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "b5fa4917d5ca0ab8b25c909d251db48f3d1a2ec2a7024c2387298b7d30e396e0",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        562.23,
+        562.28
+       ]
+      },
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        35.03,
+        100.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "974c316650118c6aaff7318c989eb1feff9e967e450ab7176558e40d7ff8bc24",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        114.23,
+        189.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "01f84a49d869d12fb8203107709522d61a0146c963d704d37df9ca48b7988390",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        203.03,
+        259.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "02fa7c848d858010d188927d6c2ef41e0bf97b1409522c43a073e596a93ba44c",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        272.63,
+        347.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5ccef6bb450382e1387b4e9bb84a72202be55c9754feffa8aef97ec37ae446de",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        361.43,
+        446.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "7f61232c8d51db50313902585cec6fb5b984fffa1a74bfd3e78720b8432e11f7",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        459.83,
+        554.23
+       ]
+      },
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        35.03,
+        35.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d29f77d7e9d6ca432afa04b7f03a326006c472e72c2222d714f2acdedfb46dee",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        48.63,
+        114.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        127.83,
+        289.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        303.03,
+        474.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "834a75b6b8adca29a60808e6a54045cfc25184f1091a5ab21e4bbea230e18ae5",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        487.83,
+        563.03
+       ]
+      },
+      {
+       "page": 15,
+       "column": "L",
+       "y": [
+        35.03,
+        35.03
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "VHHH": {
@@ -7045,16 +8841,152 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "8a779c8474778f4bb2fe9a0ee499dc977d15a8ccfc4f288fae058ad4ea9b59fa",
-    "afc4a4b809f6f0640f051141bc2700fb8ec076f791fe7ab320449c9a57700b87",
-    "49daacd6c2eb669c2c07a074a7122b57c27405aa129bca4d607e1590e933e61d",
-    "6ec3c9432088088ee7a501680c69af0de76de5e083eed2db0f90c91964a93f7e",
-    "f30440b5a6481c56213c0d71d29ee69edb44cdba16df3d44fac405ea860ce737",
-    "6d8518de444e0572f47840fb3f6d64f5f4d92a9d98cf156a32401fd64c43a1af",
-    "55d468c61a568c45b625c85887867b2fdddd614ed86e5e1b612086658144617b",
-    "138f86a1d8de22fb9da72ff79cd4a4d224416d09ec80e64d3d5ef2a66473ba4a",
-    "fe1952812ed8e668d57d0ed30fe831abe7d2566705036aca6bfbaefb74fb29d0"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "a084a588b810e787237a6473ad62d95b0b047aea62423ce6c9c5c744b8dc28d5",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        35.03,
+        73.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "57d4584bb37e55ce1503f9bb2307565e7fe431fc5df6843b485ef321e70168cc",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        87.03,
+        267.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3ded15c48235591c9e5fdbe454cf7095482892d10cc1eefed1e4267469ee6365",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        281.43,
+        385.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        399.03,
+        560.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        37.03,
+        208.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "6cb34b78494b368eb600c197592eb06b77d12cbc23f66f28e4268944a27ce0be",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        221.83,
+        306.63
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KMIA": {
@@ -7604,14 +9536,126 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "8a779c8474778f4bb2fe9a0ee499dc977d15a8ccfc4f288fae058ad4ea9b59fa",
-    "afc4a4b809f6f0640f051141bc2700fb8ec076f791fe7ab320449c9a57700b87",
-    "49daacd6c2eb669c2c07a074a7122b57c27405aa129bca4d607e1590e933e61d",
-    "b1843f47a240c587115682ce779dc28e67ef51bc4a07588c02440b937f0be6ac",
-    "e3c3a5723fca4c506c6787789178354caf0d2b8a6a0c23fd51fda1123cda4f8c",
-    "4d3cd6e835dca3e41794fcff44aaf0b669d6f2b0e05398af71f9db139aa3d698",
-    "1218e2655fc69c4a96e27993596f3ee959f848a3aa29a341d85f1df4d57cb195"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d909127af28c4268355080b0dfba590a99b0a69a8dbdcf6678f9e3f1c3043b85",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        35.03,
+        54.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        67.83,
+        229.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        243.03,
+        414.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ac3d3aa9f20327f19ac0b84931c88cf2d45002d899f5365cc5a3b33428bc9c91",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        427.83,
+        512.63
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KGSP": {
@@ -8319,15 +10363,147 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "00a9ab37d5266ef7935e279439f754c81408a51b2c0e8ed41e51c6ddaead9b03",
-    "d776e52d790b213b089a9220967c31738b3ebbeed1919a17b51bdb66b1db1057",
-    "b411d5560b6973232f8bbf62d7a138f8f684823f1a382b661070b338d66c3bb1",
-    "92bcf72037bbbdf99e0be425f75962a59df84eb5d5873a151ff63f9cb4faaad0",
-    "786af1feee4c76f7989aa904dca650f2803e302e35b8119322dd4d6d49056119",
-    "233affbe31157e5187296dcaa97084580aca620c296ba07879798abe64bfc089",
-    "c3a69e9179431aba7a451d7f93a951526553305c213dd637368d53ca0b22811f",
-    "dfb3141b8c18943091f5e21cc3b411b1930955b0673cbdc04eac70e9b7af0dc6"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "47e1e6d82d5783b40535648fd4daa6a2d488346ad24c06791bcbdb79b8e25f1b",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        35.03,
+        54.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "13fdc4132ccb28aa91a5272587e28379bde631c9e50eec548b7970ef8e5c4897",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        67.83,
+        143.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        156.63,
+        318.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        331.83,
+        503.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "16727b4d9cb4f0b37dc4466157ffbceccc077098dd7d1ea1355cff5ab7a1ad41",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        516.63,
+        563.03
+       ]
+      },
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        35.03,
+        63.83
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "EBLG": {
@@ -8977,20 +11153,212 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "6c8cd9d63d7ac6cb69af86976d65b9da289f4dbd09cb99763cdfa9a822e33a25",
-    "a7a645347c093e90e779bb7da55cb2e9a5865bb8e40288220408cb2282624a5e",
-    "73d6abf2fb9b20753db4881e9b4b701310bee0dcd467bc86fa9e8c5bea8669d2",
-    "73b1a858d3badfac3ba1697ebda530c85c4643f246851863ac9729f6464ba09d",
-    "b2994168d140ccec875c9ec151f55c11a14b377b448d1b376e88859286dee54b",
-    "00bb127dc98cb6de2159cde5760b4d72be885087691b26eed5dd3aa534c6020f",
-    "65062d6c2922805ed52b96596e71e6e7ef4a4460d42c581ed8787349e39ac66f",
-    "11c4b77edf8c765b357156e9f854537455a756357f9a85598c75d217f220edb6",
-    "2f5c906f32807752baa0fea5dc65bea2ba7e69f4c0ad95cb97d1351c1e81288d",
-    "6704b608e49b89e354d0ad0cf50b59d1f3e04f054d35eb82add21faedf1d5d3c",
-    "1b594438fccefafaccd727784946d2630048e2c2ea5ad7031dbe291ce222b1f9",
-    "bb3e4ad1bd23ed868d249f1941a4578233646e0dcdbb7cfd116c2b878aad6a27",
-    "e69c7be8c2ad7905e8033e8a37ce4d59f7811926d2629a8570c17d38d5255b2f"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 17,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "44f6a72d63ac0f942386304455ca888077e9f0fb83dd1aa3e686502ee06d6ea0",
+     "source": [
+      {
+       "page": 17,
+       "column": "L",
+       "y": [
+        189.43,
+        226.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 17,
+       "column": "L",
+       "y": [
+        239.83,
+        545.43
+       ]
+      },
+      {
+       "page": 17,
+       "column": "R",
+       "y": [
+        35.03,
+        198.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "0bec2b2a84f410e26d6d7a6af60377f1bf624364b2c10cf3ee7b8b4164f6c12f",
+     "source": [
+      {
+       "page": 17,
+       "column": "R",
+       "y": [
+        221.43,
+        258.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 17,
+       "column": "R",
+       "y": [
+        271.83,
+        558.23
+       ]
+      },
+      {
+       "page": 18,
+       "column": "L",
+       "y": [
+        35.03,
+        73.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3bc33d0171e9bbef0aba352c144d551140ab21aa17089f156e632667b0ec8593",
+     "source": [
+      {
+       "page": 18,
+       "column": "L",
+       "y": [
+        87.03,
+        171.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "e0cfc138a951004886262ef9be9aaf8087d91daaebe54b2173b43224ca9b04df",
+     "source": [
+      {
+       "page": 18,
+       "column": "L",
+       "y": [
+        185.43,
+        260.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c31b1b9bf7260662085550f3f56d6f233eb76dc3bb282715829379cc9e1ad0b2",
+     "source": [
+      {
+       "page": 18,
+       "column": "L",
+       "y": [
+        274.23,
+        339.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 18,
+       "column": "L",
+       "y": [
+        353.43,
+        515.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 18,
+       "column": "L",
+       "y": [
+        528.63,
+        551.83
+       ]
+      },
+      {
+       "page": 18,
+       "column": "R",
+       "y": [
+        37.03,
+        171.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "a85581aaa726cc7ad6b2b69a1bee1639cecd2562f41a5548012519f383ba088a",
+     "source": [
+      {
+       "page": 18,
+       "column": "R",
+       "y": [
+        185.03,
+        279.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "6e378b30029dd4a35ce025637757628966e56ecbcbc86e5fd80f015b06b53902",
+     "source": [
+      {
+       "page": 18,
+       "column": "R",
+       "y": [
+        293.03,
+        368.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d04117f5446419b43d222b0ad0bb90cc359ecad07e80e026624b481c92a95a39",
+     "source": [
+      {
+       "page": 18,
+       "column": "R",
+       "y": [
+        381.83,
+        428.23
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "UBBB": {
@@ -9669,25 +12037,277 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "712d47643063fa1a6ae4dceddd1e4d2abc95ce33508b7c1ae446400e413ffd79",
-    "22674c363f5b4dff4e994c79071ce52310c72b881f546ae755e146b3944d62e1",
-    "bf91eec381384827945ce8e84e086ab13bbcfe03dedd56b456b4887dcb405ce2",
-    "6367c9289cd7f5a9ea4659c9505432296a0355a460b77258aa3683cf143a66ab",
-    "32162097c7d1badfb6b74c663db04d4f3a8442d5d8cb1637c1d8ddde84141195",
-    "042e022fae2d488da147ff919558d11b65b9d88ae18edb2eef30a141804ac49e",
-    "a5b149cf212d121530ec5ff80e5d0a33bd1d48ab6774a26a0c201b6a6e5d9abb",
-    "4839f53650d64bbf3d0c9efbb9cf73a4849ab48e6d53d18586bbc42fdb174698",
-    "06986acc7dca398bf893bf27c5622f18c610f37f7eb68dbb24d238309911b3ff",
-    "b635daebad5157ba183a32c179475c3a85e718e0c09b1b3afa97e566cda3c03b",
-    "b0890a1c6f3e87b9dd36ba600c471587f4b476f01467a54b1c63ab4ce6c311c5",
-    "b4ce0961408944bf05b9f52b2488361f7b96befc13fb5180df931bee1ad0569f",
-    "f4b43a19659a69c9eec93a1f424826e3ae8da0362bc6ea04c611861f5489e2aa",
-    "b9a36188efb638ccbdad20876bbdb7e6897618aaac051abb5595d1d2a86ee2b1",
-    "b25f19c957e0b47e9601c5398c421003f01cdf1fcf6016f055a15ce3564e3c42",
-    "495e1002cc759470865c76af182be9e1950d7d298e1c1f8532adbaabec013a79",
-    "4bc5ead1d55a1d5cade8d695d183ff5e084882418a722f2114822f30a177a662",
-    "25268cf6a6644f14a7322f32dc7563372a7e5bca2884d44ff5b77fef5f707bb2"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "0ee0fb431c896f5e69d9489c826c697a2509e23dd3b2a889e11d3ca7d55028a7",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        163.83,
+        296.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "88ac625cc1e5a017485bb20ad8c0c027ae7ba80d437f23e6b44f177505b232e4",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        310.23,
+        385.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3240cab13d62982e8a6fba63701f12ec3e34a2a2bb67641b1fdb9425e7db065a",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        399.03,
+        445.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5726ae3363d4c936d70e429ead3f905bd7819d0cb632d9bfa7ee091a7e034379",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        459.03,
+        515.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c462a369d4737e830501c8897698fd21706c4891b3f8d0427aaca729800576b0",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        528.63,
+        551.83
+       ]
+      },
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        37.03,
+        65.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "974c316650118c6aaff7318c989eb1feff9e967e450ab7176558e40d7ff8bc24",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        79.43,
+        154.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "8a9c740814e49b1dc1273c091e32704d3a8476d5fe67d93fbbe60df7d4312446",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        168.23,
+        262.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "01f84a49d869d12fb8203107709522d61a0146c963d704d37df9ca48b7988390",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        276.23,
+        332.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ad1909f7dbc385075aa99a52fceb66c3f6071d62b20faa007c6f242743250143",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        345.83,
+        430.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d13535da9392131b97dd25f3ec0d0cbd3e3415a2a931c41eec7ed9a921fc0816",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        444.23,
+        557.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d799dd8c07c2effb48d48685798925c23db059b56683243da1af3adeb10a69de",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        37.03,
+        160.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "a51d63ad128e43f32a39d2cd33e1ba9a7720d557a8f8b298df8faec94481029b",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        173.83,
+        268.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "13fdc4132ccb28aa91a5272587e28379bde631c9e50eec548b7970ef8e5c4897",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        281.83,
+        357.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        370.63,
+        541.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "34fab5c8060dbd84a67aa2185882534cfee92247bc69cf9772b2b0cfc058210a",
+     "source": [
+      {
+       "page": 14,
+       "column": "R",
+       "y": [
+        555.43,
+        555.48
+       ]
+      },
+      {
+       "page": 15,
+       "column": "L",
+       "y": [
+        35.03,
+        110.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "e92a0de456cdd39284eb91e204521e878b720b26d6bd252884584834d382e7a3",
+     "source": [
+      {
+       "page": 15,
+       "column": "L",
+       "y": [
+        123.83,
+        179.83
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KORD": {
@@ -10508,18 +13128,178 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "00a9ab37d5266ef7935e279439f754c81408a51b2c0e8ed41e51c6ddaead9b03",
-    "d776e52d790b213b089a9220967c31738b3ebbeed1919a17b51bdb66b1db1057",
-    "7198cc5f2c74edd8cf602b67fb6843303a1d7b4bd3486f245a322362059d56b8",
-    "1948045f47c5843758a73207c17f9f31a71c74c7a85329a0ba6a5fa6ad334054",
-    "38280c81c3e40831815bbab04daf39a00566b241cc51ab016028c30d71e70522",
-    "971def8601a6b0cfab79ed768cd7bc9974377e549f28608f5c378561bb5b1404",
-    "0e7ca74a95ccdc42cd6c24a63a484fbb613a22244cd1c30d462a7acf28451100",
-    "6ee3e719c69a67985f5b1eb70dde10692e34c6c3288035e9cac358f1e15147ae",
-    "bbbdcf25235290e0bb23403cbab41d5fe6cc6028753f56eead7c904d7526a5ec",
-    "9c8f30eefdda4f65df3938f846d285cbb2ef3f564bec947b7ccca484ac282c35",
-    "0ec4d42f09d73f61f892fd6f99ca114d972dcda73aa59f58c77b19887c588de3"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "99892bb71523baea298c137bf0b7c54b544a33605594d7d953d6ab766c0888d0",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        163.83,
+        402.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2f151f9d13b6112336ebeda5e6d63e37c6a8946b9a2f8bfba37d12a80c4e103a",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        415.83,
+        548.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "fc893ec0b3dff50b85b4a2ad1c94397caf2abe9b6ab3b7a4e19d3a0a7ae2d723",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        562.23,
+        562.28
+       ]
+      },
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        35.03,
+        129.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "920913061df4d93b46cd6e89dc9d8cd631df890306ca3b349b7b15da7b125976",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        143.03,
+        218.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "78437392de94805c78905e928d1e61a6498afbfce2a239f1cf065ecb2c4cb44b",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        231.83,
+        326.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "cf05e133f6dad92ef0d6be4a2140a0743882ac7aba7ea95769d98f1c2225bd65",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        339.83,
+        559.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        37.03,
+        208.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "71311791cd5743f47d332054e9e8cc99ed5766db421a32bd84222232ed4094a0",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        221.83,
+        335.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ab4cd29c9ae98dd14010711a734feaa632730ac29f63f0de7b7b008d76f9be4b",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        349.03,
+        491.43
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "PHNL": {
@@ -11155,15 +13935,139 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "8a779c8474778f4bb2fe9a0ee499dc977d15a8ccfc4f288fae058ad4ea9b59fa",
-    "afc4a4b809f6f0640f051141bc2700fb8ec076f791fe7ab320449c9a57700b87",
-    "49daacd6c2eb669c2c07a074a7122b57c27405aa129bca4d607e1590e933e61d",
-    "43ed0584ae372c9a89327de92cb88d430849c8177faf61c64b9de000f5ab1281",
-    "047beeab676cb665caafb5d98cec16b1f7bb62108e7eb03962bbdc48ae855b39",
-    "dff6258a09bbb8d546e3805465752e097886fea9cc917a2e11c0c4d26192165c",
-    "784786c087e987f81d5f7caf72aedce99aac516becd549f1391dca7582bf914c",
-    "255e4d8b737eaa7e77ae25346202869459d65212e2444848d0ae85925694c64d"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "02fa7c848d858010d188927d6c2ef41e0bf97b1409522c43a073e596a93ba44c",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        35.03,
+        54.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5ccef6bb450382e1387b4e9bb84a72202be55c9754feffa8aef97ec37ae446de",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        67.83,
+        152.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "7f61232c8d51db50313902585cec6fb5b984fffa1a74bfd3e78720b8432e11f7",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        166.23,
+        270.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        283.83,
+        455.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "bd073e49d829ab7bfaa00d79647b0199c635782902422d551798ca4986073877",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        468.63,
+        553.43
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "ZHEC": {
@@ -11687,14 +14591,126 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "712d47643063fa1a6ae4dceddd1e4d2abc95ce33508b7c1ae446400e413ffd79",
-    "22674c363f5b4dff4e994c79071ce52310c72b881f546ae755e146b3944d62e1",
-    "bf91eec381384827945ce8e84e086ab13bbcfe03dedd56b456b4887dcb405ce2",
-    "73a36eeedd0959d78972dad38717b7131a73bd8897cae23091fad01fc727aaa3",
-    "1d2e872f8bbe204acf2834d44eb132a2ed0d2020124fc447abbbec593b336cbe",
-    "5ae907dd1e93b8b456f49e573a5c81460fe35fd9b950d2cdd70322f1f9885bbd",
-    "96bb68982ca74ff4bcac221d448861197ee2c2daf205b08d2c50d8434091918b"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 13,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "0ee0fb431c896f5e69d9489c826c697a2509e23dd3b2a889e11d3ca7d55028a7",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        163.83,
+        296.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "6824c419fe1f5780f0a957e356dbd958e5d84c288e9eb6d0925d0595ff5e4745",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        310.23,
+        375.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "564f2e5ea78c96e83ea2753e4f53ff36691eb7a8b2e61fc88686abc9c708eb83",
+     "source": [
+      {
+       "page": 13,
+       "column": "R",
+       "y": [
+        389.43,
+        560.63
+       ]
+      },
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        35.03,
+        73.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        87.03,
+        258.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "798565cfa12b5b1601abf36afd62b6d460cf27c01f5dd4a11dd72375666757c3",
+     "source": [
+      {
+       "page": 14,
+       "column": "L",
+       "y": [
+        271.83,
+        356.63
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "OMAA": {
@@ -12316,18 +15332,186 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "60e848c178603405eccdbb735d20dc117c99ef75b660dfa8fc6f013a83863cb7",
-    "d8a971909e0b3f13e48f721c7f580f0a890fa48037b3c34701b3783d0b3cca55",
-    "88afd6491a6750acb8eb73953073ec2f7cbe51224dae4337d9a994f6e4cad312",
-    "91313b4edbaf613f38c779428536038c34c89ee5750c75acec2d3982fd05712b",
-    "5d795c524e78998bde52f5c3161d9c24cfbd4d7f418a5a1d43cc0832531174b5",
-    "9872b837a6ade6d6ed4eca9472cf110290756d3c0baed26bcf1a786356ad3d28",
-    "b52c61cf3333f361e69bc4ed66f3d9618f90177ed8c7238bd4e3d07f679d846f",
-    "da5dde73d795ab8cc98b704eb7a07d502c7f2f44805c16d268ee097ffbc36427",
-    "56de5d37ad28d87ef28437cdb0ba35f4fb77242f476a7f516bc7718c228fd231",
-    "da775cb2fc1b841857e0a98e408653d3259590685c04ac5e95d84043283231dc",
-    "88969df88bb6a840702094f879cc414d3b9fe60c78e68d524c4c17af9927a4be"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 11,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ad1909f7dbc385075aa99a52fceb66c3f6071d62b20faa007c6f242743250143",
+     "source": [
+      {
+       "page": 11,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        35.03,
+        63.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5ccef6bb450382e1387b4e9bb84a72202be55c9754feffa8aef97ec37ae446de",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        77.43,
+        162.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "7f61232c8d51db50313902585cec6fb5b984fffa1a74bfd3e78720b8432e11f7",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        175.83,
+        279.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "13fdc4132ccb28aa91a5272587e28379bde631c9e50eec548b7970ef8e5c4897",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        293.43,
+        368.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ceb3cfbc9fc0168529e387b851c879e9f29ff5afbe96ccf95a8ac3c87feb3c02",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        382.23,
+        467.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 12,
+       "column": "L",
+       "y": [
+        480.63,
+        555.83
+       ]
+      },
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        35.03,
+        111.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        125.43,
+        296.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d13886188b9e76e1c912f49cd77722a33826f634f24cb447d81dc8c4911f0838",
+     "source": [
+      {
+       "page": 12,
+       "column": "R",
+       "y": [
+        310.23,
+        395.03
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KORD": {
@@ -12943,16 +16127,160 @@
     }
    ],
    "companyNotams": [
-    "1f6ed6e07159b0e327d2ecd566c1301f84f53c47d56325dc2b587844fa92388d",
-    "668b9263d587dd29a1ec8c5eb2edbe09a5c75762953da85d030328e7ecc96e8a",
-    "a81f007b559f65183251b2ee9afab8567f18f6ed577ee70388e316f63445c5a5",
-    "0b6763b73bab677783f119cb66fad57e2b5ab9b28eb542469b7e7d03232b3a2f",
-    "d298fc38d7d04ce99e3cc9a8471431a02f6ba556c6b6098e4afee21af0e274fe",
-    "cd79efbffd4ce60f0028257573c42a8587034e06c0530c1c6f470bd1d160fd52",
-    "0abde7f169e965f2479b2aaa6fdcdabc0a95b477dd67f1d1aec4987a65b71dd1",
-    "be6fd95feb60d8581a19ed5cd099ccc1658e1c622a4bed1d234f53604013c03f",
-    "d68cb8247dc5a69fa78a0e8dce156b98c4861e1fddd6191102d9d75e3d60cb0a",
-    "abd3318ea9f3cc3133489915c78bbe40b6eb9f4fc382fa0bb6df0498823912ed"
+    {
+     "sha256": "25f841546b5ba274ae5cad187c8dbfa8b294abba397acdedbffe3d486f0d64e9",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        539.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ea764eca96efe8769cbe2d1e9a39e6aacfcaea78357cf7e7b64bfc6a404cb68e",
+     "source": [
+      {
+       "page": 9,
+       "column": "L",
+       "y": [
+        189.43,
+        533.43
+       ]
+      },
+      {
+       "page": 9,
+       "column": "R",
+       "y": [
+        102.23,
+        140.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "afa3f86e924ca825e8844e76d8ecbcce76b53782d4250b1c95fbf680f66df052",
+     "source": [
+      {
+       "page": 9,
+       "column": "R",
+       "y": [
+        163.83,
+        498.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3ded15c48235591c9e5fdbe454cf7095482892d10cc1eefed1e4267469ee6365",
+     "source": [
+      {
+       "page": 9,
+       "column": "R",
+       "y": [
+        511.83,
+        558.23
+       ]
+      },
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        35.03,
+        83.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c008e6a989d7936a737a3f26aa8009e15589d71709bc77af36bc1359247559a5",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        96.63,
+        181.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f45b5540439c6ce54f666b42abc8ffd4122cb6cb5f55c9013f3c19ea42dba381",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        195.03,
+        356.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        370.23,
+        541.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5ae71ecb64a0c3dc41846f34b67e6456563f96115822228e6e5095b24d4a1b01",
+     "source": [
+      {
+       "page": 10,
+       "column": "L",
+       "y": [
+        555.03,
+        555.08
+       ]
+      },
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        35.03,
+        110.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "69cdfaecdcec8caee8959e86dbecf267b6f42e1d115a6999229fd4227923c9c0",
+     "source": [
+      {
+       "page": 10,
+       "column": "R",
+       "y": [
+        123.83,
+        208.63
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "PANC": {
@@ -13611,27 +16939,311 @@
     }
    ],
    "companyNotams": [
-    "f5a8c2314175ff4d2b6743d09da9b3f4acf82a36cbba76afe3d9b79110065bce",
-    "8fb848518e44656910092992c7fb27358337971436a104af28bf864a0c749a73",
-    "ab772c360748a36f4237ebbdfe7bb689b46a8880ed0521af4e1219b8b234595b",
-    "cb4cf57329eea4f844a987a826c03462af58db99467888ec1cfc68f4c8e49631",
-    "c15bbbfc2f40f7a514a26c9b039fff211eae5914b076556c3d325ae4d5153fcc",
-    "9f9d82c0aabfe67ad05de32319ec16cb5c03d0fb6bbb51a375be5446c813f9ca",
-    "876ac475ed573c5ccd7e917c9ed5acac40f9021d7392af4f4fb1bdd9b2234ead",
-    "5c525feb63f7a7b629fcc511ce6e8e7389e6ede1df5eb0fb65bd16f8070d5981",
-    "fab326eaccf086c96d3632fc2b963c08bd6742da114d1986e77f2ffae145c3d2",
-    "5f83c0b004467e897c4360d520f17a37cef9bc431f33fe9c2c6287424d646e5a",
-    "1beb170671c27324cf58399be71edb78ae702faf7dd1e56765f7a24968e7e729",
-    "34bedc37d0d4f5c141429453c81e3b41f72eb3bdd2b4395de0dfbf80afefd811",
-    "54118b08a5836404c35230771ae5b03f056e18c84ef854a6a52163c64b9046f8",
-    "306488167f6dd239cd4458d659bb958be88c3e87209032d6bd994df82d5760e5",
-    "6c791fb6018b614ad2bc880949c153c705027290fc0a0e64d9947997462c16fc",
-    "631a16c347303b448072cb18ee1fbcbc443d7c0da26b5a2a41e1b786bedaaaf4",
-    "6362e955bea49d9f9c9e06a55b5c62ae58379ff2da3b5a7eb3e11f77b5743fcb",
-    "a209bd8dcbf2d9fd3a3c20fe3ace79da03079e59310752918b7d516595ad610f",
-    "4255565a1c090455ee2aec0149aa07448451c075d97f6c703173b22c9fb31450",
-    "8c529c7cc9054b4b36c9840fbb35201c91705608a5016621a31de034614a1192",
-    "0226a70625c543b8db13b75e68fae19a5ab529404e810c9e8c30f8aedd92be0f"
+    {
+     "sha256": "81611a92f0faadcd69a46ff55e7da305fcc663b9e45442cf4c71d54d90700ba6",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        510.63
+       ]
+      },
+      {
+       "page": 1,
+       "column": "R",
+       "y": [
+        44.63,
+        83.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 32,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "b8f8e207627626a27c5f6bff16f0283da6f3b0de17f9a21fd70941e753dae943",
+     "source": [
+      {
+       "page": 32,
+       "column": "L",
+       "y": [
+        189.43,
+        562.23
+       ]
+      },
+      {
+       "page": 32,
+       "column": "R",
+       "y": [
+        35.03,
+        217.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "0ee0fb431c896f5e69d9489c826c697a2509e23dd3b2a889e11d3ca7d55028a7",
+     "source": [
+      {
+       "page": 32,
+       "column": "R",
+       "y": [
+        240.63,
+        373.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "88ac625cc1e5a017485bb20ad8c0c027ae7ba80d437f23e6b44f177505b232e4",
+     "source": [
+      {
+       "page": 32,
+       "column": "R",
+       "y": [
+        387.03,
+        462.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3240cab13d62982e8a6fba63701f12ec3e34a2a2bb67641b1fdb9425e7db065a",
+     "source": [
+      {
+       "page": 32,
+       "column": "R",
+       "y": [
+        475.83,
+        522.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "5726ae3363d4c936d70e429ead3f905bd7819d0cb632d9bfa7ee091a7e034379",
+     "source": [
+      {
+       "page": 32,
+       "column": "R",
+       "y": [
+        535.83,
+        559.03
+       ]
+      },
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        37.03,
+        56.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c462a369d4737e830501c8897698fd21706c4891b3f8d0427aaca729800576b0",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        69.83,
+        135.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "787f837ed60278d9ca4832d20a3f14d33351f4a69e5b00831a12f6a9d3052869",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        149.03,
+        214.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2a3c368c539e26e40b6773bcd14b225ced6f6e4471e68feecd6c501c7b768540",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        228.23,
+        332.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "974c316650118c6aaff7318c989eb1feff9e967e450ab7176558e40d7ff8bc24",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        345.83,
+        421.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "8a9c740814e49b1dc1273c091e32704d3a8476d5fe67d93fbbe60df7d4312446",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        434.63,
+        529.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "01f84a49d869d12fb8203107709522d61a0146c963d704d37df9ca48b7988390",
+     "source": [
+      {
+       "page": 33,
+       "column": "L",
+       "y": [
+        542.63,
+        552.23
+       ]
+      },
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        37.03,
+        69.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d13535da9392131b97dd25f3ec0d0cbd3e3415a2a931c41eec7ed9a921fc0816",
+     "source": [
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        83.43,
+        197.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "410100d6f7ab383a60dfb0f7f5e787414ed483b2a2bb4fbd998e0cfcbc9a69a5",
+     "source": [
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        210.63,
+        276.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f9b5ccb3498335ec050828cf970c2e578da3cfe54f96f277ea5efb98ddb69d4c",
+     "source": [
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        289.83,
+        365.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "13fdc4132ccb28aa91a5272587e28379bde631c9e50eec548b7970ef8e5c4897",
+     "source": [
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        378.63,
+        453.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "977a56c1bef24684ba8269827a97724f5945c1cebd70ad5b90a9afac45a2464a",
+     "source": [
+      {
+       "page": 33,
+       "column": "R",
+       "y": [
+        467.43,
+        561.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 34,
+       "column": "L",
+       "y": [
+        37.03,
+        208.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "34fab5c8060dbd84a67aa2185882534cfee92247bc69cf9772b2b0cfc058210a",
+     "source": [
+      {
+       "page": 34,
+       "column": "L",
+       "y": [
+        221.83,
+        306.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "e92a0de456cdd39284eb91e204521e878b720b26d6bd252884584834d382e7a3",
+     "source": [
+      {
+       "page": 34,
+       "column": "L",
+       "y": [
+        320.23,
+        376.23
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KORD": {
@@ -14423,18 +18035,202 @@
     }
    ],
    "companyNotams": [
-    "f5a8c2314175ff4d2b6743d09da9b3f4acf82a36cbba76afe3d9b79110065bce",
-    "a304a21b9184e08bc8ce31a68581c84045016b1c7ce03baa01558d876e8e3e84",
-    "58504b1e7d6ba746c8ac8360228a6e20fe35cd85bede4e3d245cf24dc424f739",
-    "f0d3c19ad162123c9cd3546fdb55f5bf72bdec8221e7d38de116797e51738491",
-    "99ab3077dd9273e640e3bfd63dcbe4548dd7993facd25eeaf9ed1d91faaf194c",
-    "103366a8372c571b767b0c7c2c10b3c7f1b6609c27f1e7791dd53db2517675c4",
-    "1f5eb0d704bdf9022f207e586cd20536e818cd9873baf7e1e1c991f4f0990a7d",
-    "058dede43a6a281e807f63615b195cf38c33568a3c59249dac8c3de10734dd44",
-    "3f3bba0a92e9229d8196eb4774b8525ed2cbcac46c55d06abba1da4d78520955",
-    "3a1eef816053c104cdff45c66744a3cdca5a985cf2c30628054bb884090400ae",
-    "ecbb9be230904f3a7506430a875d8f43f254b2d7f17beb52b8696ad11703b8e3",
-    "34ac64dfdd18c6264cae2f3acdbf7a30193b1f32601b47bf48fdee84b69030b6"
+    {
+     "sha256": "81611a92f0faadcd69a46ff55e7da305fcc663b9e45442cf4c71d54d90700ba6",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        510.63
+       ]
+      },
+      {
+       "page": 1,
+       "column": "R",
+       "y": [
+        44.63,
+        83.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "76c14987f76d14e208f2bfbb36b6204abc560eb1d9fb39d6de0785570557ce91",
+     "source": [
+      {
+       "page": 23,
+       "column": "L",
+       "y": [
+        62.23,
+        185.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 23,
+       "column": "L",
+       "y": [
+        199.03,
+        312.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "b8f8e207627626a27c5f6bff16f0283da6f3b0de17f9a21fd70941e753dae943",
+     "source": [
+      {
+       "page": 23,
+       "column": "L",
+       "y": [
+        326.23,
+        535.83
+       ]
+      },
+      {
+       "page": 23,
+       "column": "R",
+       "y": [
+        35.03,
+        361.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d2bf86736bee34346807c977e7918ea9f198d99e61ce4c1594f2d391cb028a38",
+     "source": [
+      {
+       "page": 23,
+       "column": "R",
+       "y": [
+        384.63,
+        555.83
+       ]
+      },
+      {
+       "page": 24,
+       "column": "L",
+       "y": [
+        44.63,
+        92.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "91655cab79d313ad83c6445231d5c26f43b8e93e6c4bc8297a14bbbdb5530f72",
+     "source": [
+      {
+       "page": 24,
+       "column": "L",
+       "y": [
+        106.23,
+        200.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "31203e4455344afa664c84c5949c49bc5499d746d42d4771964e6621b4b8b558",
+     "source": [
+      {
+       "page": 24,
+       "column": "L",
+       "y": [
+        214.23,
+        308.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "7d49cf770a6929e430833580579f4121dd26517b96dee0dbf5e9b82f981d2585",
+     "source": [
+      {
+       "page": 24,
+       "column": "L",
+       "y": [
+        322.23,
+        416.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "cf05e133f6dad92ef0d6be4a2140a0743882ac7aba7ea95769d98f1c2225bd65",
+     "source": [
+      {
+       "page": 24,
+       "column": "L",
+       "y": [
+        430.23,
+        563.03
+       ]
+      },
+      {
+       "page": 24,
+       "column": "R",
+       "y": [
+        35.03,
+        111.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 24,
+       "column": "R",
+       "y": [
+        125.43,
+        296.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "71311791cd5743f47d332054e9e8cc99ed5766db421a32bd84222232ed4094a0",
+     "source": [
+      {
+       "page": 24,
+       "column": "R",
+       "y": [
+        310.23,
+        423.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "ab4cd29c9ae98dd14010711a734feaa632730ac29f63f0de7b7b008d76f9be4b",
+     "source": [
+      {
+       "page": 24,
+       "column": "R",
+       "y": [
+        437.43,
+        560.63
+       ]
+      },
+      {
+       "page": 25,
+       "column": "L",
+       "y": [
+        35.03,
+        44.63
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "NZWN": {
@@ -14912,19 +18708,215 @@
     }
    ],
    "companyNotams": [
-    "f5a8c2314175ff4d2b6743d09da9b3f4acf82a36cbba76afe3d9b79110065bce",
-    "c733c568fc8ea7cf13a5cc13c097bc9dfc4549c3aaeff54b407511861df68d2e",
-    "368bd504d9f43110a5314b4f769f178c868dc131a45f8ae2fb08234b4717d5a8",
-    "5d23dd5f8d231cdd78429932798f17b4277d61de441d4e5d39b1bf20cce81595",
-    "34ee1d31344a7717145ad8264cc9d728efa0e8d1fdd262a7ddb30c72f1047360",
-    "15d3457c3488aee202f97340a606605b0451a9f940c969e5f7fd33c4d7c53387",
-    "ad59e97058db9b3de40ee88a9506f6557f9d42fbda0fbd5554bc3b78ac4a23b6",
-    "1f2930584d54d9b06dee4241e9b400249b3132bc1445f7145f28d9e38e9efb30",
-    "6c26d6d10e7428ec521444f8b3ad9dd190d909b7b0d354c1ccebc68905122190",
-    "a3fd71775880294ffd97102463b1375ea036224923c42efd875d1f7b82daf8a6",
-    "7af32ff0c6c7d88e16fa0d774168f796fd86735e9f000a01d9f17e114af16299",
-    "27d4b121236b9dd7480067020075097d3da642b343a4ec52e21ecc4f1c542ab6",
-    "9901d92b16cb770e9559c41c45db964fee522aa7c02d4c4b3040b9981ed1b9e5"
+    {
+     "sha256": "81611a92f0faadcd69a46ff55e7da305fcc663b9e45442cf4c71d54d90700ba6",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        510.63
+       ]
+      },
+      {
+       "page": 1,
+       "column": "R",
+       "y": [
+        44.63,
+        83.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 26,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "b8f8e207627626a27c5f6bff16f0283da6f3b0de17f9a21fd70941e753dae943",
+     "source": [
+      {
+       "page": 26,
+       "column": "L",
+       "y": [
+        189.43,
+        562.23
+       ]
+      },
+      {
+       "page": 26,
+       "column": "R",
+       "y": [
+        35.03,
+        217.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d2bf86736bee34346807c977e7918ea9f198d99e61ce4c1594f2d391cb028a38",
+     "source": [
+      {
+       "page": 26,
+       "column": "R",
+       "y": [
+        240.63,
+        479.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "47e1e6d82d5783b40535648fd4daa6a2d488346ad24c06791bcbdb79b8e25f1b",
+     "source": [
+      {
+       "page": 26,
+       "column": "R",
+       "y": [
+        492.63,
+        558.23
+       ]
+      },
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        35.03,
+        35.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "7e749495f32da25c654ffba40a999bb0bd5c1849ee1a72fd250f706f200ad42a",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        48.63,
+        133.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "01d6f62b0613a66b16292e5891512f8a26736051eb33622eb807177831701546",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        147.03,
+        241.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "8a7ba893d86dd728d5e02228dcb08a3f9721a981e6fbc2cbc612bc115114fa31",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        255.03,
+        349.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3ca5a326284395e6a61ff536cfdc90b3f9f5bd9b36ec54a77db9e7aad99a5951",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        363.03,
+        457.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "7aa185b52b058d9931308322a705ecaefea879aa867b5096cca9696b220d52d3",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        471.03,
+        555.83
+       ]
+      },
+      {
+       "page": 27,
+       "column": "R",
+       "y": [
+        35.03,
+        159.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 27,
+       "column": "R",
+       "y": [
+        173.43,
+        344.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "782984bcbe54476bc7f4b20d211e0988a3afb755b78ce87a95f143bc725a6c81",
+     "source": [
+      {
+       "page": 27,
+       "column": "R",
+       "y": [
+        358.23,
+        471.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "fc6fead35b0c536ddbb1fe25ae06087ac84ef1cdbc5678a756778f7df9612905",
+     "source": [
+      {
+       "page": 27,
+       "column": "R",
+       "y": [
+        485.43,
+        560.63
+       ]
+      },
+      {
+       "page": 28,
+       "column": "L",
+       "y": [
+        35.03,
+        92.63
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "EPPW": {
@@ -15617,18 +19609,194 @@
     }
    ],
    "companyNotams": [
-    "f5a8c2314175ff4d2b6743d09da9b3f4acf82a36cbba76afe3d9b79110065bce",
-    "c733c568fc8ea7cf13a5cc13c097bc9dfc4549c3aaeff54b407511861df68d2e",
-    "368bd504d9f43110a5314b4f769f178c868dc131a45f8ae2fb08234b4717d5a8",
-    "5d23dd5f8d231cdd78429932798f17b4277d61de441d4e5d39b1bf20cce81595",
-    "5cb263690a2ce4a33fb8fff326f6f05e56203f963cbba6b935cb939fc7a62747",
-    "1ca7ed540042d0ba356689898132a48e38b8c7290476862d407e1e3c4af36a2c",
-    "7cb0da9fc79bda251ef2ed201b8f18afd12dde5d0cfb9636801153174326c477",
-    "be13e06954d50bf9a6ef8a9c9c089b47a23d31bc3e332882acbc0a15b8b452b2",
-    "6119b968e56657672b9cfe42f85b3be825682a4c22bc855e568e908680ce0e3b",
-    "54ddb95cf2c531e2f79d03d0d971de1c681fbea771255fdd1f5bc50e944c0d60",
-    "c466adc47277417ff29270948bf9bf9a754fa6b2331c4591456b3301431e2c66",
-    "5436f2d8a99de94ea0d1c7a7a15e34d85f4e0a916c7cbdb60b9a30a7641d15f8"
+    {
+     "sha256": "81611a92f0faadcd69a46ff55e7da305fcc663b9e45442cf4c71d54d90700ba6",
+     "source": [
+      {
+       "page": 1,
+       "column": "L",
+       "y": [
+        51.43,
+        510.63
+       ]
+      },
+      {
+       "page": 1,
+       "column": "R",
+       "y": [
+        44.63,
+        83.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "2eab2880c08d98fc37eaf4afd70a5f5d48530376db612625cfdd31b254cab8dc",
+     "source": [
+      {
+       "page": 26,
+       "column": "L",
+       "y": [
+        62.23,
+        175.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "b8f8e207627626a27c5f6bff16f0283da6f3b0de17f9a21fd70941e753dae943",
+     "source": [
+      {
+       "page": 26,
+       "column": "L",
+       "y": [
+        189.43,
+        562.23
+       ]
+      },
+      {
+       "page": 26,
+       "column": "R",
+       "y": [
+        35.03,
+        217.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d2bf86736bee34346807c977e7918ea9f198d99e61ce4c1594f2d391cb028a38",
+     "source": [
+      {
+       "page": 26,
+       "column": "R",
+       "y": [
+        240.63,
+        479.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "3045d57126f5810f25c9d74eddb5a1ac69b493b87c825691273c7e1713c081ea",
+     "source": [
+      {
+       "page": 26,
+       "column": "R",
+       "y": [
+        492.63,
+        558.23
+       ]
+      },
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        35.03,
+        54.23
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "b8f3c1c96582c51156782cee5a1f48d8bc0ebfe677b3b5c47a3cdf9050909170",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        67.83,
+        133.43
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "c6a89f746ccf7ff72955a2e2a7c184a7a0cea8a834981b54eb488c3d2e580ea6",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        147.03,
+        231.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "f17ccfb01287882cdb0e6b268d5cf8e5e66095999529bdfe6c61521a34973020",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        245.43,
+        359.03
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d589318d7a3875f15710f8f4d48d77283cdadcc664369eb2d59653aa2e6e69de",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        372.63,
+        543.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "65dfb8b893bc8ecc49ed1fc9de0ca355ff6dcc04cf39fb6ebfd0a8a8cf761b15",
+     "source": [
+      {
+       "page": 27,
+       "column": "L",
+       "y": [
+        557.43,
+        557.48
+       ]
+      },
+      {
+       "page": 27,
+       "column": "R",
+       "y": [
+        35.03,
+        100.63
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "d08a1168888cc4634b827ff7158b9b0f7afe9359268c7c5d8f5bd4e78e42809a",
+     "source": [
+      {
+       "page": 27,
+       "column": "R",
+       "y": [
+        114.23,
+        227.83
+       ]
+      }
+     ]
+    },
+    {
+     "sha256": "6fb9b621a4d8f6849aec655e1405363bb0261ebde7a67c96f8ad88bc106709a1",
+     "source": [
+      {
+       "page": 27,
+       "column": "R",
+       "y": [
+        241.43,
+        383.83
+       ]
+      }
+     ]
+    }
    ],
    "airportData": {
     "KDOV": {
