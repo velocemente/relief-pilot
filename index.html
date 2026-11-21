@@ -7489,6 +7489,10 @@ let airportData = {};   // icao → { notams:'', weather:'' }
 let pdfRawText    = '';
 let pdfPages      = null;   // processPDF(): positioned text items per page (the FlightKeys parser reads them); null for pasted text
 let pdfArrayBuffer = null;   // ArrayBuffer of original PDF — slice a fresh Uint8Array for each pdf.js call so the master is never transferred/neutered
+// O-107 (step 5e-2 display PR 2): the FlightKeys RAW views (notamsRaw, weatherRaw, firRaw, hazards) of the
+// open flight. Never saved: built at import, re-derived from the stored PDF when a flight is opened.
+// null = none (NavBlue, pasted text, not yet re-derived); { missing: true } = the stored PDF is missing.
+let _rawViews     = null;
 let _pdfDocProxy  = null;    // active PDFDocumentProxy — nulled before each new load (M3)
 
 // Recalculate DEST ETA and all alt ETAs from current outZ
@@ -7533,10 +7537,13 @@ function resetStateForNewFlight() {
   });
   delete S.ofpFindings;   // parser findings (FlightKeys); set by parseOFP() only when the parser returns them
   delete S.ofpAlertsSeen; // O-89: the OFP Alerts title selected by the crew; a new import starts red
+  // Step 5e-2 display PR 2 (FlightKeys only; set by parseOFP() only when the parser returns them).
+  delete S.ofpFormat; delete S.rawIndex; delete S.securityMessages; delete S.permits; delete S.catIiIiiRestrictions; delete S.ofpRemarks;
   airportData = {};
   pdfRawText = '';
   pdfPages = null;
   pdfArrayBuffer = null;
+  _rawViews = null;
   _pdfDocProxy = null;
   _fcirActive = false;
   window._flightDateISO = '';
@@ -7909,12 +7916,38 @@ function _crewAnon(c) {
   if (c.manual) return c;
   return { role: String(c.role || ''), active: c.active !== false, displayName: '', ...(c.isSen === true ? { isSen: true } : {}) };   // F-1: the mark, no name
 }
+// O-118 / F-5 (step 5e-2 display PR 2): no crew names in any save, either format. The OFP text (crew list
+// included) never leaves the app: it is not saved (no "raw", no state.rawOFP) and is re-derived from the
+// stored PDF when the flight is opened. A save made before keeps its other fields.
+function _saveStrip(f) {
+  if (!f || typeof f !== 'object') return false;
+  let changed = false;
+  if ('raw' in f) { delete f.raw; changed = true; }
+  const st = f.state;
+  if (st && typeof st === 'object') {
+    if ('rawOFP' in st) { delete st.rawOFP; changed = true; }
+    if (Array.isArray(st.crewMembers)) {
+      const anon = st.crewMembers.map(_crewAnon).filter(Boolean);
+      if (JSON.stringify(anon) !== JSON.stringify(st.crewMembers)) { st.crewMembers = anon; changed = true; }
+    }
+  }
+  return changed;
+}
+// Every saved flight, once at app start (not only when opened). Writes only when a save changed.
+function _savesStrip() {
+  const flights = getFlights();
+  let changed = false;
+  flights.forEach(f => { if (_saveStrip(f)) changed = true; });
+  if (changed) putFlights(flights);
+}
 function saveFlight() {
   if (!S.fltNum && !S.date) return;
   const flights = getFlights();
   const id = 'f_' + Date.now();
   const idx = flights.findIndex(f => f.fltNum === S.fltNum && f.date === S.date);
-  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state:{...S}, raw:pdfRawText.substring(0,10000), aptData: JSON.parse(JSON.stringify(airportData)),
+  const state = {...S};
+  delete state.rawOFP;   // O-118: re-derived from the stored PDF (_ofpRederive)
+  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state, aptData: JSON.parse(JSON.stringify(airportData)),
                   timeline: JSON.parse(JSON.stringify(_tl)) };   // D51: dated OUT / OFF / ETAs
   const stableId = idx >= 0 ? flights[idx].id : entry.id;
   if (idx >= 0) { flights[idx] = {...entry, id: stableId}; }
@@ -7960,7 +7993,9 @@ function loadFlight(entry) {
       if (k >= 0 && flights[k].state) { flights[k].state.crewMembers = anon; putFlights(flights); }
     }
   }
-  pdfRawText = entry.raw || '';
+  // O-118: a save holds no OFP text; a save made before still may (removed at app start, and here).
+  S.rawOFP = '';
+  pdfRawText = '';
   pdfArrayBuffer = null;   // start null; async restore from IndexedDB below
   clearOFPPanel();         // wipe any canvas pages from the previously viewed flight
   _fcirActive = !!(S.fcirAsap);
@@ -7983,9 +8018,12 @@ function loadFlight(entry) {
   // version has none: each saved time is placed nearest its OFP planned time
   // (_tlRecover(); no OFP times in the save → as at import).
   if (!_tlRestore(entry.timeline)) _tlRecover();
-  // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text
+  // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text; then the OFP text
+  // (navlog, O-118) and the FlightKeys RAW views (O-107) are re-derived from it.
+  const seq = ++_loadSeq;
   if (entry.id) {
     _pdfDb.get(entry.id).then(buf => {
+      if (seq !== _loadSeq) return;   // another flight was opened meanwhile
       if (buf) {
         pdfArrayBuffer = buf;
         // If the OFP panel is currently visible, re-render it with the PDF
@@ -7994,9 +8032,11 @@ function loadFlight(entry) {
           clearOFPPanel();
           loadOFPPanel();
         }
+        return _ofpRederive(buf, seq);
       }
-    }).catch(() => {});
-  }
+      _rawMissing(seq);
+    }).catch(() => _rawMissing(seq));
+  } else _rawMissing(seq);
   renderNote();
   push('screen-flight');
   const tog = document.getElementById('fcirToggle');
@@ -8004,6 +8044,37 @@ function loadFlight(entry) {
   const lbl = document.getElementById('fcirLabel');
   if (lbl) lbl.classList.toggle('active', _fcirActive);
   _saveResumeView();
+}
+
+// O-107 / O-118: the opened flight's OFP text and RAW views, read again from its stored PDF exactly as
+// processPDF() reads it (_pdfReadText) and, for a FlightKeys flight (S.rawIndex), parsed again for the
+// RAW views only: nothing else in S or airportData is changed. The screens are redrawn when done.
+let _loadSeq = 0;
+function _ofpRederive(buf, seq) {
+  return loadPdfJs()
+    .then(() => pdfjsLib.getDocument({data: new Uint8Array(buf.slice(0))}).promise)
+    .then(pdf => _pdfReadText(pdf))
+    .then(({ fullText, pages }) => {
+      if (seq !== _loadSeq) return;
+      pdfRawText = fullText;
+      pdfPages = pages;
+      S.rawOFP = fullText;   // the parsers' rawOFP is the text itself (both formats)
+      if (S.rawIndex) {
+        const r = _ofpParse(fullText, pages);
+        _rawViews = r && Array.isArray(r.firRaw) ? _ofpRawViews(r) : { missing: true };
+      }
+      _rerenderOpen();
+    })
+    .catch(() => _rawMissing(seq));
+}
+// The stored PDF is missing or cannot be read: a FlightKeys flight's RAW groups say so (O-107).
+function _rawMissing(seq) {
+  if (seq !== _loadSeq) return;
+  if (S.rawIndex) { _rawViews = { missing: true }; _rerenderOpen(); }
+}
+function _rerenderOpen() {
+  renderNote();
+  if (_activeFlightTab === 'airports') buildAirportCards();
 }
 
 function renderFlightList() {
@@ -8124,6 +8195,84 @@ dz.addEventListener('drop', async e => {
   }, false);
 })();
 
+// The text lines and the positioned items of every page of a pdf.js document (processPDF();
+// step 5e-2 display PR 2: also the stored PDF of a saved flight, O-107 / O-118). The loop is the
+// one tools/extract/extract.js copies.
+async function _pdfReadText(pdf) {
+  let fullText = '';
+  const pages = [];
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const pg   = await pdf.getPage(i);
+    const vp   = pg.getViewport({scale: 1});
+    const tc   = await pg.getTextContent({normalizeWhitespace: false, disableCombineTextItems: false});
+
+    // ── Layout-preserving reconstruction ──────────────────────────
+    // Group items into lines by their Y coordinate (within 2pt tolerance)
+    // then sort each line left→right, producing text that mirrors the
+    // printed OFP column structure (flight ID, times, alternates etc.)
+    const YTOL = 2; // points
+    const lines = [];
+
+    tc.items.forEach(item => {
+      if (!item.str) return;
+      // PDF y=0 is bottom; invert so y=0 is top
+      const y = vp.height - item.transform[5];
+      const x = item.transform[4];
+
+      // Find existing line bucket within tolerance
+      let bucket = lines.find(l => Math.abs(l.y - y) <= YTOL);
+      if (!bucket) {
+        bucket = { y, items: [] };
+        lines.push(bucket);
+      }
+      bucket.items.push({ x, str: item.str, w: item.width || 0 });
+    });
+
+    // Sort lines top→bottom
+    lines.sort((a, b) => a.y - b.y);
+
+    // For each line, sort items left→right and join with whitespace
+    // that approximates the original column spacing
+    lines.forEach(line => {
+      line.items.sort((a, b) => a.x - b.x);
+
+      let lineStr = '';
+      let prevRight = null;
+      line.items.forEach(item => {
+        if (prevRight !== null) {
+          const gap = item.x - prevRight;
+          // Map pixel gap to spaces (calibrated for typical OFP at 1x scale)
+          const spaces = gap > 20 ? '   ' : gap > 8 ? '  ' : gap > 3 ? ' ' : '';
+          lineStr += spaces;
+        }
+        lineStr += item.str;
+        prevRight = item.x + (item.w || item.str.length * 5);
+      });
+      if (lineStr.trim()) fullText += lineStr + '\n';
+    });
+
+    fullText += '\n'; // page break
+
+    // Positioned text items of the page, in document order (non-empty str only),
+    // y measured from the top: the FlightKeys parser reads the briefing from them.
+    pages.push({
+      n: i,
+      width: vp.width,
+      height: vp.height,
+      items: tc.items.filter(it => it.str).map(it => ({
+        str: it.str,
+        x: it.transform[4],
+        y: vp.height - it.transform[5],
+        w: it.width,
+        h: it.height,
+        font: it.fontName,
+      })),
+    });
+  }
+  return { fullText, pages };
+}
+
 async function processPDF(file) {
   resetStateForNewFlight();
   showToast('info', `Loading ${file.name}…`);
@@ -8134,77 +8283,7 @@ async function processPDF(file) {
     clearOFPPanel();       // wipe any previously rendered canvas pages before new PDF is loaded
     const pdf = await pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise;
 
-    let fullText = '';
-    const pages = [];
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const pg   = await pdf.getPage(i);
-      const vp   = pg.getViewport({scale: 1});
-      const tc   = await pg.getTextContent({normalizeWhitespace: false, disableCombineTextItems: false});
-
-      // ── Layout-preserving reconstruction ──────────────────────────
-      // Group items into lines by their Y coordinate (within 2pt tolerance)
-      // then sort each line left→right, producing text that mirrors the
-      // printed OFP column structure (flight ID, times, alternates etc.)
-      const YTOL = 2; // points
-      const lines = [];
-
-      tc.items.forEach(item => {
-        if (!item.str) return;
-        // PDF y=0 is bottom; invert so y=0 is top
-        const y = vp.height - item.transform[5];
-        const x = item.transform[4];
-
-        // Find existing line bucket within tolerance
-        let bucket = lines.find(l => Math.abs(l.y - y) <= YTOL);
-        if (!bucket) {
-          bucket = { y, items: [] };
-          lines.push(bucket);
-        }
-        bucket.items.push({ x, str: item.str, w: item.width || 0 });
-      });
-
-      // Sort lines top→bottom
-      lines.sort((a, b) => a.y - b.y);
-
-      // For each line, sort items left→right and join with whitespace
-      // that approximates the original column spacing
-      lines.forEach(line => {
-        line.items.sort((a, b) => a.x - b.x);
-
-        let lineStr = '';
-        let prevRight = null;
-        line.items.forEach(item => {
-          if (prevRight !== null) {
-            const gap = item.x - prevRight;
-            // Map pixel gap to spaces (calibrated for typical OFP at 1x scale)
-            const spaces = gap > 20 ? '   ' : gap > 8 ? '  ' : gap > 3 ? ' ' : '';
-            lineStr += spaces;
-          }
-          lineStr += item.str;
-          prevRight = item.x + (item.w || item.str.length * 5);
-        });
-        if (lineStr.trim()) fullText += lineStr + '\n';
-      });
-
-      fullText += '\n'; // page break
-
-      // Positioned text items of the page, in document order (non-empty str only),
-      // y measured from the top: the FlightKeys parser reads the briefing from them.
-      pages.push({
-        n: i,
-        width: vp.width,
-        height: vp.height,
-        items: tc.items.filter(it => it.str).map(it => ({
-          str: it.str,
-          x: it.transform[4],
-          y: vp.height - it.transform[5],
-          w: it.width,
-          h: it.height,
-          font: it.fontName,
-        })),
-      });
-    }
+    const { fullText, pages } = await _pdfReadText(pdf);
 
     pdfRawText = fullText;
     pdfPages = pages;
@@ -13431,6 +13510,41 @@ function _ofpAlertFindings() {
   return (Array.isArray(S.ofpFindings) ? S.ofpFindings : []).concat(extra);
 }
 
+// ── Step 5e-2 display PR 2: the FlightKeys RAW views (O-104, O-107, D64, D65, D71, D76) ──
+// The airport blocks as printed (notamsRaw, weatherRaw: TAF -> METAR -> ATIS), every printed FIR block
+// (firRaw) with the Company items FlightKeys keys to that FIR (firNotams origin COMPANY, O-40, D71), and
+// the Hazard Briefing blocks that print a product (hazards, D76). Kept in _rawViews only, never saved.
+function _ofpRawViews(result) {
+  const ad = result.airportData || {};
+  const apt = {};
+  Object.keys(ad).forEach(icao => {
+    const a = ad[icao] || {};
+    const n = typeof a.notamsRaw === 'string' ? a.notamsRaw : '';
+    const w = typeof a.weatherRaw === 'string' ? a.weatherRaw : '';
+    if (n.trim() || w.trim()) apt[icao] = { notams: n, weather: w };
+  });
+  const fn = Array.isArray(result.firNotams) ? result.firNotams : [];
+  const fir = (Array.isArray(result.firRaw) ? result.firRaw : []).map((b, k) => {
+    // firNotams and firRaw both hold one record per printed block, in printed order (contract 2.4).
+    const blk = fn[k] && fn[k].code === b.code ? fn[k] : null;
+    const company = blk ? (blk.items || []).filter(i => i && i.origin === 'COMPANY' && i.text).map(i => String(i.text)) : [];
+    return { code: String(b.code || ''), name: String(b.name || ''), raw: String(b.raw || ''), company };
+  });
+  const haz = (Array.isArray(result.hazards) ? result.hazards : []).filter(z => z && !z.empty && z.text)
+    .map(z => ({ code: String(z.code || ''), name: String(z.name || ''), text: String(z.text) }));
+  return { apt, fir, haz };
+}
+// What the screens need to draw the RAW groups when the views are not (yet) there: which airport has
+// which block (N = NOTAMs, W = weather), the FIR and hazard blocks by code and name. No printed text.
+function _ofpRawIndex(v) {
+  const apt = {};
+  Object.keys(v.apt).forEach(icao => { apt[icao] = (v.apt[icao].notams.trim() ? 'N' : '') + (v.apt[icao].weather.trim() ? 'W' : ''); });
+  return { apt, fir: v.fir.map(b => ({ code: b.code, name: b.name, company: b.company.length })),
+           haz: v.haz.map(z => ({ code: z.code, name: z.name })) };
+}
+
+const _OFP_REMARKS_SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];   // O-127
+
 // Returns false when the package is refused (D89): the caller stays on the import screen.
 function parseOFP() {
   let result;
@@ -13451,6 +13565,12 @@ function parseOFP() {
     if (!airportData[icao].notams  && src.notams)  airportData[icao].notams  = src.notams;
     if (src.curfew) airportData[icao].curfew = src.curfew;
     if (src.opsNotes && !airportData[icao].opsNotes) airportData[icao].opsNotes = src.opsNotes;
+    // FlightKeys (O-110, D34, D63): the airport's OFP remarks as the parser groups them (line breaks kept)
+    // and its remarks weather (D46: never merged into weather; evalAirport() reads it). NavBlue: none.
+    if (Array.isArray(src.remarks) && src.remarks.length)
+      airportData[icao].remarks = src.remarks.map(r => ({ text: String(r.text || ''), subHeading: r.subHeading ? String(r.subHeading) : '' }));
+    if (Array.isArray(src.remarksWeather) && src.remarksWeather.length)
+      airportData[icao].remarksWeather = src.remarksWeather.map(w => ({ source: String(w.source || ''), type: String(w.type || ''), text: String(w.text || '') }));
     // E-WINS: always overwrite — WSITAF supersedes any previously stored TAF
     if (src.ewinsWeather) {
       airportData[icao].ewinsWeather = src.ewinsWeather;
@@ -13538,6 +13658,25 @@ function parseOFP() {
   // Parser findings (FlightKeys only; the NavBlue call returns none). Saved with S;
   // a flight saved without them has no list (O-76).
   if (Array.isArray(result.findings)) S.ofpFindings = result.findings;
+  // Step 5e-2 display PR 2 (FlightKeys only; the NavBlue call returns none of these, D47).
+  if (Array.isArray(result.firRaw)) {
+    S.ofpFormat = 'flightkeys';
+    S.securityMessages = (result.securityMessages || []).map(m => String((m && m.text) || '')).filter(Boolean);   // D45
+    S.permits = (result.permits || []).map(p => ({ type: String(p.type || ''), country: String(p.country || ''),
+      reference: String(p.reference || ''), route: String(p.route || ''), restriction: String(p.restriction || ''),
+      adc: String(p.adc || ''), missing: !!p.missing }));
+    S.catIiIiiRestrictions = (result.catIiIiiRestrictions || []).map(c => ({ airport: c.airport || null,
+      category: String(c.category || ''), runways: Array.isArray(c.runways) ? c.runways.map(String) : [],
+      text: String(c.text || ''), source: String(c.source || '') }));
+    // O-127 (Exec, C): the OFP remark records shown in "OFP Remarks" on the Preflight card, as the parser
+    // groups them (D63 / D63a, line breaks kept), in release order: PCF reasons, extra-fuel reasons, route,
+    // ADHOC penalty. Every other record without a NavBlue slot stays on the OFP tab.
+    S.ofpRemarks = (result.ofpRemarks || []).filter(r => r && _OFP_REMARKS_SHOWN.includes(r.category) && r.text)
+      .map(r => ({ category: String(r.category), text: String(r.text) }));
+    // O-107: the RAW views from the PDF just read; pasted text has no RAW (D95).
+    _rawViews = pdfPages ? _ofpRawViews(result) : null;
+    if (_rawViews) S.rawIndex = _ofpRawIndex(_rawViews);
+  }
   if (result.zfwIncrFactor != null)
     S.zfwIncrFactor = result.zfwIncrFactor;
   S.rawOFP = result.rawOFP || '';  // retained for ENR Timeline V2 navlog extraction
@@ -13796,7 +13935,14 @@ function renderPreflightPhase() {
   if (S.dispatchContact && S.dispatchContact.label) {
     h += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
   }
+  // D45 (O-110): the OFP Remarks security message(s) (FlightKeys), as printed, line breaks kept. None → no row.
+  (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
+    if (m) h += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
+  });
   h += `</div>`; // data-table
+  // O-127 (FlightKeys): one collapsed "OFP Remarks" group, each record as printed (line breaks kept).
+  const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
+  if (_ofpRem.length) h += `<div class="notam-groups">${renderRawGroup('OFP Remarks', _ofpRem.map(r => _rawBody(r.text)).join(''))}</div>`;
   h += `</div></div>`; // subcard-body + subcard
 
   // ── "OFP Fuel & Weight Summary" subcard ──
@@ -14315,7 +14461,11 @@ function renderEnroutePhase() {
   // ── Enroute NOTAM card renderer ──────────────────────────────────
   const renderEnrouteNotams = () => {
     const en = S.enrouteNotams;
-    if (!en) return '';
+    // FlightKeys PDF import (O-104, O-112): every printed FIR block as its own RAW group, in place of
+    // the parser's one combined "FIR" text — never both, unless the RAW cannot be rebuilt (O-135).
+    // NavBlue and pasted text: as before.
+    const fkRaw = renderEnrouteRaw();
+    if (!en && !fkRaw) return '';
     const SECTION_LABELS = {
       route:      'Route',
       fir:        'FIR',
@@ -14324,8 +14474,11 @@ function renderEnroutePhase() {
       geographic: 'Geographic',
     };
     // Build list of non-empty sections
-    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en[k] && en[k].trim());
-    if (!filled.length) return '';
+    // O-135 (QA F-2): when the RAW cannot be rebuilt (stored PDF missing), the saved FIR text is shown as
+    // before, beside the RAW groups that say so.
+    const rawMissing = !!(_rawViews && _rawViews.missing);
+    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en && en[k] && en[k].trim() && !(fkRaw && k === 'fir' && !rawMissing));
+    if (!filled.length && !fkRaw) return '';
 
     // For waypoint section: highlight any navLog waypoint names found in the text
     const highlightWpts = (text) => {
@@ -14366,6 +14519,7 @@ function renderEnroutePhase() {
       h += `</div>`;
       h += `</div>`;
     });
+    h += fkRaw;
 
     h += `</div></div>`;
     return h;
@@ -14492,6 +14646,49 @@ function _natCardTrack() {
     dirOrder: chosen ? dirOf(chosen) : null,
     assignedDir: chosen && chosen.direction ? chosen.direction : null,
   });
+}
+
+// ── Enroute RAW groups (step 5e-2 display PR 2; FlightKeys PDF import only) ─────
+// O-104, O-112, D64, D71: one collapsed group per printed FIR block of the NOTAM Briefing, labelled
+// "FIR XXXX NOTAMs", its text as printed; the Company items FlightKeys keys to that FIR follow in their
+// own collapsed group "Company NOTAMs" directly after it (O-131), never inside it.
+// D76: one collapsed group per Hazard Briefing FIR block that prints a product,
+// never in weather or E-WINS. O-111: one "Other briefing airports" group for the briefing airports
+// that have no card: RAW only, no evaluation. The text is in _rawViews (never saved, O-107).
+function renderEnrouteRaw() {
+  const ix = S.rawIndex;
+  if (!ix) return '';
+  const v = _rawViews;
+  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  let h = '';
+  (ix.fir || []).forEach((b, k) => {
+    const vb = v && Array.isArray(v.fir) ? v.fir[k] : null;
+    h += renderRawGroup(`FIR ${b.code || b.name} NOTAMs`, _rawBody(vb ? vb.raw : null));
+    // O-131: the Company items keyed to this FIR, their own collapsed group directly after it (D71).
+    if (b.company) h += renderRawGroup('Company NOTAMs', vb ? vb.company.map(t => _rawBody(t)).join('') : _rawBody(null));
+  });
+  (ix.haz || []).forEach((z, k) => {
+    const vz = v && Array.isArray(v.haz) ? v.haz[k] : null;
+    h += renderRawGroup(`FIR ${z.code || z.name} Hazards`, _rawBody(vz ? vz.text : null));
+  });
+  const carded = new Set(getAllAirports().map(a => a.icao));
+  const others = Object.keys(ix.apt || {}).filter(icao => !carded.has(icao));
+  if (others.length) {
+    let body = '';
+    others.forEach(icao => {
+      const va = v && v.apt ? v.apt[icao] : null;
+      const flags = ix.apt[icao] || '';
+      let inner = '';
+      if (va) {
+        if (flags.includes('N')) inner += _rawBody(va.notams);
+        if (flags.includes('W')) inner += _rawBody(va.weather);
+      } else inner = _rawBody(null);
+      body += `<div class="notam-item"><div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+      body += `<span class="notam-item-label">${esc(icao)}</span>${CHEV}</div><div hidden>${inner}</div></div>`;
+    });
+    h += renderRawGroup('Other briefing airports', body);
+  }
+  return h;
 }
 // ═══════════════════════════════════════════════════════════════════
 // INFLIGHT REST MODULE  v1.2.0  (14 CFR 121.467 — Augmented Crews)
@@ -15090,6 +15287,7 @@ function renderDescentPhase() {
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
+      h += _ddgNotesHtml(item);
       h += tlrBadge;
       h += `</div></div>`;
     });
@@ -15239,10 +15437,31 @@ function renderDescentAirportSummary() {
     h += `</div>`;
   }
 
+  // O-110 (FlightKeys): a CAT II/III restriction the OFP Remarks print for this airport (§5.6), as printed,
+  // in the NOT AUTHORIZED style. An MEL restriction (no airport) is shown with its MEL item's notes.
+  const catRestr = (Array.isArray(S.catIiIiiRestrictions) ? S.catIiIiiRestrictions : []).filter(r => r && r.airport === selApt.icao && r.text);
+  if (catRestr.length) {
+    h += `<div style="padding-left:18px;padding-top:var(--sp2);display:flex;flex-direction:column;gap:3px;border-top:0.5px solid var(--sep);margin-top:var(--sp2);padding-top:var(--sp2)">`;
+    catRestr.forEach(r => {
+      h += `<div style="display:flex;align-items:baseline;gap:var(--sp2);flex-wrap:wrap">`;
+      h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--sys-red);text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0;min-width:62px">CAT ${esc(r.category || 'II/III')}</span>`;
+      h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--sys-red);opacity:0.7;overflow-wrap:anywhere">${esc(r.text)}</span>`;
+      h += `</div>`;
+    });
+    h += `</div>`;
+  }
+
   h += `</div></div>`;
   return h;
 }
   
+
+// O-110 (FlightKeys): a DDG item's MEL / RMK notes as printed, one line each in the item's own
+// description style; a wrapped note keeps its printed line breaks (§5.7). NavBlue items have none.
+function _ddgNotesHtml(item) {
+  return (Array.isArray(item.notes) ? item.notes : []).filter(n => n && n.text)
+    .map(n => `<span class="ddg-item-desc">${String(n.text).split('\n').map(esc).join('<br>')}</span>`).join('');
+}
 
 // ── NOTES SECTION (shared across all phases) ──────────────────────────────
 function renderNotesSection() {
@@ -15300,6 +15519,7 @@ function renderNotesSection() {
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
+      h += _ddgNotesHtml(item);
       if (tlrBadge) h += tlrBadge;
       h += `</div>`;
       h += `</div>`;
@@ -15309,7 +15529,21 @@ function renderNotesSection() {
     h += `<span class="notes-sub-body notes-sub-empty">—</span>`;
   }
 
-  if (S.overflightPerms && S.overflightPerms.trim()) {
+  // O-110 (FlightKeys): the permits one per line as printed, each with its ADC number (§5.10), under their
+  // printed group heading (QA F-4: as the OFP and NavBlue's text print it, so a landing or take-off permit
+  // is never read as an overflight); NavBlue and flights saved before: the OFP's permits text as before.
+  const _PERMIT_HEAD = { OVERFLIGHT: '--- OVERFLIGHT PERMITS', LANDING: '--- LANDING PERMIT', TAKEOFF: '--- TAKEOFF PERMIT' };
+  let _permType = '';
+  const _permLines = Array.isArray(S.permits) ? S.permits.map(p => {
+    const head = _PERMIT_HEAD[p.type] && p.type !== _permType ? _PERMIT_HEAD[p.type] : '';
+    _permType = p.type;
+    const entry = p.type === 'ADC' ? [p.country, p.adc].filter(Boolean).join(' ') : [p.country, p.reference].filter(Boolean).join(' ');
+    return [head, entry, p.route, p.restriction, p.type === 'ADC' ? '' : p.adc].filter(Boolean).join('\n');
+  }).filter(Boolean) : null;
+  if (_permLines && _permLines.length) {
+    h += `<span class="notes-sub-header">OVERFLIGHTS</span>`;
+    h += `<span class="notes-sub-body">${_permLines.join('\n').split('\n').map(esc).join('<br>')}</span>`;
+  } else if (!_permLines && S.overflightPerms && S.overflightPerms.trim()) {
     h += `<span class="notes-sub-header">OVERFLIGHTS</span>`;
     h += `<span class="notes-sub-body">${esc(S.overflightPerms)}</span>`;
   }
@@ -16113,17 +16347,54 @@ function renderAptIssues(status) {
   return h || `<div class="apt-issue g">✓ No issues at ETA window</div>`;
 }
 
+// TANKER display rule (3-6 Nov): a FlightKeys Company item keyed IIII-TANKER (tankering into IIII) is shown
+// on the destination card only. The ops-note body is the module's own item list (O-39: each item from its
+// "SUBJECT:" line), so the item is found by that line, never by its wording.
+function _opsNoteBody(icao, body) {
+  if (S.ofpFormat !== 'flightkeys' || icao === (S.destIcao || '').toUpperCase()) return body || '';
+  const out = [];
+  let skip = false;
+  (body || '').split('\n').forEach(l => {
+    if (/^SUBJECT:/.test(l.trim())) skip = l.trim() === `SUBJECT: ${icao}-TANKER`;
+    if (!skip) out.push(l);
+  });
+  return out.join('\n');
+}
+
 function renderAptOpsNotes(icao) {
-  const note = (airportData[icao] || {}).opsNotes;
-  if (!note) return '';
+  const data = airportData[icao] || {};
+  const note = data.opsNotes;
+  // O-110 (FlightKeys): the airport's OFP remarks, one row per remark as the parser groups it (D63),
+  // its printed line breaks kept; a sub-heading (ARRIVALS, DEPARTURES, …) once before its remarks.
+  const remarkRows = [];
+  let subHd = '';
+  (Array.isArray(data.remarks) ? data.remarks : []).forEach(r => {
+    if (!r || !r.text) return;
+    if (r.subHeading && r.subHeading !== subHd) remarkRows.push(r.subHeading);
+    subHd = r.subHeading || '';
+    remarkRows.push(r.text);
+  });
+  // O-110 (FlightKeys): a CAT II/III restriction the OFP Remarks print for this airport, as printed; the
+  // Descent summary shows it too, but lists no departure airport.
+  (Array.isArray(S.catIiIiiRestrictions) ? S.catIiIiiRestrictions : [])
+    .forEach(c => { if (c && c.airport === icao && c.text) remarkRows.push(c.text); });
+  if (!note && !remarkRows.length) return '';
   
   // Parse body into lines, skip empty and punctuation-only lines
-  const lines = (note.body || '')
+  const lines = (note ? _opsNoteBody(icao, note.body) : '')
     .split('\n')
     .map(l => l.trim())
     .filter(l => l && !/^[-\s]*$/.test(l));
   
-  const bodyRows = lines
+  const bodyRows = remarkRows
+    .map(text => `
+      <div class="notam-item">
+        <div class="notam-item-hdr">
+          <span class="notam-dot y"></span>
+          <span class="notam-item-label">${text.split('\n').map(esc).join('<br>')}</span>
+        </div>
+      </div>`)
+    .join('') + lines
     .map(line => `
       <div class="notam-item">
         <div class="notam-item-hdr">
@@ -16153,6 +16424,37 @@ function renderAptOpsNotes(icao) {
       </div>
       ${bodyHtml}
     </div>`;
+}
+
+// ── RAW views (step 5e-2 display PR 2, O-104, O-107, D64, D65, D76) ──────────
+// Each RAW view is a collapsed group (the existing .notam-group); its body is the text exactly as
+// printed in one .notam-raw-text block (D54: line breaks and indentation kept, never reflowed).
+// The text is in _rawViews (never saved). A flight whose stored PDF is missing says so (O-107).
+const _RAW_MISSING = 'RAW not available \u2013 re-import the package';
+function _rawBody(text) {
+  if (typeof text === 'string') return `<pre class="notam-raw-text">${esc(text)}</pre>`;
+  return _rawViews && _rawViews.missing ? `<pre class="notam-raw-text">${esc(_RAW_MISSING)}</pre>` : '';
+}
+function renderRawGroup(label, bodyHtml) {
+  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  let h = `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+  h += `<span class="notam-group-label">${esc(label)}</span>${CHEV}</div>`;
+  h += `<div class="notam-group-body" hidden>${bodyHtml}</div></div>`;
+  return h;
+}
+// The airport card's RAW groups (FlightKeys): its NOTAM Briefing block, its Weather Briefing block
+// (TAF -> METAR -> ATIS, D65) and the weather its OFP Remarks print (D46; both weather sources expandable).
+function renderAptRaw(icao) {
+  const ix = S.rawIndex && S.rawIndex.apt ? S.rawIndex.apt[icao] : null;
+  const v  = _rawViews && _rawViews.apt ? _rawViews.apt[icao] : null;
+  const rw = (airportData[icao] || {}).remarksWeather;
+  let h = '';
+  if (ix && ix.includes('N')) h += renderRawGroup('RAW NOTAMs', _rawBody(v ? v.notams : null));
+  if (ix && ix.includes('W')) h += renderRawGroup('RAW Weather', _rawBody(v ? v.weather : null));
+  if (Array.isArray(rw) && rw.length) {
+    h += renderRawGroup('Remarks Weather', rw.map(w => _rawBody([w.source, w.text].filter(Boolean).join('\n'))).join(''));
+  }
+  return h ? `<div class="apt-issues-list"><div class="notam-groups">${h}</div></div>` : '';
 }
 
 function buildAirportCards() {
@@ -16236,7 +16538,7 @@ function buildAirportCards() {
         <span class="apt-curfew-delta">${esc(curfewDeltaStr)}</span>
         <svg viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:7px;height:11px;flex-shrink:0;color:var(--label3)"><path d="M1 1l6.5 6L1 13"/></svg>
       </div>` : ''}
-      ${renderAptOpsNotes(apt.icao)}
+      ${renderAptOpsNotes(apt.icao)}${renderAptRaw(apt.icao)}
       <div class="apt-inputs" id="api-in-${apt.icao}">
         <div class="apt-input-row">
           <div class="apt-input-label">NOTAM</div>
@@ -16453,8 +16755,13 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   var effectiveWx  = isEwins ? _ewRef.ewinsWeather : weatherText;
   var effectiveWin = isEwins ? (_ewRef.ewinsWindow  || wxWindowOverride) : wxWindowOverride;
   var hW_eff = !!(effectiveWx && effectiveWx.trim().length > 0);
+  // Step 5e-2 display PR 2 (display rule 3-6 Nov, D34, D46): the weather the OFP Remarks print for this
+  // airport (FlightKeys remarksWeather) is evaluated too, as a second source; the worse governs. Under
+  // E-WINS the E-WINS forecast stays controlling (D46) and the remarks weather is not used.
+  var remarksWx = (!isEwins && _ewRef && Array.isArray(_ewRef.remarksWeather))
+    ? _ewRef.remarksWeather.filter(function (w) { return w && typeof w.text === 'string' && w.text.trim(); }) : [];
 
-  if (!hN && !hW_eff) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
+  if (!hN && !hW_eff && !remarksWx.length) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
 
   // D51 (F5): the ETA/DEP as ONE dated value from the timeline: its UTC
   // date-and-time (etaMs) and its minutes of day (etaMin), from the same valid
@@ -16534,15 +16841,20 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   //   OPERATIONAL (YELLOW) — Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM
   //   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
   //   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
-  if (hW_eff) {
-    const relevantWx = extractEtaWindow(effectiveWx, etaMin, effectiveWin, etaMs === null ? null : _tlISO(etaMs));
+  // One weather source: its issues into issues / wxIssues and worst. first = false (a remarks report):
+  // a row whose text is already on the card is not repeated. Returns the prevailing ceiling and vis.
+  const _wxSource = (wxText, wxWin, first) => {
+    const relevantWx = extractEtaWindow(wxText, etaMin, wxWin, etaMs === null ? null : _tlISO(etaMs));
     const wx = relevantWx.toUpperCase();
 
     const ceil      = pCeil(wx);
     const vis       = pVis(wx);
     const rvrResult = pRVR(wx);
 
-    const _pushWx = (issue) => { issues.push(issue); wxIssues.push(issue); };
+    const _pushWx = (issue) => {
+      if (!first && wxIssues.some(i => i.text === issue.text)) return;
+      issues.push(issue); wxIssues.push(issue);
+    };
 
     // Prevailing ceiling + vis — worst governs
     const status = classifyAirportStatus(ceil, vis ? vis.sm : null);
@@ -16629,8 +16941,15 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
       _pushWx({ level:'red', text:'⚠ Windshear' }); worst = bump(worst,'red');
     }
 
+    return { ceil, vis };
+  };
+  let _wxMain = null;
+  if (hW_eff) _wxMain = _wxSource(effectiveWx, effectiveWin, true);
+  remarksWx.forEach(w => { const r = _wxSource(w.text, wxWindowOverride, false); if (!_wxMain) _wxMain = r; });
+  if (_wxMain) {
+    const { ceil, vis } = _wxMain;
     // Open — no issues
-    if (!wxIssues.filter(i => i.level !== 'green').length && hW_eff) {
+    if (!wxIssues.filter(i => i.level !== 'green').length) {
       const visStr  = vis  ? `, VIS ${vis.label}`  : '';
       const ceilStr = ceil !== null ? ` (CIG ${ceil}ft${visStr})` : '';
       const openIssue = { level:'green', text:`✓ Open — wx at or above mins${ceilStr}` };
@@ -16638,7 +16957,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     }
   }
 
-  if (worst === 'unknown' && (hN || hW_eff)) worst = 'green';
+  if (worst === 'unknown' && (hN || hW_eff || remarksWx.length)) worst = 'green';
   return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues, isEwins: !!isEwins };
 }
 
@@ -17437,6 +17756,8 @@ renderNote();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', stamp);
   else stamp();
 })();
+// O-118 / F-5: crew names and OFP text out of every saved flight, once at app start.
+_savesStrip();
 renderFlightList();
 // ── Resume-view restore ───────────────────────────────────────────────────
 // Re-open the flight the crew was on before iOS reloaded the Home Screen app.

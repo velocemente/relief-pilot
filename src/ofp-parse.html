@@ -136,6 +136,41 @@ function _ofpAlertFindings() {
   return (Array.isArray(S.ofpFindings) ? S.ofpFindings : []).concat(extra);
 }
 
+// ── Step 5e-2 display PR 2: the FlightKeys RAW views (O-104, O-107, D64, D65, D71, D76) ──
+// The airport blocks as printed (notamsRaw, weatherRaw: TAF -> METAR -> ATIS), every printed FIR block
+// (firRaw) with the Company items FlightKeys keys to that FIR (firNotams origin COMPANY, O-40, D71), and
+// the Hazard Briefing blocks that print a product (hazards, D76). Kept in _rawViews only, never saved.
+function _ofpRawViews(result) {
+  const ad = result.airportData || {};
+  const apt = {};
+  Object.keys(ad).forEach(icao => {
+    const a = ad[icao] || {};
+    const n = typeof a.notamsRaw === 'string' ? a.notamsRaw : '';
+    const w = typeof a.weatherRaw === 'string' ? a.weatherRaw : '';
+    if (n.trim() || w.trim()) apt[icao] = { notams: n, weather: w };
+  });
+  const fn = Array.isArray(result.firNotams) ? result.firNotams : [];
+  const fir = (Array.isArray(result.firRaw) ? result.firRaw : []).map((b, k) => {
+    // firNotams and firRaw both hold one record per printed block, in printed order (contract 2.4).
+    const blk = fn[k] && fn[k].code === b.code ? fn[k] : null;
+    const company = blk ? (blk.items || []).filter(i => i && i.origin === 'COMPANY' && i.text).map(i => String(i.text)) : [];
+    return { code: String(b.code || ''), name: String(b.name || ''), raw: String(b.raw || ''), company };
+  });
+  const haz = (Array.isArray(result.hazards) ? result.hazards : []).filter(z => z && !z.empty && z.text)
+    .map(z => ({ code: String(z.code || ''), name: String(z.name || ''), text: String(z.text) }));
+  return { apt, fir, haz };
+}
+// What the screens need to draw the RAW groups when the views are not (yet) there: which airport has
+// which block (N = NOTAMs, W = weather), the FIR and hazard blocks by code and name. No printed text.
+function _ofpRawIndex(v) {
+  const apt = {};
+  Object.keys(v.apt).forEach(icao => { apt[icao] = (v.apt[icao].notams.trim() ? 'N' : '') + (v.apt[icao].weather.trim() ? 'W' : ''); });
+  return { apt, fir: v.fir.map(b => ({ code: b.code, name: b.name, company: b.company.length })),
+           haz: v.haz.map(z => ({ code: z.code, name: z.name })) };
+}
+
+const _OFP_REMARKS_SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];   // O-127
+
 // Returns false when the package is refused (D89): the caller stays on the import screen.
 function parseOFP() {
   let result;
@@ -156,6 +191,12 @@ function parseOFP() {
     if (!airportData[icao].notams  && src.notams)  airportData[icao].notams  = src.notams;
     if (src.curfew) airportData[icao].curfew = src.curfew;
     if (src.opsNotes && !airportData[icao].opsNotes) airportData[icao].opsNotes = src.opsNotes;
+    // FlightKeys (O-110, D34, D63): the airport's OFP remarks as the parser groups them (line breaks kept)
+    // and its remarks weather (D46: never merged into weather; evalAirport() reads it). NavBlue: none.
+    if (Array.isArray(src.remarks) && src.remarks.length)
+      airportData[icao].remarks = src.remarks.map(r => ({ text: String(r.text || ''), subHeading: r.subHeading ? String(r.subHeading) : '' }));
+    if (Array.isArray(src.remarksWeather) && src.remarksWeather.length)
+      airportData[icao].remarksWeather = src.remarksWeather.map(w => ({ source: String(w.source || ''), type: String(w.type || ''), text: String(w.text || '') }));
     // E-WINS: always overwrite — WSITAF supersedes any previously stored TAF
     if (src.ewinsWeather) {
       airportData[icao].ewinsWeather = src.ewinsWeather;
@@ -243,6 +284,25 @@ function parseOFP() {
   // Parser findings (FlightKeys only; the NavBlue call returns none). Saved with S;
   // a flight saved without them has no list (O-76).
   if (Array.isArray(result.findings)) S.ofpFindings = result.findings;
+  // Step 5e-2 display PR 2 (FlightKeys only; the NavBlue call returns none of these, D47).
+  if (Array.isArray(result.firRaw)) {
+    S.ofpFormat = 'flightkeys';
+    S.securityMessages = (result.securityMessages || []).map(m => String((m && m.text) || '')).filter(Boolean);   // D45
+    S.permits = (result.permits || []).map(p => ({ type: String(p.type || ''), country: String(p.country || ''),
+      reference: String(p.reference || ''), route: String(p.route || ''), restriction: String(p.restriction || ''),
+      adc: String(p.adc || ''), missing: !!p.missing }));
+    S.catIiIiiRestrictions = (result.catIiIiiRestrictions || []).map(c => ({ airport: c.airport || null,
+      category: String(c.category || ''), runways: Array.isArray(c.runways) ? c.runways.map(String) : [],
+      text: String(c.text || ''), source: String(c.source || '') }));
+    // O-127 (Exec, C): the OFP remark records shown in "OFP Remarks" on the Preflight card, as the parser
+    // groups them (D63 / D63a, line breaks kept), in release order: PCF reasons, extra-fuel reasons, route,
+    // ADHOC penalty. Every other record without a NavBlue slot stays on the OFP tab.
+    S.ofpRemarks = (result.ofpRemarks || []).filter(r => r && _OFP_REMARKS_SHOWN.includes(r.category) && r.text)
+      .map(r => ({ category: String(r.category), text: String(r.text) }));
+    // O-107: the RAW views from the PDF just read; pasted text has no RAW (D95).
+    _rawViews = pdfPages ? _ofpRawViews(result) : null;
+    if (_rawViews) S.rawIndex = _ofpRawIndex(_rawViews);
+  }
   if (result.zfwIncrFactor != null)
     S.zfwIncrFactor = result.zfwIncrFactor;
   S.rawOFP = result.rawOFP || '';  // retained for ENR Timeline V2 navlog extraction

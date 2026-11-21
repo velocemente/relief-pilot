@@ -14,12 +14,38 @@ function _crewAnon(c) {
   if (c.manual) return c;
   return { role: String(c.role || ''), active: c.active !== false, displayName: '', ...(c.isSen === true ? { isSen: true } : {}) };   // F-1: the mark, no name
 }
+// O-118 / F-5 (step 5e-2 display PR 2): no crew names in any save, either format. The OFP text (crew list
+// included) never leaves the app: it is not saved (no "raw", no state.rawOFP) and is re-derived from the
+// stored PDF when the flight is opened. A save made before keeps its other fields.
+function _saveStrip(f) {
+  if (!f || typeof f !== 'object') return false;
+  let changed = false;
+  if ('raw' in f) { delete f.raw; changed = true; }
+  const st = f.state;
+  if (st && typeof st === 'object') {
+    if ('rawOFP' in st) { delete st.rawOFP; changed = true; }
+    if (Array.isArray(st.crewMembers)) {
+      const anon = st.crewMembers.map(_crewAnon).filter(Boolean);
+      if (JSON.stringify(anon) !== JSON.stringify(st.crewMembers)) { st.crewMembers = anon; changed = true; }
+    }
+  }
+  return changed;
+}
+// Every saved flight, once at app start (not only when opened). Writes only when a save changed.
+function _savesStrip() {
+  const flights = getFlights();
+  let changed = false;
+  flights.forEach(f => { if (_saveStrip(f)) changed = true; });
+  if (changed) putFlights(flights);
+}
 function saveFlight() {
   if (!S.fltNum && !S.date) return;
   const flights = getFlights();
   const id = 'f_' + Date.now();
   const idx = flights.findIndex(f => f.fltNum === S.fltNum && f.date === S.date);
-  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state:{...S}, raw:pdfRawText.substring(0,10000), aptData: JSON.parse(JSON.stringify(airportData)),
+  const state = {...S};
+  delete state.rawOFP;   // O-118: re-derived from the stored PDF (_ofpRederive)
+  const entry = { id, fltNum:S.fltNum, date:S.date, at:new Date().toISOString(), state, aptData: JSON.parse(JSON.stringify(airportData)),
                   timeline: JSON.parse(JSON.stringify(_tl)) };   // D51: dated OUT / OFF / ETAs
   const stableId = idx >= 0 ? flights[idx].id : entry.id;
   if (idx >= 0) { flights[idx] = {...entry, id: stableId}; }
@@ -65,7 +91,9 @@ function loadFlight(entry) {
       if (k >= 0 && flights[k].state) { flights[k].state.crewMembers = anon; putFlights(flights); }
     }
   }
-  pdfRawText = entry.raw || '';
+  // O-118: a save holds no OFP text; a save made before still may (removed at app start, and here).
+  S.rawOFP = '';
+  pdfRawText = '';
   pdfArrayBuffer = null;   // start null; async restore from IndexedDB below
   clearOFPPanel();         // wipe any canvas pages from the previously viewed flight
   _fcirActive = !!(S.fcirAsap);
@@ -88,9 +116,12 @@ function loadFlight(entry) {
   // version has none: each saved time is placed nearest its OFP planned time
   // (_tlRecover(); no OFP times in the save → as at import).
   if (!_tlRestore(entry.timeline)) _tlRecover();
-  // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text
+  // Async: restore PDF binary from IndexedDB so OFP tab shows pages, not text; then the OFP text
+  // (navlog, O-118) and the FlightKeys RAW views (O-107) are re-derived from it.
+  const seq = ++_loadSeq;
   if (entry.id) {
     _pdfDb.get(entry.id).then(buf => {
+      if (seq !== _loadSeq) return;   // another flight was opened meanwhile
       if (buf) {
         pdfArrayBuffer = buf;
         // If the OFP panel is currently visible, re-render it with the PDF
@@ -99,9 +130,11 @@ function loadFlight(entry) {
           clearOFPPanel();
           loadOFPPanel();
         }
+        return _ofpRederive(buf, seq);
       }
-    }).catch(() => {});
-  }
+      _rawMissing(seq);
+    }).catch(() => _rawMissing(seq));
+  } else _rawMissing(seq);
   renderNote();
   push('screen-flight');
   const tog = document.getElementById('fcirToggle');
@@ -109,6 +142,37 @@ function loadFlight(entry) {
   const lbl = document.getElementById('fcirLabel');
   if (lbl) lbl.classList.toggle('active', _fcirActive);
   _saveResumeView();
+}
+
+// O-107 / O-118: the opened flight's OFP text and RAW views, read again from its stored PDF exactly as
+// processPDF() reads it (_pdfReadText) and, for a FlightKeys flight (S.rawIndex), parsed again for the
+// RAW views only: nothing else in S or airportData is changed. The screens are redrawn when done.
+let _loadSeq = 0;
+function _ofpRederive(buf, seq) {
+  return loadPdfJs()
+    .then(() => pdfjsLib.getDocument({data: new Uint8Array(buf.slice(0))}).promise)
+    .then(pdf => _pdfReadText(pdf))
+    .then(({ fullText, pages }) => {
+      if (seq !== _loadSeq) return;
+      pdfRawText = fullText;
+      pdfPages = pages;
+      S.rawOFP = fullText;   // the parsers' rawOFP is the text itself (both formats)
+      if (S.rawIndex) {
+        const r = _ofpParse(fullText, pages);
+        _rawViews = r && Array.isArray(r.firRaw) ? _ofpRawViews(r) : { missing: true };
+      }
+      _rerenderOpen();
+    })
+    .catch(() => _rawMissing(seq));
+}
+// The stored PDF is missing or cannot be read: a FlightKeys flight's RAW groups say so (O-107).
+function _rawMissing(seq) {
+  if (seq !== _loadSeq) return;
+  if (S.rawIndex) { _rawViews = { missing: true }; _rerenderOpen(); }
+}
+function _rerenderOpen() {
+  renderNote();
+  if (_activeFlightTab === 'airports') buildAirportCards();
 }
 
 function renderFlightList() {

@@ -445,17 +445,54 @@ function renderAptIssues(status) {
   return h || `<div class="apt-issue g">✓ No issues at ETA window</div>`;
 }
 
+// TANKER display rule (3-6 Nov): a FlightKeys Company item keyed IIII-TANKER (tankering into IIII) is shown
+// on the destination card only. The ops-note body is the module's own item list (O-39: each item from its
+// "SUBJECT:" line), so the item is found by that line, never by its wording.
+function _opsNoteBody(icao, body) {
+  if (S.ofpFormat !== 'flightkeys' || icao === (S.destIcao || '').toUpperCase()) return body || '';
+  const out = [];
+  let skip = false;
+  (body || '').split('\n').forEach(l => {
+    if (/^SUBJECT:/.test(l.trim())) skip = l.trim() === `SUBJECT: ${icao}-TANKER`;
+    if (!skip) out.push(l);
+  });
+  return out.join('\n');
+}
+
 function renderAptOpsNotes(icao) {
-  const note = (airportData[icao] || {}).opsNotes;
-  if (!note) return '';
+  const data = airportData[icao] || {};
+  const note = data.opsNotes;
+  // O-110 (FlightKeys): the airport's OFP remarks, one row per remark as the parser groups it (D63),
+  // its printed line breaks kept; a sub-heading (ARRIVALS, DEPARTURES, …) once before its remarks.
+  const remarkRows = [];
+  let subHd = '';
+  (Array.isArray(data.remarks) ? data.remarks : []).forEach(r => {
+    if (!r || !r.text) return;
+    if (r.subHeading && r.subHeading !== subHd) remarkRows.push(r.subHeading);
+    subHd = r.subHeading || '';
+    remarkRows.push(r.text);
+  });
+  // O-110 (FlightKeys): a CAT II/III restriction the OFP Remarks print for this airport, as printed; the
+  // Descent summary shows it too, but lists no departure airport.
+  (Array.isArray(S.catIiIiiRestrictions) ? S.catIiIiiRestrictions : [])
+    .forEach(c => { if (c && c.airport === icao && c.text) remarkRows.push(c.text); });
+  if (!note && !remarkRows.length) return '';
   
   // Parse body into lines, skip empty and punctuation-only lines
-  const lines = (note.body || '')
+  const lines = (note ? _opsNoteBody(icao, note.body) : '')
     .split('\n')
     .map(l => l.trim())
     .filter(l => l && !/^[-\s]*$/.test(l));
   
-  const bodyRows = lines
+  const bodyRows = remarkRows
+    .map(text => `
+      <div class="notam-item">
+        <div class="notam-item-hdr">
+          <span class="notam-dot y"></span>
+          <span class="notam-item-label">${text.split('\n').map(esc).join('<br>')}</span>
+        </div>
+      </div>`)
+    .join('') + lines
     .map(line => `
       <div class="notam-item">
         <div class="notam-item-hdr">
@@ -485,5 +522,36 @@ function renderAptOpsNotes(icao) {
       </div>
       ${bodyHtml}
     </div>`;
+}
+
+// ── RAW views (step 5e-2 display PR 2, O-104, O-107, D64, D65, D76) ──────────
+// Each RAW view is a collapsed group (the existing .notam-group); its body is the text exactly as
+// printed in one .notam-raw-text block (D54: line breaks and indentation kept, never reflowed).
+// The text is in _rawViews (never saved). A flight whose stored PDF is missing says so (O-107).
+const _RAW_MISSING = 'RAW not available \u2013 re-import the package';
+function _rawBody(text) {
+  if (typeof text === 'string') return `<pre class="notam-raw-text">${esc(text)}</pre>`;
+  return _rawViews && _rawViews.missing ? `<pre class="notam-raw-text">${esc(_RAW_MISSING)}</pre>` : '';
+}
+function renderRawGroup(label, bodyHtml) {
+  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  let h = `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
+  h += `<span class="notam-group-label">${esc(label)}</span>${CHEV}</div>`;
+  h += `<div class="notam-group-body" hidden>${bodyHtml}</div></div>`;
+  return h;
+}
+// The airport card's RAW groups (FlightKeys): its NOTAM Briefing block, its Weather Briefing block
+// (TAF -> METAR -> ATIS, D65) and the weather its OFP Remarks print (D46; both weather sources expandable).
+function renderAptRaw(icao) {
+  const ix = S.rawIndex && S.rawIndex.apt ? S.rawIndex.apt[icao] : null;
+  const v  = _rawViews && _rawViews.apt ? _rawViews.apt[icao] : null;
+  const rw = (airportData[icao] || {}).remarksWeather;
+  let h = '';
+  if (ix && ix.includes('N')) h += renderRawGroup('RAW NOTAMs', _rawBody(v ? v.notams : null));
+  if (ix && ix.includes('W')) h += renderRawGroup('RAW Weather', _rawBody(v ? v.weather : null));
+  if (Array.isArray(rw) && rw.length) {
+    h += renderRawGroup('Remarks Weather', rw.map(w => _rawBody([w.source, w.text].filter(Boolean).join('\n'))).join(''));
+  }
+  return h ? `<div class="apt-issues-list"><div class="notam-groups">${h}</div></div>` : '';
 }
 

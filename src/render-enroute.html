@@ -103,7 +103,11 @@ function renderEnroutePhase() {
   // ── Enroute NOTAM card renderer ──────────────────────────────────
   const renderEnrouteNotams = () => {
     const en = S.enrouteNotams;
-    if (!en) return '';
+    // FlightKeys PDF import (O-104, O-112): every printed FIR block as its own RAW group, in place of
+    // the parser's one combined "FIR" text — never both, unless the RAW cannot be rebuilt (O-135).
+    // NavBlue and pasted text: as before.
+    const fkRaw = renderEnrouteRaw();
+    if (!en && !fkRaw) return '';
     const SECTION_LABELS = {
       route:      'Route',
       fir:        'FIR',
@@ -112,8 +116,11 @@ function renderEnroutePhase() {
       geographic: 'Geographic',
     };
     // Build list of non-empty sections
-    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en[k] && en[k].trim());
-    if (!filled.length) return '';
+    // O-135 (QA F-2): when the RAW cannot be rebuilt (stored PDF missing), the saved FIR text is shown as
+    // before, beside the RAW groups that say so.
+    const rawMissing = !!(_rawViews && _rawViews.missing);
+    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en && en[k] && en[k].trim() && !(fkRaw && k === 'fir' && !rawMissing));
+    if (!filled.length && !fkRaw) return '';
 
     // For waypoint section: highlight any navLog waypoint names found in the text
     const highlightWpts = (text) => {
@@ -154,6 +161,7 @@ function renderEnroutePhase() {
       h += `</div>`;
       h += `</div>`;
     });
+    h += fkRaw;
 
     h += `</div></div>`;
     return h;
@@ -280,4 +288,47 @@ function _natCardTrack() {
     dirOrder: chosen ? dirOf(chosen) : null,
     assignedDir: chosen && chosen.direction ? chosen.direction : null,
   });
+}
+
+// ── Enroute RAW groups (step 5e-2 display PR 2; FlightKeys PDF import only) ─────
+// O-104, O-112, D64, D71: one collapsed group per printed FIR block of the NOTAM Briefing, labelled
+// "FIR XXXX NOTAMs", its text as printed; the Company items FlightKeys keys to that FIR follow in their
+// own collapsed group "Company NOTAMs" directly after it (O-131), never inside it.
+// D76: one collapsed group per Hazard Briefing FIR block that prints a product,
+// never in weather or E-WINS. O-111: one "Other briefing airports" group for the briefing airports
+// that have no card: RAW only, no evaluation. The text is in _rawViews (never saved, O-107).
+function renderEnrouteRaw() {
+  const ix = S.rawIndex;
+  if (!ix) return '';
+  const v = _rawViews;
+  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  let h = '';
+  (ix.fir || []).forEach((b, k) => {
+    const vb = v && Array.isArray(v.fir) ? v.fir[k] : null;
+    h += renderRawGroup(`FIR ${b.code || b.name} NOTAMs`, _rawBody(vb ? vb.raw : null));
+    // O-131: the Company items keyed to this FIR, their own collapsed group directly after it (D71).
+    if (b.company) h += renderRawGroup('Company NOTAMs', vb ? vb.company.map(t => _rawBody(t)).join('') : _rawBody(null));
+  });
+  (ix.haz || []).forEach((z, k) => {
+    const vz = v && Array.isArray(v.haz) ? v.haz[k] : null;
+    h += renderRawGroup(`FIR ${z.code || z.name} Hazards`, _rawBody(vz ? vz.text : null));
+  });
+  const carded = new Set(getAllAirports().map(a => a.icao));
+  const others = Object.keys(ix.apt || {}).filter(icao => !carded.has(icao));
+  if (others.length) {
+    let body = '';
+    others.forEach(icao => {
+      const va = v && v.apt ? v.apt[icao] : null;
+      const flags = ix.apt[icao] || '';
+      let inner = '';
+      if (va) {
+        if (flags.includes('N')) inner += _rawBody(va.notams);
+        if (flags.includes('W')) inner += _rawBody(va.weather);
+      } else inner = _rawBody(null);
+      body += `<div class="notam-item"><div class="notam-item-hdr" onclick="toggleNotamItem(this)">`;
+      body += `<span class="notam-item-label">${esc(icao)}</span>${CHEV}</div><div hidden>${inner}</div></div>`;
+    });
+    h += renderRawGroup('Other briefing airports', body);
+  }
+  return h;
 }

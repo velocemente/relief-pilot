@@ -79,7 +79,7 @@ function buildAirportCards() {
         <span class="apt-curfew-delta">${esc(curfewDeltaStr)}</span>
         <svg viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:7px;height:11px;flex-shrink:0;color:var(--label3)"><path d="M1 1l6.5 6L1 13"/></svg>
       </div>` : ''}
-      ${renderAptOpsNotes(apt.icao)}
+      ${renderAptOpsNotes(apt.icao)}${renderAptRaw(apt.icao)}
       <div class="apt-inputs" id="api-in-${apt.icao}">
         <div class="apt-input-row">
           <div class="apt-input-label">NOTAM</div>
@@ -296,8 +296,13 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   var effectiveWx  = isEwins ? _ewRef.ewinsWeather : weatherText;
   var effectiveWin = isEwins ? (_ewRef.ewinsWindow  || wxWindowOverride) : wxWindowOverride;
   var hW_eff = !!(effectiveWx && effectiveWx.trim().length > 0);
+  // Step 5e-2 display PR 2 (display rule 3-6 Nov, D34, D46): the weather the OFP Remarks print for this
+  // airport (FlightKeys remarksWeather) is evaluated too, as a second source; the worse governs. Under
+  // E-WINS the E-WINS forecast stays controlling (D46) and the remarks weather is not used.
+  var remarksWx = (!isEwins && _ewRef && Array.isArray(_ewRef.remarksWeather))
+    ? _ewRef.remarksWeather.filter(function (w) { return w && typeof w.text === 'string' && w.text.trim(); }) : [];
 
-  if (!hN && !hW_eff) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
+  if (!hN && !hW_eff && !remarksWx.length) return { color:'unknown', issues:[], wxIssues:[], rwyGroups, sidIssues, starIssues, isEwins: false };
 
   // D51 (F5): the ETA/DEP as ONE dated value from the timeline: its UTC
   // date-and-time (etaMs) and its minutes of day (etaMin), from the same valid
@@ -377,15 +382,20 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   //   OPERATIONAL (YELLOW) — Ceiling 1,000–2,999 ft OR visibility 3–4.99 SM
   //   INSTRUMENTS (RED)    — Ceiling 600–999 ft   OR visibility 1–2.99 SM
   //   LIFR        (RED)    — Ceiling < 600 ft     OR visibility < 1 SM
-  if (hW_eff) {
-    const relevantWx = extractEtaWindow(effectiveWx, etaMin, effectiveWin, etaMs === null ? null : _tlISO(etaMs));
+  // One weather source: its issues into issues / wxIssues and worst. first = false (a remarks report):
+  // a row whose text is already on the card is not repeated. Returns the prevailing ceiling and vis.
+  const _wxSource = (wxText, wxWin, first) => {
+    const relevantWx = extractEtaWindow(wxText, etaMin, wxWin, etaMs === null ? null : _tlISO(etaMs));
     const wx = relevantWx.toUpperCase();
 
     const ceil      = pCeil(wx);
     const vis       = pVis(wx);
     const rvrResult = pRVR(wx);
 
-    const _pushWx = (issue) => { issues.push(issue); wxIssues.push(issue); };
+    const _pushWx = (issue) => {
+      if (!first && wxIssues.some(i => i.text === issue.text)) return;
+      issues.push(issue); wxIssues.push(issue);
+    };
 
     // Prevailing ceiling + vis — worst governs
     const status = classifyAirportStatus(ceil, vis ? vis.sm : null);
@@ -472,8 +482,15 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
       _pushWx({ level:'red', text:'⚠ Windshear' }); worst = bump(worst,'red');
     }
 
+    return { ceil, vis };
+  };
+  let _wxMain = null;
+  if (hW_eff) _wxMain = _wxSource(effectiveWx, effectiveWin, true);
+  remarksWx.forEach(w => { const r = _wxSource(w.text, wxWindowOverride, false); if (!_wxMain) _wxMain = r; });
+  if (_wxMain) {
+    const { ceil, vis } = _wxMain;
     // Open — no issues
-    if (!wxIssues.filter(i => i.level !== 'green').length && hW_eff) {
+    if (!wxIssues.filter(i => i.level !== 'green').length) {
       const visStr  = vis  ? `, VIS ${vis.label}`  : '';
       const ceilStr = ceil !== null ? ` (CIG ${ceil}ft${visStr})` : '';
       const openIssue = { level:'green', text:`✓ Open — wx at or above mins${ceilStr}` };
@@ -481,7 +498,7 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     }
   }
 
-  if (worst === 'unknown' && (hN || hW_eff)) worst = 'green';
+  if (worst === 'unknown' && (hN || hW_eff || remarksWx.length)) worst = 'green';
   return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues, isEwins: !!isEwins };
 }
 
