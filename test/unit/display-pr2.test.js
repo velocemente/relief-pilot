@@ -23,12 +23,14 @@
  *   TC-177-010  O-107 RAW from the stored PDF after reload: the same groups and text as at import; the RAW text
  *               and the OFP text are not in the save; NEGATIVE another flight opened meanwhile is not overwritten
  *   TC-177-011  O-107 missing PDF: every RAW group says "RAW not available – re-import the package", the card is
- *               still evaluated; NEGATIVE with the PDF no such text; D95 pasted text has no RAW group at all
+ *               still evaluated; O-135 (QA F-2) the saved FIR text shows as on main (EBLG-KORD: 25 IDs); NEGATIVE
+ *               with the PDF no such text and no combined group; D95 pasted text has no RAW group at all
  *   TC-177-020  O-110 airport remarks on that airport's card (14 remarks, 6 airports), line breaks kept, a
  *               sub-heading once; NEGATIVE an airport without remarks has none
  *   TC-177-021  D45 security message on the Preflight card (LLBG-OMDW); NEGATIVE 25 other packages and NavBlue none
- *   TC-177-022  O-110 permits one per line with the ADC number (OMAA-VHHH Bangladesh); NEGATIVE a flight saved
- *               without permits shows the OFP permits text as before
+ *   TC-177-022  O-110 / QA F-4 permits one per line under their printed group heading (word PERMIT kept; landing 5
+ *               and take-off 2 never under OVERFLIGHT), ADC numbers and missing markers unchanged; NEGATIVE a flight
+ *               saved without permits shows the OFP permits text as before
  *   TC-177-023  O-110 CAT II/III restrictions: an airport restriction on that airport's card and Descent summary;
  *               NEGATIVE not on another airport; an MEL restriction is shown with its MEL item's notes only
  *   TC-177-024  O-110 MEL / DDG notes: 24 notes, 23 shown (one is under a 25-series item, hidden by the DDG list
@@ -39,7 +41,7 @@
  *               expandable; NEGATIVE E-WINS stays controlling (L15 PWAK), a report adds no duplicate row; on the
  *               26 no card status changes
  *   TC-177-027  O-127 (Exec, C): one collapsed "OFP Remarks" group on the Preflight card: PCF 17, extra fuel 3,
- *               route 5, ADHOC penalty 6 records as printed; NEGATIVE the other 261 records, NavBlue and old saves none
+ *               route 5, ADHOC penalty 6 records as printed, 21 packages; NEGATIVE the other 261 records, NavBlue and old saves none
  *   TC-177-030  O-118 / F-5: no OFP text and no crew name or number in any save, either format (56); every old save
  *               stripped once at app start, not only when opened; NEGATIVE clean saves are not rewritten
  *   TC-177-031  O-118 navlog after reload: the ETP times read from the navigation log are the same after reload
@@ -276,7 +278,7 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
   }
   assert.deepEqual(per, { pcf: 17, extraFuel: 3, route: 5, adhocPenalty: 6 });
   assert.equal(Object.values(hidden).reduce((a, b) => a + b, 0), 292 - 31, 'every other record stays out');
-  assert.ok(pk > 0);
+  assert.equal(pk, 21, 'packages with the group');
   // NEGATIVE: NavBlue none; a flight saved before (no S.ofpRemarks) none
   for (const fx of nbFixtures()) assert.ok(!labels((await imported(fx)).app.renderPreflightPhase()).includes('OFP Remarks'), fx.id);
   const imp = await importFixture(fkBy(/KCVG-KSEA/), FIX);
@@ -386,9 +388,26 @@ fixtureTest('TC-177-011 O-107 missing PDF: "RAW not available – re-import the 
     const st0 = run(imp.app, `(function(){const a=getAllAirports().find(x=>x.icao===${J(a.icao)});const d=airportData[a.icao];return evalAirport(a.icao,a.eta,d.notams,d.weather,a.wxWindow,a.role,S.acftType).color})()`);
     assert.equal(st, st0, `${a.icao}: the card is still evaluated from the saved NOTAMs and weather`);
   }
-  // NEGATIVE: with the PDF, no such text
+  // O-135 (QA F-2): the saved FIR text is shown as main shows it (the combined group), beside the RAW groups
+  const firGroup = h => { const i = h.indexOf('>FIR Company NOTAMs<'); if (i < 0) return null; const j = h.lastIndexOf('<div class="notam-group"', i); return h.slice(j, h.indexOf('</pre>', i) + 6); };
+  const fb = firGroup(app.renderEnroutePhase());
+  assert.ok(fb, 'missing PDF: the saved FIR text is shown');
+  assert.equal(unesc(fb.slice(fb.indexOf('>', fb.indexOf('<pre')) + 1, -6)), app.S.enrouteNotams.fir, 'exactly the saved text');
+  const asMain = loadApp({ storageData: { rp_flights: imp.app.sandbox.localStorage.getItem('rp_flights') } });
+  asMain.loadFlight(asMain.getFlights()[0]);
+  run(asMain, 'delete S.rawIndex; _rawViews = null');   // the flight as main shows it: no RAW
+  assert.equal(fb, firGroup(asMain.renderEnroutePhase()), 'the group exactly as main shows it');
+  // the NOTAM IDs on the whole Enroute screen, each occurrence (the QA count): main 25, all still shown
+  const idList = h => unesc(h.replace(/<[^>]+>/g, ' ')).match(/\b[A-Z]\d{1,5}\/\d{2}\b/g) || [];
+  const tally = l => l.reduce((m, i) => (m[i] = (m[i] || 0) + 1, m), {});
+  const mainIds = tally(idList(asMain.renderEnroutePhase())), headIds = tally(idList(app.renderEnroutePhase()));
+  assert.equal(Object.values(mainIds).reduce((a, b) => a + b, 0), 25, 'EBLG-KORD: main shows 25 NOTAM IDs on Enroute after reload');
+  assert.deepEqual(Object.keys(mainIds).filter(i => (headIds[i] || 0) < mainIds[i]), [], 'all 25 shown with the PDF missing');
+  assert.ok(app.renderEnroutePhase().includes(`<pre class="notam-raw-text">${MSG}</pre>`), 'the RAW groups keep the message');
+  // NEGATIVE: with the PDF, no such text and no combined group (never both)
   const ok = await reopened(fx, imp);
   assert.ok(!enrRaw(ok).includes('RAW not available') && !aptRaw(ok, ok.S.destIcao).includes('RAW not available'));
+  assert.equal(firGroup(ok.renderEnroutePhase()), null, 'RAW rebuilt: the combined group is not shown');
   // NEGATIVE D95: pasted FlightKeys text has no RAW group and no message
   const p = loadApp();
   pasteInto(p, imp.rawText);
@@ -438,23 +457,41 @@ fixtureTest('TC-177-021 D45: the security message on the Preflight card (1 packa
   assert.equal(n, 1);
 });
 
-fixtureTest('TC-177-022 O-110: permits one per line with the ADC number; a flight without permits keeps the OFP text', async () => {
+fixtureTest('TC-177-022 O-110/F-4: permits one per line under their printed group heading, with the ADC number; old saves as before', async () => {
+  const HEAD = /^--- (OVERFLIGHT|LANDING|TAKEOFF) PERMITS?$/;
+  const bodyOf = app => {
+    const m = run(app, 'renderNotesSection()').match(/<span class="notes-sub-header">OVERFLIGHTS<\/span><span class="notes-sub-body">([\s\S]*?)<\/span>/);
+    return m ? unesc(m[1]).split('<br>') : null;
+  };
   const fx = fkBy(/OMAA-VHHH/), imp = await imported(fx), r = parsed(imp);
-  const notes = run(imp.app, 'renderNotesSection()');
-  const body = unesc(notes.match(/<span class="notes-sub-header">OVERFLIGHTS<\/span><span class="notes-sub-body">([\s\S]*?)<\/span>/)[1]).split('<br>');
+  const body = bodyOf(imp.app);
   const adc = r.permits.find(p => p.adc);
   assert.ok(adc, 'one permit with an ADC number');
-  const k = body.indexOf([adc.type, adc.country, adc.reference].join(' '));
+  const k = body.indexOf([adc.country, adc.reference].join(' '));
   assert.ok(k >= 0, 'the permit line');
-  assert.equal(body[k + 1], adc.adc, 'its ADC number on the line after it');
-  assert.equal(body.length, r.permits.reduce((n, p) => n + 1 + [p.route, p.restriction, p.adc].filter(Boolean).length, 0), 'one line per printed item');
-  // every FlightKeys package: each permit and its route / restriction lines, in print order
+  assert.equal(body[k + 1], adc.adc, 'its ADC number on the line after it, unchanged');
+  assert.equal(body[0], '--- OVERFLIGHT PERMITS', 'the printed group heading, with the word PERMIT');
+  let landing = 0, takeoff = 0, missing = 0;
   for (const f of fkFixtures()) {
-    const i2 = await imported(f), r2 = parsed(i2), n2 = run(i2.app, 'renderNotesSection()');
-    assert.equal(n2.includes('>OVERFLIGHTS<'), r2.permits.length > 0, f.id);
-    r2.permits.forEach(p => assert.ok(unesc(n2).includes([p.type, p.country, p.reference].filter(Boolean).join(' ')), `${f.id} ${p.country}`));
+    const i2 = await imported(f), r2 = parsed(i2), b2 = bodyOf(i2.app);
+    assert.equal(!!b2, r2.permits.length > 0, f.id);
+    if (!b2) continue;
+    // the headings are the ones the OFP prints, in order, each once per group (FK-P: NavBlue's text shows them)
+    assert.deepEqual(b2.filter(l => HEAD.test(l)), plain(r2.overflightPerms.match(/--- [A-Z]+ PERMITS?/g)), `${f.id}: group headings`);
+    for (const p of r2.permits) {
+      const at = b2.indexOf([p.country, p.reference].filter(Boolean).join(' '));
+      assert.ok(at > 0, `${f.id} ${p.country}: its line, reference unchanged`);
+      const head = b2.slice(0, at).filter(l => HEAD.test(l)).pop();
+      assert.equal(head.split(' ')[1], p.type, `${f.id} ${p.country}: under its own ${p.type} heading, never under OVERFLIGHT`);
+      if (p.type === 'LANDING') landing++;
+      if (p.type === 'TAKEOFF') takeoff++;
+      if (p.missing) { missing++; assert.ok(/\/{3,}\s*PERMIT MISSING\s*\/{3,}/.test(b2[at]), 'the missing marker unchanged'); }
+      [p.route, p.restriction, p.adc].filter(Boolean).forEach(x => assert.ok(b2.includes(x), `${f.id}: ${p.country} detail line`));
+      assert.ok(!b2.some(l => /^(OVERFLIGHT|LANDING|TAKEOFF) /.test(l)), `${f.id}: no type word put in front of an entry`);
+    }
   }
-  // NEGATIVE: a flight saved before (no S.permits) shows the OFP permits text as before
+  assert.deepEqual([landing, takeoff, missing], [5, 2, 2]);
+  // NEGATIVE: a flight saved before (no S.permits) shows the OFP permits text as before; NavBlue: TC-177-040
   run(imp.app, 'delete S.permits');
   assert.ok(run(imp.app, 'renderNotesSection()').includes(`<span class="notes-sub-body">${run(imp.app, 'esc(S.overflightPerms)')}</span>`));
 });

@@ -14462,7 +14462,8 @@ function renderEnroutePhase() {
   const renderEnrouteNotams = () => {
     const en = S.enrouteNotams;
     // FlightKeys PDF import (O-104, O-112): every printed FIR block as its own RAW group, in place of
-    // the parser's one combined "FIR" text — never both. NavBlue and pasted text: as before.
+    // the parser's one combined "FIR" text — never both, unless the RAW cannot be rebuilt (O-135).
+    // NavBlue and pasted text: as before.
     const fkRaw = renderEnrouteRaw();
     if (!en && !fkRaw) return '';
     const SECTION_LABELS = {
@@ -14473,7 +14474,10 @@ function renderEnroutePhase() {
       geographic: 'Geographic',
     };
     // Build list of non-empty sections
-    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en && en[k] && en[k].trim() && !(fkRaw && k === 'fir'));
+    // O-135 (QA F-2): when the RAW cannot be rebuilt (stored PDF missing), the saved FIR text is shown as
+    // before, beside the RAW groups that say so.
+    const rawMissing = !!(_rawViews && _rawViews.missing);
+    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en && en[k] && en[k].trim() && !(fkRaw && k === 'fir' && !rawMissing));
     if (!filled.length && !fkRaw) return '';
 
     // For waypoint section: highlight any navLog waypoint names found in the text
@@ -15525,12 +15529,17 @@ function renderNotesSection() {
     h += `<span class="notes-sub-body notes-sub-empty">—</span>`;
   }
 
-  // O-110 (FlightKeys): the permits one per line as printed, each with its ADC number (§5.10); NavBlue and
-  // flights saved before: the OFP's permits text as before.
-  const _permLines = Array.isArray(S.permits) ? S.permits.map(p => [
-    [p.type, p.country, p.reference].filter(Boolean).join(' '),
-    p.route, p.restriction, p.adc,
-  ].filter(Boolean).join('\n')).filter(Boolean) : null;
+  // O-110 (FlightKeys): the permits one per line as printed, each with its ADC number (§5.10), under their
+  // printed group heading (QA F-4: as the OFP and NavBlue's text print it, so a landing or take-off permit
+  // is never read as an overflight); NavBlue and flights saved before: the OFP's permits text as before.
+  const _PERMIT_HEAD = { OVERFLIGHT: '--- OVERFLIGHT PERMITS', LANDING: '--- LANDING PERMIT', TAKEOFF: '--- TAKEOFF PERMIT' };
+  let _permType = '';
+  const _permLines = Array.isArray(S.permits) ? S.permits.map(p => {
+    const head = _PERMIT_HEAD[p.type] && p.type !== _permType ? _PERMIT_HEAD[p.type] : '';
+    _permType = p.type;
+    const entry = p.type === 'ADC' ? [p.country, p.adc].filter(Boolean).join(' ') : [p.country, p.reference].filter(Boolean).join(' ');
+    return [head, entry, p.route, p.restriction, p.type === 'ADC' ? '' : p.adc].filter(Boolean).join('\n');
+  }).filter(Boolean) : null;
   if (_permLines && _permLines.length) {
     h += `<span class="notes-sub-header">OVERFLIGHTS</span>`;
     h += `<span class="notes-sub-body">${_permLines.join('\n').split('\n').map(esc).join('<br>')}</span>`;

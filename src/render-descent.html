@@ -321,12 +321,17 @@ function renderNotesSection() {
     h += `<span class="notes-sub-body notes-sub-empty">—</span>`;
   }
 
-  // O-110 (FlightKeys): the permits one per line as printed, each with its ADC number (§5.10); NavBlue and
-  // flights saved before: the OFP's permits text as before.
-  const _permLines = Array.isArray(S.permits) ? S.permits.map(p => [
-    [p.type, p.country, p.reference].filter(Boolean).join(' '),
-    p.route, p.restriction, p.adc,
-  ].filter(Boolean).join('\n')).filter(Boolean) : null;
+  // O-110 (FlightKeys): the permits one per line as printed, each with its ADC number (§5.10), under their
+  // printed group heading (QA F-4: as the OFP and NavBlue's text print it, so a landing or take-off permit
+  // is never read as an overflight); NavBlue and flights saved before: the OFP's permits text as before.
+  const _PERMIT_HEAD = { OVERFLIGHT: '--- OVERFLIGHT PERMITS', LANDING: '--- LANDING PERMIT', TAKEOFF: '--- TAKEOFF PERMIT' };
+  let _permType = '';
+  const _permLines = Array.isArray(S.permits) ? S.permits.map(p => {
+    const head = _PERMIT_HEAD[p.type] && p.type !== _permType ? _PERMIT_HEAD[p.type] : '';
+    _permType = p.type;
+    const entry = p.type === 'ADC' ? [p.country, p.adc].filter(Boolean).join(' ') : [p.country, p.reference].filter(Boolean).join(' ');
+    return [head, entry, p.route, p.restriction, p.type === 'ADC' ? '' : p.adc].filter(Boolean).join('\n');
+  }).filter(Boolean) : null;
   if (_permLines && _permLines.length) {
     h += `<span class="notes-sub-header">OVERFLIGHTS</span>`;
     h += `<span class="notes-sub-body">${_permLines.join('\n').split('\n').map(esc).join('<br>')}</span>`;

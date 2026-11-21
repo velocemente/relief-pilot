@@ -104,7 +104,8 @@ function renderEnroutePhase() {
   const renderEnrouteNotams = () => {
     const en = S.enrouteNotams;
     // FlightKeys PDF import (O-104, O-112): every printed FIR block as its own RAW group, in place of
-    // the parser's one combined "FIR" text — never both. NavBlue and pasted text: as before.
+    // the parser's one combined "FIR" text — never both, unless the RAW cannot be rebuilt (O-135).
+    // NavBlue and pasted text: as before.
     const fkRaw = renderEnrouteRaw();
     if (!en && !fkRaw) return '';
     const SECTION_LABELS = {
@@ -115,7 +116,10 @@ function renderEnroutePhase() {
       geographic: 'Geographic',
     };
     // Build list of non-empty sections
-    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en && en[k] && en[k].trim() && !(fkRaw && k === 'fir'));
+    // O-135 (QA F-2): when the RAW cannot be rebuilt (stored PDF missing), the saved FIR text is shown as
+    // before, beside the RAW groups that say so.
+    const rawMissing = !!(_rawViews && _rawViews.missing);
+    const filled = Object.entries(SECTION_LABELS).filter(([k]) => en && en[k] && en[k].trim() && !(fkRaw && k === 'fir' && !rawMissing));
     if (!filled.length && !fkRaw) return '';
 
     // For waypoint section: highlight any navLog waypoint names found in the text
