@@ -79,6 +79,7 @@ function renderDescentPhase() {
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
+      h += _ddgNotesHtml(item);
       h += tlrBadge;
       h += `</div></div>`;
     });
@@ -228,10 +229,31 @@ function renderDescentAirportSummary() {
     h += `</div>`;
   }
 
+  // O-110 (FlightKeys): a CAT II/III restriction the OFP Remarks print for this airport (§5.6), as printed,
+  // in the NOT AUTHORIZED style. An MEL restriction (no airport) is shown with its MEL item's notes.
+  const catRestr = (Array.isArray(S.catIiIiiRestrictions) ? S.catIiIiiRestrictions : []).filter(r => r && r.airport === selApt.icao && r.text);
+  if (catRestr.length) {
+    h += `<div style="padding-left:18px;padding-top:var(--sp2);display:flex;flex-direction:column;gap:3px;border-top:0.5px solid var(--sep);margin-top:var(--sp2);padding-top:var(--sp2)">`;
+    catRestr.forEach(r => {
+      h += `<div style="display:flex;align-items:baseline;gap:var(--sp2);flex-wrap:wrap">`;
+      h += `<span style="font-size:var(--type-overline);font-weight:700;color:var(--sys-red);text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0;min-width:62px">CAT ${esc(r.category || 'II/III')}</span>`;
+      h += `<span style="font-family:var(--font-mono);font-size:13px;color:var(--sys-red);opacity:0.7;overflow-wrap:anywhere">${esc(r.text)}</span>`;
+      h += `</div>`;
+    });
+    h += `</div>`;
+  }
+
   h += `</div></div>`;
   return h;
 }
   
+
+// O-110 (FlightKeys): a DDG item's MEL / RMK notes as printed, one line each in the item's own
+// description style; a wrapped note keeps its printed line breaks (§5.7). NavBlue items have none.
+function _ddgNotesHtml(item) {
+  return (Array.isArray(item.notes) ? item.notes : []).filter(n => n && n.text)
+    .map(n => `<span class="ddg-item-desc">${String(n.text).split('\n').map(esc).join('<br>')}</span>`).join('');
+}
 
 // ── NOTES SECTION (shared across all phases) ──────────────────────────────
 function renderNotesSection() {
@@ -289,6 +311,7 @@ function renderNotesSection() {
       h += `<div class="ddg-item-body">`;
       if (isCdl) h += `<span class="ddg-tlr-badge cdl" style="margin-bottom:3px">CDL</span>`;
       h += `<span class="ddg-item-desc">${esc(item.desc)}</span>`;
+      h += _ddgNotesHtml(item);
       if (tlrBadge) h += tlrBadge;
       h += `</div>`;
       h += `</div>`;
@@ -298,7 +321,16 @@ function renderNotesSection() {
     h += `<span class="notes-sub-body notes-sub-empty">—</span>`;
   }
 
-  if (S.overflightPerms && S.overflightPerms.trim()) {
+  // O-110 (FlightKeys): the permits one per line as printed, each with its ADC number (§5.10); NavBlue and
+  // flights saved before: the OFP's permits text as before.
+  const _permLines = Array.isArray(S.permits) ? S.permits.map(p => [
+    [p.type, p.country, p.reference].filter(Boolean).join(' '),
+    p.route, p.restriction, p.adc,
+  ].filter(Boolean).join('\n')).filter(Boolean) : null;
+  if (_permLines && _permLines.length) {
+    h += `<span class="notes-sub-header">OVERFLIGHTS</span>`;
+    h += `<span class="notes-sub-body">${_permLines.join('\n').split('\n').map(esc).join('<br>')}</span>`;
+  } else if (!_permLines && S.overflightPerms && S.overflightPerms.trim()) {
     h += `<span class="notes-sub-header">OVERFLIGHTS</span>`;
     h += `<span class="notes-sub-body">${esc(S.overflightPerms)}</span>`;
   }

@@ -273,6 +273,8 @@ renderNote();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', stamp);
   else stamp();
 })();
+// O-118 / F-5: crew names and OFP text out of every saved flight, once at app start.
+_savesStrip();
 renderFlightList();
 // ── Resume-view restore ───────────────────────────────────────────────────
 // Re-open the flight the crew was on before iOS reloaded the Home Screen app.
