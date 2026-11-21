@@ -20,18 +20,13 @@
     "sha256": "d7b432506f32a3675ce3ffa68a07b7e194ed523c9e8dcbd3177f78da36d49ad2"
   },
   "ofp-flightkeys": {
-    "version": "1.0.0",
-    "file": "ofp-flightkeys/ofp-flightkeys-v1.0.0.js",
-    "sha256": "8a7d3e8fbf02ebae421739dfd65f8598d47e4d016ae1e7a3a2a791389e548e40"
+    "version": "1.0.1",
+    "file": "ofp-flightkeys/ofp-flightkeys-v1.0.1.js",
+    "sha256": "a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d"
   },
   "nat-rules": {
     "version": "1.2.0",
     "file": "nat-rules/nat-rules-v1.2.0.js",
     "sha256": "a0ed2a31a344680424e96fd31d3046ac8cd65244e58cebd553fe5021fa2ca80d"
-  },
-  "ofp-flightkeys-next": {
-    "version": "1.0.1",
-    "file": "ofp-flightkeys-next/ofp-flightkeys-v1.0.1.js",
-    "sha256": "a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d"
   }
 }

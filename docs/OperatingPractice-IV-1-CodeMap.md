@@ -56,7 +56,7 @@ Extracted from SOP-PROJ-OperatingPractice-NEW-20260606-v1.0 (Volume IV — Techn
 | 7066–7994 | `src/state.html`, `src/storage.html` | `S`, `pdfRawText`, **`pdfPages`**; `resetStateForNewFlight()` clears `S.ofpFindings` and `pdfPages`; save / load |
 | 7995–8259 | `src/pdf.html` | `processPDF()` (~8075): text lines **and the positioned items per page** (`pdfPages`, the copy in `tools/extract/extract.js`); `importManual()` (pasted text, no positions) |
 | 8260–8681 | `rules/icao-fpl` v1.0.0 (new in the app) | `IcaoFpl`, passed to the FlightKeys parser |
-| 8682–11600 | `rules/ofp-flightkeys` **v1.0.0** (new in the app) | `OfpFlightKeys.parseFlightKeys` |
+| 8682–11600 | `rules/ofp-flightkeys` **v1.0.1** (step 5e-2 display PR 1, O-116; v1.0.0 frozen in `test/oracle`) | `OfpFlightKeys.parseFlightKeys` |
 | 11601–13234 | `rules/ofp-navblue` v2.0.1 | `OfpNavBlue` (locked, D47) |
 | 13235–13493 | `src/ofp-parse.html` | `_ofpRulesetParse` (NavBlue adapter, unchanged); **`_ofpDetectFormat`** (O-78), **`_ofpParse`** (router), **`_ofpShownFindings`** (O-88); `parseOFP()` (~13313) stores `S.ofpFindings` |
 | 13494–14058 | `src/render-preflight.html` | `renderPreflightPhase()` (~13587): the **OFP findings** list at the top (O-76, O-87) |

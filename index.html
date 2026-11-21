@@ -8681,13 +8681,22 @@ const API = {
 return API;
 });
 /**
- * ofp-flightkeys.js — FlightKeys OFP Parser  (v1.0.0, contract v2.4)
+ * ofp-flightkeys.js — FlightKeys OFP Parser  (v1.0.1, contract v2.4)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.4): the FlightKeys OFP parser. It reads
  * an Atlas Air / Polar Air Cargo package in the FlightKeys format and returns
  * the briefing contract — the same 57 core fields, with the same names, types
  * and meanings, as the locked NavBlue parser (FK-P), plus the Appendix B
  * extensions and findings[].
+ *
+ * v1.0.1 (step 5e-2, module PR; Exec answers O-100, O-103, O-115) changes
+ * only the crew-facing finding texts: the internal references ("(SME-n)",
+ * "(O-n)", "(D63a)", "(CS-1)", "rows 29–31", "read in 5d", "(§A.8)" and
+ * combinations) are removed from the 11 WARN and 20 INFO templates that
+ * carried them; meaning, wording and capitals are unchanged.
+ * The references stay in the comments, the SPEC and the tests. Every other
+ * output is byte-identical to v1.0.0 (TC-175). Not built into index.html:
+ * rules/ofp-flightkeys-next until the integration PR (D90).
  *
  * v1.0.0 (D58; step 5e-1, Exec answer O-74) is the first release version. It
  * is NOT built into index.html and not used by the app until the switch PR
@@ -8778,7 +8787,7 @@ return API;
 
 const RULESET_TYPE     = 'ofp';
 const OFP_FORMAT       = 'flightkeys';
-const RULESET_VERSION  = '1.0.0';
+const RULESET_VERSION  = '1.0.1';
 const SCHEMA_VERSION   = 2;
 // Contract v2.0 (ADR-005 Appendix A + B) plus the extension fields of the
 // Appendix B addenda: specialQualification, swa (Exec SME answers 13 Nov,
@@ -9309,7 +9318,7 @@ function _readIdentity(ctx) {
   }
   if (ext.designator && acp && acp.CALLSIGN_INDEX && typeof acp.CALLSIGN_INDEX === 'object'
       && !Object.prototype.hasOwnProperty.call(acp.CALLSIGN_INDEX, ext.designator)) {
-    add('INFO', 'designator', `designator ${ext.designator} is not in the callsign index (CS-1): no verbal callsign`);
+    add('INFO', 'designator', `designator ${ext.designator} is not in the callsign index: no verbal callsign`);
   }
 
   // Aircraft type and wake: FPL field 9 through icao-fpl (as NavBlue reads FPL 9).
@@ -9501,7 +9510,7 @@ function _readRemarksItems(ctx) {
   const { out, add, rel } = ctx;
   const lines = rel ? rel.lines : [];
   const s = lines.findIndex(l => PATTERNS.REMARKS_START.test(l));
-  if (s === -1) { if (rel) add('WARN', 'dotExemption', 'Remarks block not found in the release: rows 29–31 not read'); return; }
+  if (s === -1) { if (rel) add('WARN', 'dotExemption', 'Remarks block not found in the release: not read'); return; }
   let e = lines.findIndex((l, i) => i > s && PATTERNS.REMARKS_END.test(l));
   if (e === -1) e = lines.length;
   const rem = lines.slice(s + 1, e).join('\n');
@@ -9895,8 +9904,8 @@ function _readCrew(ctx) {
   for (const p of pilots) if (p.toLndgExpiry === null) { p.toLndgExpiry = 'Not Reported'; add('WARN', 'crewMembers', 'pilot printed without a TO/LNDG Expiry line: Not Reported'); }
   const nc = Object.keys(notCrew).sort().map(k => `${k} ${notCrew[k]}`);
   if (nc.length) add('INFO', 'crewMembers', `crew lines not returned as crew (not shown): ${nc.join(', ')}`);
-  if (blank) add('INFO', 'crewMembers', `TO/LNDG Expiry blank for ${blank} pilot(s): "Not Reported" (SME-9)`);
-  if (star) add('INFO', 'crewMembers', `"*" printed for ${star} pilot(s): kept with the last name; not seniority (SME-3, SME-3a)`);
+  if (blank) add('INFO', 'crewMembers', `TO/LNDG Expiry blank for ${blank} pilot(s): "Not Reported"`);
+  if (star) add('INFO', 'crewMembers', `"*" printed for ${star} pilot(s): kept with the last name; not seniority`);
   // D62: the number of operating pilots, for the crew rest module (no names).
   if (pilots.length) {
     ext.operatingPilots = pilots.length;
@@ -10156,10 +10165,10 @@ function _readRemarks(ctx, from, to) {
     // SME-18: a takeoff alternate required (for this fleet) at the departure airport, none listed.
     if (st.icao === out.origIcao && st.items.some(it => it.applies && PATTERNS.TKOF_ALT_REQ.test(it.text))
         && !out.altData.some(a => a.role === 'TKOF ALT')) {
-      add('WARN', 'altData', `${st.icao}: the station restriction requires a takeoff alternate; the release lists none (SME-18)`);
+      add('WARN', 'altData', `${st.icao}: the station restriction requires a takeoff alternate; the release lists none`);
     }
   }
-  if (skipped) add('INFO', 'airportData', `${skipped} station-restriction line(s) under another fleet's sub-heading not attached (aircraft ${out.acftType}; SME-18a)`);
+  if (skipped) add('INFO', 'airportData', `${skipped} station-restriction line(s) under another fleet's sub-heading not attached (aircraft ${out.acftType})`);
 
   // Remarks weather → the airport's remarksWeather (D34, D46; SME-23): never merged
   // into the briefing weather. Source = the heading line right above the report.
@@ -10178,7 +10187,7 @@ function _readRemarks(ctx, from, to) {
   // D45: security messages.
   for (const en of entries.filter(x => x.category === 'security')) ext.securityMessages.push({ text: en.text, page: en.page, line: en.line });
   // E-WINS release line: no airport, no forecast — sets nothing (SME-17, SME-21).
-  if (entries.some(x => x.category === 'ewins')) add('INFO', 'ewins', 'E-WINS release line names no airport and no forecast: sets nothing here (the E-WINS forecast is the * PRIO * briefing TAF, read in 5d)');
+  if (entries.some(x => x.category === 'ewins')) add('INFO', 'ewins', 'E-WINS release line names no airport and no forecast: sets nothing here (the E-WINS forecast is the * PRIO * briefing TAF)');
   // Air-defence clearances (row 35, permits[]).
   ctx.adc = entries.filter(x => x.category === 'permit').map(x => { const m = PATTERNS.PERMIT_ADC.exec(x.text); return { country: m[1], adc: m[2] }; });
 
@@ -10196,7 +10205,7 @@ function _readRemarks(ctx, from, to) {
     for (const c of codes) {
       if (inBlock.has(c.code) || ctx.lateMel.some(x => x.code === c.code)) continue;
       ctx.lateMel.push({ code: c.code, desc: c.desc, tlr: '', type: 'MEL', notes: [{ text: en.text, indent: 1 }] });
-      add('INFO', 'ddgItems', `MEL ${c.code} is named only in a late-addition remark: added to ddgItems (SME-19)`);
+      add('INFO', 'ddgItems', `MEL ${c.code} is named only in a late-addition remark: added to ddgItems`);
     }
   }
 }
@@ -10423,7 +10432,7 @@ function _readReleasePages(ctx) {
           }
         }
       }
-      if (ctx.blankUnknown) ctx.add('WARN', 'ofpRemarks', `positioned items missing or not matching the text on PDF page(s) ${[...ctx.blankUnknown].sort((a, b) => a - b).join(', ')}: a printed blank line cannot be seen there, so a remark after one may be joined to the remark above it (D63a)`);
+      if (ctx.blankUnknown) ctx.add('WARN', 'ofpRemarks', `positioned items missing or not matching the text on PDF page(s) ${[...ctx.blankUnknown].sort((a, b) => a - b).join(', ')}: a printed blank line cannot be seen there, so a remark after one may be joined to the remark above it`);
     }
   }
   _readTlr(ctx);
@@ -10848,7 +10857,7 @@ function _readBriefing(ctx) {
       e.ewinsWeather = wx.prio[0];
       e.ewinsRole = [...new Set(a.roles.map(r => r.role))].join('/');
       e.ewinsWindow = '';
-      add('INFO', 'ewins', `${a.icao}: "* PRIO *" TAF in the Weather Briefing = the E-WINS forecast (SME-17/21); sets the airport's E-WINS fields`);
+      add('INFO', 'ewins', `${a.icao}: "* PRIO *" TAF in the Weather Briefing = the E-WINS forecast; sets the airport's E-WINS fields`);
       if (wx.prio.length > 1) add('WARN', 'ewins', `${a.icao}: ${wx.prio.length} "* PRIO *" TAFs; the first is the E-WINS forecast`);
     }
     e.weatherRaw = wx.weatherRaw;   // D65; the last key of the entry
@@ -11027,8 +11036,8 @@ function _readCompany(ctx) {
   }
   const label = found.REQUIRED ? 'REQUIRED' : found['IF QUESTIONS'] ? 'IF QUESTIONS' : null;
   ext.dispatchContact = label ? { label, text: found[label].text } : null;
-  if (label) add('INFO', 'dispatchContact', `Dispatch contact ${label}: "${found[label].text}" (${found[label].at.join(', ')})${found.REQUIRED && found['IF QUESTIONS'] ? `; the IF QUESTIONS form is also printed (${found['IF QUESTIONS'].at.join(', ')}): REQUIRED (O-46)` : ' (O-46)'}`);
-  else add('INFO', 'dispatchContact', 'no Dispatch contact line printed in the Company NOTAMs: dispatchContact null (O-46)');
+  if (label) add('INFO', 'dispatchContact', `Dispatch contact ${label}: "${found[label].text}" (${found[label].at.join(', ')})${found.REQUIRED && found['IF QUESTIONS'] ? `; the IF QUESTIONS form is also printed (${found['IF QUESTIONS'].at.join(', ')}): REQUIRED` : ''}`);
+  else add('INFO', 'dispatchContact', 'no Dispatch contact line printed in the Company NOTAMs: dispatchContact null');
 }
 
 // An item's text lines after its SUBJECT row (the item's own text, §A.7).
@@ -11069,7 +11078,7 @@ function _curfewOf(r, acftType, flightISO) {
   if (byList.length) {
     const mine = out.filter(x => x.kind === 'type' && x.wording.some(tok => _curfewTypeMatch(tok, acftType)));
     if (mine.length) out = out.filter(x => (x.kind !== 'type' && x.kind !== 'registration') || mine.includes(x));
-    else { notes.push(CURFEW_NOTES.type); warns.push(`no curfew line for aircraft type ${acftType || '(none read)'}; all lines shown with a note (O-33)`); }
+    else { notes.push(CURFEW_NOTES.type); warns.push(`no curfew line for aircraft type ${acftType || '(none read)'}; all lines shown with a note`); }
   }
   // 3. Seasons (O-34, SME-22a): each season's months must be stated; the month in
   //    which a stated season ends is a changeover month (both windows + note).
@@ -11087,14 +11096,14 @@ function _curfewOf(r, acftType, flightISO) {
     const inRange = (r, m) => r[0] <= r[1] ? m >= r[0] && m <= r[1] : m >= r[0] || m <= r[1];
     if (!readable) {
       notes.push(CURFEW_NOTES.dates);
-      warns.push(month === null && seasons.every(s => range[s]) ? 'no flight date read: the season in force cannot be chosen; all windows shown with a note (O-34)'
-        : `effective dates of ${seasons.join(' / ')} not stated; all windows shown with a note (O-34, SME-22a)`);
+      warns.push(month === null && seasons.every(s => range[s]) ? 'no flight date read: the season in force cannot be chosen; all windows shown with a note'
+        : `effective dates of ${seasons.join(' / ')} not stated; all windows shown with a note`);
     } else if (seasons.some(s => range[s][1] === month)) {
       notes.push(CURFEW_NOTES.changeover);
     } else {
       const now = seasons.filter(s => inRange(range[s], month));
       if (now.length === 1) out = out.filter(x => !x.season || x.season === now[0]);
-      else { notes.push(CURFEW_NOTES.dates); warns.push(`the stated seasons do not give one season for the flight month; all windows shown with a note (O-34)`); }
+      else { notes.push(CURFEW_NOTES.dates); warns.push(`the stated seasons do not give one season for the flight month; all windows shown with a note`); }
     }
     // A season sub-heading with no window left under it is dropped.
     out = out.filter((x, k) => x.kind !== 'season' || out.slice(k + 1).some(y => y.kind !== 'season' && y.season === x.season));
@@ -11112,7 +11121,7 @@ function _readCurfews(ctx) {
     const m = /^([A-Z0-9]{4})-CURFEW$/.exec(r.subject);
     if (!m) {
       if (r.location !== 'GENERAL' && CURFEW.LIKE.test(_companyBody(r).join('\n')))
-        add('INFO', 'airportData.curfew', `${r.location}: Company NOTAM ${r.id} (SUBJECT: ${r.subject}) reads like a curfew; not read as one: curfews come from the CURFEW key only (O-37)`);
+        add('INFO', 'airportData.curfew', `${r.location}: Company NOTAM ${r.id} (SUBJECT: ${r.subject}) reads like a curfew; not read as one: curfews come from the CURFEW key only`);
       continue;
     }
     const icao = m[1];
@@ -11153,7 +11162,7 @@ function _readOpsNotes(ctx) {
     const skip = new Set([..._words(r.subject), ...(titled ? _words(body[0]) : [])]);
     const content = _words((titled ? body.slice(1) : body).join(' ')).filter(w => !skip.has(w));
     if (rem.size && content.length && content.every(w => rem.has(w))) {
-      add('INFO', 'airportData.opsNotes', `${icao}: Company NOTAM ${r.id} (SUBJECT: ${r.subject}) repeats the OFP Remarks; not in opsNotes, kept in companyNotams[] (O-38)`);
+      add('INFO', 'airportData.opsNotes', `${icao}: Company NOTAM ${r.id} (SUBJECT: ${r.subject}) repeats the OFP Remarks; not in opsNotes, kept in companyNotams[]`);
       continue;
     }
     if (!by.has(icao)) by.set(icao, []);
@@ -11240,7 +11249,7 @@ function _firRepeats(ctx, recs) {
   if (!reps.length) return [];
   const firs = _ofpFirs(ctx);
   if (!firs.all.size) {
-    add('WARN', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block, but no FIR of the OFP was read (navigation log FIR lines, FPL EET): every copy kept (O-49)`);
+    add('WARN', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block, but no FIR of the OFP was read (navigation log FIR lines, FPL EET): every copy kept`);
     return [];
   }
   const dep = recs[0].code;   // O-50: the departure FIR, always on the OFP
@@ -11252,7 +11261,7 @@ function _firRepeats(ctx, recs) {
   if (!out.length) return out;   // every copy under a FIR on the OFP: nothing left out, no finding
   for (const b of recs) b.items = b.items.filter(it => !drop.has(it));
   const ids = new Set(out.filter(x => x.all).map(x => x.id));
-  add('INFO', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block; ${out.length} cop${out.length === 1 ? 'y' : 'ies'} left out of firNotams[] and enrouteNotams.fir (FIR not on the OFP and not the departure FIR ${dep}; OFP FIRs from the navigation log FIR lines and the FPL EET: ${[...firs.all].join(' ')}): ${out.map(x => `${x.id} under ${x.name} (${x.code})${x.all ? ' [all copies: none of its FIRs is on the OFP]' : ''}`).join('; ')}${ids.size ? `; ${ids.size} NOTAM(s) left out under every block` : ''}; firRaw as printed (O-49)`);
+  add('INFO', 'enrouteNotams', `${reps.length} FIR NOTAM(s) printed under more than one FIR block; ${out.length} cop${out.length === 1 ? 'y' : 'ies'} left out of firNotams[] and enrouteNotams.fir (FIR not on the OFP and not the departure FIR ${dep}; OFP FIRs from the navigation log FIR lines and the FPL EET: ${[...firs.all].join(' ')}): ${out.map(x => `${x.id} under ${x.name} (${x.code})${x.all ? ' [all copies: none of its FIRs is on the OFP]' : ''}`).join('; ')}${ids.size ? `; ${ids.size} NOTAM(s) left out under every block` : ''}; firRaw as printed`);
   return out;
 }
 
@@ -11275,17 +11284,17 @@ function _readFirs(ctx) {
     if (!m || COMPANY_NON_LOCATION_KEYS.includes(m[1])) continue;
     const fr = recs.filter(x => x.code === m[1]);
     if (!fr.length) {
-      add('INFO', 'enrouteNotams', `Company NOTAM ${r.id} (SUBJECT: ${r.subject}) is keyed to ${m[1]}, which has no FIR block in the NOTAM Briefing; kept in companyNotams[] only (O-40)`);
+      add('INFO', 'enrouteNotams', `Company NOTAM ${r.id} (SUBJECT: ${r.subject}) is keyed to ${m[1]}, which has no FIR block in the NOTAM Briefing; kept in companyNotams[] only`);
       continue;
     }
     for (const x of fr) { x.items.push({ id: r.id, category: '', origin: 'COMPANY', text: r.text, source: r.source }); x.empty = false; }
-    add('INFO', 'enrouteNotams', `Company NOTAM ${r.id} (SUBJECT: ${r.subject}) also listed with FIR ${m[1]}, marked Company (O-40)`);
+    add('INFO', 'enrouteNotams', `Company NOTAM ${r.id} (SUBJECT: ${r.subject}) also listed with FIR ${m[1]}, marked Company`);
   }
   ext.firNotams = recs.map(x => ({ name: x.name, code: x.code, empty: x.empty, items: x.items }));
   ext.firRaw = recs.map(x => ({ name: x.name, code: x.code, raw: x.raw }));
   const txt = [];
   const emptied = recs.filter(y => !y.empty && !y.items.length);   // O-49: every item a repeat left out
-  if (emptied.length) add('INFO', 'enrouteNotams', `${emptied.length} FIR block(s) hold only repeats printed under another block and are left out of enrouteNotams.fir: ${emptied.map(x => x.code).join(', ')} (O-49)`);
+  if (emptied.length) add('INFO', 'enrouteNotams', `${emptied.length} FIR block(s) hold only repeats printed under another block and are left out of enrouteNotams.fir: ${emptied.map(x => x.code).join(', ')}`);
   for (const x of recs.filter(y => y.items.length)) {
     const ls = [`${x.name} (${x.code})`];
     for (const it of x.items) { if (it.origin === 'COMPANY') ls.push('[COMPANY NOTAM]'); ls.push(it.text); }
@@ -11294,8 +11303,8 @@ function _readFirs(ctx) {
   out.enrouteNotams = { route: '', fir: txt.join('\n\n'), airway: '', waypoint: '', geographic: '' };
   const empties = recs.filter(x => x.empty);
   if (!docs.length) add('WARN', 'enrouteNotams', 'no NOTAM Briefing document: FIR NOTAMs not read');
-  else add('INFO', 'enrouteNotams', `${recs.length} FIR blocks in the NOTAM Briefing, ${nItems} FIR NOTAM items; route, airway, waypoint and geographic are empty: FlightKeys prints en-route NOTAMs per FIR only (§A.8)`);
-  if (empties.length) add('INFO', 'enrouteNotams', `${empties.length} FIR block(s) print no active NOTAMs and are left out of enrouteNotams.fir: ${empties.map(x => x.code).join(', ')} (O-41)`);
+  else add('INFO', 'enrouteNotams', `${recs.length} FIR blocks in the NOTAM Briefing, ${nItems} FIR NOTAM items; route, airway, waypoint and geographic are empty: FlightKeys prints en-route NOTAMs per FIR only`);
+  if (empties.length) add('INFO', 'enrouteNotams', `${empties.length} FIR block(s) print no active NOTAMs and are left out of enrouteNotams.fir: ${empties.map(x => x.code).join(', ')}`);
 }
 
 // Scope 6 (O-45): the Hazard Briefing per FIR block — { name, code, text, empty };
@@ -11310,7 +11319,7 @@ function _readHazards(ctx) {
     recs.push({ name: b.name, code: b.code, text: b.body.map(l => l.text).join('\n'), empty: !content.length });
   }
   ext.hazards = recs;
-  if (docs.length) add('INFO', 'hazards', `${recs.length} FIR blocks in the Hazard Briefing (${recs.filter(x => x.empty).length} with no SIGMET); kept as printed, not evaluated (O-45)`);
+  if (docs.length) add('INFO', 'hazards', `${recs.length} FIR blocks in the Hazard Briefing (${recs.filter(x => x.empty).length} with no SIGMET); kept as printed, not evaluated`);
 }
 
 // Scope 5 (row 42; SME-14 as amended by O-42, SME-20; O-43): the NAT track
@@ -11389,7 +11398,7 @@ function _readNat(ctx) {
   const M = ext.natMessages;
   M.forEach((m, k) => {
     if (!m.complete) add('WARN', 'natTrack', `NAT message ${k + 1} (PDF p${m.pages[0]}-${m.pages[1]}): ${m.parts} part(s) expected, not all printed; kept as printed`);
-    if (m.tmi === null) add('WARN', 'natTrack', `NAT message ${k + 1} (PDF p${m.pages[0]}-${m.pages[1]}): TMI not readable; counted as the lowest (O-42)`);
+    if (m.tmi === null) add('WARN', 'natTrack', `NAT message ${k + 1} (PDF p${m.pages[0]}-${m.pages[1]}): TMI not readable; counted as the lowest`);
     if (m.direction === null) add('WARN', 'natTrack', `NAT message ${k + 1} (PDF p${m.pages[0]}-${m.pages[1]}): direction (EAST / WEST levels) not readable`);
   });
   const nat = typeof ctx.opts.parseNatTrack === 'function' ? ctx.opts.parseNatTrack : null;
@@ -11402,12 +11411,12 @@ function _readNat(ctx) {
   let cands = M.filter(m => m.direction === dir);
   if (!cands.length) {
     cands = M.slice();
-    add('WARN', 'natTrack', `CREW ALERT: the package prints only the ${[...new Set(M.map(m => m.direction || 'unknown'))].join(' / ')} NAT track message (TMI ${M.map(m => m.tmi || '?').join(', ')}); none for this ${dir}BOUND flight. Returned so the crew can check it (O-42, SME-20)`);
+    add('WARN', 'natTrack', `CREW ALERT: the package prints only the ${[...new Set(M.map(m => m.direction || 'unknown'))].join(' / ')} NAT track message (TMI ${M.map(m => m.tmi || '?').join(', ')}); none for this ${dir}BOUND flight. Returned so the crew can check it`);
   }
   const tmiNum = m => (m.tmi === null ? -1 : +m.tmi);
   const best = cands.reduce((a, b) => (tmiNum(b) > tmiNum(a) ? b : a), cands[0]);
   const same = cands.filter(m => m !== best && tmiNum(m) === tmiNum(best) && m.direction === best.direction && m.valid === best.valid);
-  if (same.length) add('WARN', 'natTrack', `NAT message TMI ${best.tmi} printed ${same.length + 1} times with the same direction and validity (SME-14); the first is returned`);
+  if (same.length) add('WARN', 'natTrack', `NAT message TMI ${best.tmi} printed ${same.length + 1} times with the same direction and validity; the first is returned`);
   best.selected = true;
   // O-43, O-47: the filed track from the OFP page 1 route and the ICAO FPL strip route
   // only (never remarks or NOTAM text). Both name one letter → that letter. Only one
@@ -11420,7 +11429,7 @@ function _readNat(ctx) {
   const filed = fplL.length ? fplL[0] : p1L.length ? p1L[0] : null;
   const all = [...new Set([...p1L, ...fplL])];
   if (all.length > 1 || (p1L.length && fplL.length && p1L[0] !== fplL[0]))
-    add('WARN', 'natTrack', `CREW ALERT: the filed NAT track differs: OFP page 1 route ${p1L.length ? p1L.map(x => 'NAT' + x).join(', ') : 'none'}, ICAO FPL route ${fplL.length ? fplL.map(x => 'NAT' + x).join(', ') : 'none'}; NAT${filed} (the FPL) is marked (O-47)`);
+    add('WARN', 'natTrack', `CREW ALERT: the filed NAT track differs: OFP page 1 route ${p1L.length ? p1L.map(x => 'NAT' + x).join(', ') : 'none'}, ICAO FPL route ${fplL.length ? fplL.map(x => 'NAT' + x).join(', ') : 'none'}; NAT${filed} (the FPL) is marked`);
   // O-68: the NAT call with { filed, findings }; the NAT findings forwarded as given.
   const natFindings = [];
   const r = nat(best.text, out.origIcao, out.destIcao, { filed, findings: natFindings });
@@ -11430,7 +11439,7 @@ function _readNat(ctx) {
     for (const b of r.blocks || []) for (const t of b.tracks || []) t.assigned = t.id === r.assignedId;
   }
   out.natTrack = r;
-  add('INFO', 'natTrack', `${M.length} NAT track message(s); returned TMI ${best.tmi || '?'} (${best.direction || 'direction unknown'}, valid ${best.valid}) for this ${dir}BOUND flight; filed track ${r && r.assignedId ? `${r.assignedId} (${src.join(' and ')})` : 'none (random route: no NAT track in the OFP page 1 route or the ICAO FPL route)'} (O-42, O-43, O-47)`);
+  add('INFO', 'natTrack', `${M.length} NAT track message(s); returned TMI ${best.tmi || '?'} (${best.direction || 'direction unknown'}, valid ${best.valid}) for this ${dir}BOUND flight; filed track ${r && r.assignedId ? `${r.assignedId} (${src.join(' and ')})` : 'none (random route: no NAT track in the OFP page 1 route or the ICAO FPL route)'}`);
 }
 
 // Rows 37, 38 (ADR-005 §2.6): sections[] from content — { id, title, startPage,
@@ -11493,7 +11502,7 @@ function _readSections(ctx) {
       nSets++;
     }
   }
-  if (nPac) ctx.add('INFO', 'sections', `${nPac} PACOTS track item(s) in ${nSets} set(s) in the NOTAM Briefing: a PACOTS section each; no NAT track object (O-44)`);
+  if (nPac) ctx.add('INFO', 'sections', `${nPac} PACOTS track item(s) in ${nSets} set(s) in the NOTAM Briefing: a PACOTS section each; no NAT track object`);
   runs(PATTERNS.SEC_CHART_PAGE, 'charts', 'Charts');
   const tlr = _tlrPages(ctx);
   if (tlr) sec('tlr', 'Takeoff/Landing Report', tlr[0], tlr[1], 'TAKEOFF AND LANDING REPORT');
