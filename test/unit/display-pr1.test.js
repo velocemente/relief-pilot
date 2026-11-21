@@ -16,18 +16,24 @@
  *   TC-176-020  D85 NAT card: FK EBLG-KORD East 5 + West 6 (chosen message first); single-direction packages:
  *               "No … tracks found." only for the direction no message has; NavBlue 8 / 8 byte-identical
  *   TC-176-021  D85 synthetic: a published message with no tracks keeps the card (WARN stays on OFP Alerts);
- *               the filed track marked in the chosen direction only; NEGATIVE an object with no published
- *               message and no tracks has no card, as before
+ *               O-122: a published direction with no readable track says "Tracks not readable – see OFP Alerts",
+ *               NEGATIVE an unpublished direction says "No … tracks found."; the filed track marked in the chosen
+ *               direction only; NEGATIVE an object with no published message and no tracks has no card
  *   TC-176-030  D57 synthetic: no readable flight date → "Operating date needed" in the header date slot and
  *               the date pop-up prefilled with today's UTC DD MM YYYY; the prefill moves forward past 0000Z,
  *               never back; the entered date → S.date DD MON YY + dateEnteredByCrew; the timeline is dated;
  *               reload keeps it; NEGATIVE an unreadable entry is not taken; 56 / 56 dated show no prompt
- *   TC-176-040  D62 / O-106 / O-109: FK counts 2:4, 3:12, 4:10; one anonymous chip per pilot (CA, FO, AO);
- *               no crew name or number in state or save, either format; editable (toggle, add, picker);
- *               NEGATIVE a package without a count gives no chips and the existing picker, never carried over
+ *   TC-176-032  O-121 synthetic no-date flight crossing 0000Z: with the entered date, every later time after
+ *               0000Z (downline ETAs, NOTAM and weather windows) on the next day; NEGATIVE nothing is ever dated
+ *               before the entered date (an OUT edited back across 0000Z, a flight with an OFP date unchanged)
+ *   TC-176-040  D62 / O-106 / O-109 / O-124: FK counts 2:4, 3:12, 4:10; one chip per pilot with the printed role
+ *               (e.g. CA FO FO FO), both formats; no crew name or number in state or save; an edited count changes
+ *               the chips and the count; NEGATIVE a package without a count gives no chips and the existing picker,
+ *               never carried over
  *   TC-176-050  D89 / O-108: a mixed package is refused with the named error; the crew stays on the import
  *               screen, nothing saved; NEGATIVE a FlightKeys package goes to the flight screen
- *   TC-176-060  D72 dispatchContact: 26 FK (REQUIRED 22, IF QUESTIONS 4) on the Departure subcard; NavBlue none
+ *   TC-176-060  D72 dispatchContact: 26 FK (REQUIRED 22, IF QUESTIONS 4) on the Departure subcard, row label
+ *               "Dispatch contact" (O-123); NavBlue none
  *   TC-176-070  D67b / O-105 rows on the app path, per card and group: FK 5 + NavBlue 11 departure, 21 + 37
  *               destination / alternate; KMIA A3054/26, KSFO A5323/26; every row by NOTAM ID against change
  *               list v1.2; card colour and issues unchanged
@@ -78,7 +84,8 @@ const CREW_RECORD = ['empNum', 'lastName', 'firstName', 'initial', 'name', 'toLn
 const chipProblems = list => plain(list || []).flatMap((c, i) => [
   ...Object.keys(c).filter(k => !['role', 'active', 'displayName'].includes(k)).map(k => `${i}: field ${k}`),
   ...(c.displayName ? [`${i}: displayName set`] : []),
-  ...(['CA', 'FO', 'AO'].includes(c.role) ? [] : [`${i}: role ${c.role}`])]);
+  ...(typeof c.role === 'string' && /^[A-Z]{1,3}$/.test(c.role) ? [] : [`${i}: role not a role code`])]);
+const opRoles = r => plain((r.crewMembers || []).filter(c => c.role !== 'JS' && c.role !== 'DH').map(c => c.role));
 
 // A one-page synthetic items document whose text lines are `lines` (the app's own line assembly reads it).
 function itemsDoc(lines) {
@@ -163,7 +170,7 @@ fixtureTest('TC-176-011 O-113 old save: loads safely; missing items not shown; N
   assert.equal(S.operatingPilots, null);
   assert.equal(S.dispatchContact, null);
   assert.deepEqual(plain(S.natMessages), []);
-  assert.ok(!/<span class="data-label">Dispatch<\/span>/.test(app.renderPreflightPhase()), 'no Dispatch row');
+  assert.ok(!/<span class="data-label">Dispatch contact<\/span>/.test(app.renderPreflightPhase()), 'no Dispatch contact row');
   assert.equal(app.sandbox.renderNatTrack(app._natCardTrack(), S.navLog), app.sandbox.renderNatTrack(S.natTrack, S.navLog), 'NAT card as before (the chosen message only)');
   // D62: names gone, roles and on/off kept; the manual chip (role words only) kept as it was
   assert.deepEqual(plain(S.crewMembers).slice(0, 3), [{ role: 'CA', active: true, displayName: '' }, { role: 'FO', active: false, displayName: '' }, { role: 'FO', active: true, displayName: '' }]);
@@ -205,7 +212,7 @@ fixtureTest('TC-176-020 D85 NAT card: EBLG-KORD East 5 + West 6; single-directio
   assert.deepEqual([rows(h2, 'EAST'), rows(h2, 'WEST')], [5, 6]);
   assert.deepEqual(plain(two.S.natMessages.map(m => [m.direction, m.selected])), [['EAST', false], ['WEST', true]]);
   assert.equal(two.app._natCardTrack().blocks[0].dir, 'WEST', 'the chosen message first');
-  assert.ok(!/No (east|west)bound tracks found/.test(h2), 'no "no tracks" text: both directions published');
+  assert.ok(!/No (east|west)bound tracks found|Tracks not readable/.test(h2), 'no "no tracks" text: both directions published and read');
   const before = two.app.sandbox.renderNatTrack(two.S.natTrack, two.S.navLog);
   assert.equal(rows(before, 'EAST'), 0, 'before this PR the eastbound message was not shown');
   // one message only: the other direction says "No … tracks found." (no message has it), as before
@@ -256,10 +263,18 @@ test('TC-176-021 D85 synthetic: a published message with no tracks keeps the car
   h = card(app);
   assert.match(h, /Track Message/);
   assert.equal(app.sandbox.renderNatTrack(S.natTrack, S.navLog), '', 'before: no card');
-  // a published direction with no readable track never says "no tracks"
+  assert.ok(!/Tracks not readable/.test(h), 'NEGATIVE: no published direction → no "not readable" text');
+  // O-122: a published direction with no readable track says so (the WARN is on OFP Alerts), never "no tracks"
   S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: chosen }];
   h = card(app);
   assert.ok(!/No westbound tracks found/.test(h) && /No eastbound tracks found/.test(h));
+  assert.equal((h.match(/<div style="padding:var\(--sp3\);font-size:14px;color:var\(--label3\)">Tracks not readable \u2013 see OFP Alerts<\/div>/g) || []).length, 1, 'westbound: the O-122 text in the existing style');
+  assert.ok(h.indexOf('Tracks not readable') > h.indexOf('Westbound NAT Tracks'), 'in the westbound section');
+  // NEGATIVE: a published direction with tracks shows its tracks, not the text
+  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: msgTrack('WEST', ['A']) }];
+  S.natTrack = S.natMessages[0].track;
+  assert.ok(!/Tracks not readable/.test(card(app)));
+  S.natTrack = chosen;
   // filed track B: marked in the chosen (westbound) message only, never the eastbound B
   const w = msgTrack('WEST', ['A', 'B'], { filed: 'B', over: { assignedId: 'B' } });
   S.natTrack = w;
@@ -339,6 +354,60 @@ fixtureTest('TC-176-031 D57 NEGATIVE: the 56 dated packages show no prompt and n
   assert.equal(n, 56);
 });
 
+// O-121: a synthetic no-date flight crossing 0000Z. The entered date is 03 NOV 26; OUT is set to 2300Z on it, so
+// the arrival (OUT + its OFP offset) falls after 0000Z, on 04 NOV.
+fixtureTest('TC-176-032 O-121 synthetic: entered date + a flight crossing 0000Z → downline times, NOTAM and weather windows on the next day; nothing before the entered date', async () => {
+  const app = loadApp({ domModel: true });
+  app.fireDomReady();
+  const imp = await noDateImport(app);
+  const S = imp.S, input = app.document.getElementById('editInput');
+  app.openEdit('date'); input.value = '03 11 2026'; app.confirmEdit();
+  app.openEdit('outZ'); input.value = '2300'; app.confirmEdit();
+  const tl = () => peek(app, '_tl');
+  const day = Date.UTC(2026, 10, 3), next = Date.UTC(2026, 10, 4);
+  assert.equal(tl().outMs, day + 23 * 3600000, 'OUT 2300Z on the entered date');
+  assert.ok(S.destEtaOffsetMins > 60, 'the arrival is after 0000Z');
+  assert.equal(tl().etaDestMs, tl().outMs + S.destEtaOffsetMins * 60000, 'IN = OUT + its OFP offset, no wrap');
+  assert.ok(tl().etaDestMs >= next, 'IN on the next day');
+  for (const a of S.altData) if (typeof tl().alt[a.icao] === 'number' && a.ofpOffsetMins > 60) assert.ok(tl().alt[a.icao] >= next, `${a.icao} on the next day`);
+  // NOTAM window at the destination: on its actual date (04 NOV), so a NOTAM in effect only on 03 NOV at that time is hidden
+  const inZ = S.etaDest, inMin = +inZ.slice(0, 2) * 60 + +inZ.slice(2, 4);
+  const pad = n => String(n).padStart(2, '0');
+  const from = m => `${pad(Math.floor(((m + 1440) % 1440) / 60))}${pad(((m + 1440) % 1440) % 60)}`;
+  const nb = (id, yymmdd) => `- ${S.destIcao} ${id} ${yymmdd}${from(inMin - 30)}-${yymmdd}${from(inMin + 30)}\nRWY 09 CLSD\n`;
+  const dest = app.getAllAirports().find(a => a.role === 'DEST');
+  const evalAt = txt => app.evalAirport(dest.icao, dest.eta, txt, '', dest.wxWindow, dest.role, S.acftType);
+  assert.equal(evalAt(nb('A0901/26', '261104')).color, 'red', 'a NOTAM on 04 NOV at the arrival time is in effect');
+  assert.notEqual(evalAt(nb('A0902/26', '261103')).color, 'red', 'NEGATIVE: the same NOTAM on 03 NOV is not');
+  // weather window: the TAF reader gets the arrival's date, 04 NOV
+  const seen = [];
+  const real = app.sandbox.extractEtaWindow;
+  app.sandbox.extractEtaWindow = (...a) => { seen.push(a[3]); return real(...a); };
+  app.evalAirport(dest.icao, dest.eta, '', 'TAF ' + dest.icao + ' 031700Z 0318/0424 18010KT 9999 SCT030', dest.wxWindow, dest.role, S.acftType);
+  app.sandbox.extractEtaWindow = real;
+  assert.deepEqual(seen, ['2026-11-04']);
+  // NEGATIVE: an OUT edited back across 0000Z of the entered date is never dated before it. 2300Z → 1200Z → 0010Z
+  // keeps 03 NOV (nearest, D51); 0010Z → 2350Z would be 02 NOV 2350Z by the nearest rule: it goes on 03 NOV instead.
+  for (const t of ['1200', '0010']) { app.openEdit('outZ'); input.value = t; app.confirmEdit(); }
+  assert.equal(tl().outMs, day + 10 * 60000, 'OUT 0010Z on 03 NOV');
+  app.openEdit('outZ'); input.value = '2350'; app.confirmEdit();
+  assert.equal(new Date(tl().outMs).toISOString().slice(0, 16), '2026-11-03T23:50', 'not 02 NOV (before the entered date)');
+  const all = () => [tl().outMs, tl().offMs, tl().etaDestMs, ...Object.values(tl().alt)].filter(x => x !== null);
+  assert.ok(all().every(ms => ms >= day), 'no time before the entered date');
+  assert.ok(tl().etaDestMs >= next, 'the arrival again on the next day');
+  // an IN edited to a time before 0000Z of the entered date is not dated before it either
+  vm.runInContext("_tl.etaDestMs = Date.UTC(2026, 10, 3, 0, 30); _tlPlaceEdit('etaDest', '2340');", app.sandbox);
+  assert.ok(tl().etaDestMs >= day, 'IN 2340Z near 0030Z 03 NOV: not 02 NOV');
+  // NEGATIVE: a flight with an OFP date (no crew date) keeps D51 as before: the same edits go to the nearest day
+  const imp2 = await importFixture(fkFixtures().find(f => /KGSP-EPWA/.test(f.id)), FIX);
+  const a2 = imp2.app;
+  assert.equal(imp2.S.dateEnteredByCrew, false);
+  const d2 = Date.parse(a2.sandbox.window._flightDateISO + 'T00:00:00Z');
+  vm.runInContext("S.outZ = '0010'; _tlPlaceEdit('outZ', '0010'); S.outZ = '2350'; _tlPlaceEdit('outZ', '2350');", a2.sandbox);
+  const o2 = peek(a2, '_tl').outMs;
+  assert.equal(o2, d2 - 10 * 60000, 'D51 unchanged on an OFP-dated flight: 2350Z the day before (nearest to 0010Z)');
+});
+
 // ══ TC-176-040 D62 ═════════════════════════════════════════════════════════════
 
 fixtureTest('TC-176-040 D62: FK counts 2:4, 3:12, 4:10; anonymous chips; no names in state or save, either format; editable; no count → no chips', async () => {
@@ -348,6 +417,9 @@ fixtureTest('TC-176-040 D62: FK counts 2:4, 3:12, 4:10; anonymous chips; no name
     if (fx.format === 'flightkeys') count[S.operatingPilots] = (count[S.operatingPilots] || 0) + 1;
     assert.deepEqual(chipProblems(S.crewMembers), [], `${fx.id}: chips carry a role only`);
     assert.equal(S.crewMembers.length, S.operatingPilots || 0, `${fx.id}: one chip per pilot`);
+    const r0 = imp.app._ofpParse(imp.rawText, peek(imp.app, 'pdfPages'));
+    if (fx.format !== 'flightkeys' || opRoles(r0).length === S.operatingPilots)
+      assert.deepEqual(plain(S.crewMembers.map(c => c.role)), opRoles(r0), `${fx.id}: the printed roles (O-124)`);
     const saved = JSON.stringify(imp.app.getFlights()[0].state.crewMembers);
     for (const k of CREW_RECORD) assert.ok(!saved.includes(`"${k}"`), `${fx.id}: no ${k} saved`);
     // the OFP's names are not on the rest card (checked against the parser's own crew records)
@@ -357,17 +429,22 @@ fixtureTest('TC-176-040 D62: FK counts 2:4, 3:12, 4:10; anonymous chips; no name
     assert.ok(names.every(nm => !card.includes(nm) && !saved.includes(nm)), `${fx.id}: no crew name shown or saved`);
   }
   assert.deepEqual(count, { 2: 4, 3: 12, 4: 10 });
+  // O-124 on NavBlue too: the printed roles of the operating crew, no names (checked above per package)
   // editable by the crew: the count on the existing N-pilot line and chips
   const imp = await importFixture(fkFixtures().find(f => /KORD-RKSI_05NOV26/.test(f.id)), FIX);
   const app = imp.app, S = imp.S;
-  assert.deepEqual(plain(S.crewMembers.map(c => c.role)), ['CA', 'FO', 'AO', 'AO']);
+  assert.deepEqual(plain(S.crewMembers.map(c => c.role)), ['CA', 'FO', 'FO', 'FO'], 'printed roles, no names');
+  assert.match(app.renderInflightRestModule(), /<span style="font-weight:700">FO<\/span>\s*<span><\/span>/);
   app.toggleCrewMember(3);
   assert.equal(S.crewMembers.filter(c => c.active).length, 3, '4 → 3');
+  assert.equal(S.operatingPilots, 3, 'the count follows the edit');
   S.crewVerified = true;
   assert.match(app.renderInflightRestModule(), /3-pilot confirmed/);
   app.addManualCrew('FO');
   S.crewVerified = true;
   assert.match(app.renderInflightRestModule(), /4-pilot confirmed/, 'added');
+  assert.equal(S.operatingPilots, 4);
+  assert.equal(app.getFlights()[0].state.operatingPilots, 4, 'the edited count is saved');
   // NEGATIVE: a package without a pilot count → no chips, the existing 2/3/4 picker; not carried over
   const real = app.sandbox._ofpParse;
   app.sandbox._ofpParse = (t, p) => Object.assign(real(t, p), { operatingPilots: null });
@@ -377,6 +454,7 @@ fixtureTest('TC-176-040 D62: FK counts 2:4, 3:12, 4:10; anonymous chips; no name
   assert.match(app.renderInflightRestModule(), /No crew parsed — add manually below\.[\s\S]*Add Crew Rest/);
   app.addBulkCrew(3);
   assert.equal(app.S.crewMembers.length, 3, 'the 2/3/4 picker');
+  assert.equal(app.S.operatingPilots, 3, 'chips and count follow the picker');
 });
 
 // ══ TC-176-050 D89 ═════════════════════════════════════════════════════════════
@@ -412,12 +490,13 @@ fixtureTest('TC-176-060 D72 dispatchContact: 26 FK on the Departure subcard (REQ
     n[lbl]++;
     const h = imp.app.renderPreflightPhase();
     const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
-    assert.ok(dep.includes(`<div class="data-row"><span class="data-label">Dispatch</span><span class="data-value">${lbl}</span></div>`), `${fx.id}: on the Departure subcard`);
+    assert.ok(dep.includes(`<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${lbl}</span></div>`), `${fx.id}: on the Departure subcard (O-123 label)`);
+    assert.ok(!/<span class="data-label">Dispatch<\/span>/.test(h), 'NEGATIVE: not the former label');
   }
   assert.deepEqual(n, { REQUIRED: 22, 'IF QUESTIONS': 4 });
   for (const fx of nbFixtures()) {
     const imp = await imported(fx);
-    assert.ok(!/<span class="data-label">Dispatch<\/span>/.test(imp.app.renderPreflightPhase()), `${fx.id}: no row`);
+    assert.ok(!/<span class="data-label">Dispatch contact<\/span>/.test(imp.app.renderPreflightPhase()), `${fx.id}: no row`);
   }
   const app = loadApp();
   app.S.dispatchContact = { label: '<b>' };

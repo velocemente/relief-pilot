@@ -413,6 +413,10 @@ function toggleRestCard() {
   S.restCardCollapsed = !S.restCardCollapsed;
   saveFlight(); renderNote();
 }
+// O-124: the pilot count (S.operatingPilots) follows the crew's edits of the chips.
+function _crewCountSync() {
+  S.operatingPilots = (S.crewMembers || []).filter(m => m.role !== 'JS' && m.role !== 'DH' && m.active !== false).length || null;
+}
 function toggleCrewMember(idx) {
   const c = (S.crewMembers || [])[idx];
   if (!c) return;
@@ -422,7 +426,7 @@ function toggleCrewMember(idx) {
     showToast('Minimum 3 operating crew required', 'info'); return;
   }
   c.active = (c.active === false) ? true : false;
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function verifyCrewList() { S.crewVerified = true; saveFlight(); renderNote(); }
 function adjustBuffer(deltaMins) {
@@ -445,12 +449,12 @@ function addManualCrew(role) {
   var label = { CA:'Captain', FO:'First Officer' }[r] || r;
   S.crewMembers.push({ role:r, empNum:'', lastName:label, initial:'',
                        displayName:label, active: true, manual:true });
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function removeManualCrew(idx) {
   if (!S.crewMembers || !S.crewMembers[idx]) return;
   S.crewMembers.splice(idx, 1);
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function copyInflightRestLog() {
   const data = calcInflightRest();
@@ -505,6 +509,7 @@ function addBulkCrew(count) {
     });
   });
   S.crewVerified = false;
+  _crewCountSync();
   saveFlight();
   renderNote();
 }

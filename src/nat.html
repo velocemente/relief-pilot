@@ -110,12 +110,14 @@
 
     var eastTracksContent = (eastBlk && eastBlk.tracks.length)
       ? '<div style="padding:0">' + eastBlk.tracks.map(function (tr, i) { return renderTrackRow(tr, 'EAST', i); }).join('') + '</div>'
-      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0) ? ''   // D85: a published direction is never "no tracks"
+      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0)   // D85: a published direction is never "no tracks"
+        ? '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">Tracks not readable \u2013 see OFP Alerts</div>'   // O-122
       : '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No eastbound tracks found.</div>';
 
     var westTracksContent = (westBlk && westBlk.tracks.length)
       ? '<div style="padding:0">' + westBlk.tracks.map(function (tr, i) { return renderTrackRow(tr, 'WEST', i); }).join('') + '</div>'
-      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0) ? ''   // D85
+      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0)   // D85
+        ? '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">Tracks not readable \u2013 see OFP Alerts</div>'   // O-122
       : '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No westbound tracks found.</div>';
 
     var eastCmtContent = nt.eastComments

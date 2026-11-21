@@ -6995,12 +6995,14 @@ return API;
 
     var eastTracksContent = (eastBlk && eastBlk.tracks.length)
       ? '<div style="padding:0">' + eastBlk.tracks.map(function (tr, i) { return renderTrackRow(tr, 'EAST', i); }).join('') + '</div>'
-      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0) ? ''   // D85: a published direction is never "no tracks"
+      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0)   // D85: a published direction is never "no tracks"
+        ? '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">Tracks not readable \u2013 see OFP Alerts</div>'   // O-122
       : '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No eastbound tracks found.</div>';
 
     var westTracksContent = (westBlk && westBlk.tracks.length)
       ? '<div style="padding:0">' + westBlk.tracks.map(function (tr, i) { return renderTrackRow(tr, 'WEST', i); }).join('') + '</div>'
-      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0) ? ''   // D85
+      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0)   // D85
+        ? '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">Tracks not readable \u2013 see OFP Alerts</div>'   // O-122
       : '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No westbound tracks found.</div>';
 
     var eastCmtContent = nt.eastComments
@@ -7661,6 +7663,19 @@ function _tlPlaceNear(hhmm, refMs) {
 function _tlPlannedOffMs() {
   return _tl.outMs === null ? null : _tl.outMs + (S.taxiMins || 0) * 60000;
 }
+// O-121 (D57): on a flight whose operating date the crew entered, no time is dated
+// before that date: a time placed before its 0000Z goes on to the next day. Each later
+// time after 0000Z then takes the next day as D51 dates it.
+function _tlNotBeforeEntered() {
+  if (!S.dateEnteredByCrew) return;
+  const day = _tlDayMs(window._flightDateISO);
+  if (day === null) return;
+  const up = ms => (ms === null || ms >= day) ? ms : ms + Math.ceil((day - ms) / _TL_DAY) * _TL_DAY;
+  _tl.outMs = up(_tl.outMs);
+  _tl.offMs = up(_tl.offMs);
+  _tl.etaDestMs = up(_tl.etaDestMs);
+  for (const k of Object.keys(_tl.alt)) _tl.alt[k] = up(_tl.alt[k]);
+}
 
 // Builds the timeline from S as at import: OUT on the flight date (DOF), OFF
 // nearest the planned OFF, each ETA the first time at or after OFF (or OUT).
@@ -7679,6 +7694,7 @@ function _tlBuild() {
     const ms = _tlPlaceAfter(a.currentEta, base);
     if (ms !== null) _tl.alt[a.icao] = ms;
   });
+  _tlNotBeforeEntered();   // O-121
 }
 
 // Restores a saved timeline. False (nothing restored) when it is missing or
@@ -7758,6 +7774,7 @@ function _tlRecover() {
     const ms = p === null ? _tlPlaceAfter(a.currentEta, base) : shifted ? p : _tlPlaceNear(a.currentEta, p);
     if (ms !== null) _tl.alt[a.icao] = ms;
   });
+  _tlNotBeforeEntered();   // O-121
 }
 
 // confirmEdit(): places an edited OUT / OFF / IN on its UTC date (see above).
@@ -7772,7 +7789,7 @@ function _tlPlaceEdit(field, hhmm) {
   if (_tlHM(hhmm) === null) return;
   let ref = _tl[key];
   if (ref === null && field === 'offZ') ref = _tlPlannedOffMs();
-  if (ref !== null) { _tl[key] = _tlPlaceNear(hhmm, ref); return; }
+  if (ref !== null) { _tl[key] = _tlPlaceNear(hhmm, ref); _tlNotBeforeEntered(); return; }   // O-121
   if (field === 'outZ') {
     const day = _tlDayMs(window._flightDateISO), m = _tlHM(hhmm);
     _tl.outMs = (day === null || m === null) ? null : day + m * 60000;
@@ -7781,6 +7798,7 @@ function _tlPlaceEdit(field, hhmm) {
   } else {
     _tl[key] = null;
   }
+  _tlNotBeforeEntered();   // O-121
 }
 
 // The dated ETA (DEP for ORIG) of an airport: the timeline entry for its role,
@@ -13358,12 +13376,18 @@ function _ofpPilotCount(result) {
   const n = (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH').length;
   return n || null;
 }
-// Anonymous rest chips for a pilot count: CA, FO, then AO (the roles of the 2/3/4 picker).
-function _crewChips(n) {
+// O-124: rest chips for a pilot count with the roles the OFP prints for its operating pilots
+// (no names), in printed order; a pilot the OFP prints no role for takes the picker's role
+// (CA, FO, then AO).
+function _crewChips(n, roles) {
   const out = [];
-  for (let i = 0; i < (n || 0); i++) out.push({ role: i === 0 ? 'CA' : i === 1 ? 'FO' : 'AO', active: true, displayName: '' });
+  for (let i = 0; i < (n || 0); i++) {
+    const r = roles && roles[i] ? String(roles[i]) : (i === 0 ? 'CA' : i === 1 ? 'FO' : 'AO');
+    out.push({ role: r, active: true, displayName: '' });
+  }
   return out;
 }
+const _ofpPilotRoles = result => (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH').map(c => c.role);
 // D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none.
 function _ofpDispatchContact(result) {
   const d = result.dispatchContact;
@@ -13427,8 +13451,8 @@ function parseOFP() {
     minfFuel:   fuelK(result.minfFuelRaw),
     fresFuel:   fuelK(result.fresFuelRaw),
     ballastFuel: result.ballastFuel,
-    // D62: anonymous chips from the pilot count; the OFP's crew names are not kept.
-    crewMembers:   _crewChips(_pilots),
+    // D62, O-124: one chip per pilot with its printed role; the OFP's crew names are not kept.
+    crewMembers:   _crewChips(_pilots, _ofpPilotRoles(result)),
     operatingPilots: _pilots,
     dispatchContact: _ofpDispatchContact(result),
     tocOffsetMins: result.tocOffsetMins,
@@ -13744,7 +13768,7 @@ function renderPreflightPhase() {
   h += `<div class="data-row"><span class="data-label">STAB</span><span class="data-value">${ev('stabTrim', S.stabTrim||'___/___')}</span></div>`;
   // D72: the Dispatch contact (FlightKeys Company NOTAMs): REQUIRED / IF QUESTIONS. None → no row.
   if (S.dispatchContact && S.dispatchContact.label) {
-    h += `<div class="data-row"><span class="data-label">Dispatch</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
+    h += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
   }
   h += `</div>`; // data-table
   h += `</div></div>`; // subcard-body + subcard
@@ -14841,6 +14865,10 @@ function toggleRestCard() {
   S.restCardCollapsed = !S.restCardCollapsed;
   saveFlight(); renderNote();
 }
+// O-124: the pilot count (S.operatingPilots) follows the crew's edits of the chips.
+function _crewCountSync() {
+  S.operatingPilots = (S.crewMembers || []).filter(m => m.role !== 'JS' && m.role !== 'DH' && m.active !== false).length || null;
+}
 function toggleCrewMember(idx) {
   const c = (S.crewMembers || [])[idx];
   if (!c) return;
@@ -14850,7 +14878,7 @@ function toggleCrewMember(idx) {
     showToast('Minimum 3 operating crew required', 'info'); return;
   }
   c.active = (c.active === false) ? true : false;
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function verifyCrewList() { S.crewVerified = true; saveFlight(); renderNote(); }
 function adjustBuffer(deltaMins) {
@@ -14873,12 +14901,12 @@ function addManualCrew(role) {
   var label = { CA:'Captain', FO:'First Officer' }[r] || r;
   S.crewMembers.push({ role:r, empNum:'', lastName:label, initial:'',
                        displayName:label, active: true, manual:true });
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function removeManualCrew(idx) {
   if (!S.crewMembers || !S.crewMembers[idx]) return;
   S.crewMembers.splice(idx, 1);
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function copyInflightRestLog() {
   const data = calcInflightRest();
@@ -14933,6 +14961,7 @@ function addBulkCrew(count) {
     });
   });
   S.crewVerified = false;
+  _crewCountSync();
   saveFlight();
   renderNote();
 }

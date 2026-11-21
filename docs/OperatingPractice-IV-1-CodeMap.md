@@ -68,7 +68,7 @@ Same 26 parts. FlightKeys parser v1.0.1 is built in (O-116; v1.0.0 frozen in `te
 
 | Part | Function | What |
 |---|---|---|
-| `src/ofp-parse.html` | `_ofpPilotCount`, `_crewChips`, `_ofpDispatchContact`, `_ofpNatMessages`; `parseOFP()` | D62 pilot count and anonymous rest chips; D72 Dispatch contact label; D85 NAT messages parsed once; D57 date rule; D89 refusal returns `false` |
+| `src/ofp-parse.html` | `_ofpPilotCount`, `_crewChips`, `_ofpDispatchContact`, `_ofpNatMessages`; `parseOFP()` | D62 pilot count; rest chips with the printed roles, no names (O-124); D72 Dispatch contact label; D85 NAT messages parsed once; D57 date rule; D89 refusal returns `false` |
 | `src/pdf.html` | `processPDF()`, `importManual()` | D89: stay on the import screen after a refusal |
 | `src/storage.html` | `putFlights()`, `_crewAnon()`, `loadFlight()` | O-107 failed-save toast; D62 names removed from saved flights |
 | `src/edit.html` | `_d57Today`, `_d57Read`, `_d57Set`; `openEdit('date')`, `confirmEdit()` | D57 date pop-up |
@@ -76,3 +76,5 @@ Same 26 parts. FlightKeys parser v1.0.1 is built in (O-116; v1.0.0 frozen in `te
 | `src/render-enroute.html` | `_natCardTrack()` | D85 NAT card object: every published direction |
 | `src/nat.html` | `renderNatTrack()` | four D85 edits (TC-174-003) |
 | `src/airports.html` | `_d67bRows`, `_d67bRuleText` (below `evalAirport`) | D67b / O-105 card rows |
+| `src/state.html` | `_tlNotBeforeEntered()` | O-121: no time dated before a crew-entered date |
+| `src/rest.html` | `_crewCountSync()` | O-124: the pilot count follows the crew's chip edits |

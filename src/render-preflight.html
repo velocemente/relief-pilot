@@ -169,7 +169,7 @@ function renderPreflightPhase() {
   h += `<div class="data-row"><span class="data-label">STAB</span><span class="data-value">${ev('stabTrim', S.stabTrim||'___/___')}</span></div>`;
   // D72: the Dispatch contact (FlightKeys Company NOTAMs): REQUIRED / IF QUESTIONS. None → no row.
   if (S.dispatchContact && S.dispatchContact.label) {
-    h += `<div class="data-row"><span class="data-label">Dispatch</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
+    h += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
   }
   h += `</div>`; // data-table
   h += `</div></div>`; // subcard-body + subcard

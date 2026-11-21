@@ -88,12 +88,18 @@ function _ofpPilotCount(result) {
   const n = (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH').length;
   return n || null;
 }
-// Anonymous rest chips for a pilot count: CA, FO, then AO (the roles of the 2/3/4 picker).
-function _crewChips(n) {
+// O-124: rest chips for a pilot count with the roles the OFP prints for its operating pilots
+// (no names), in printed order; a pilot the OFP prints no role for takes the picker's role
+// (CA, FO, then AO).
+function _crewChips(n, roles) {
   const out = [];
-  for (let i = 0; i < (n || 0); i++) out.push({ role: i === 0 ? 'CA' : i === 1 ? 'FO' : 'AO', active: true, displayName: '' });
+  for (let i = 0; i < (n || 0); i++) {
+    const r = roles && roles[i] ? String(roles[i]) : (i === 0 ? 'CA' : i === 1 ? 'FO' : 'AO');
+    out.push({ role: r, active: true, displayName: '' });
+  }
   return out;
 }
+const _ofpPilotRoles = result => (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH').map(c => c.role);
 // D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none.
 function _ofpDispatchContact(result) {
   const d = result.dispatchContact;
@@ -157,8 +163,8 @@ function parseOFP() {
     minfFuel:   fuelK(result.minfFuelRaw),
     fresFuel:   fuelK(result.fresFuelRaw),
     ballastFuel: result.ballastFuel,
-    // D62: anonymous chips from the pilot count; the OFP's crew names are not kept.
-    crewMembers:   _crewChips(_pilots),
+    // D62, O-124: one chip per pilot with its printed role; the OFP's crew names are not kept.
+    crewMembers:   _crewChips(_pilots, _ofpPilotRoles(result)),
     operatingPilots: _pilots,
     dispatchContact: _ofpDispatchContact(result),
     tocOffsetMins: result.tocOffsetMins,

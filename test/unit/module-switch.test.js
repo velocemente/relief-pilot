@@ -175,7 +175,7 @@ test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.pars
   const now = fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8');
   const r11 = NAT11.slice(NAT11.indexOf('§ 2  RENDERER'), NAT11.indexOf('§ 3  EXPORTS'));
   const r12 = now.slice(now.indexOf('§ 2  RENDERER'), now.indexOf('§ 3  EXPORTS'));
-  // Step 5e-2 display PR 1 (D85): renderNatTrack = v1.1.0 with exactly these four declared edits, each read only
+  // Step 5e-2 display PR 1 (D85, O-122): renderNatTrack = v1.1.0 with exactly these four declared edits, each read only
   // from fields a FlightKeys card object carries (published, publishedDirs, assignedDir); a NavBlue object has
   // none of them, so its card is unchanged (the equal-card check below, and TC-176-030 on the 8 NavBlue NAT cards).
   const D85 = [
@@ -184,9 +184,9 @@ test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.pars
     ['      var isAssigned = tr.assigned || tr.id === nt.assignedId;',
      '      var isAssigned = tr.assigned || (tr.id === nt.assignedId && (!nt.assignedDir || nt.assignedDir === dir));   // D85'],
     ["      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';",
-     "      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0) ? ''   // D85: a published direction is never \"no tracks\"\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';"],
+     "      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0)   // D85: a published direction is never \"no tracks\"\n        ? '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">Tracks not readable \\u2013 see OFP Alerts</div>'   // O-122\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';"],
     ["      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';",
-     "      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0) ? ''   // D85\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';"],
+     "      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0)   // D85\n        ? '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">Tracks not readable \\u2013 see OFP Alerts</div>'   // O-122\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';"],
   ];
   for (const [a] of D85) assert.equal(r11.split(a).length, 2, `v1.1.0 has the line once: ${a.trim().slice(0, 50)}`);
   assert.ok(r11.length > 4000 && D85.reduce((t, [a, b]) => t.replace(a, () => b), r11) === r12, 'renderNatTrack: v1.1.0 + the four D85 edits, nothing else');
@@ -734,9 +734,9 @@ fixtureTest('TC-174-040 safety fields on FlightKeys (rule 6): crew count, CAT II
     const imp = await imported(fx), S = imp.S;
     const r = fk.parseFlightKeys(fk.inputFromExtractor(readText(fx), readItems(fx)), opts);
     // POSITIVE: the app's state = the parser's values. Crew (step 5e-2 display PR 1, D62 / O-106): the
-    // parser's operatingPilots and one anonymous chip per pilot (TC-176-040), no crew record of the parser.
+    // parser's operatingPilots and one chip per pilot with its printed role, no name (O-124, TC-176-040), no crew record of the parser.
     assert.equal(S.operatingPilots, r.operatingPilots, `${lbl.get(fx.id)} crew count`);
-    assert.equal(JSON.stringify(S.crewMembers.map(c => c.role)), JSON.stringify(['CA', 'FO', 'AO', 'AO'].slice(0, r.operatingPilots)), `${lbl.get(fx.id)} crew chips`);
+    assert.equal(JSON.stringify(S.crewMembers.map(c => c.role)), JSON.stringify(r.crewMembers.filter(c => c.role !== 'JS' && c.role !== 'DH').map(c => c.role)), `${lbl.get(fx.id)} crew chips: the printed roles (O-124)`);
     for (const k of ['catIiIiiApproaches', 'dotExemption', 'etopsEntry', 'etopsExit', 'etopsSpec', 'slotTime'])
       assert.equal(JSON.stringify(S[k]), JSON.stringify(r[k] === undefined ? null : r[k]), `${lbl.get(fx.id)} ${k}`);
     assert.equal(S.blockFuel, imp.app.sandbox.fuelK(r.blockFuelRaw), `${lbl.get(fx.id)} block fuel`);
