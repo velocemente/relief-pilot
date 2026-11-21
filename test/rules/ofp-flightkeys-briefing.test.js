@@ -24,8 +24,9 @@
  *               position no item holds a line of another item, a heading or page furniture; line breaks kept
  *   TC-162-021  D64 raw layout on every airport of all 26: notamsRaw = the headings in printed order and every
  *               item once under its heading in printed order; nothing else (no furniture, no other column)
- *   TC-162-022  5c QA F2: a type heading left at the end of an item changes nothing in its shown/hidden result
- *               (NOTAM v1.13.0, every item of the 26, its airport's windows)
+ *   TC-162-022  5c QA F2: a type heading left at the end of an item, every item of the 26 at its airport's
+ *               windows: NOTAM v1.13.0 (frozen copy) — only OBSTACLE changes a result (it hides, O-12);
+ *               NOTAM v1.14.0 (built in at step 5e-1, §5b) — no heading changes any result
  *   TC-162-023  evaluation check: NOTAM v1.13.0 over each airport's notams at each of its windows; per package
  *               the items with a readable window; no item lost or merged (two IDs never one item)
  *   TC-162-024  NOTAM synthetic: heading → category, heading removed from the text; empty-state box → no item,
@@ -525,7 +526,8 @@ if (!FIXTURES) {
   });
   const depOf = r => /^\d{4}$/.test(r.offFromOFP) ? (+r.offFromOFP.slice(0, 2)) * 60 + +r.offFromOFP.slice(2) : null;
   const piecesOf = a => a.notams === '' ? [] : NR._splitNotams(v03(a.notams)).map(p => p.replace(/\n$/, ''));
-  const shown = (r, fx, text, w) => NR.evalNotams([text], w.role, w.eta, AP.buildAcftProfile(r.acftType), fx.date, depOf(r), AP.getWingspan).issues.some(i => i.notamRaw === text);
+  const shown = (r, fx, text, w, nr = NR) => nr.evalNotams([text], w.role, w.eta, AP.buildAcftProfile(r.acftType), fx.date, depOf(r), AP.getWingspan).issues.some(i => i.notamRaw === text);
+  const NR13 = require(path.join(ROOT, 'test', 'oracle', 'notam-rules-v1.13.0.js'));   // frozen v1.13.0 (O-79)
 
   // Rows of one source span, rebuilt from the positioned items (test code): { y, text } (compared without spaces).
   function spanRows(json, s) {
@@ -628,10 +630,10 @@ if (!FIXTURES) {
     console.log(`TC-162-021: raw layout checked on ${airports} briefing airports; ${headings} headings in printed order`);
   });
 
-  test('TC-162-022 5c QA F2: a type heading left at the end of an item — the parser leaves none; effect measured', () => {
+  test('TC-162-022 5c QA F2: a type heading left at the end of an item — the parser leaves none; v1.13.0 effect measured; v1.14.0 none', () => {
     // The parser removes every heading from the item text (TC-162-020). What a heading LEFT at the end of an
-    // item would do, through NOTAM v1.13.0 at the airport's windows, for each of the 17 headings:
-    const changed = {};
+    // item would do, through NOTAM v1.13.0 (frozen) and v1.14.0 (built in) at the airport's windows, per heading:
+    const changed = {}, changed14 = {};
     let evals = 0;
     const hidden = new Set();
     for (const fx of fk) {
@@ -640,11 +642,12 @@ if (!FIXTURES) {
         if (!a.notamItems || !a.notamItems.length) continue;
         const ws = windowsOf(a);
         for (const p of piecesOf(a)) for (const w of ws) {
-          const base = shown(r, fx, p, w);
+          const base = shown(r, fx, p, w, NR13), base14 = shown(r, fx, p, w);
           evals++;
           for (const c of fkb.CATEGORIES) {
             const q = p + '\n' + ' '.repeat(36) + c;
-            if (shown(r, fx, q, w) !== base) {
+            if (shown(r, fx, q, w) !== base14) changed14[c] = (changed14[c] || 0) + 1;
+            if (shown(r, fx, q, w, NR13) !== base) {
               changed[c] = (changed[c] || 0) + 1;
               assert.ok(base, `${lbl} ${icao}: a trailing heading never SHOWS an item that is hidden`);
               hidden.add(`${lbl} ${icao} ${NR._fkHeader(p).id}`);
@@ -657,7 +660,9 @@ if (!FIXTURES) {
     // filter (R-OBS) skips a NOTAM that says OBSTACLE without an approach/departure keyword. Reported (O-12); the
     // parser never leaves a heading in an item, so no FlightKeys item reaches the module that way.
     assert.deepEqual(Object.keys(changed), ['OBSTACLE']);
-    console.log(`TC-162-022: ${evals} item × window evaluations × 17 headings; changed only by OBSTACLE: ${changed.OBSTACLE} evaluations, ${hidden.size} items would be hidden`);
+    // NOTAM v1.14.0 (§5b, built in at step 5e-1): a heading line inside an item is never item content. The trap is closed.
+    assert.deepEqual(changed14, {}, 'v1.14.0: a trailing heading changes no result');
+    console.log(`TC-162-022: ${evals} item × window evaluations × 17 headings; v1.13.0 changed only by OBSTACLE: ${changed.OBSTACLE} evaluations, ${hidden.size} items would be hidden; v1.14.0: none`);
   });
 
   test('TC-162-023 evaluation check: NOTAM v1.13.0 over each airport at each window; nothing lost or merged', () => {

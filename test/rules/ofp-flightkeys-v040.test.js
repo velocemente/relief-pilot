@@ -80,17 +80,19 @@ const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), '
 const mod      = require(path.join(RULES, MANIFEST['ofp-flightkeys'].file));
 const icaoFpl  = require(path.join(RULES, MANIFEST['icao-fpl'].file));
 const acProf   = require(path.join(RULES, MANIFEST['aircraft-profile'].file));
-const NR       = require(path.join(RULES, MANIFEST['notam-rules'].file));        // v1.13.0 (the parser's splitter)
-const NR14     = require(path.join(RULES, MANIFEST['notam-rules-next'].file));   // v1.14.0 (D67)
+// Step 5e-1 (O-27): the built-in NOTAM ruleset is v1.14.0 (D67). The parser's output is the same with
+// v1.13.0 and v1.14.0 as its splitter on all 26 (TC-174-012), so both names are the manifest module.
+const NR       = require(path.join(RULES, MANIFEST['notam-rules'].file));        // v1.14.0 (the parser's splitter)
+const NR14     = NR;                                                             // v1.14.0 (D67)
 const BASE     = require('./data/ofp-flightkeys-v0.3.0-baseline.json');
 const CHANGES  = require('./data/notam-v1.14.0-obstacle-changes.json');
 const GRAMMAR  = fs.readFileSync(path.join(ROOT, 'docs', 'RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md'), 'utf8');
 const EXPECTED_FILE = path.join('expected', 'ofp-flightkeys-v0.4.0', 'briefing.json');
 
-// The app's own NAT track parser (src/nat.html, window.parseNatTrack) and curfew window reader
+// The app's NAT track parser before step 5e-1 (v1.1.0, the frozen copy test/oracle/nat-v1.1.0.html, O-79) and curfew window reader
 // (src/render-descent.html parseCurfewWindows), loaded unchanged.
 const appWin = {};
-vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8'), { window: appWin });
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'nat-v1.1.0.html'), 'utf8'), { window: appWin });
 const parseNatTrack = appWin.parseNatTrack;
 const descent = fs.readFileSync(path.join(ROOT, 'src', 'render-descent.html'), 'utf8');
 const parseCurfewWindows = vm.runInNewContext(/function parseCurfewWindows[\s\S]*?\n}\n/.exec(descent)[0] + '; parseCurfewWindows');

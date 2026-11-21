@@ -2,7 +2,9 @@
 // Reproduces index.html's processPDF() text assembly using pdfjs-dist@3.11.174.
 //
 // The getTextContent loop below is a deliberate copy of the one in index.html
-// (processPDF). If that routine changes, change this one too and re-verify with
+// (processPDF, src/pdf.html): the text lines and, since step 5e-1, the positioned
+// items per page the app keeps for the FlightKeys parser (pdfPages). If that
+// routine changes, change this one too and re-verify with
 //   node tools/extract/verify.js <fixtures-dir>
 //
 // Usage: node tools/extract/extract.js <file.pdf> [outDir]
@@ -73,9 +75,9 @@ async function extractPdf(buf, fileName) {
       if (lineStr.trim()) fullText += lineStr + '\n';
     });
     fullText += '\n'; // page break
-    // ── end copy ────────────────────────────────────────────────────
 
-    // Per-page positional items (document order, non-empty str only).
+    // Positioned text items of the page, in document order (non-empty str only),
+    // y measured from the top: the FlightKeys parser reads the briefing from them.
     pages.push({
       n: i,
       width: vp.width,
@@ -89,6 +91,7 @@ async function extractPdf(buf, fileName) {
         font: it.fontName,
       })),
     });
+    // ── end copy ────────────────────────────────────────────────────
   }
 
   let outline = [];

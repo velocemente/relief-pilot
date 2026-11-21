@@ -1,189 +1,19 @@
 // ═══════════════════════════════════════════════════════════════════
-//  NAT TRACK MESSAGE RULESET  v1.1.0
-//  Atlantic NAT track parsing and rendering (ADR-001 §inline pattern)
-//  Exports: window.parseNatTrack(t, origIcao, destIcao) → object|null
+//  NAT TRACK MESSAGE — parser rules/nat-rules (ADR-005, D77) + renderer
+//  The parser is the standalone module listed in rules/manifest.json
+//  (key nat-rules, v1.2.0). build/build.js builds it into index.html
+//  unchanged, just above this fragment; it publishes one global,
+//  NatRules. The v1.1.0 parser that lived here is removed (O-79); a
+//  frozen copy of this file at v1.1.0 is test/oracle/nat-v1.1.0.html.
+//  Exports: window.parseNatTrack(t, origIcao, destIcao[, options])
+//             = NatRules.parseNatTrack → object|null
 //           window.renderNatTrack(natTrack, navLog) → HTML string
 // ═══════════════════════════════════════════════════════════════════
 (function () {
   'use strict'; // stripped by inline-injection step per ADR-001 §3
 
-  var VERSION = '1.1.0';
-  var SCHEMA  = 1;
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // § 1  PARSER
-  //
-  // parseNatTrack(t, origIcao, destIcao)
-  //
-  // @param  {string} t         – Full OFP raw text (already extracted by parseOFP)
-  // @param  {string} origIcao  – Origin ICAO code  e.g. "KJFK"
-  // @param  {string} destIcao  – Destination ICAO  e.g. "EGLL"
-  // @return {object|null}      – natTrack data object, or null if not an
-  //                              Atlantic crossing
-  //
-  // Returns:
-  //   {
-  //     trackType    : 'NAT',
-  //     tmi          : string | null,      // Track Message Identifier e.g. "071"
-  //     flightDir    : 'EAST' | 'WEST',
-  //     assignedId   : string | null,      // Filed track letter e.g. "T"
-  //     blocks       : [                   // Direction blocks, flight direction first
-  //       {
-  //         dir    : 'EAST' | 'WEST',
-  //         tracks : [
-  //           {
-  //             id        : string,         // "A" … "Z" or "1" … "14"
-  //             waypoints : string[],       // e.g. ["MIMKU","57N020W",…]
-  //             fl        : string,         // e.g. "FL340–400" or ""
-  //             mach      : string,         // e.g. "M.82" or ""
-  //             valid     : string,         // e.g. "0100Z–0800Z" or ""
-  //             assigned  : boolean,        // true when id === assignedId
-  //           }
-  //         ]
-  //       }
-  //     ],
-  //     rawFallback  : string,             // Raw block excerpt when parse yields no tracks
-  //     eastComments : string,
-  //     westComments : string,
-  //   }
-  // ─────────────────────────────────────────────────────────────────────────
-  function parseNatTrack(t, origIcao, destIcao) {
-
-    // ICAO prefix → region sets
-    var NAM = /^(?:K|CY|PA|TJ|MD|MH)/;
-    var EUR = /^(?:EG|EI|EH|EK|EN|EB|ED|ET|LF|LE|LP|LI|LO|EF|EE|EV|EY|ES|EP|LR|LK|LZ|LH|LD|LQ|BI|UG)/;
-
-    var isAtlantic = (NAM.test(origIcao) && EUR.test(destIcao)) || (EUR.test(origIcao) && NAM.test(destIcao));
-    if (!isAtlantic) return null;
-
-    var trackType = 'NAT';
-
-    // Flight direction: NAM→EUR = EAST, EUR→NAM = WEST
-    var flightDir = NAM.test(origIcao) ? 'EAST' : 'WEST';
-
-    // Locate track block — broadened for Atlas Air header variations
-    var BLOCK_HDR = /(?:(?:EAST|WEST)BOUND\s+NAT\s+TRACKS?|(?:EAST|WEST)\s+BOUND\s+NAT\s+TRACKS?|NAT\s+TRACK\s+MESSAGE|ORGANIZED\s+TRACK\s+SYSTEM|OCEANIC\s+TRACK\s+MESSAGE|NAT\s+OTS)/i;
-    var bIdx = t.search(BLOCK_HDR);
-    var rawBlock = bIdx > -1
-      ? t.slice(bIdx, bIdx + 18000).replace(/^(?:ATLAS AIR BRIEF )?PAGE \d+ OF \d+\s*$/mg, '')
-      : '';
-
-    // TMI — Atlas format: "EAST BOUND NAT TRACKS TMI 071"
-    var tmiHdrM  = rawBlock.match(/(?:EAST|WEST)\s+BOUND\s+NAT\s+TRACKS?\s+TMI\s+(\d{2,4})/i);
-    var tmiBodyM = !tmiHdrM && rawBlock.match(/TMI(?:\s+IS)?\s*[:\s#]*(\d{2,4})/i);
-    var tmiFullM = !tmiHdrM && !tmiBodyM && t.match(/TMI(?:\s+IS)?\s*[:\s#]*(\d{2,4})/i);
-    var tmi = (tmiHdrM || tmiBodyM || tmiFullM) ? (tmiHdrM || tmiBodyM || tmiFullM)[1] : null;
-
-    // Filed track ID — scoped to CO ROUTE line only to suppress NOTAM false positives
-    // (e.g. CZQM "HOIST TRACK T", ZBW "NAT TFC")
-    var preBlock = bIdx > 0 ? t.slice(0, bIdx) : t.slice(0, 4000);
-    var coRouteM = preBlock.match(/CO\s+ROUTE[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n[A-Z]{4}\/[A-Z]{3}\b|\nFMC\b|\nColdest\b)/i);
-    var routeStr = coRouteM ? coRouteM[1] : '';
-    var assignedM = routeStr.match(/\bNAT\s*([A-Z])\b/i)
-                 || preBlock.match(/\bASSIGNED\s+(?:NAT\s+)?TRACK[:\s]+([A-Z])\b/i);
-    var assignedId = assignedM ? assignedM[1].toUpperCase() : null;
-
-    // Comment sections — "EAST/WEST BOUND NAT TRACK COMMENTS:" blocks
-    var eastCmtM = rawBlock.match(/EAST\s+BOUND\s+NAT\s+TRACK\s+COMMENTS?\s*:?([\s\S]*?)(?=WEST\s+BOUND\s+NAT\s+TRACKS?\b|$)/i);
-    var westCmtM = rawBlock.match(/WEST\s+BOUND\s+NAT\s+TRACK\s+COMMENTS?\s*:?([\s\S]*?)(?=EAST\s+BOUND\s+NAT\s+TRACKS?\b|$)/i);
-    var eastComments = eastCmtM ? eastCmtM[1].trim().replace(/-\s*$/, '').trim() : '';
-    var westComments = westCmtM ? westCmtM[1].trim().replace(/-\s*$/, '').trim() : '';
-
-    // Split rawBlock at each direction heading — parse independently.
-    // Handles both "EAST BOUND NAT TRACKS" and "EASTBOUND NAT TRACKS" (Atlas Air).
-    var DIR_SPLIT_RE = /(?=(?:EAST|WEST)BOUND\s+NAT\s+TRACKS?|(?:EAST|WEST)\s+BOUND\s+NAT\s+TRACKS?)/gi;
-    var dirSections = rawBlock.split(DIR_SPLIT_RE).filter(function (s) { return /\S/.test(s); });
-
-    // ── Parse one direction section into an array of track objects ──────
-    function parseSection(section) {
-      var tracks = [];
-      // Matches "NAT V" (Atlas format) and "TRACK A" (generic ICAO format)
-      var HDR_RE = /^\s*(?:NAT\s+([A-Z])|TRACK\s+([A-Z]))\b/gm;
-      var tm;
-      while ((tm = HDR_RE.exec(section)) !== null) {
-        var id = (tm[1] || tm[2]).toUpperCase();
-        var after = section.slice(tm.index, tm.index + 1000);
-
-        // Waypoints — "WPTS:" label (Atlas NAT format)
-        var wpts = [];
-        var wptSrcM = after.match(/WPTS?:\s*([\s\S]*?)(?=\r?\n(?:ENT|EXIT|CMTS?|RTE|TRACK\s+[A-Z]|NAT\s+[A-Z]|EAST|WEST)|$)/i);
-        var wptSrc = wptSrcM
-          ? wptSrcM[1]
-          : after.split('\n').slice(1, 5).join(' ');
-
-        // WPT_RE: named fixes + all oceanic coordinate formats
-        // Matches: RIKAL, 53N050W, 5530N, 57N020W, N5700W02000, 5700N02000W
-        var WPT_RE = /\b([A-Z]{3,5}|\d{2}[NS]\d{3}[EW]|\d{4}N|\d{2}[NS]\d{2}[EW]|N\d{2}[EW]\d{3}|\d{4}[NS]\d{5}[EW])\b/g;
-        var wm;
-        // Reserved keyword filter — prevents meta-labels from entering waypoint list
-        var RESERVED = /^(?:TRACK|PAC|NAT|MACH|VALID|EAST|WEST|FROM|THRU|THEN|TMI|NOTE|RMKS?|WPTS?|CMTS?|ENT|EXIT|RTE|TRK|ATM|NOT|AVBL|ONLY|ACFT)$/;
-        while ((wm = WPT_RE.exec(wptSrc)) !== null) {
-          var tok = wm[1];
-          if (RESERVED.test(tok)) continue;
-          wpts.push(tok);
-        }
-
-        // FL: range "FL340-400" OR space-separated list "FL : 340 350 360 370 380 390 400"
-        var fl = '';
-        var flRangeM = after.match(/FL[:\s]*(\d{2,3})\s*[\/\-\u2013]\s*(\d{2,3})/i);
-        if (flRangeM) {
-          fl = 'FL' + flRangeM[1] + '\u2013' + flRangeM[2];
-        } else {
-          var flListM = after.match(/FL\s*:\s*((\d{3})\s+(?:\d{3}\s+)*(\d{3}))/i);
-          if (flListM) {
-            fl = 'FL' + flListM[2] + '\u2013' + flListM[3];
-          } else {
-            var flSingleM = after.match(/\bFL\s*(\d{2,3})\b/i);
-            if (flSingleM) fl = 'FL' + flSingleM[1];
-          }
-        }
-
-        var machM = after.match(/MACH[:\s]*\.?(\d{2})/i) || after.match(/M\.(\d{2})/i);
-        var mach = machM ? 'M.' + machM[1] : '';
-
-        // Validity: "VALID FROM: 03/12-0100 TO: 03/12-0800" or "1200Z–2000Z"
-        var valM = after.match(/(?:VALID\s+FROM[:\s]*)(\S+)\s+TO[:\s]*(\S+)/i)
-                || after.match(/(?:VALID[:\s]*)(\d{4}Z?)\s*[\/\-\u2013]\s*(\d{4}Z?)/i);
-        var valid = valM ? (valM[1] + '\u2013' + valM[2]) : '';
-
-        if (wpts.length >= 2) {
-          tracks.push({ id: id, waypoints: wpts, fl: fl, mach: mach, valid: valid, assigned: id === assignedId });
-        }
-      }
-      return tracks;
-    }
-
-    // Build direction blocks — deduplicate, flight direction sorted first
-    var blocks = [];
-    for (var i = 0; i < dirSections.length; i++) {
-      var section = dirSections[i];
-      var dirM = section.match(/^(EAST|WEST)(?:BOUND|\s+BOUND)/i);
-      var secDir = dirM ? dirM[1].toUpperCase() : null;
-      if (!secDir) continue;
-      if (blocks.some(function (b) { return b.dir === secDir; })) continue;
-      blocks.push({ dir: secDir, tracks: parseSection(section) });
-    }
-    blocks.sort(function (a, b) {
-      if (a.dir === flightDir && b.dir !== flightDir) return -1;
-      if (b.dir === flightDir && a.dir !== flightDir) return  1;
-      return 0;
-    });
-
-    var rawFallback = (!blocks.length || !blocks.some(function (b) { return b.tracks.length; })) && rawBlock.length > 30
-      ? rawBlock.slice(0, 2500) : '';
-
-    return {
-      trackType:    trackType,
-      tmi:          tmi,
-      flightDir:    flightDir,
-      assignedId:   assignedId,
-      blocks:       blocks,
-      rawFallback:  rawFallback,
-      eastComments: eastComments,
-      westComments: westComments,
-    };
-  }
-
+  var VERSION = NatRules.RULESET_VERSION;
+  var SCHEMA  = NatRules.SCHEMA_VERSION;
 
   // ─────────────────────────────────────────────────────────────────────────
   // § 2  RENDERER
@@ -340,7 +170,7 @@
   // ─────────────────────────────────────────────────────────────────────────
   // § 3  EXPORTS
   // ─────────────────────────────────────────────────────────────────────────
-  window.parseNatTrack       = parseNatTrack;
+  window.parseNatTrack       = NatRules.parseNatTrack;
   window.renderNatTrack      = renderNatTrack;
   window.NAT_RULES_VERSION   = VERSION;
   window.NAT_RULES_SCHEMA    = SCHEMA;

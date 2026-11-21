@@ -30,10 +30,13 @@ const MODULES = [
   { rule: 'aircraft-profile' }, // rules/aircraft-profile: publishes AircraftProfile, used in ofp-parse.html and airports.html
   { rule: 'notam-rules' },   // rules/notam-rules: publishes NotamRules, bound in notam.html
   'notam.html',
+  { rule: 'nat-rules' },     // rules/nat-rules: publishes NatRules; src/nat.html binds window.parseNatTrack to it (D77)
   'nat.html',
   'state.html',
   'storage.html',
   'pdf.html',
+  { rule: 'icao-fpl' },      // rules/icao-fpl: publishes IcaoFpl, passed to OfpFlightKeys in ofp-parse.html
+  { rule: 'ofp-flightkeys' }, // rules/ofp-flightkeys: publishes OfpFlightKeys, called in ofp-parse.html (router)
   { rule: 'ofp-navblue' },   // rules/ofp-navblue: publishes OfpNavBlue, called in ofp-parse.html
   'ofp-parse.html',
   'render-preflight.html',

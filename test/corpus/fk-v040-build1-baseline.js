@@ -30,7 +30,7 @@ if (!FIX) { console.error('fixtures directory not found'); process.exit(2); }
 const modFile = opt('--module') ? path.resolve(opt('--module')) : path.join(RULES, MAN['ofp-flightkeys'].file);
 const mod = require(modFile);
 const win = {};
-vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8'), { window: win });
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'nat-v1.1.0.html'), 'utf8'), { window: win });   // NAT v1.1.0, frozen (O-79)
 const OPTS = {
   icaoFpl: require(path.join(RULES, MAN['icao-fpl'].file)),
   aircraftProfile: require(path.join(RULES, MAN['aircraft-profile'].file)),

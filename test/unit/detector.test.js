@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { detect, THRESHOLD, AMBIGUITY_BAND, _scoreProfile } = require('../../src/import/detector');
-const { adaptItems } = require('../../src/import/adapter-pdf');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -175,68 +174,29 @@ if (!FIXTURES_DIR) {
 } else {
   const manifest = JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, 'manifest.json'), 'utf8'));
 
-  // Derive expected profile from fixture id:
-  // FlightKeys fixtures have ids starting with 'FK_' (case-insensitive); all others are atlas-5y.
-  function expectedProfile(id) {
-    return /^FK_/i.test(id) ? 'atlas-fk' : 'atlas-5y';
-  }
+  // Step 5e-1: the import detector the app runs is _ofpDetectFormat (src/ofp-parse.html, O-78), on the text
+  // processPDF() builds (= the fixtures' text/). The ADR-004 detector above (src/import/detector.js, not built
+  // into index.html) rejected three live FlightKeys packages (its known gaps, removed from test/known-gaps.json);
+  // the app's detector must classify every fixture, with no known gap.
+  const { loadApp } = require('../harness');
+  const app = loadApp();
 
-  // Known detector gaps (test/known-gaps.json "detector", step 5e): these packages are
-  // expected to be REJECTED by the threshold. Any other rejection still fails.
-  const KNOWN_REJECTED = new Map(
-    JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'known-gaps.json'), 'utf8')).detector.gaps
-      .map(g => [g.fixture, g]));
-
-  test(`detector: all ${manifest.fixtures.length} fixtures classified correctly (listed known gaps rejected)`, async (t) => {
-    let fkCount = 0;
-    let ntCount = 0;
-    let knownRejected = 0;
+  test(`detector (app, O-78): all ${manifest.fixtures.length} fixtures classified by format, no known gap`, () => {
+    let fkCount = 0, ntCount = 0;
     const failures = [];
-
     for (const fx of manifest.fixtures) {
-      const itemsPath = path.join(FIXTURES_DIR, fx.files.items);
-      if (!fs.existsSync(itemsPath)) {
-        failures.push(`${fx.id}: items file missing`);
-        continue;
-      }
-      const itemsDoc = JSON.parse(fs.readFileSync(itemsPath, 'utf8'));
-      const doc      = adaptItems(itemsDoc);
-
-      const want = expectedProfile(fx.id);
-      const known = KNOWN_REJECTED.get(fx.id);
-      let result;
-      try {
-        result = detect(doc);
-      } catch (e) {
-        // A listed known gap must be rejected by the threshold, for the recorded format.
-        if (known && known.expect === want && /^OFP format not recognised \(best score [\d.]+ < threshold/.test(e.message)) {
-          knownRejected++;
-          continue;
-        }
-        failures.push(`${fx.id}: detect threw — ${e.message}`);
-        continue;
-      }
-
-      if (known && result.profileId === want) {
-        const m = `REMINDER: detector gap now fixed, delete it from test/known-gaps.json "detector": ${fx.id}`;
-        console.log(m); t.diagnostic(m);
-      }
-      if (result.profileId !== want) {
-        failures.push(`${fx.id}: got ${result.profileId} (confidence ${result.confidence.toFixed(2)}), want ${want}`);
-      } else {
-        if (result.profileId === 'atlas-fk') fkCount++;
-        else ntCount++;
-      }
+      const text = fs.readFileSync(path.join(FIXTURES_DIR, fx.files.text), 'utf8');
+      const want = fx.format === 'flightkeys' ? 'flightkeys' : 'navblue';
+      let got;
+      try { got = app._ofpDetectFormat(text); } catch (e) { failures.push(`${fx.id}: ${e.name}: ${e.message}`); continue; }
+      if (got !== want) failures.push(`${fx.id}: got ${got}, want ${want}`);
+      else if (got === 'flightkeys') fkCount++; else ntCount++;
     }
-
     assert.equal(failures.length, 0, `${failures.length} fixture(s) misclassified:\n${failures.join('\n')}`);
-    // Expected counts come from the manifest's format field, so adding a fixture
-    // needs no test edit. Floors guard against the library silently shrinking.
     const wantFk = manifest.fixtures.filter(fx => fx.format === 'flightkeys').length;
-    const wantNt = manifest.fixtures.length - wantFk;
-    assert.equal(ntCount, wantNt, `Expected ${wantNt} atlas-5y fixtures, got ${ntCount}`);
-    assert.equal(fkCount + knownRejected, wantFk, `Expected ${wantFk} atlas-fk fixtures (${knownRejected} known gaps), got ${fkCount}`);
-    console.log(`detector: ${fkCount} atlas-fk, ${ntCount} atlas-5y, ${knownRejected} known gap(s) rejected as listed`);
-    assert.ok(wantNt >= 30 && wantFk >= 2, `Fixture library shrank: ${wantNt} Navtech/eOFP, ${wantFk} FlightKeys`);
+    assert.equal(fkCount, wantFk); assert.equal(ntCount, manifest.fixtures.length - wantFk);
+    console.log(`detector (app): ${fkCount} flightkeys, ${ntCount} navblue`);
+    assert.ok(ntCount >= 30 && fkCount >= 26, `Fixture library shrank: ${ntCount} Navtech/eOFP, ${fkCount} FlightKeys`);
+    assert.ok(!('detector' in JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'known-gaps.json'), 'utf8'))), 'no detector known gaps');
   });
 }

@@ -23,7 +23,12 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  // Aircraft-profile module equivalence (TC-150): the app's callsign derivation.
                  'deriveCallsign',
                  // D61 (TC-171-104): the airport card's NOTAM rows.
-                 'renderAptIssues'];
+                 'renderAptIssues',
+                 // Step 5e-1 (TC-174): the format detector, the router, the findings shown and the
+                 // Preflight card that shows them; the pasted-text import.
+                 '_ofpDetectFormat', '_ofpParse', '_ofpShownFindings', 'renderPreflightPhase', 'importManual',
+                 // O-89: the crew selects the OFP Alerts title.
+                 'ofpAlertsSelect'];
 // The NOTAM functions the standalone module (rules/notam-rules) provides. index.html builds the
 // module in (global NotamRules) and binds only evalNotams and _splitNotams as app names; for a
 // name the app does not bind, the harness reads the module's export from the same script.

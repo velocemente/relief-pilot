@@ -5,8 +5,8 @@
  *
  *   1. hidden NOTAMs = 0, measured against test/oracle/notam-oracle.js (HF-5 QA oracle)
  *   2. no "[object Object]" anywhere in an app-path snapshot
- *   3. every Navtech/eOFP release airport has NOTAM and weather text, or an explicit nil;
- *      FlightKeys gaps must be listed in test/known-gaps.json
+ *   3. every release airport has NOTAM and weather text, or an explicit nil (Navtech/eOFP: the OFP
+ *      says so; FlightKeys, since step 5e-1: the package prints none and the parser says so in its INFO)
  *   4. fuel / weight cross-checks on every fixture
  *   5. D43: a NOTAM whose ID differs from every earlier NOTAM is never dropped by evalNotams()
  */
@@ -14,13 +14,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { findFixtures, readManifest, importFixture, notamKey } = require('../lib/app-path');
+const { findFixtures, readManifest, importFixture, notamKey, isFkHeadingPiece } = require('../lib/app-path');
 const { appSnapshot, notamSnapshot, evalArgsFor, callEvalNotams, notamIdOf } = require('../lib/v0-snapshots');
 const { normalize } = require('../golden/serialize');
 const oracle = require('../oracle/notam-oracle');
 
 const FIXTURES_DIR = findFixtures();
-const KNOWN_GAPS = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'known-gaps.json'), 'utf8')).gaps;
 
 // One import of every fixture, shared by all tests of this file.
 let _ctx = null;
@@ -144,18 +143,34 @@ test('V0 every Navtech/eOFP release airport has NOTAM and weather text, or an ex
   assert.deepEqual(bad.map(g => `${g.fixture} ${g.icao} ${g.field}`), [], 'release airport(s) with no text and no explicit nil in the OFP');
 });
 
-test('V0 FlightKeys gaps: every gap is listed in test/known-gaps.json (reminder when one is fixed)', async (t) => {
+// FlightKeys (step 5e-1: the FlightKeys parser is built in; test/known-gaps.json no longer lists FlightKeys gaps).
+// Explicit nil = the package prints the empty-state box for that airport and the parser reports it with its
+// INFO "<ICAO>: the NOTAM Briefing prints no active NOTAMs" (field airportData.notams / .weather).
+function fkExplicitNil(findings, icao, field) {
+  return (findings || []).some(f => f.level === 'INFO' && f.field === `airportData.${field}` &&
+    f.message.startsWith(`${icao}: `) && /\bprints no\b/.test(f.message));
+}
+test('V0 every FlightKeys release airport has NOTAM and weather text, or the package prints none (the parser\'s INFO)', async () => {
   const c = await ctx();
-  const listed = new Set(KNOWN_GAPS.map(g => `${g.fixture} ${g.icao} ${g.field}`));
-  assert.equal(listed.size, KNOWN_GAPS.length, 'duplicate line in known-gaps.json');
-  for (const g of KNOWN_GAPS) assert.ok(g.row, `known-gaps.json line without a field-map row: ${g.fixture} ${g.icao} ${g.field}`);
-  const actual = airportGaps(c).filter(g => g.fk);
-  const actualKeys = new Set(actual.map(g => `${g.fixture} ${g.icao} ${g.field}`));
-  const unlisted = [...actualKeys].filter(k => !listed.has(k));
-  const fixed = [...listed].filter(k => !actualKeys.has(k));
-  fixed.forEach(k => { const m = `REMINDER: known gap now fixed, delete it from test/known-gaps.json: ${k}`; console.log(m); t.diagnostic(m); });
-  console.log(`V0: FlightKeys gaps: ${actualKeys.size} found, ${listed.size} listed, ${fixed.length} fixed`);
-  assert.deepEqual(unlisted, [], 'FlightKeys gap(s) not listed in test/known-gaps.json');
+  const fkItems = c.items.filter(i => isFk(i.fx));
+  assert.equal(fkItems.length, 26, '26 FlightKeys packages');
+  const gaps = airportGaps(c).filter(g => g.fk);
+  const byFx = new Map(fkItems.map(i => [i.fx.id, i.imp.S.ofpFindings]));
+  const stated = gaps.filter(g => fkExplicitNil(byFx.get(g.fixture), g.icao, g.field));
+  const bad = gaps.filter(g => !stated.includes(g));
+  console.log(`V0: FlightKeys airports checked: ${fkItems.reduce((n, i) => n + i.imp.app.getAllAirports().length, 0)}; explicit nil: ${stated.map(g => `${g.fixture}/${g.icao}/${g.field}`).join(', ') || 'none'}`);
+  assert.deepEqual(bad.map(g => `${g.fixture} ${g.icao} ${g.field}`), [], 'FlightKeys release airport(s) with no text and no explicit nil');
+  assert.equal(stated.length, 2, 'the two airports whose NOTAM Briefing prints no active NOTAMs (L13 RJFT, L15 WIHH)');
+});
+
+test('V0 negative: a FlightKeys airport with no text and no explicit-empty INFO is a gap', () => {
+  const info = { level: 'INFO', field: 'airportData.notams', message: 'XXXX: the NOTAM Briefing prints no active NOTAMs' };
+  assert.equal(fkExplicitNil([info], 'XXXX', 'notams'), true);
+  assert.equal(fkExplicitNil([info], 'YYYY', 'notams'), false, 'another airport');
+  assert.equal(fkExplicitNil([info], 'XXXX', 'weather'), false, 'another field');
+  assert.equal(fkExplicitNil([{ ...info, level: 'WARN' }], 'XXXX', 'notams'), false);
+  assert.equal(fkExplicitNil([{ ...info, message: 'XXXX: no NOTAM block in the FlightKeys briefing' }], 'XXXX', 'notams'), false, 'a missing block is not an empty one');
+  assert.equal(fkExplicitNil(undefined, 'XXXX', 'notams'), false);
 });
 
 // ── 4. fuel and weight cross-checks ─────────────────────────────────────────
@@ -223,15 +238,20 @@ test('V0 negative: the weight checks flag a broken relation, and BALLAST only ap
 // on its own (so it is in effect and passes the obstacle and aircraft filters), must also
 // be reported when given with all the others. Anything else was merged away by another
 // NOTAM (the 1.9.9-hf1 merge on slot:level:label, fixed by D43 / HF-6).
+// Step 5e-1 (FlightKeys text, NOTAM v1.14.0 §5b): a type heading piece is no NOTAM; an item
+// is evaluated "on its own" with the heading it is printed under (its category, e.g. OBSTACLE,
+// is part of the item), and FlightKeys items are keyed by their printed location(s) and ID.
 function droppedNewIds(notamArr, evalFn) {
   const seenKeys = new Set();
   const dropped = [];
   const full = evalFn(notamArr).issues.map(i => i.notamRaw);
+  let heading = null;
   for (const chunk of notamArr) {
+    if (isFkHeadingPiece(chunk)) { heading = chunk; continue; }
     const key = notamIdOf(chunk);
     if (seenKeys.has(key)) continue;          // same ID again: a duplicate, allowed to merge
     seenKeys.add(key);
-    const alone = evalFn([chunk]).issues.some(i => i.notamRaw === chunk);
+    const alone = evalFn(heading ? [heading, chunk] : [chunk]).issues.some(i => i.notamRaw === chunk);
     if (alone && !full.includes(chunk)) dropped.push(key);
   }
   return dropped;

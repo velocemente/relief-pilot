@@ -684,7 +684,7 @@ For the grammar report `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.
 
 | Item | Note |
 | :--- | :--- |
-| Integration | v1.0.0 is not built in (O-74): the switch PR (5e-1 PR 2) builds it in with NOTAM v1.14.0 and the NAT ruleset v1.2.0, passes `options.notamRules` (O-18) and shows the findings (O-76). `notams` carries the type headings for NOTAM v1.14.0: it must not be given to NOTAM v1.13.0 (O-12). Without `notamRules` the module keeps its WARN (TC-164-015). |
+| Integration | **Built in by the switch PR (step 5e-1 PR 2, TC-174)** with icao-fpl v1.0.0, NOTAM v1.14.0 and the NAT ruleset v1.2.0; the app passes `options.notamRules` (O-18) and shows the findings on the Preflight card (O-76: every WARN and the NAT INFOs, message only, O-87, O-88). Module file unchanged. Before the switch: v1.0.0 was not built in (O-74). `notams` carries the type headings for NOTAM v1.14.0: it must not be given to NOTAM v1.13.0 (O-12). Without `notamRules` the module keeps its WARN (TC-164-015). |
 | O-68 NAT findings to the crew | **Module side done in v1.0.0:** `{ filed, findings }` passed, NAT findings in `findings[]` (§5.23). The crew display is PR 2 (O-76). |
 | O-80 pasted text | **As built:** without `input.pages` the release is read from the text with the WARN `positioned items (input.pages) not supplied; read from text only`; the briefing is not read (TC-164-016). No module change. |
 | O-84 version in a finding | **Closed (Exec, 20 Nov):** the deferred INFO is version-free (§1). |

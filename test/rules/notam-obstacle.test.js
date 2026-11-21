@@ -1,12 +1,13 @@
 'use strict';
 /**
  * TC-172 — NOTAM ruleset v1.14.0 (ledger P-26): the obstacle rule of Exec decisions D67 / D67a and the
- * FlightKeys type headings. Module rules/notam-rules-next/notam-rules-v1.14.0.js (manifest entry
- * 'notam-rules-next'; not built into index.html, which keeps v1.13.0 until step 5e).
+ * FlightKeys type headings. Module rules/notam-rules/notam-rules-v1.14.0.js (manifest entry 'notam-rules';
+ * built into index.html at step 5e-1, O-21 / O-27; the v1.13.0 file left rules/ and is kept frozen, byte for
+ * byte, as test/oracle/notam-rules-v1.13.0.js for the before / after comparisons here, O-79).
  *
  *   TC-172-001  module standard: version, manifest, exports, validateSchema (a broken pattern set is
- *               rejected), Node / rules-loader / browser give the same API, no DOM; not built into
- *               index.html (the app keeps v1.13.0)
+ *               rejected), Node / rules-loader / browser give the same API, no DOM; built into
+ *               index.html byte for byte, v1.13.0 not (step 5e-1)
  *   TC-172-002  every declaration of v1.13.0 except the edited ones is byte-identical in v1.14.0
  *   TC-172-010  each effect pattern (item 2): shown, and its pattern is the reason; the same NOTAM
  *               without the height/gradient phrase: hidden — also when it still names the runway or
@@ -71,12 +72,13 @@ const ACFT = require('./data/acft-cases');
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
-const FILE     = path.join(RULES, MANIFEST['notam-rules-next'].file);
+const FILE     = path.join(RULES, MANIFEST['notam-rules'].file);
 const SRC      = fs.readFileSync(FILE, 'utf8');
 const M        = require(FILE);                                              // v1.14.0
-const OLD_FILE = path.join(RULES, MANIFEST['notam-rules'].file);
+const OLD_FILE = path.join(ROOT, 'test', 'oracle', 'notam-rules-v1.13.0.js');   // frozen v1.13.0 (O-79)
 const OLD_SRC  = fs.readFileSync(OLD_FILE, 'utf8');
-const M13      = require(OLD_FILE);                                          // v1.13.0 (built into the app)
+const M13      = require(OLD_FILE);                                          // v1.13.0 (built into the app until step 5e-1)
+const OLD_SHA256 = 'e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b';   // v1.13.0 as listed in rules/manifest.json before 5e-1
 const AP       = nodeAircraftProfile();
 const CHANGES  = require('./data/notam-v1.14.0-obstacle-changes.json');
 const REPORT   = path.join(ROOT, 'docs', 'RPT-NOTAM-ObstacleRule-ChangeList-UPD-20261119-v1.2.md');
@@ -130,13 +132,15 @@ function cardGroup(res, raw) {
 
 // ══ TC-172-001 module standard ═══════════════════════════════════════════════
 
-test('TC-172-001 v1.14.0: version, manifest, exports, validateSchema, dual context; not built into the app', () => {
+test('TC-172-001 v1.14.0: version, manifest, exports, validateSchema, dual context; built into the app (step 5e-1)', () => {
   assert.equal(M.RULESET_TYPE, 'notam');
   assert.equal(M.RULESET_VERSION, '1.14.0');
   assert.equal(M.SCHEMA_VERSION, 2);
-  const e = MANIFEST['notam-rules-next'];
+  const e = MANIFEST['notam-rules'];
   assert.equal(e.version, '1.14.0');
-  assert.equal(e.file, 'notam-rules-next/notam-rules-v1.14.0.js');
+  assert.equal(e.file, 'notam-rules/notam-rules-v1.14.0.js');
+  assert.ok(!MANIFEST['notam-rules-next'], 'no notam-rules-next key (O-79)');
+  assert.equal(sha(Buffer.from(OLD_SRC)), OLD_SHA256, 'the oracle is v1.13.0, byte for byte');
   assert.equal(e.sha256, sha(fs.readFileSync(FILE)));
   // The new exports, and every v1.13.0 export kept in the same order.
   const NEW = ['FK_TYPE_HEADINGS', '_fkTypeHeading', 'OBSTACLE_RULE', '_obstacleRule', '_ownNotamText'];
@@ -168,11 +172,10 @@ test('TC-172-001 v1.14.0: version, manifest, exports, validateSchema, dual conte
   assert.equal(sansMap(ctx.NotamRules.evalNotams([n], 'DEST', null, PROF, DATE, null, AP.getWingspan)), sansMap(ev(M, [n])));
   const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   for (const re of [/\bwindow\b/, /\bdocument\b/, /\blocalStorage\b/, /\bsessionStorage\b/, /\bfetch\s*\(/]) assert.ok(!re.test(code), `no ${re}`);
-  // Not built into the app: index.html holds v1.13.0 (byte for byte) and not v1.14.0.
+  // Built into the app (step 5e-1, O-21 / O-27): index.html holds v1.14.0 byte for byte, once, and not v1.13.0.
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  assert.equal(MANIFEST['notam-rules'].version, '1.13.0');
-  assert.ok(html.includes(OLD_SRC), 'index.html carries the v1.13.0 module');
-  assert.ok(!html.includes("RULESET_VERSION = '1.14.0'") && !html.includes('OBSTACLE_RULE'), 'v1.14.0 is not built into index.html');
+  assert.equal(html.split(SRC).length, 2, 'index.html carries the v1.14.0 module once');
+  assert.ok(!html.includes(OLD_SRC) && !html.includes("RULESET_VERSION = '1.13.0'"), 'v1.13.0 is not built into index.html');
 });
 
 // ══ TC-172-002 only the edited declarations differ ═══════════════════════════
@@ -939,8 +942,8 @@ test('TC-172-033 the change list data and the report agree; recorded from these 
     if (O25.includes(e.pattern)) assert.ok(!/^no row/.test(e.cards.DEST) && !/^no row/.test(e.cards.ORIG), `${e.key}: O-25 case has a row`);
     assert.ok(!/^no row/.test(e.cards.DEST), `${e.key}: a row on the destination / alternate card (D67b O-29)`);
   }
-  assert.equal(CHANGES.before.sha256, MANIFEST['notam-rules'].sha256, 'recorded from v1.13.0');
-  assert.equal(CHANGES.after.sha256, MANIFEST['notam-rules-next'].sha256, 'recorded from this v1.14.0 file');
+  assert.equal(CHANGES.before.sha256, OLD_SHA256, 'recorded from v1.13.0');
+  assert.equal(CHANGES.after.sha256, MANIFEST['notam-rules'].sha256, 'recorded from this v1.14.0 file');
   // No NOTAM text in this repository's data.
   for (const e of CHANGES.entries) assert.deepEqual(Object.keys(e), ['key', 'fmt', 'pkg', 'airport', 'id', 'category', 'group', 'pattern', 'byHeadingOnly', 'before', 'after', 'cards', 'sha']);
 });

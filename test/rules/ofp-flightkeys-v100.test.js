@@ -8,7 +8,8 @@
  *   TC-164-001  identity: type, format, version 1.0.0, schema 2, contract 2.4; manifest entry, file and SHA-256;
  *               the v0.4.0 file is no longer in rules/; the frozen copy in test/oracle/ is the v0.4.0 master
  *               (SHA-256 c4ccb8c4…); a changed byte is caught by the manifest check (negative)
- *   TC-164-002  not built in (O-74; TC-160-004 still holds): index.html, build/build.js and src/ do not name it;
+ *   TC-164-002  built in by the switch PR (step 5e-1; was "not built in", O-74): once, byte for byte, called only by
+ *               the router in src/ofp-parse.html;
  *               APP_VERSION, CACHE_NAME and manifest.json version stay 1.9.9-hf6 (O-75)
  *   TC-164-003  validateSchema(): valid; broken objects rejected
  *   TC-164-010  O-68: the NAT call gets { filed, findings }; the letter is known at the call; the probe call has
@@ -48,6 +49,7 @@ const path   = require('path');
 const crypto = require('crypto');
 const vm     = require('vm');
 const { findFixtures, readManifest } = require('../lib/app-path');
+const { MODULES } = require('../../build/build');
 const { checkRules } = require('../../build/check-rules');
 
 const ROOT     = path.resolve(__dirname, '..', '..');
@@ -59,15 +61,15 @@ const mod      = require(MOD_FILE);
 const ORACLE   = path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v0.4.0.js');
 const V04_SHA  = 'c4ccb8c4656aed7ba8dbeaf81a67e7d7037541b6dd78bfd82223663a1a1afb6f';   // the v0.4.0 master (#66), frozen
 const v04      = require(ORACLE);
-const nat      = require(path.join(RULES, MANIFEST['nat-rules-next'].file));    // v1.2.0 (D77)
+const nat      = require(path.join(RULES, MANIFEST['nat-rules'].file));         // v1.2.0 (D77; built in at step 5e-1)
 const icaoFpl  = require(path.join(RULES, MANIFEST['icao-fpl'].file));
 const acProf   = require(path.join(RULES, MANIFEST['aircraft-profile'].file));
-const NR       = require(path.join(RULES, MANIFEST['notam-rules'].file));       // v1.13.0 (the parser's splitter)
+const NR       = require(path.join(RULES, MANIFEST['notam-rules'].file));       // v1.14.0 since step 5e-1 (the parser's splitter; same output as v1.13.0, TC-174-012)
 const EXPECTED_FILE = path.join('expected', 'ofp-flightkeys-v1.0.0', 'nat.json');
 
-// The app's own NAT parser v1.1.0 (src/nat.html, window.parseNatTrack), loaded unchanged: the app today.
+// The app's NAT parser v1.1.0 before step 5e-1 (src/nat.html then; frozen copy test/oracle/nat-v1.1.0.html, O-79).
 const appWin = {};
-vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8'), { window: appWin });
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'nat-v1.1.0.html'), 'utf8'), { window: appWin });
 const v11 = appWin.parseNatTrack;
 
 const OPTS     = { icaoFpl, aircraftProfile: acProf, notamRules: NR, parseNatTrack: nat.parseNatTrack };
@@ -208,10 +210,11 @@ test('TC-164-001 identity: v1.0.0, contract 2.4; manifest entry and SHA-256; v0.
   assert.equal(sha(fs.readFileSync(ORACLE)), V04_SHA, 'test/oracle/ofp-flightkeys-v0.4.0.js is the v0.4.0 master, byte for byte');
   assert.equal(v04.RULESET_VERSION, '0.4.0');
   assert.match(MOD_SRC.slice(0, 2000), /v1\.0\.0[\s\S]*NOT built into index\.html[\s\S]*switch PR/, 'the header says not built in until the switch PR');
-  // the other modules are untouched (no NAT, NOTAM or NavBlue change in this PR)
-  assert.deepEqual(['notam-rules', 'notam-rules-next', 'ofp-navblue', 'nat-rules-next'].map(k => MANIFEST[k].version), ['1.13.0', '1.14.0', '2.0.1', '1.2.0']);
-  assert.equal(MANIFEST['nat-rules-next'].sha256, 'a0ed2a31a344680424e96fd31d3046ac8cd65244e58cebd553fe5021fa2ca80d');
-  assert.equal(MANIFEST['notam-rules-next'].sha256, '139ce1691574a440a2c371296aea82985bfe26904d77114fa81969c8e86621cb');
+  // the other modules: the switch (step 5e-1, O-79) moved NOTAM v1.14.0 and NAT v1.2.0 to their own keys, bytes unchanged
+  assert.deepEqual(['notam-rules', 'ofp-navblue', 'nat-rules'].map(k => MANIFEST[k].version), ['1.14.0', '2.0.1', '1.2.0']);
+  assert.ok(!MANIFEST['notam-rules-next'] && !MANIFEST['nat-rules-next'], 'no *-next keys (O-79)');
+  assert.equal(MANIFEST['nat-rules'].sha256, 'a0ed2a31a344680424e96fd31d3046ac8cd65244e58cebd553fe5021fa2ca80d');
+  assert.equal(MANIFEST['notam-rules'].sha256, '139ce1691574a440a2c371296aea82985bfe26904d77114fa81969c8e86621cb');
   assert.equal(MANIFEST['ofp-navblue'].sha256, 'f7dd7b28f2c61555a1cdfd9a21d601bd6c10ddc0af3d3df890d53541079c6025');
   assert.equal(checkRules(ROOT).ok, true);
   // NEGATIVE: one changed byte in a copy of rules/ → the manifest check fails
@@ -225,13 +228,13 @@ test('TC-164-001 identity: v1.0.0, contract 2.4; manifest entry and SHA-256; v0.
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-164-002 not built in (O-74; TC-160-004 still holds); beta hold 1.9.9-hf6 (O-75)', () => {
+test('TC-164-002 built in by the switch PR (step 5e-1, O-74; was: not built in): once, byte for byte, called only by the router; beta hold 1.9.9-hf6 (O-75)', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const build = fs.readFileSync(path.join(ROOT, 'build', 'build.js'), 'utf8');
-  for (const s of ['OfpFlightKeys', 'parseFlightKeys', 'ofp-flightkeys']) assert.ok(!html.includes(s), `index.html: ${s}`);
-  assert.ok(!build.includes('ofp-flightkeys'), 'build/build.js');
-  for (const f of fs.readdirSync(path.join(ROOT, 'src'), { recursive: true }).filter(f => fs.statSync(path.join(ROOT, 'src', f)).isFile()))
-    assert.ok(!/OfpFlightKeys|parseFlightKeys|ofp-flightkeys/.test(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')), `src/${f}`);
+  assert.equal(html.split(MOD_SRC).length, 2, 'index.html carries v1.0.0 once, byte for byte');
+  assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1, 'build/build.js lists it once');
+  const users = fs.readdirSync(path.join(ROOT, 'src'), { recursive: true }).filter(f => fs.statSync(path.join(ROOT, 'src', f)).isFile())
+    .filter(f => /OfpFlightKeys/.test(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')));
+  assert.deepEqual(users, ['ofp-parse.html'], 'only the router (src/ofp-parse.html) calls it');
   assert.match(html, /const APP_VERSION = '1\.9\.9-hf6';/);
   assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.9\.9-hf6';/);
   assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.9.9-hf6');

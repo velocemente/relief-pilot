@@ -355,6 +355,20 @@ const EXPECTED_NEWLY_HIDDEN = [
   ['NB_RJAA-PANC_11APR26_notamschedule_rev5',  'PANC', 'PANC A3258/26', 'D'],
 ];
 
+// Step 5e-1 (NOTAM v1.14.0 built in, O-27): the filters are the app's own, so a NOTAM that
+// v1.14.0's obstacle rule hides (D67; change list v1.2 group B) is hidden before and after
+// and drops out of the reviewed list. Exactly one entry does: EBBR A3859/26 (change list
+// group B, row 2: a moving obstacle near a runway, no procedure affected).
+const CHANGE_LIST_B = new Set(require('../rules/data/notam-v1.14.0-obstacle-changes.json').entries
+  .filter(e => e.fmt === 'NB' && e.group === 'B').map(e => `${e.pkg} ${e.airport} ${e.id}`));
+const D67_DROPPED = EXPECTED_NEWLY_SHOWN.filter(([f, a, id]) => CHANGE_LIST_B.has(`${f} ${a} ${id.split(' ').pop()}`));
+
+test('TC-113-006 D67 (v1.14.0): the reviewed hidden → shown entries the obstacle rule now hides are exactly EBBR A3859/26, in change list B', () => {
+  assert.deepEqual(D67_DROPPED.map(([f, a, id]) => `${f} ${a} ${id}`), ['EOFP_UAAA-EHAM_27OCT26_matchedpair_rev11 EBBR EBBR A3859/26']);
+  // NEGATIVE: a reviewed entry not in group B stays expected
+  assert.ok(!CHANGE_LIST_B.has('NB_KCHS-LIBG_12MAR26_lcf_rev16 EIDW A1035/26'));
+});
+
 test('TC-113-006 corpus: hidden → shown is exactly the reviewed list; shown → hidden is exactly the P-23 list', async () => {
   const all = await imports();
   const newlyShown = [], newlyHidden = [];
@@ -372,6 +386,6 @@ test('TC-113-006 corpus: hidden → shown is exactly the reviewed list; shown �
   assert.ok(all.length >= 30, `expected at least 30 Navtech/eOFP fixtures, found ${all.length}`);
   assert.deepEqual(newlyHidden.sort(), EXPECTED_NEWLY_HIDDEN.map(([f, a, id]) => `${f} ${a} ${id}`).sort(),
     'the NOTAMs that change from shown to hidden differ from the reviewed P-23 list');
-  assert.deepEqual(newlyShown.sort(), EXPECTED_NEWLY_SHOWN.map(([f, a, id]) => `${f} ${a} ${id}`).sort(),
+  assert.deepEqual(newlyShown.sort(), EXPECTED_NEWLY_SHOWN.filter(e => !D67_DROPPED.includes(e)).map(([f, a, id]) => `${f} ${a} ${id}`).sort(),
     'the NOTAMs that change from hidden to shown differ from the reviewed list');
 });
