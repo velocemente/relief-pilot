@@ -238,29 +238,46 @@ function renderEnroutePhase() {
 
 // ── NAT card, every published direction (step 5e-2 display PR 1, D85) ─────
 // FlightKeys: S.natMessages holds every track message of the package, each parsed
-// once at import (parseOFP). The card shows the chosen message first, then each
-// other published direction (the first message of that direction); each direction's
-// comments come from its message. "No … tracks found." only for a direction no
-// message has (publishedDirs); a published message with no tracks keeps the card
-// (published). The filed track is marked in the chosen message's direction only
-// (assignedDir). NavBlue and flights saved without natMessages: S.natTrack as before.
+// once at import (parseOFP). Each direction comes from the first message of that
+// direction, the chosen message first; it shows under that message's TMI and the
+// chosen message's direction comes first (F-2, O-69). Each direction's comments come
+// from its message. "Tracks not readable – see OFP Alerts" only for a direction whose
+// message has no readable track AND a WARN of its own on OFP Alerts (O-122, F-3); a
+// message whose direction is unreadable counts under the flight's direction (F-6).
+// A published message with no tracks keeps the card (published). The filed track is
+// marked in the chosen message's direction only (assignedDir). NavBlue and flights
+// saved without natMessages: S.natTrack as before.
 function _natCardTrack() {
   const nt = S.natTrack;
   const msgs = (Array.isArray(S.natMessages) ? S.natMessages : []).filter(m => m && m.track);
   if (!nt || !msgs.length) return nt;
   const ordered = msgs.filter(m => m.selected).concat(msgs.filter(m => !m.selected));
-  const blocks = [];
+  const dirOf = m => m.direction || m.track.flightDir || nt.flightDir || null;
+  const hasTracks = m => (m.track.blocks || []).some(b => b.tracks && b.tracks.length);
+  // its own OFP Alerts WARN: the chosen message's are the parser's NAT findings, the others' their own parse
+  const hasAlert = m => (m.selected ? (S.ofpFindings || []).filter(f => f && f.field === 'natTrack') : (m.findings || []))
+    .some(f => f && f.level === 'WARN' && f.message);
+  const blocks = [], dirTmi = {}, unreadableDirs = [];
   const cmt = { EAST: '', WEST: '' };
   for (const m of ordered) {
-    for (const b of (m.track.blocks || [])) if (!blocks.some(x => x.dir === b.dir)) blocks.push(b);
+    for (const b of (m.track.blocks || [])) if (b.tracks && b.tracks.length && !blocks.some(x => x.dir === b.dir)) {
+      blocks.push(b);
+      if (m.tmi) dirTmi[b.dir] = m.tmi;
+    }
     if (!cmt.EAST && m.track.eastComments) cmt.EAST = m.track.eastComments;
     if (!cmt.WEST && m.track.westComments) cmt.WEST = m.track.westComments;
+  }
+  for (const m of ordered) {
+    const d = dirOf(m);
+    if (!d || hasTracks(m) || blocks.some(b => b.dir === d) || unreadableDirs.includes(d) || !hasAlert(m)) continue;
+    unreadableDirs.push(d);
+    if (m.tmi && !dirTmi[d]) dirTmi[d] = m.tmi;
   }
   const chosen = ordered[0].selected ? ordered[0] : null;
   return Object.assign({}, nt, {
     blocks, eastComments: cmt.EAST, westComments: cmt.WEST,
-    published: msgs.length,
-    publishedDirs: [...new Set(msgs.map(m => m.direction).filter(Boolean))],
+    published: msgs.length, unreadableDirs, dirTmi,
+    dirOrder: chosen ? dirOf(chosen) : null,
     assignedDir: chosen && chosen.direction ? chosen.direction : null,
   });
 }

@@ -12,7 +12,7 @@
  *               Step 5e-2 display PR 1 (O-116): the declared exception ofp-flightkeys-next is removed; v1.0.1 is
  *               ofp-flightkeys, built in; any *-next key fails (D96)
  *   TC-174-003  NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; the renderer is
- *               v1.1.0 + the four declared D85 edits (step 5e-2 display PR 1) and draws the same card for a
+ *               v1.1.0 + the five declared D85 / O-122 / F-2 / F-3 edits (step 5e-2 display PR 1) and draws the same card for a
  *               NavBlue object
  *   TC-174-004  NavBlue lock (D47): the built app = the NavBlue module with NAT v1.1.0, except exactly the 26
  *               natTrack fl lines of NAT v1.2.0 (D83 / O-65)
@@ -167,7 +167,7 @@ test('TC-174-002 rules/manifest.json: no *-next key; v1.13.0 and the NAT v1.1.0 
   assert.deepEqual(manifestProblems({ 'nat-rules': { file: 'nat-rules-next/nat-rules-v1.2.0.js' } }), ['nat-rules: file not in rules/nat-rules/']);
 });
 
-test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; renderer = v1.1.0 + the four D85 edits (step 5e-2), same card for a NavBlue object', () => {
+test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; renderer = v1.1.0 + the declared D85 edits (step 5e-2), same card for a NavBlue object', () => {
   const app = loadApp();
   assert.equal(app.sandbox.NatRules.RULESET_VERSION, '1.2.0');
   assert.equal(app.sandbox.parseNatTrack, app.sandbox.NatRules.parseNatTrack, 'the app binds the module');
@@ -175,21 +175,24 @@ test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.pars
   const now = fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8');
   const r11 = NAT11.slice(NAT11.indexOf('§ 2  RENDERER'), NAT11.indexOf('§ 3  EXPORTS'));
   const r12 = now.slice(now.indexOf('§ 2  RENDERER'), now.indexOf('§ 3  EXPORTS'));
-  // Step 5e-2 display PR 1 (D85, O-122): renderNatTrack = v1.1.0 with exactly these four declared edits, each read only
-  // from fields a FlightKeys card object carries (published, publishedDirs, assignedDir); a NavBlue object has
-  // none of them, so its card is unchanged (the equal-card check below, and TC-176-030 on the 8 NavBlue NAT cards).
+  // Step 5e-2 display PR 1 (D85, O-122, QA F-2 / F-3): renderNatTrack = v1.1.0 with exactly these five declared edits,
+  // each read only from fields a FlightKeys card object carries (published, unreadableDirs, assignedDir, dirTmi,
+  // dirOrder); a NavBlue object has none of them, so its card is unchanged (the equal-card check below, and
+  // TC-176-020 on the 8 NavBlue NAT cards).
   const D85 = [
     ["    if (!blocks.some(function (b) { return b.tracks.length > 0; })) return '';",
      "    if (!blocks.some(function (b) { return b.tracks.length > 0; }) && !nt.published) return '';   // D85: a published message keeps the card"],
-    ['      var isAssigned = tr.assigned || tr.id === nt.assignedId;',
-     '      var isAssigned = tr.assigned || (tr.id === nt.assignedId && (!nt.assignedDir || nt.assignedDir === dir));   // D85'],
+    ["      var isAssigned = tr.assigned || tr.id === nt.assignedId;",
+     "      var isAssigned = tr.assigned || (tr.id === nt.assignedId && (!nt.assignedDir || nt.assignedDir === dir));   // D85"],
     ["      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';",
-     "      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0)   // D85: a published direction is never \"no tracks\"\n        ? '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">Tracks not readable \\u2013 see OFP Alerts</div>'   // O-122\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';"],
+     "      : (nt.unreadableDirs && nt.unreadableDirs.indexOf('EAST') >= 0)   // D85: a published direction is never \"no tracks\"; F-3: only with its OFP Alerts line\n        ? '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">Tracks not readable \\u2013 see OFP Alerts</div>'   // O-122\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';"],
     ["      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';",
-     "      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0)   // D85\n        ? '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">Tracks not readable \\u2013 see OFP Alerts</div>'   // O-122\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';"],
+     "      : (nt.unreadableDirs && nt.unreadableDirs.indexOf('WEST') >= 0)   // D85; F-3: only with its OFP Alerts line\n        ? '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">Tracks not readable \\u2013 see OFP Alerts</div>'   // O-122\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';"],
+    ["    var innerContent = [\n      makeSection('nat-east-tracks', 'Eastbound NAT Tracks',    eastTracksContent, eastTracksOpen),\n      makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),\n      makeSection('nat-west-tracks', 'Westbound NAT Tracks',    westTracksContent, westTracksOpen),\n      makeSection('nat-west-cmts',   'Westbound Track Comments', westCmtContent,   false),\n    ].join('');",
+     "    // F-2 (FlightKeys card object only): each direction under its own message's TMI; the\n    // chosen message's direction first (dirOrder). A NavBlue object has neither: as before.\n    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\\u00a0\\u00b7\\u00a0TMI\\u00a0' + esc(nt.dirTmi[d]) : ''; };\n    var eastSections = [\n      makeSection('nat-east-tracks', 'Eastbound NAT Tracks' + tmiOf('EAST'), eastTracksContent, eastTracksOpen),\n      makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),\n    ];\n    var westSections = [\n      makeSection('nat-west-tracks', 'Westbound NAT Tracks' + tmiOf('WEST'), westTracksContent, westTracksOpen),\n      makeSection('nat-west-cmts',   'Westbound Track Comments', westCmtContent,   false),\n    ];\n    var innerContent = (nt.dirOrder === 'WEST' ? westSections.concat(eastSections) : eastSections.concat(westSections)).join('');"],
   ];
   for (const [a] of D85) assert.equal(r11.split(a).length, 2, `v1.1.0 has the line once: ${a.trim().slice(0, 50)}`);
-  assert.ok(r11.length > 4000 && D85.reduce((t, [a, b]) => t.replace(a, () => b), r11) === r12, 'renderNatTrack: v1.1.0 + the four D85 edits, nothing else');
+  assert.ok(r11.length > 4000 && D85.reduce((t, [a, b]) => t.replace(a, () => b), r11) === r12, 'renderNatTrack: v1.1.0 + the five declared edits, nothing else');
   assert.ok(!/function parseNatTrack\(/.test(now) && !HTML.includes("var VERSION = '1.1.0';"), 'no v1.1.0 parser left in the app');
   // the same card from the same track object (v1.1.0 renderer in its own context, esc() as the app's)
   const win = {};

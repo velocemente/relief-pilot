@@ -57,8 +57,11 @@ function _ofpShownFindings(findings) {
   const natCodes = NatRules.FINDING_CODES || {};
   const isNatInfo = f => f.level === 'INFO' && typeof f.code === 'string' && Object.prototype.hasOwnProperty.call(natCodes, f.code);
   const ok = f => f && typeof f.message === 'string' && f.message;
+  // F-3: the same message text is shown once (the first).
+  const seen = new Set();
   return list.filter(f => ok(f) && f.level === 'WARN')
-    .concat(list.filter(f => ok(f) && isNatInfo(f)));
+    .concat(list.filter(f => ok(f) && isNatInfo(f)))
+    .filter(f => !seen.has(f.message) && seen.add(f.message));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -90,16 +93,19 @@ function _ofpPilotCount(result) {
 }
 // O-124: rest chips for a pilot count with the roles the OFP prints for its operating pilots
 // (no names), in printed order; a pilot the OFP prints no role for takes the picker's role
-// (CA, FO, then AO).
-function _crewChips(n, roles) {
+// (CA, FO, then AO). F-1: the NavBlue senior-designee mark (isSen, "★") stays on the role
+// chip; FlightKeys never (its "*" is not seniority, SME-3).
+function _crewChips(n, crew, withSen) {
   const out = [];
   for (let i = 0; i < (n || 0); i++) {
-    const r = roles && roles[i] ? String(roles[i]) : (i === 0 ? 'CA' : i === 1 ? 'FO' : 'AO');
-    out.push({ role: r, active: true, displayName: '' });
+    const c = crew && crew[i];
+    const r = c && c.role ? String(c.role) : (i === 0 ? 'CA' : i === 1 ? 'FO' : 'AO');
+    out.push({ role: r, active: true, displayName: '', ...(withSen && c && c.isSen === true ? { isSen: true } : {}) });
   }
   return out;
 }
-const _ofpPilotRoles = result => (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH').map(c => c.role);
+const _ofpPilotCrew = result => (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH');
+
 // D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none.
 function _ofpDispatchContact(result) {
   const d = result.dispatchContact;
@@ -107,14 +113,27 @@ function _ofpDispatchContact(result) {
 }
 // D85: every NAT track message, parsed once here with the NAT ruleset; the parsed track is
 // kept, never the message text. The message the parser chose keeps its natTrack (filed track
-// marked); the others are parsed without a filed letter. NavBlue: none.
+// marked; its NAT findings are the parser's). The others are parsed without a filed letter;
+// their findings go to OFP Alerts (F-3, D92), except the filed-letter ones, which are about
+// the chosen message only (O-57, O-59: no other-direction search). NavBlue: none.
+const _NAT_FILED_CODES = ['NAT-RANDOM-ROUTE', 'NAT-FILED-NOT-IN-MESSAGE', 'NAT-FILED-IGNORED'];
 function _ofpNatMessages(result) {
   const msgs = Array.isArray(result.natMessages) ? result.natMessages : [];
   if (!msgs.length || !result.natTrack || typeof window.parseNatTrack !== 'function') return [];
-  return msgs.map(m => ({
-    tmi: m.tmi || null, direction: m.direction || null, selected: !!m.selected,
-    track: m.selected ? result.natTrack : (window.parseNatTrack(m.text || '', result.origIcao, result.destIcao, { findings: [] }) || null),
-  }));
+  return msgs.map(m => {
+    const base = { tmi: m.tmi || null, direction: m.direction || null, selected: !!m.selected };
+    if (m.selected) return { ...base, track: result.natTrack, findings: [] };
+    const fs = [];
+    const track = window.parseNatTrack(m.text || '', result.origIcao, result.destIcao, { findings: fs }) || null;
+    const findings = fs.filter(f => f && !_NAT_FILED_CODES.includes(f.code))
+      .map(f => ({ level: f.level, field: f.field, code: f.code, message: f.message }));
+    return { ...base, track, findings };
+  });
+}
+// OFP Alerts input (D92): the parser's findings, then those of the card's own NAT message parses.
+function _ofpAlertFindings() {
+  const extra = (Array.isArray(S.natMessages) ? S.natMessages : []).flatMap(m => (m && Array.isArray(m.findings)) ? m.findings : []);
+  return (Array.isArray(S.ofpFindings) ? S.ofpFindings : []).concat(extra);
 }
 
 // Returns false when the package is refused (D89): the caller stays on the import screen.
@@ -164,7 +183,7 @@ function parseOFP() {
     fresFuel:   fuelK(result.fresFuelRaw),
     ballastFuel: result.ballastFuel,
     // D62, O-124: one chip per pilot with its printed role; the OFP's crew names are not kept.
-    crewMembers:   _crewChips(_pilots, _ofpPilotRoles(result)),
+    crewMembers:   _crewChips(_pilots, _ofpPilotCrew(result), result.operatingPilots === undefined),
     operatingPilots: _pilots,
     dispatchContact: _ofpDispatchContact(result),
     tocOffsetMins: result.tocOffsetMins,

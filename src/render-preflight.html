@@ -113,7 +113,7 @@ function renderPreflightPhase() {
   // ── OFP Alerts (step 5e-1, O-76 / O-87 / O-88 / O-89): one general list, the
   //    import screen's .section + .callout as they are; message text only. The
   //    title is red (the existing .nt-red) until the crew taps the callout (O-89, O-98). ──
-  const _findings = _ofpShownFindings(S.ofpFindings);
+  const _findings = _ofpShownFindings(_ofpAlertFindings());   // F-3: with the card's own NAT parses
   if (_findings.length) {
     const _alertsSeen = S.ofpAlertsSeen === true;
     h += `<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">`;

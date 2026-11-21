@@ -73,8 +73,9 @@ Same 26 parts. FlightKeys parser v1.0.1 is built in (O-116; v1.0.0 frozen in `te
 | `src/storage.html` | `putFlights()`, `_crewAnon()`, `loadFlight()` | O-107 failed-save toast; D62 names removed from saved flights |
 | `src/edit.html` | `_d57Today`, `_d57Read`, `_d57Set`; `openEdit('date')`, `confirmEdit()` | D57 date pop-up |
 | `src/render-preflight.html` | `renderNote()` header date slot; `renderPreflightPhase()` Departure subcard | D57 "Operating date needed"; D72 Dispatch row |
-| `src/render-enroute.html` | `_natCardTrack()` | D85 NAT card object: every published direction |
-| `src/nat.html` | `renderNatTrack()` | four D85 edits (TC-174-003) |
+| `src/render-enroute.html` | `_natCardTrack()` | D85 NAT card object: every published direction, its own TMI, chosen first (F-2); "Tracks not readable" only with an OFP Alerts line (F-3, F-6) |
+| `src/ofp-parse.html` | `_ofpAlertFindings()` | OFP Alerts input: parser findings + the card's own NAT parses (F-3) |
+| `src/nat.html` | `renderNatTrack()` | five declared edits (D85, O-122, F-2, F-3; TC-174-003) |
 | `src/airports.html` | `_d67bRows`, `_d67bRuleText` (below `evalAirport`) | D67b / O-105 card rows |
 | `src/state.html` | `_tlNotBeforeEntered()` | O-121: no time dated before a crew-entered date |
 | `src/rest.html` | `_crewCountSync()` | O-124: the pilot count follows the crew's chip edits |

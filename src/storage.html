@@ -6,12 +6,13 @@ function putFlights(arr) {
   try { localStorage.setItem('rp_flights', JSON.stringify(arr.slice(0,25))); return true; }
   catch(e) { showToast('err', 'Flight not saved \u2013 storage full'); return false; }
 }
-// D62 (O-106): rest chips carry a role only. A flight saved before keeps its chips' roles and
-// on/off state; the names the OFP gave are removed (manual chips hold role words only).
+// D62 (O-106): rest chips carry a role only (and the NavBlue senior mark, F-1). A flight saved
+// before keeps its chips' roles, marks and on/off state; the names the OFP gave are removed
+// (manual chips hold role words only).
 function _crewAnon(c) {
   if (!c || typeof c !== 'object') return null;
   if (c.manual) return c;
-  return { role: String(c.role || ''), active: c.active !== false, displayName: '' };
+  return { role: String(c.role || ''), active: c.active !== false, displayName: '', ...(c.isSen === true ? { isSen: true } : {}) };   // F-1: the mark, no name
 }
 function saveFlight() {
   if (!S.fltNum && !S.date) return;

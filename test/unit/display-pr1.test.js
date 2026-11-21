@@ -15,6 +15,13 @@
  *               NEGATIVE a save that works shows none
  *   TC-176-020  D85 NAT card: FK EBLG-KORD East 5 + West 6 (chosen message first); single-direction packages:
  *               "No … tracks found." only for the direction no message has; NavBlue 8 / 8 byte-identical
+ *   TC-176-020  (QA F-2) each direction under its own message's TMI, the chosen message's direction first
+ *               (EBLG-KORD westbound: West, TMI 307, before East, TMI 308)
+ *   TC-176-022  QA F-3 synthetic: the findings of the card's own NAT parses are on OFP Alerts (WARNs, then NAT
+ *               INFOs; the same text once); "Tracks not readable" only when such a line exists; NEGATIVE no line →
+ *               no such text; the filed-letter findings of a message that is not the chosen one are not shown
+ *   TC-176-023  QA F-6 synthetic: a message whose direction is unreadable → "Tracks not readable – see OFP
+ *               Alerts" under the flight's direction (with its OFP Alerts WARN), not "No eastbound tracks found."
  *   TC-176-021  D85 synthetic: a published message with no tracks keeps the card (WARN stays on OFP Alerts);
  *               O-122: a published direction with no readable track says "Tracks not readable – see OFP Alerts",
  *               NEGATIVE an unpublished direction says "No … tracks found."; the filed track marked in the chosen
@@ -26,6 +33,8 @@
  *   TC-176-032  O-121 synthetic no-date flight crossing 0000Z: with the entered date, every later time after
  *               0000Z (downline ETAs, NOTAM and weather windows) on the next day; NEGATIVE nothing is ever dated
  *               before the entered date (an OUT edited back across 0000Z, a flight with an OFP date unchanged)
+ *   TC-176-041  QA F-1: the NavBlue senior-designee mark on the role chip ("FO ★", NB KORD-RKSI 08APR26), also
+ *               after an old save is stripped; NEGATIVE FlightKeys never ("*" is not seniority, SME-3); no other chip
  *   TC-176-040  D62 / O-106 / O-109 / O-124: FK counts 2:4, 3:12, 4:10; one chip per pilot with the printed role
  *               (e.g. CA FO FO FO), both formats; no crew name or number in state or save; an edited count changes
  *               the chips and the count; NEGATIVE a package without a count gives no chips and the existing picker,
@@ -80,9 +89,10 @@ async function imported(fx) {
   return _imp.get(fx.id);
 }
 // The crew record fields the OFP parsers return (a name, a number, a date of the person); none may be stored.
-const CREW_RECORD = ['empNum', 'lastName', 'firstName', 'initial', 'name', 'toLndgExpiry', 'isSen'];
+const CREW_RECORD = ['empNum', 'lastName', 'firstName', 'initial', 'name', 'toLndgExpiry'];
 const chipProblems = list => plain(list || []).flatMap((c, i) => [
-  ...Object.keys(c).filter(k => !['role', 'active', 'displayName'].includes(k)).map(k => `${i}: field ${k}`),
+  ...Object.keys(c).filter(k => !['role', 'active', 'displayName', 'isSen'].includes(k)).map(k => `${i}: field ${k}`),
+  ...('isSen' in c && c.isSen !== true ? [`${i}: isSen not true`] : []),
   ...(c.displayName ? [`${i}: displayName set`] : []),
   ...(typeof c.role === 'string' && /^[A-Z]{1,3}$/.test(c.role) ? [] : [`${i}: role not a role code`])]);
 const opRoles = r => plain((r.crewMembers || []).filter(c => c.role !== 'JS' && c.role !== 'DH').map(c => c.role));
@@ -130,7 +140,10 @@ fixtureTest('TC-176-010 data path, 26 FlightKeys + 30 NavBlue: copied fields = t
     assert.equal(S.date, r.dateStr, `${fx.id}: dated (D57 not triggered)`);
     assert.equal(S.dateEnteredByCrew, false);
     // the new fields: nothing raw (O-107)
-    for (const m of S.natMessages) assert.deepEqual(Object.keys(m), ['tmi', 'direction', 'selected', 'track'], `${fx.id}: natMessages entry, no message text`);
+    for (const m of S.natMessages) {
+      assert.deepEqual(Object.keys(m), ['tmi', 'direction', 'selected', 'track', 'findings'], `${fx.id}: natMessages entry, no message text`);
+      for (const f of m.findings) assert.deepEqual(Object.keys(f), ['level', 'field', 'code', 'message']);
+    }
     if (S.dispatchContact) assert.deepEqual(Object.keys(S.dispatchContact), ['label']);
     if (fx.format === 'flightkeys') {
       assert.equal(S.operatingPilots, r.operatingPilots);
@@ -173,7 +186,7 @@ fixtureTest('TC-176-011 O-113 old save: loads safely; missing items not shown; N
   assert.ok(!/<span class="data-label">Dispatch contact<\/span>/.test(app.renderPreflightPhase()), 'no Dispatch contact row');
   assert.equal(app.sandbox.renderNatTrack(app._natCardTrack(), S.navLog), app.sandbox.renderNatTrack(S.natTrack, S.navLog), 'NAT card as before (the chosen message only)');
   // D62: names gone, roles and on/off kept; the manual chip (role words only) kept as it was
-  assert.deepEqual(plain(S.crewMembers).slice(0, 3), [{ role: 'CA', active: true, displayName: '' }, { role: 'FO', active: false, displayName: '' }, { role: 'FO', active: true, displayName: '' }]);
+  assert.deepEqual(plain(S.crewMembers).slice(0, 3), [{ role: 'CA', active: true, displayName: '' }, { role: 'FO', active: false, displayName: '', isSen: true }, { role: 'FO', active: true, displayName: '' }], 'F-1: the senior mark kept, no name');
   assert.equal(S.crewMembers[3].manual, true);
   const stored = JSON.stringify(app.getFlights()[0].state.crewMembers);
   assert.ok(!/SYNTHETIC|00000[123]/.test(stored), 'no name or number left in storage');
@@ -212,6 +225,12 @@ fixtureTest('TC-176-020 D85 NAT card: EBLG-KORD East 5 + West 6; single-directio
   assert.deepEqual([rows(h2, 'EAST'), rows(h2, 'WEST')], [5, 6]);
   assert.deepEqual(plain(two.S.natMessages.map(m => [m.direction, m.selected])), [['EAST', false], ['WEST', true]]);
   assert.equal(two.app._natCardTrack().blocks[0].dir, 'WEST', 'the chosen message first');
+  // F-2 (O-69): the westbound (chosen) block with its TMI first, then the eastbound under its own TMI
+  assert.ok(h2.indexOf('Westbound NAT Tracks\u00a0\u00b7\u00a0TMI\u00a0307') > 0, 'West under TMI 307');
+  assert.ok(h2.indexOf('Eastbound NAT Tracks\u00a0\u00b7\u00a0TMI\u00a0308') > 0, 'East under TMI 308');
+  assert.ok(h2.indexOf('Westbound NAT Tracks') < h2.indexOf('Eastbound NAT Tracks'), 'West first');
+  assert.ok(h2.indexOf('id="nat-track-WEST-') < h2.indexOf('id="nat-track-EAST-'), 'West tracks first');
+  assert.match(h2, />TMI\u00a0307<\/span>/, 'the card badge: the chosen message');
   assert.ok(!/No (east|west)bound tracks found|Tracks not readable/.test(h2), 'no "no tracks" text: both directions published and read');
   const before = two.app.sandbox.renderNatTrack(two.S.natTrack, two.S.navLog);
   assert.equal(rows(before, 'EAST'), 0, 'before this PR the eastbound message was not shown');
@@ -223,7 +242,12 @@ fixtureTest('TC-176-020 D85 NAT card: EBLG-KORD East 5 + West 6; single-directio
     assert.deepEqual([rows(h, dir), rows(h, other)], [n, 0], k);
     assert.match(h, new RegExp(`No ${other.toLowerCase()}bound tracks found`), `${k}: the unpublished direction`);
     assert.ok(!new RegExp(`No ${dir.toLowerCase()}bound tracks found`).test(h), `${k}: the published direction`);
-    assert.equal(h, imp.app.sandbox.renderNatTrack(imp.S.natTrack, imp.S.navLog), `${k}: one message → the card as before`);
+    // one message: the card as before, except the direction header carries its TMI and the chosen direction is first
+    const tmi = imp.S.natMessages[0].tmi;
+    assert.ok(h.includes(`${dir === 'EAST' ? 'East' : 'West'}bound NAT Tracks\u00a0\u00b7\u00a0TMI\u00a0${tmi}`), `${k}: TMI ${tmi} header`);
+    assert.equal(h.indexOf(`${dir === 'EAST' ? 'East' : 'West'}bound NAT Tracks`) < h.indexOf(`${other === 'EAST' ? 'East' : 'West'}bound NAT Tracks`), true, `${k}: its direction first`);
+    const before = imp.app.sandbox.renderNatTrack(imp.S.natTrack, imp.S.navLog);
+    assert.deepEqual([rows(before, dir), rows(before, other)], [n, 0], `${k}: the same track rows as before`);
   }
   // FlightKeys packages without NAT pages: no card
   for (const fx of fk.filter(f => !/EBLG-KORD|KMIA-EHBK|KGSP-EPWA|EPPW-KPSM|KDOV-ETAR/.test(f.id))) {
@@ -247,49 +271,94 @@ const trk = (id, dir, assigned = false) => ({ id, waypoints: ['AAAAA', '50N020W'
 const msgTrack = (dir, ids, extra = {}) => ({ trackType: 'NAT', tmi: '301', flightDir: 'WEST', assignedId: null, rawFallback: '', eastComments: '', westComments: '',
   blocks: ids.length ? [{ dir, tracks: ids.map(i => trk(i, dir, extra.filed === i)) }] : [], ...extra.over });
 
+const WARN_NT = msg => ({ level: 'WARN', field: 'natTrack', code: 'NAT-NO-TRACKS', message: msg });
+const alertsOf = app => { const m = app.renderPreflightPhase().match(/OFP Alerts<\/span>([\s\S]*?)<\/span><\/div><\/div>/); return m ? m[1].split('<br>') : []; };
+
 test('TC-176-021 D85 synthetic: a published message with no tracks keeps the card; filed track in its direction only; no message and no tracks → no card', () => {
   const app = loadApp();
   const S = app.S;
-  // the chosen westbound message has no readable track (NAT-NO-TRACKS, a WARN on OFP Alerts), an eastbound one has two
+  // the chosen westbound message has no readable track and its WARN is on OFP Alerts; an eastbound one has two
   const chosen = msgTrack('WEST', []);
   S.natTrack = chosen;
-  S.natMessages = [{ tmi: '301', direction: null, selected: true, track: chosen }, { tmi: '302', direction: 'EAST', selected: false, track: msgTrack('EAST', ['A', 'B']) }];
+  S.ofpFindings = [WARN_NT('NO READABLE TRACK IN THE MESSAGE (synthetic)')];
+  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: chosen, findings: [] }, { tmi: '302', direction: 'EAST', selected: false, track: msgTrack('EAST', ['A', 'B']), findings: [] }];
   let h = card(app);
   assert.match(h, /Track Message/, 'the card is shown');
   assert.deepEqual([rows(h, 'EAST'), rows(h, 'WEST')], [2, 0]);
-  assert.match(h, /No westbound tracks found/, 'no message has a westbound direction');
+  assert.equal((h.match(/<div style="padding:var\(--sp3\);font-size:14px;color:var\(--label3\)">Tracks not readable \u2013 see OFP Alerts<\/div>/g) || []).length, 1, 'westbound: the O-122 text in the existing style');
+  assert.ok(h.indexOf('Tracks not readable') > h.indexOf('Westbound NAT Tracks') && !/No westbound tracks found/.test(h));
   // only the no-track message: the card is still shown (before this PR: hidden)
   S.natMessages = [S.natMessages[0]];
   h = card(app);
   assert.match(h, /Track Message/);
   assert.equal(app.sandbox.renderNatTrack(S.natTrack, S.navLog), '', 'before: no card');
-  assert.ok(!/Tracks not readable/.test(h), 'NEGATIVE: no published direction → no "not readable" text');
-  // O-122: a published direction with no readable track says so (the WARN is on OFP Alerts), never "no tracks"
-  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: chosen }];
-  h = card(app);
-  assert.ok(!/No westbound tracks found/.test(h) && /No eastbound tracks found/.test(h));
-  assert.equal((h.match(/<div style="padding:var\(--sp3\);font-size:14px;color:var\(--label3\)">Tracks not readable \u2013 see OFP Alerts<\/div>/g) || []).length, 1, 'westbound: the O-122 text in the existing style');
-  assert.ok(h.indexOf('Tracks not readable') > h.indexOf('Westbound NAT Tracks'), 'in the westbound section');
+  assert.match(h, /No eastbound tracks found/, 'NEGATIVE: the direction no message has');
   // NEGATIVE: a published direction with tracks shows its tracks, not the text
-  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: msgTrack('WEST', ['A']) }];
+  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: msgTrack('WEST', ['A']), findings: [] }];
   S.natTrack = S.natMessages[0].track;
   assert.ok(!/Tracks not readable/.test(card(app)));
-  S.natTrack = chosen;
   // filed track B: marked in the chosen (westbound) message only, never the eastbound B
   const w = msgTrack('WEST', ['A', 'B'], { filed: 'B', over: { assignedId: 'B' } });
   S.natTrack = w;
-  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: w }, { tmi: '302', direction: 'EAST', selected: false, track: msgTrack('EAST', ['A', 'B']) }];
+  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: w, findings: [] }, { tmi: '302', direction: 'EAST', selected: false, track: msgTrack('EAST', ['A', 'B']), findings: [] }];
   h = card(app);
   assert.equal((h.match(/ — FILED/g) || []).length, 1, 'one track row marked');
   assert.match(h, /id="nat-track-WEST-B" class="notam-group-body" >/, 'the westbound B is open (filed)');
   assert.match(h, /id="nat-track-EAST-B" class="notam-group-body" hidden>/, 'the eastbound B is not');
   // esc() on the message's values
   S.natMessages[1].track.blocks[0].tracks[0].waypoints = ['<b>X</b>', 'YYYYY'];
-  assert.ok(!card(app).includes('<b>X</b>') && card(app).includes('&lt;b&gt;X&lt;/b&gt;'));
+  S.natMessages[1].tmi = '<i>';
+  assert.ok(!card(app).includes('<b>X</b>') && card(app).includes('&lt;b&gt;X&lt;/b&gt;') && card(app).includes('TMI\u00a0&lt;i&gt;'));
   // NEGATIVE: no published message (NavBlue shape) and no tracks → no card, as before
   S.natMessages = [];
   S.natTrack = msgTrack('WEST', []);
   assert.equal(card(app), '');
+});
+
+test('TC-176-022 QA F-3 synthetic: the card\'s own NAT parses on OFP Alerts; "Tracks not readable" only with its line; filed-letter findings of another message not shown', () => {
+  const app = loadApp();
+  const S = app.S;
+  // chosen westbound message with tracks; the eastbound message has none and its own parse gave a WARN
+  const w = msgTrack('WEST', ['A', 'B']);
+  S.natTrack = w;
+  S.ofpFindings = [{ level: 'INFO', field: 'natTrack', code: 'NAT-RANDOM-ROUTE', message: 'NO FILED NAT TRACK LETTER: NO TRACK MARKED (TMI 301)' }];
+  const eWarn = WARN_NT('NAT TRACK MESSAGE TMI 302: NO READABLE TRACK (synthetic)');
+  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: w, findings: [] },
+                   { tmi: '302', direction: 'EAST', selected: false, track: msgTrack('EAST', []), findings: [eWarn, eWarn] }];
+  let h = card(app);
+  assert.ok(h.indexOf('Tracks not readable') > h.indexOf('Eastbound NAT Tracks'), 'the eastbound section points to OFP Alerts');
+  const list = alertsOf(app);
+  assert.deepEqual(list, [eWarn.message, 'NO FILED NAT TRACK LETTER: NO TRACK MARKED (TMI 301)'], 'its WARN on OFP Alerts once, WARNs first, then NAT INFOs');
+  // NEGATIVE: the same card with no line for that message → no "Tracks not readable" pointer
+  S.natMessages[1].findings = [];
+  h = card(app);
+  assert.ok(!/Tracks not readable/.test(h), 'no pointer without a line');
+  assert.deepEqual(alertsOf(app), ['NO FILED NAT TRACK LETTER: NO TRACK MARKED (TMI 301)']);
+  // parseOFP keeps a non-chosen message's own findings, without the filed-letter ones (they are the chosen message's)
+  const fake = { tmi: '302', direction: 'EAST', selected: false, text: 'synthetic' };
+  app.sandbox.parseNatTrack = (t, o, d, opts) => {
+    opts.findings.push(eWarn, { level: 'INFO', field: 'natTrack', code: 'NAT-RANDOM-ROUTE', message: 'NO FILED NAT TRACK LETTER: NO TRACK MARKED (TMI 302)' });
+    return msgTrack('EAST', []);
+  };
+  const out = vm.runInContext('_ofpNatMessages', app.sandbox)({ natMessages: [{ tmi: '301', direction: 'WEST', selected: true }, fake], natTrack: w, origIcao: 'EDDA', destIcao: 'KBBB' });
+  assert.deepEqual(plain(out.map(m => m.findings.map(f => f.code))), [[], ['NAT-NO-TRACKS']]);
+});
+
+test('TC-176-023 QA F-6 synthetic: a message with an unreadable direction → "Tracks not readable – see OFP Alerts" under the flight\'s direction, not "No … tracks found."', () => {
+  const app = loadApp();
+  const S = app.S;
+  const nd = msgTrack('EAST', [], { over: { flightDir: 'EAST' } });
+  S.natTrack = nd;
+  S.ofpFindings = [{ level: 'WARN', field: 'natTrack', message: 'NAT message 1 (PDF p9-9): direction (EAST / WEST levels) not readable' }];
+  S.natMessages = [{ tmi: '301', direction: null, selected: true, track: nd, findings: [] }];
+  const h = card(app);
+  assert.ok(h.indexOf('Tracks not readable \u2013 see OFP Alerts') > h.indexOf('Eastbound NAT Tracks'), 'under the flight\'s direction (east)');
+  assert.ok(!/No eastbound tracks found/.test(h), 'not "No eastbound tracks found."');
+  assert.match(h, /No westbound tracks found/, 'the other direction: no message has it');
+  assert.deepEqual(alertsOf(app), [S.ofpFindings[0].message], 'its OFP Alerts line');
+  // NEGATIVE: without the WARN line, no pointer
+  S.ofpFindings = [];
+  assert.ok(!/Tracks not readable/.test(card(app)));
 });
 
 // ══ TC-176-030 D57 ═════════════════════════════════════════════════════════════
@@ -455,6 +524,40 @@ fixtureTest('TC-176-040 D62: FK counts 2:4, 3:12, 4:10; anonymous chips; no name
   app.addBulkCrew(3);
   assert.equal(app.S.crewMembers.length, 3, 'the 2/3/4 picker');
   assert.equal(app.S.operatingPilots, 3, 'chips and count follow the picker');
+});
+
+fixtureTest('TC-176-041 QA F-1: NavBlue senior mark on the role chip (KORD-RKSI 08APR26), kept after an old save is stripped; FlightKeys never', async () => {
+  const nb = nbFixtures().find(f => /KORD-RKSI_08APR26/.test(f.id));
+  const imp = await imported(nb);
+  const r = imp.app._ofpRulesetParse(imp.rawText);
+  const op = r.crewMembers.filter(c => c.role !== 'JS' && c.role !== 'DH');
+  const sen = op.map((c, i) => c.isSen ? i : -1).filter(i => i >= 0);
+  assert.equal(sen.length, 1, 'one senior designee printed');
+  assert.deepEqual(plain(imp.S.crewMembers.map((c, i) => i === sen[0] ? c.isSen === true : !('isSen' in c))), plain(op.map(() => true)), 'the mark on that chip only');
+  const card = imp.app.renderInflightRestModule();
+  assert.equal((card.match(/★/g) || []).length, 1);
+  assert.ok(card.includes(`<span style="font-weight:700">${imp.S.crewMembers[sen[0]].role} ★</span>`), 'role ★ on the chip, as main');
+  assert.deepEqual(chipProblems(imp.S.crewMembers), [], 'no name with the mark');
+  // NEGATIVE: every other NavBlue package and every FlightKeys package has no mark
+  for (const fx of manifest().fixtures.filter(f => f.id !== nb.id)) {
+    const i2 = await imported(fx);
+    const rr = i2.app._ofpParse(i2.rawText, peek(i2.app, 'pdfPages'));
+    const want = fx.format === 'flightkeys' ? 0 : rr.crewMembers.filter(c => c.role !== 'JS' && c.role !== 'DH' && c.isSen).length;
+    assert.equal(i2.S.crewMembers.filter(c => c.isSen).length, want, fx.id);
+    if (fx.format === 'flightkeys') assert.ok(!/★/.test(i2.app.renderInflightRestModule()), `${fx.id}: no star`);
+  }
+  // FlightKeys, synthetic: a crew record flagged isSen is not shown as senior ("*" is not seniority, SME-3)
+  const fk = loadApp();
+  const chips = vm.runInContext('_crewChips', fk.sandbox)(2, [{ role: 'CA', isSen: true }, { role: 'FO' }], false);
+  assert.deepEqual(plain(chips), [{ role: 'CA', active: true, displayName: '' }, { role: 'FO', active: true, displayName: '' }]);
+  // an old NavBlue save with names: the mark stays, the name goes
+  const st = plain(imp.S);
+  st.crewMembers = [{ role: 'CA', empNum: '000009', lastName: 'SYNTHETICZ', displayName: 'SYNTHETICZ Z', active: true, isSen: false },
+                    { role: 'FO', empNum: '000010', lastName: 'SYNTHETICY', displayName: '★ SEN SYNTHETICY', active: true, isSen: true }];
+  const app = loadApp({ storageData: { rp_flights: [{ id: 'f_nb', fltNum: st.fltNum, date: st.date, at: '2026-11-01T00:00:00.000Z', state: st, raw: '', aptData: {} }] } });
+  app.loadFlight(app.getFlights()[0]);
+  assert.deepEqual(plain(app.S.crewMembers), [{ role: 'CA', active: true, displayName: '' }, { role: 'FO', active: true, displayName: '', isSen: true }]);
+  assert.ok(!/SYNTHETIC/.test(JSON.stringify(app.getFlights()[0].state.crewMembers)));
 });
 
 // ══ TC-176-050 D89 ═════════════════════════════════════════════════════════════
