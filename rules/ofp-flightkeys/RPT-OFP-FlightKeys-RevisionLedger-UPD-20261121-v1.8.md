@@ -1,11 +1,11 @@
 # FlightKeys OFP Parser — Revision Ledger
 
-**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261120-v1.7.md` (supersedes ledger v1.6 of 20 Nov)
-**Module:** `ofp-flightkeys` — file `rules/ofp-flightkeys/ofp-flightkeys-v1.0.0.js`
-**Current Version:** 1.0.0 (release version, D58; built into the app by the switch PR, step 5e-1 PR 2, O-74)
-**Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50, and the rest of the briefing package (v0.4.0, step 5d-2, O-33 … O-45): rows 42, 46, 47, 49, Company NOTAMs, hazards, PACOTS; airport NOTAM type headings for NOTAM v1.14.0 (D67); the Exec answers O-46 … O-49 (K-11) and O-50 … O-52 (K-12); v1.0.0 (step 5e-1 PR 1): the NAT call with `{ filed, findings }`, NAT findings forwarded (O-68), version-free deferred INFO (O-84) (K-13). Contract 2.4.
-**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22, TC-163 28/28, TC-164 14/14 PASS on the 26 FlightKeys fixtures; independent QA pending (step 5e-1 PR 1)
-**Last Updated:** 2026-11-20
+**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261121-v1.8.md` (supersedes ledger v1.7 of 20 Nov)
+**Module:** `ofp-flightkeys` — built in: `rules/ofp-flightkeys/ofp-flightkeys-v1.0.0.js` (key `ofp-flightkeys`); next: `rules/ofp-flightkeys-next/ofp-flightkeys-v1.0.1.js` (key `ofp-flightkeys-next`, not built in, D90)
+**Current Version:** 1.0.1 (step 5e-2 module PR, O-100; not built in until its integration PR, D90); the app runs 1.0.0 (built in by the switch PR, step 5e-1 PR 2, O-74)
+**Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50, and the rest of the briefing package (v0.4.0, step 5d-2, O-33 … O-45): rows 42, 46, 47, 49, Company NOTAMs, hazards, PACOTS; airport NOTAM type headings for NOTAM v1.14.0 (D67); the Exec answers O-46 … O-49 (K-11) and O-50 … O-52 (K-12); v1.0.0 (step 5e-1 PR 1): the NAT call with `{ filed, findings }`, NAT findings forwarded (O-68), version-free deferred INFO (O-84) (K-13).; v1.0.1 (step 5e-2): crew-facing finding texts without internal references (O-100) (K-14). Contract 2.4.
+**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22, TC-163 28/28, TC-164 14/14, TC-175 10/10 PASS on the 26 FlightKeys fixtures; independent QA of v1.0.1 pending (step 5e-2 module PR)
+**Last Updated:** 2026-11-21
 
 ---
 
@@ -13,16 +13,28 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 13 (K-01 … K-13) |
-| Current Version | 1.0.0 |
+| Total entries | 14 (K-01 … K-14) |
+| Current Version | 1.0.1 (next, not built in); 1.0.0 built in |
 | Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1`, since K-09 v1.2 (`…-UPD-20261118-v1.2-FieldMap.md`) (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
-| Masters reconciled | none yet: the v1.0.0 master is published to the Drive between 5e-1 PR 1 and PR 2 (O-74, CLAUDE.md rule 14); it must be byte-identical to `rules/ofp-flightkeys/ofp-flightkeys-v1.0.0.js` (SHA-256 in `rules/manifest.json`) |
+| Masters reconciled | v1.0.1: none yet — published to the Drive after its own QA, before its integration PR (D90, CLAUDE.md rule 14); it must be byte-identical to `rules/ofp-flightkeys-next/ofp-flightkeys-v1.0.1.js` (SHA-256 in `rules/manifest.json`). v1.0.0: as K-13 |
 | Gate Status | release version; gate O-68 met on the module side (the crew display is PR 2, O-76) |
-| Integration | **built in** by the switch PR (step 5e-1 PR 2, O-74; TC-174), with icao-fpl v1.0.0, NOTAM v1.14.0 and the NAT ruleset v1.2.0: `src/ofp-parse.html` routes a FlightKeys package (detector O-78) to `parseFlightKeys({ text, pages }, { icaoFpl, aircraftProfile, notamRules, parseNatTrack })` (O-18); `processPDF` keeps the positioned items; the findings are stored with the flight and shown on the Preflight card (O-76, O-87, O-88). Module file unchanged (SHA-256 `8a7d3e8f…8e40`). Beta stays 1.9.9-hf6 (O-75) |
+| Integration | v1.0.1 **not built in** (D90, O-103 option B: this module PR, then display PR 1, then display PR 2); the app keeps v1.0.0, **built in** by the switch PR (step 5e-1 PR 2, O-74; TC-174), with icao-fpl v1.0.0, NOTAM v1.14.0 and the NAT ruleset v1.2.0: `src/ofp-parse.html` routes a FlightKeys package (detector O-78) to `parseFlightKeys({ text, pages }, { icaoFpl, aircraftProfile, notamRules, parseNatTrack })` (O-18); `processPDF` keeps the positioned items; the findings are stored with the flight and shown on the Preflight card (O-76, O-87, O-88). Module file unchanged (SHA-256 `8a7d3e8f…8e40`). Beta stays 1.9.9-hf6 (O-75) |
 
 ---
 
 ## History
+
+### K-14 — v1.0.1: internal references out of the crew-facing finding texts (step 5e-2 module PR) (2026-11-21)
+
+**Type:** UPD · **Brief:** step 5e-2 module PR (Exec answers O-100, O-103 option B, sheet "Scoping Decisions", 5e-2 rows; D90, D91, D92, D99) · contract 2.4 unchanged · not built in (D90)
+- **O-100:** the internal references `(SME-n)`, `(O-n)`, `(D63a)` and combinations are removed from every crew-facing finding text, at the source: **10 WARN and 17 INFO templates** (SPEC §5.25), shown or not. Meaning, wording and capitals kept; only the space before a removed bracket, and `; SME-18a` inside `(aircraft …)`, tidied. Level, field and code unchanged. No version number in any text (D99).
+- **On the 26 (TC-175-010), against v1.0.0:** every field but `findings` byte-identical; `findings[]` the same length, order, level, field and code; 114 texts change (4 WARN, 110 INFO) in all 26 packages; 306 unchanged. The 4 WARNs shown on OFP Alerts: L08, L22 (NAT one-direction crew alert), L21 (NZWN takeoff alternate), L23 (ETAR curfew, effective dates not stated) — shown with the new text once integrated (TC-175-020, index.html with v1.0.1 swapped in, in memory).
+- **Scoping counts:** WARN 10 = 10; INFO 14 (scoping) vs 17 (build): the 14 fire on the 26, 3 do not (`dispatchContact` null, `enrouteNotams` O-40 no FIR block, O-49 emptied blocks) — all 17 changed.
+- **Wiring:** manifest key `ofp-flightkeys-next` (the `notam-rules-next` / `nat-rules-next` pattern); `index.html`, `src/`, `build/` unchanged; TC-174-001 / 002 carry one declared exception for that key (O-79 retired the `*-next` keys at the switch; O-116).
+- **Not changed (O-115):** `(CS-1)`, `rows 29–31`, `read in 5d`, `(§A.8)` — outside O-100's listed patterns.
+- **Tests:** TC-175-001 … 005, 010, 011, 020, 030, 090 (`test/rules/ofp-flightkeys-v101.test.js`, 10 tests; positive and negative per CLAUDE.md rule 6). Pinned values: fixtures `expected/ofp-flightkeys-v1.0.1/messages.json` (exporter `test/corpus/fk-v101-expected-export.js`).
+- **Module:** new `rules/ofp-flightkeys-next/ofp-flightkeys-v1.0.1.js` (= v1.0.0 + header paragraph, `RULESET_VERSION`, 28 template lines); `rules/manifest.json` new entry with its SHA-256. SPEC v1.0.1 beside SPEC v1.0.0.
+- **Unchanged:** `index.html`, `src/`, `sw.js`, `manifest.json` (1.9.9-hf6, D91), `rules/ofp-flightkeys` v1.0.0, `rules/ofp-navblue` (D47), `rules/nat-rules`, `rules/notam-rules`, `rules/icao-fpl`, the golden, NOTAM and app-path snapshots.
 
 ### K-13 — v1.0.0: the NAT call with { filed, findings }; version-free deferred INFO (step 5e-1 PR 1) (2026-11-20)
 

@@ -6,7 +6,7 @@
 **Module file:** `rules/ofp-flightkeys/ofp-flightkeys-v1.0.0.js` (SHA-256 in `rules/manifest.json`); the v0.4.0 file is frozen byte for byte as `test/oracle/ofp-flightkeys-v0.4.0.js` (SHA-256 `c4ccb8c4…afb6f`) for the TC-164 comparison
 **Architecture:** ADR-005 §2.1 (module catalogue: "FlightKeys OFP parser"), §2.2 (module standard), §2.4 (output contract, FK-P)
 **Field reference:** `docs/SPRINT-OFP-FlightKeysMigration-UPD-20261118-v1.2-FieldMap.md` (rows, SME answers); `docs/ADR-005-AppendixB-Addendum-NEW-20261117-v1.0.md` (contract 2.1: `specialQualification`, `swa`); `docs/ADR-005-AppendixB-Addendum2-NEW-20261117-v1.0.md` (contract 2.2: `operatingPilots`, crew-record extensions); `docs/ADR-005-AppendixB-Addendum3-NEW-20261118-v1.0.md` (contract 2.3: `notamItems`, `notamsRaw`, `briefing`, `weatherRaw`); `docs/ADR-005-AppendixB-Addendum4-NEW-20261119-v1.0.md` (contract 2.4: `firNotams`, `firRaw`, `natMessages`, `hazards`, `dispatchContact`); grammar `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md`
-**Ledger:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261120-v1.7.md` (beside this file)
+**Ledger:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261121-v1.8.md` (beside this file; superseded by SPEC v1.0.1 for the next version)
 **Supersedes:** SPEC v0.4.0 (same folder; history in §10 and the ledger). The ADR-004 FlightKeys profile (`src/import/atlas-fk.js`) is retired only after this parser is gated and integrated (ADR-005 §2.7).
 
 ---
