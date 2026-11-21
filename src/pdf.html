@@ -78,6 +78,84 @@ dz.addEventListener('drop', async e => {
   }, false);
 })();
 
+// The text lines and the positioned items of every page of a pdf.js document (processPDF();
+// step 5e-2 display PR 2: also the stored PDF of a saved flight, O-107 / O-118). The loop is the
+// one tools/extract/extract.js copies.
+async function _pdfReadText(pdf) {
+  let fullText = '';
+  const pages = [];
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const pg   = await pdf.getPage(i);
+    const vp   = pg.getViewport({scale: 1});
+    const tc   = await pg.getTextContent({normalizeWhitespace: false, disableCombineTextItems: false});
+
+    // ── Layout-preserving reconstruction ──────────────────────────
+    // Group items into lines by their Y coordinate (within 2pt tolerance)
+    // then sort each line left→right, producing text that mirrors the
+    // printed OFP column structure (flight ID, times, alternates etc.)
+    const YTOL = 2; // points
+    const lines = [];
+
+    tc.items.forEach(item => {
+      if (!item.str) return;
+      // PDF y=0 is bottom; invert so y=0 is top
+      const y = vp.height - item.transform[5];
+      const x = item.transform[4];
+
+      // Find existing line bucket within tolerance
+      let bucket = lines.find(l => Math.abs(l.y - y) <= YTOL);
+      if (!bucket) {
+        bucket = { y, items: [] };
+        lines.push(bucket);
+      }
+      bucket.items.push({ x, str: item.str, w: item.width || 0 });
+    });
+
+    // Sort lines top→bottom
+    lines.sort((a, b) => a.y - b.y);
+
+    // For each line, sort items left→right and join with whitespace
+    // that approximates the original column spacing
+    lines.forEach(line => {
+      line.items.sort((a, b) => a.x - b.x);
+
+      let lineStr = '';
+      let prevRight = null;
+      line.items.forEach(item => {
+        if (prevRight !== null) {
+          const gap = item.x - prevRight;
+          // Map pixel gap to spaces (calibrated for typical OFP at 1x scale)
+          const spaces = gap > 20 ? '   ' : gap > 8 ? '  ' : gap > 3 ? ' ' : '';
+          lineStr += spaces;
+        }
+        lineStr += item.str;
+        prevRight = item.x + (item.w || item.str.length * 5);
+      });
+      if (lineStr.trim()) fullText += lineStr + '\n';
+    });
+
+    fullText += '\n'; // page break
+
+    // Positioned text items of the page, in document order (non-empty str only),
+    // y measured from the top: the FlightKeys parser reads the briefing from them.
+    pages.push({
+      n: i,
+      width: vp.width,
+      height: vp.height,
+      items: tc.items.filter(it => it.str).map(it => ({
+        str: it.str,
+        x: it.transform[4],
+        y: vp.height - it.transform[5],
+        w: it.width,
+        h: it.height,
+        font: it.fontName,
+      })),
+    });
+  }
+  return { fullText, pages };
+}
+
 async function processPDF(file) {
   resetStateForNewFlight();
   showToast('info', `Loading ${file.name}…`);
@@ -88,77 +166,7 @@ async function processPDF(file) {
     clearOFPPanel();       // wipe any previously rendered canvas pages before new PDF is loaded
     const pdf = await pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise;
 
-    let fullText = '';
-    const pages = [];
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const pg   = await pdf.getPage(i);
-      const vp   = pg.getViewport({scale: 1});
-      const tc   = await pg.getTextContent({normalizeWhitespace: false, disableCombineTextItems: false});
-
-      // ── Layout-preserving reconstruction ──────────────────────────
-      // Group items into lines by their Y coordinate (within 2pt tolerance)
-      // then sort each line left→right, producing text that mirrors the
-      // printed OFP column structure (flight ID, times, alternates etc.)
-      const YTOL = 2; // points
-      const lines = [];
-
-      tc.items.forEach(item => {
-        if (!item.str) return;
-        // PDF y=0 is bottom; invert so y=0 is top
-        const y = vp.height - item.transform[5];
-        const x = item.transform[4];
-
-        // Find existing line bucket within tolerance
-        let bucket = lines.find(l => Math.abs(l.y - y) <= YTOL);
-        if (!bucket) {
-          bucket = { y, items: [] };
-          lines.push(bucket);
-        }
-        bucket.items.push({ x, str: item.str, w: item.width || 0 });
-      });
-
-      // Sort lines top→bottom
-      lines.sort((a, b) => a.y - b.y);
-
-      // For each line, sort items left→right and join with whitespace
-      // that approximates the original column spacing
-      lines.forEach(line => {
-        line.items.sort((a, b) => a.x - b.x);
-
-        let lineStr = '';
-        let prevRight = null;
-        line.items.forEach(item => {
-          if (prevRight !== null) {
-            const gap = item.x - prevRight;
-            // Map pixel gap to spaces (calibrated for typical OFP at 1x scale)
-            const spaces = gap > 20 ? '   ' : gap > 8 ? '  ' : gap > 3 ? ' ' : '';
-            lineStr += spaces;
-          }
-          lineStr += item.str;
-          prevRight = item.x + (item.w || item.str.length * 5);
-        });
-        if (lineStr.trim()) fullText += lineStr + '\n';
-      });
-
-      fullText += '\n'; // page break
-
-      // Positioned text items of the page, in document order (non-empty str only),
-      // y measured from the top: the FlightKeys parser reads the briefing from them.
-      pages.push({
-        n: i,
-        width: vp.width,
-        height: vp.height,
-        items: tc.items.filter(it => it.str).map(it => ({
-          str: it.str,
-          x: it.transform[4],
-          y: vp.height - it.transform[5],
-          w: it.width,
-          h: it.height,
-          font: it.fontName,
-        })),
-      });
-    }
+    const { fullText, pages } = await _pdfReadText(pdf);
 
     pdfRawText = fullText;
     pdfPages = pages;

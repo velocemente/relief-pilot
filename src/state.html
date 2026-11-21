@@ -414,6 +414,10 @@ let airportData = {};   // icao → { notams:'', weather:'' }
 let pdfRawText    = '';
 let pdfPages      = null;   // processPDF(): positioned text items per page (the FlightKeys parser reads them); null for pasted text
 let pdfArrayBuffer = null;   // ArrayBuffer of original PDF — slice a fresh Uint8Array for each pdf.js call so the master is never transferred/neutered
+// O-107 (step 5e-2 display PR 2): the FlightKeys RAW views (notamsRaw, weatherRaw, firRaw, hazards) of the
+// open flight. Never saved: built at import, re-derived from the stored PDF when a flight is opened.
+// null = none (NavBlue, pasted text, not yet re-derived); { missing: true } = the stored PDF is missing.
+let _rawViews     = null;
 let _pdfDocProxy  = null;    // active PDFDocumentProxy — nulled before each new load (M3)
 
 // Recalculate DEST ETA and all alt ETAs from current outZ
@@ -458,10 +462,13 @@ function resetStateForNewFlight() {
   });
   delete S.ofpFindings;   // parser findings (FlightKeys); set by parseOFP() only when the parser returns them
   delete S.ofpAlertsSeen; // O-89: the OFP Alerts title selected by the crew; a new import starts red
+  // Step 5e-2 display PR 2 (FlightKeys only; set by parseOFP() only when the parser returns them).
+  delete S.ofpFormat; delete S.rawIndex; delete S.securityMessages; delete S.permits; delete S.catIiIiiRestrictions; delete S.ofpRemarks;
   airportData = {};
   pdfRawText = '';
   pdfPages = null;
   pdfArrayBuffer = null;
+  _rawViews = null;
   _pdfDocProxy = null;
   _fcirActive = false;
   window._flightDateISO = '';

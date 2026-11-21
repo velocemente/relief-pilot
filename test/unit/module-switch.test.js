@@ -390,7 +390,9 @@ fixtureTest('TC-174-013 positions kept: processPDF keeps the positioned items pe
   // the text and the items are built by the same code in the app and in the extractor (the copy)
   const norm = s => s.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//')).join('\n');
   const app = fs.readFileSync(path.join(ROOT, 'src', 'pdf.html'), 'utf8');
-  const appLoop = app.slice(app.indexOf('const YTOL = 2;'), app.indexOf('    }\n\n    pdfRawText = fullText;'));
+  // Step 5e-2 display PR 2: the loop is _pdfReadText() (processPDF() and the stored PDF of a saved flight).
+  const appLoop = app.slice(app.indexOf('const YTOL = 2;'), app.indexOf('  }\n  return { fullText, pages };'));
+  assert.ok(app.includes('const { fullText, pages } = await _pdfReadText(pdf);'), 'processPDF reads the PDF with _pdfReadText');
   const ex = fs.readFileSync(path.join(ROOT, 'tools', 'extract', 'extract.js'), 'utf8');
   const exLoop = ex.slice(ex.indexOf('const YTOL = 2;'), ex.indexOf('    // ── end copy'));
   assert.ok(appLoop.includes('pages.push({') && appLoop.includes('font: it.fontName'));

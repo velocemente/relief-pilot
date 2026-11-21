@@ -171,7 +171,14 @@ function renderPreflightPhase() {
   if (S.dispatchContact && S.dispatchContact.label) {
     h += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
   }
+  // D45 (O-110): the OFP Remarks security message(s) (FlightKeys), as printed, line breaks kept. None → no row.
+  (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
+    if (m) h += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
+  });
   h += `</div>`; // data-table
+  // O-127 (FlightKeys): one collapsed "OFP Remarks" group, each record as printed (line breaks kept).
+  const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
+  if (_ofpRem.length) h += `<div class="notam-groups">${renderRawGroup('OFP Remarks', _ofpRem.map(r => _rawBody(r.text)).join(''))}</div>`;
   h += `</div></div>`; // subcard-body + subcard
 
   // ── "OFP Fuel & Weight Summary" subcard ──
