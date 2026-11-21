@@ -265,7 +265,8 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
     // O-152: the group also holds the Dispatch contact row, which every FlightKeys package has: one group on all 26,
     // its printed records (raw blocks) are the same as before
     assert.equal(g.length, 1, `${fx.id}: one group (the Dispatch contact row is always in it)`);
-    assert.ok(g[0].hidden, 'collapsed');
+    // O-164: open with a Security message or a REQUIRED Dispatch contact, otherwise collapsed
+    assert.equal(g[0].hidden, !((imp.S.securityMessages || []).some(Boolean) || imp.S.dispatchContact.label === 'REQUIRED'), `${fx.id}: open / collapsed by O-164`);
     assert.deepEqual(raws(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
     r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => { hidden[x.category] = (hidden[x.category] || 0) + 1; });
     if (!want.length) continue;

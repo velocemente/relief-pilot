@@ -13869,6 +13869,8 @@ function renderOfpAlerts() {
 // One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (D72: REQUIRED /
 // IF QUESTIONS), the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept), then
 // the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed). None of these → no group.
+// O-164: the group starts open when it holds a Security message or a Dispatch contact labelled REQUIRED;
+// otherwise collapsed. The crew can collapse and expand it either way.
 function renderOfpRemarksGroup() {
   let rows = '';
   if (S.dispatchContact && S.dispatchContact.label) {
@@ -13879,7 +13881,8 @@ function renderOfpRemarksGroup() {
   });
   const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
   const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _rawBody(r.text)).join('');
-  return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body)}</div>` : '';
+  const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean));
+  return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';
 }
 
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
@@ -16461,11 +16464,12 @@ function _rawBody(text) {
   if (typeof text === 'string') return `<pre class="notam-raw-text">${esc(text)}</pre>`;
   return _rawViews && _rawViews.missing ? `<pre class="notam-raw-text">${esc(_RAW_MISSING)}</pre>` : '';
 }
-function renderRawGroup(label, bodyHtml) {
-  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+// open (optional, O-164): the group starts expanded (the crew can collapse it); default collapsed.
+function renderRawGroup(label, bodyHtml, open) {
+  const CHEV = `<svg class="notam-chev${open ? ' open' : ''}" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
   let h = `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
   h += `<span class="notam-group-label">${esc(label)}</span>${CHEV}</div>`;
-  h += `<div class="notam-group-body" hidden>${bodyHtml}</div></div>`;
+  h += `<div class="notam-group-body"${open ? '' : ' hidden'}>${bodyHtml}</div></div>`;
   return h;
 }
 // The airport card's RAW groups (FlightKeys): its NOTAM Briefing block, its Weather Briefing block
@@ -16610,11 +16614,11 @@ function closeCurfewDetail(e) {
   document.getElementById('curfewDetailOverlay').classList.remove('open');
 }
 
-function toggleAptInputs(icao) {   // O-156: the chevron opens or closes ALL subsections of the card (_aptToggleAll)
-  const card = document.getElementById(`apc-${icao}`), inp = document.getElementById(`api-in-${icao}`);
-  const hdr = card.querySelector('.apt-card-header'), open = hdr.getAttribute('aria-expanded') !== 'true';
+function toggleAptInputs(icao) {   // O-156 / O-161: the display groups and sub-groups (_aptToggleAll); the paste boxes as in main
+  const card = document.getElementById(`apc-${icao}`), hdr = card.querySelector('.apt-card-header');
+  const open = hdr.getAttribute('aria-expanded') !== 'true';
   hdr.setAttribute('aria-expanded', open ? 'true' : 'false');
-  _aptToggleAll(card, inp, open);
+  _aptToggleAll(card, open); _aptTogglePaste(document.getElementById(`api-in-${icao}`));
 }
 
 function updateApt(icao, field, value) {
@@ -17416,11 +17420,11 @@ function pGVis(wx, g) {
   return worst;
 }
 
-// O-156: every group of the airport card (STARs / SIDs, runway, taxiway and general NOTAM groups, Company
-// Remarks, Weather, NOTAMS, Remarks Weather), the sub-groups inside a runway group, and the paste boxes (which
-// this chevron opened before) open together or close together. A single NOTAM's own raw text (a leaf item) is
-// not opened. The header's aria-expanded says which way the next tap goes.
-function _aptToggleAll(card, inp, open) {
+// O-156 / O-161: every display group of the airport card (STARs / SIDs, runway, taxiway and general NOTAM groups,
+// Company Remarks, Weather, NOTAMS, Remarks Weather) and the sub-groups inside a runway group open together or close
+// together. A single NOTAM's own raw text (a leaf item) is not opened. The header's aria-expanded says which way the
+// next tap goes. The NOTAM / WX paste boxes are not part of it.
+function _aptToggleAll(card, open) {
   card.querySelectorAll('.notam-group-hdr, .notam-item-hdr').forEach(hdr => {
     const body = hdr.nextElementSibling;
     if (!body || body.tagName === 'PRE') return;   // no body, or a leaf item's raw text
@@ -17428,7 +17432,12 @@ function _aptToggleAll(card, inp, open) {
     const chev = hdr.querySelector('.notam-chev');
     if (chev) chev.classList.toggle('open', open);
   });
-  if (inp) { inp.style.display = open ? 'flex' : 'none'; inp.style.flexDirection = 'column'; }
+}
+// The paste boxes: main's behaviour, unchanged (flipped by their own state).
+function _aptTogglePaste(inp) {
+  const open = inp.style.display === 'flex';
+  inp.style.display = open ? 'none' : 'flex';
+  inp.style.flexDirection = 'column';
 }
 // ══════════════════════════════════════════════════════
 //  FCIR / ASAP TOGGLE

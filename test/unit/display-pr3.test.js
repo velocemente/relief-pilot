@@ -7,12 +7,16 @@
  *   TC-179-010  O-152 / O-153  the Dispatch contact row and the Security message(s) are in the OFP Remarks group, which
  *               sits directly below the DDG subsection of the Preflight card's NOTES; content unchanged; NEGATIVE: not
  *               on the Departure subcard any more; no content → no group; escaped
+ *   TC-179-012  O-164  the OFP Remarks group starts OPEN when it holds a Security message or a Dispatch contact labelled
+ *               REQUIRED, otherwise collapsed; the crew can collapse and expand it; an old save (none of the fields)
+ *               has no group; NEGATIVE: IF QUESTIONS alone, records alone → collapsed
  *   TC-179-020  O-154  the OFP Alerts callout is in NOTES under the airport status (above DDG); red until tapped, stored
  *               per flight, survives a reload, a re-import starts red again, no list → no title (synthetic D79 input)
  *   TC-179-030  O-155  Company Remarks is collapsed by default and opens by the crew: the group pattern of the runway
  *               and general NOTAM groups (hidden body, .notam-chev, toggleNotamGroup)
- *   TC-179-040  O-156  the chevron on the airport ID row opens / closes ALL subsections of the card (groups, sub-groups,
- *               paste boxes); a single NOTAM's raw text stays closed; NEGATIVE: a group header toggles only its group
+ *   TC-179-040  O-156 / O-161  the chevron on the airport ID row opens / closes ALL display groups and sub-groups of the
+ *               card; a single NOTAM's raw text stays closed; the NOTAM / WX paste boxes behave as in main (flipped by
+ *               their own state, not by the groups); NEGATIVE: a group header toggles only its group
  *   TC-179-050  O-157 / O-158  "Weather" then "NOTAMS" (no "RAW"), content as printed; Remarks Weather, FIR groups and
  *               "Other briefing airports" unchanged
  *   TC-179-060  O-159  the D79 warning is on the row of the TMI it names in the NAT Track subsection, same text, and
@@ -111,9 +115,9 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   assert.ok(ddg > 0);
   assert.ok(h.slice(ddg).startsWith('<span class="notes-sub-header">DDG</span><span class="notes-sub-body notes-sub-empty">—</span>' + GROUP_HDR), 'no DDG items: the group follows DDG directly');
   const g = h.slice(h.indexOf(GROUP_HDR));
-  // content unchanged: the two row markups as before, then the printed records; the group is collapsed
-  const body = g.slice(g.indexOf('<div class="notam-group-body" hidden>'), g.indexOf('<span class="notes-sub-header">Notes</span>'));
-  assert.ok(body.startsWith('<div class="notam-group-body" hidden><div class="data-table data-table-lg">' + ROW_D('REQUIRED') + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2') + '</div><pre class="notam-raw-text">SYNTHETIC PCF REMARK</pre>'), 'Dispatch, Security (line breaks kept, escaped), then the records');
+  // content unchanged: the two row markups as before, then the printed records; the group is open (O-164: Security + REQUIRED)
+  const body = g.slice(g.indexOf('<div class="notam-group-body"'), g.indexOf('<span class="notes-sub-header">Notes</span>'));
+  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D('REQUIRED') + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2') + '</div><pre class="notam-raw-text">SYNTHETIC PCF REMARK</pre>'), 'Dispatch, Security (line breaks kept, escaped), then the records');
   // NEGATIVE: nothing of it on the Departure subcard any more
   const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
   assert.ok(!dep.includes('Dispatch contact') && !dep.includes('data-label">Security<') && !dep.includes('OFP Remarks'), 'not on the Departure subcard');
@@ -142,7 +146,7 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
 });
 
 fixtureTest('TC-179-011 O-152 / O-153: the 26 FlightKeys packages: the Dispatch row and every Security message in the OFP Remarks group below DDG; NavBlue: no group', async () => {
-  let withSecurity = 0;
+  let withSecurity = 0, openN = 0;
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), h = imp.app.renderPreflightPhase();
     const at = h.indexOf(GROUP_HDR);
@@ -154,12 +158,65 @@ fixtureTest('TC-179-011 O-152 / O-153: the 26 FlightKeys packages: the Dispatch 
     assert.equal(g.split('data-label">Security<').length - 1, sec.length, `${fx.id}: every Security message in the group`);
     assert.equal(h.split('data-label">Security<').length - 1, sec.length, `${fx.id}: none elsewhere on the card`);
     if (sec.length) withSecurity++;
+    // O-164: open when a Security message or REQUIRED, else collapsed
+    const open = sec.length > 0 || imp.S.dispatchContact.label === 'REQUIRED';
+    assert.equal(g.includes('<div class="notam-group-body" hidden>'), !open, `${fx.id}: ${open ? 'open' : 'collapsed'} (O-164)`);
+    assert.equal(g.includes('<svg class="notam-chev open"'), open, `${fx.id}: the chevron follows`);
+    openN += open ? 1 : 0;
     const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
     assert.ok(!dep.includes('Dispatch contact') && !dep.includes('data-label">Security<'), `${fx.id}: not on the Departure subcard`);
   }
-  console.log(`TC-179-011: ${fkFixtures().length} FlightKeys packages, ${withSecurity} with a Security message`);
+  console.log(`TC-179-011: ${fkFixtures().length} FlightKeys packages, ${withSecurity} with a Security message, ${openN} open, ${fkFixtures().length - openN} collapsed`);
   assert.ok(withSecurity > 0, 'the positive case is in the data');
+  assert.ok(openN > 0 && openN < fkFixtures().length, 'both cases are in the data: open and collapsed');
   for (const fx of nbFixtures()) assert.ok(!(await imported(fx)).app.renderPreflightPhase().includes('OFP Remarks'), `${fx.id}: NavBlue none`);
+});
+
+test('TC-179-012 O-164 (synthetic): the OFP Remarks group opens by default with a Security message or a REQUIRED Dispatch contact, else collapsed; the crew can collapse and expand; an old save', () => {
+  const app = loadApp();
+  const state = () => {
+    const h = app.renderPreflightPhase(), at = h.indexOf(GROUP_HDR);
+    if (at < 0) return null;
+    const dom = parseDom(h.slice(at, h.indexOf('<span class="notes-sub-header">Notes</span>')));
+    const hdr = dom.querySelector('.notam-group-hdr'), body = hdr.nextElementSibling;
+    return { hdr, body, open: !body.hasAttribute('hidden'), chevOpen: hdr.querySelector('.notam-chev').classList.contains('open') };
+  };
+  const set = (dc, sec, rem) => { app.S.dispatchContact = dc; app.S.securityMessages = sec; app.S.ofpRemarks = rem; return state(); };
+  // POSITIVE: REQUIRED alone, a Security message alone, both: open, the chevron open
+  for (const [dc, sec] of [[{ label: 'REQUIRED' }, []], [null, ['SYNTHETIC SECURITY']], [{ label: 'IF QUESTIONS' }, ['SYNTHETIC SECURITY']], [{ label: 'REQUIRED' }, ['SYNTHETIC SECURITY']]]) {
+    const st = set(dc, sec, [{ text: 'SYNTHETIC REMARK' }]);
+    assert.deepEqual([st.open, st.chevOpen], [true, true], JSON.stringify([dc, sec]));
+  }
+  // NEGATIVE: IF QUESTIONS alone, the records alone, empty Security entries: collapsed
+  for (const [dc, sec, rem] of [[{ label: 'IF QUESTIONS' }, [], []], [{ label: 'IF QUESTIONS' }, ['', null], [{ text: 'SYNTHETIC REMARK' }]], [null, [], [{ text: 'SYNTHETIC REMARK' }]], [{ label: 'required' }, [], []]]) {
+    const st = set(dc, sec, rem);
+    assert.deepEqual([st.open, st.chevOpen], [false, false], JSON.stringify([dc, sec, rem]));
+  }
+  // the crew can collapse an open group and expand a collapsed one (the existing handler)
+  let st = set({ label: 'REQUIRED' }, [], []);
+  assert.equal(st.open, true);
+  app.sandbox.toggleNotamGroup(st.hdr);
+  assert.ok(st.body.hasAttribute('hidden') && !st.hdr.querySelector('.notam-chev').classList.contains('open'), 'collapsed by the crew');
+  app.sandbox.toggleNotamGroup(st.hdr);
+  assert.ok(!st.body.hasAttribute('hidden') && st.hdr.querySelector('.notam-chev').classList.contains('open'), 'expanded again');
+  st = set({ label: 'IF QUESTIONS' }, [], []);
+  app.sandbox.toggleNotamGroup(st.hdr);
+  assert.ok(!st.body.hasAttribute('hidden') && st.hdr.querySelector('.notam-chev').classList.contains('open'), 'a collapsed group opens by the crew');
+  // an old save: none of the fields → no group, nothing breaks; records only (a save with ofpRemarks) → collapsed
+  const old = { id: 'f_1', fltNum: 'GTI0001/01', date: '01 NOV 26', state: { fltNum: 'GTI0001/01', date: '01 NOV 26', origIcao: 'KAAA', destIcao: 'KBBB' }, raw: '', aptData: {} };
+  const app2 = loadApp({ storageData: { rp_flights: [old] } });
+  assert.doesNotThrow(() => app2.loadFlight(app2.getFlights()[0]));
+  let h = app2.renderPreflightPhase();
+  assert.ok(!h.includes('OFP Remarks') && !h.includes('Dispatch contact') && !h.includes('data-label">Security<'), 'an old save: no group');
+  const old2 = plain(old); old2.state.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC REMARK' }];
+  const app3 = loadApp({ storageData: { rp_flights: [old2] } });
+  app3.loadFlight(app3.getFlights()[0]);
+  h = app3.renderPreflightPhase();
+  assert.ok(h.includes(GROUP_HDR) && h.includes('<div class="notam-group-body" hidden>') && !h.includes('<svg class="notam-chev open"'), 'an old save with records only: collapsed');
+  const old3 = plain(old); old3.state.securityMessages = ['SYNTHETIC SECURITY'];
+  const app4 = loadApp({ storageData: { rp_flights: [old3] } });
+  app4.loadFlight(app4.getFlights()[0]);
+  assert.ok(app4.renderPreflightPhase().includes('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_S('SYNTHETIC SECURITY')), 'a save with a Security message: open');
 });
 
 // ══ TC-179-020 O-154 ═══════════════════════════════════════════════════════════════
@@ -251,7 +308,7 @@ test('TC-179-030 O-155 (synthetic): Company Remarks is collapsed by default and 
 });
 
 // ══ TC-179-040 O-156 ═══════════════════════════════════════════════════════════════
-fixtureTest('TC-179-040 O-156: the chevron on the airport ID row opens / closes ALL subsections of the card; a group header toggles only its group', async () => {
+fixtureTest('TC-179-040 O-156 / O-161: the chevron on the airport ID row opens / closes ALL display groups and sub-groups; the paste boxes as in main; a group header toggles only its group', async () => {
   // the richest card of the first FlightKeys package: STARs / SIDs, runway groups with sub-groups, Company Remarks, Weather, NOTAMS
   const fx = fkFixtures().find(f => f.id === 'FK_UAAA-EHAM_27OCT26_prototype'), imp = await imported(fx), app = imp.app;
   const icao = 'EHAM';
@@ -280,14 +337,14 @@ fixtureTest('TC-179-040 O-156: the chevron on the airport ID row opens / closes 
   // default: groups closed (the RAW groups, the runway groups, Company Remarks) except the STARs / SIDs groups; the paste boxes closed
   assert.ok(closed() > 0 && closed() < bodies.length, 'mixed at the start: the STARs / SIDs groups start open');
   assert.equal(inputs.style.display, 'none');
-  // tap: ALL open, the paste boxes too; the raw text of a single NOTAM stays closed
+  // tap: ALL groups open; the paste boxes flip as in main; the raw text of a single NOTAM stays closed
   tap();
   assert.equal(closed(), 0, 'every subsection is open');
-  assert.equal(inputs.style.display, 'flex', 'the paste boxes (this chevron\'s earlier job) open as well');
+  assert.equal(inputs.style.display, 'flex', 'the paste boxes flip as in main');
   assert.equal(hdr.getAttribute('aria-expanded'), 'true');
   assert.ok(leafRaw.every(p => p.hasAttribute('hidden')), 'a single NOTAM\'s own raw text stays closed');
   assert.ok(heads.every(h => !h.querySelector('.notam-chev') || h.querySelector('.notam-chev').classList.contains('open')), 'the chevrons follow');
-  // tap again: ALL closed (the STARs / SIDs groups too), the paste boxes closed
+  // tap again: ALL closed (the STARs / SIDs groups too), the paste boxes flip back
   tap();
   assert.equal(closed(), bodies.length, 'every subsection is closed');
   assert.equal(inputs.style.display, 'none');
@@ -298,8 +355,17 @@ fixtureTest('TC-179-040 O-156: the chevron on the airport ID row opens / closes 
   assert.equal(closed(), bodies.length - 1);
   tap();
   assert.equal(closed(), 0, 'all open');
+  // O-161: the paste boxes are flipped by their own state (main's code), not by the groups' state
+  tap();                                           // (all closed now)
+  inputs.style.display = 'flex';                   // the paste boxes opened by themselves
+  tap();                                           // the groups open; the paste boxes were open, so they close
+  assert.equal(closed(), 0);
+  assert.equal(inputs.style.display, 'none', 'main: an open paste box closes on the tap');
+  tap();                                           // the groups close; the paste boxes open
+  assert.equal(closed(), bodies.length);
+  assert.equal(inputs.style.display, 'flex');
+  inputs.style.display = 'none';
   // NEGATIVE: a group header toggles only its own group; the card's chevron state and the other groups stay
-  tap();                                           // all closed again
   const before = bodies.map(b => b.hasAttribute('hidden'));
   app.sandbox.toggleNotamGroup(heads[2]);
   const after = bodies.map(b => b.hasAttribute('hidden'));

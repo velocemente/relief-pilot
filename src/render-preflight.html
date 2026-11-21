@@ -103,6 +103,8 @@ function renderOfpAlerts() {
 // One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (D72: REQUIRED /
 // IF QUESTIONS), the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept), then
 // the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed). None of these → no group.
+// O-164: the group starts open when it holds a Security message or a Dispatch contact labelled REQUIRED;
+// otherwise collapsed. The crew can collapse and expand it either way.
 function renderOfpRemarksGroup() {
   let rows = '';
   if (S.dispatchContact && S.dispatchContact.label) {
@@ -113,7 +115,8 @@ function renderOfpRemarksGroup() {
   });
   const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
   const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _rawBody(r.text)).join('');
-  return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body)}</div>` : '';
+  const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean));
+  return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';
 }
 
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
