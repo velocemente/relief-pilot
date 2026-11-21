@@ -12,7 +12,7 @@
  *               Step 5e-2 display PR 1 (O-116): the declared exception ofp-flightkeys-next is removed; v1.0.1 is
  *               ofp-flightkeys, built in; any *-next key fails (D96)
  *   TC-174-003  NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; the renderer is
- *               v1.1.0 + the five declared D85 / O-122 / F-2 / F-3 edits (step 5e-2 display PR 1) and draws the same card for a
+ *               v1.1.0 + the five declared D85 / O-122 / F-2 / F-3 edits (step 5e-2 display PR 1) + the O-159 edit (step 5e-3) and draws the same card for a
  *               NavBlue object
  *   TC-174-004  NavBlue lock (D47): the built app = the NavBlue module with NAT v1.1.0, except exactly the 26
  *               natTrack fl lines of NAT v1.2.0 (D83 / O-65)
@@ -191,8 +191,16 @@ test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.pars
     ["    var innerContent = [\n      makeSection('nat-east-tracks', 'Eastbound NAT Tracks',    eastTracksContent, eastTracksOpen),\n      makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),\n      makeSection('nat-west-tracks', 'Westbound NAT Tracks',    westTracksContent, westTracksOpen),\n      makeSection('nat-west-cmts',   'Westbound Track Comments', westCmtContent,   false),\n    ].join('');",
      "    // F-2 (FlightKeys card object only): each direction under its own message's TMI; the\n    // chosen message's direction first (dirOrder). A NavBlue object has neither: as before.\n    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\\u00a0\\u00b7\\u00a0TMI\\u00a0' + esc(nt.dirTmi[d]) : ''; };\n    var eastSections = [\n      makeSection('nat-east-tracks', 'Eastbound NAT Tracks' + tmiOf('EAST'), eastTracksContent, eastTracksOpen),\n      makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),\n    ];\n    var westSections = [\n      makeSection('nat-west-tracks', 'Westbound NAT Tracks' + tmiOf('WEST'), westTracksContent, westTracksOpen),\n      makeSection('nat-west-cmts',   'Westbound Track Comments', westCmtContent,   false),\n    ];\n    var innerContent = (nt.dirOrder === 'WEST' ? westSections.concat(eastSections) : eastSections.concat(westSections)).join('');"],
   ];
+  // Step 5e-3 display (O-159): one more declared edit, applied after D85 (its line exists only there): the D79 warning
+  // on the row of the TMI it names (dirWarn; a FlightKeys card object only, a NavBlue object has none).
+  const O159 = [
+    ["    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\\u00a0\\u00b7\\u00a0TMI\\u00a0' + esc(nt.dirTmi[d]) : ''; };",
+     "    // O-159 (FlightKeys card object only): the D79 warning on the row of the TMI it names (dirWarn); a NavBlue object has none.\n    var warnOf = function (d) { return nt.dirWarn && nt.dirWarn[d] ? '\\u00a0\\u00b7\\u00a0<span class=\"nt-red\">' + nt.dirWarn[d].map(esc).join('<br>') + '</span>' : ''; };\n    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\\u00a0\\u00b7\\u00a0TMI\\u00a0' + esc(nt.dirTmi[d]) + warnOf(d) : ''; };"],
+  ];
   for (const [a] of D85) assert.equal(r11.split(a).length, 2, `v1.1.0 has the line once: ${a.trim().slice(0, 50)}`);
-  assert.ok(r11.length > 4000 && D85.reduce((t, [a, b]) => t.replace(a, () => b), r11) === r12, 'renderNatTrack: v1.1.0 + the five declared edits, nothing else');
+  const afterD85 = D85.reduce((t, [a, b]) => t.replace(a, () => b), r11);
+  for (const [a] of O159) assert.equal(afterD85.split(a).length, 2, `after D85 the line is there once: ${a.trim().slice(0, 50)}`);
+  assert.ok(r11.length > 4000 && O159.reduce((t, [a, b]) => t.replace(a, () => b), afterD85) === r12, 'renderNatTrack: v1.1.0 + the five declared D85 edits + the O-159 edit, nothing else');
   assert.ok(!/function parseNatTrack\(/.test(now) && !HTML.includes("var VERSION = '1.1.0';"), 'no v1.1.0 parser left in the app');
   // the same card from the same track object (v1.1.0 renderer in its own context, esc() as the app's)
   const win = {};
@@ -543,10 +551,13 @@ test('TC-174-030 findings list: WARNs first, message only, NAT INFOs only, escap
   const list = h.match(/<span class="callout-title[^"]*"[^>]*>OFP Alerts<\/span>([\s\S]*?)<\/span><\/div><\/div>/)[1];
   assert.equal(list, 'WARN ONE &lt;b&gt;&amp;<br>WARN TWO<br>INFO NAT', 'message only, escaped (rule 2), WARN first');
   assert.ok(!/NAT-RANDOM-ROUTE|NAT-FILED|permits|WARN:|INFO:/.test(list), 'no code, field or level shown (O-87)');
-  assert.equal(h.indexOf('<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">'), 0, 'one list, at the top of the Preflight card');
+  // O-154: the list is in NOTES, under the airport status and above DDG (it was at the top of the Preflight card)
+  const at = h.indexOf('<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">');
+  assert.ok(at > h.indexOf('<span class="notes-section-title">NOTES</span>') && at < h.indexOf('>DDG</span>'), 'one list, in NOTES above DDG');
+  assert.ok(at > h.indexOf('<div class="subcard-header">Departure</div>'), 'NEGATIVE: no longer above the Departure subcard');
   assert.equal(h.split('class="callout"').length, 2, 'one list');
   // existing components only (rule 3): no style attribute, no class but the existing ones
-  const block = h.slice(0, h.indexOf('</div></div>') + 12);
+  const block = h.slice(at, h.indexOf('</div></div>', at) + 12);
   assert.ok(!/style=/.test(block));
   assert.deepEqual([...new Set([...block.matchAll(/class="([^"]+)"/g)].map(m => m[1]))], ['section', 'callout', 'callout-text', 'callout-title nt-red']);
   for (const c of ['.section {', '.callout {', '.callout-text {', '.callout-title {', '.nt-red {']) assert.ok(HTML.includes(c), `${c} exists`);

@@ -7020,7 +7020,9 @@ return API;
 
     // F-2 (FlightKeys card object only): each direction under its own message's TMI; the
     // chosen message's direction first (dirOrder). A NavBlue object has neither: as before.
-    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\u00a0\u00b7\u00a0TMI\u00a0' + esc(nt.dirTmi[d]) : ''; };
+    // O-159 (FlightKeys card object only): the D79 warning on the row of the TMI it names (dirWarn); a NavBlue object has none.
+    var warnOf = function (d) { return nt.dirWarn && nt.dirWarn[d] ? '\u00a0\u00b7\u00a0<span class="nt-red">' + nt.dirWarn[d].map(esc).join('<br>') + '</span>' : ''; };
+    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\u00a0\u00b7\u00a0TMI\u00a0' + esc(nt.dirTmi[d]) + warnOf(d) : ''; };
     var eastSections = [
       makeSection('nat-east-tracks', 'Eastbound NAT Tracks' + tmiOf('EAST'), eastTracksContent, eastTracksOpen),
       makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),
@@ -13848,6 +13850,38 @@ function ofpAlertsSelect() {
   renderNote();
 }
 
+// ── OFP Alerts callout (step 5e-1, O-76 / O-87 / O-88 / O-89; O-154: shown in NOTES, under the airport status) ──
+// One general list, the import screen's .section + .callout as they are; message text only. The
+// title is red (the existing .nt-red) until the crew taps the callout (O-89, O-98). No list → nothing.
+function renderOfpAlerts() {
+  const _findings = _ofpShownFindings(_ofpAlertFindings());   // F-3: with the card's own NAT parses
+  if (!_findings.length) return '';
+  const _alertsSeen = S.ofpAlertsSeen === true;
+  let h = `<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">`;
+  h += `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 7h.01"/></svg>`;
+  h += `<span class="callout-text"><span class="callout-title${_alertsSeen ? '' : ' nt-red'}">OFP Alerts</span>`;
+  h += _findings.map(f => esc(f.message)).join('<br>');
+  h += `</span></div></div>`;
+  return h;
+}
+
+// ── OFP Remarks group (FlightKeys; O-152 / O-153: shown in NOTES, directly below DDG) ──
+// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (D72: REQUIRED /
+// IF QUESTIONS), the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept), then
+// the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed). None of these → no group.
+function renderOfpRemarksGroup() {
+  let rows = '';
+  if (S.dispatchContact && S.dispatchContact.label) {
+    rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
+  }
+  (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
+    if (m) rows += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
+  });
+  const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
+  const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _rawBody(r.text)).join('');
+  return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body)}</div>` : '';
+}
+
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
 
 // ── ATIS + Parking compact rows (used in preflight + descent) ──
@@ -13873,19 +13907,6 @@ function renderAtisParking(idSuffix) {
 
 function renderPreflightPhase() {
   let h = '';
-
-  // ── OFP Alerts (step 5e-1, O-76 / O-87 / O-88 / O-89): one general list, the
-  //    import screen's .section + .callout as they are; message text only. The
-  //    title is red (the existing .nt-red) until the crew taps the callout (O-89, O-98). ──
-  const _findings = _ofpShownFindings(_ofpAlertFindings());   // F-3: with the card's own NAT parses
-  if (_findings.length) {
-    const _alertsSeen = S.ofpAlertsSeen === true;
-    h += `<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">`;
-    h += `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 7h.01"/></svg>`;
-    h += `<span class="callout-text"><span class="callout-title${_alertsSeen ? '' : ' nt-red'}">OFP Alerts</span>`;
-    h += _findings.map(f => esc(f.message)).join('<br>');
-    h += `</span></div></div>`;
-  }
 
   // ── "Departure" subcard (ATIS + Parking + OEI + STAB) ──
   h += `<div class="subcard">`;
@@ -13931,18 +13952,7 @@ function renderPreflightPhase() {
   }
 
   h += `<div class="data-row"><span class="data-label">STAB</span><span class="data-value">${ev('stabTrim', S.stabTrim||'___/___')}</span></div>`;
-  // D72: the Dispatch contact (FlightKeys Company NOTAMs): REQUIRED / IF QUESTIONS. None → no row.
-  if (S.dispatchContact && S.dispatchContact.label) {
-    h += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
-  }
-  // D45 (O-110): the OFP Remarks security message(s) (FlightKeys), as printed, line breaks kept. None → no row.
-  (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
-    if (m) h += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
-  });
   h += `</div>`; // data-table
-  // O-127 (FlightKeys): one collapsed "OFP Remarks" group, each record as printed (line breaks kept).
-  const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
-  if (_ofpRem.length) h += `<div class="notam-groups">${renderRawGroup('OFP Remarks', _ofpRem.map(r => _rawBody(r.text)).join(''))}</div>`;
   h += `</div></div>`; // subcard-body + subcard
 
   // ── "OFP Fuel & Weight Summary" subcard ──
@@ -14639,10 +14649,20 @@ function _natCardTrack() {
     unreadableDirs.push(d);
     if (m.tmi && !dirTmi[d]) dirTmi[d] = m.tmi;
   }
+  // O-159 (D79): the "FILED NAT x NOT IN TRACK MESSAGE TMI nnn (DIR)" warning is also shown on the row of the
+  // TMI it names (that direction's NAT Tracks row), same text; it stays on OFP Alerts too (D92). Only the
+  // parser's own findings (the chosen message's, O-59); a warning naming no TMI row on the card is not placed.
+  const dirWarn = {};
+  (Array.isArray(S.ofpFindings) ? S.ofpFindings : []).forEach(f => {
+    const w = f && f.code === 'NAT-FILED-NOT-IN-MESSAGE' && typeof f.message === 'string' ? /TMI (\S+) \((EAST|WEST|\?)\)/.exec(f.message) : null;
+    if (!w) return;
+    const d = dirTmi[w[2]] === w[1] ? w[2] : ['EAST', 'WEST'].find(x => dirTmi[x] === w[1]);
+    if (d && !(dirWarn[d] || []).includes(f.message)) (dirWarn[d] = dirWarn[d] || []).push(f.message);
+  });
   const chosen = ordered[0].selected ? ordered[0] : null;
   return Object.assign({}, nt, {
     blocks, eastComments: cmt.EAST, westComments: cmt.WEST,
-    published: msgs.length, unreadableDirs, dirTmi,
+    published: msgs.length, unreadableDirs, dirTmi, dirWarn,
     dirOrder: chosen ? dirOf(chosen) : null,
     assignedDir: chosen && chosen.direction ? chosen.direction : null,
   });
@@ -15477,6 +15497,9 @@ function renderNotesSection() {
     h += `</div>`;
   }
 
+  // O-154: the OFP Alerts callout sits in NOTES under the airport status (D92 behaviour unchanged).
+  h += renderOfpAlerts();
+
   h += `<span class="notes-sub-header">DDG</span>`;
 
   // Resolve DDG items — prefer structured ddgItems (new), fall back to legacy melItems string
@@ -15528,6 +15551,9 @@ function renderNotesSection() {
   } else {
     h += `<span class="notes-sub-body notes-sub-empty">—</span>`;
   }
+
+  // O-153: the OFP Remarks group (with the Dispatch contact and Security rows, O-152) directly below DDG.
+  h += renderOfpRemarksGroup();
 
   // O-110 (FlightKeys): the permits one per line as printed, each with its ADC number (§5.10), under their
   // printed group heading (QA F-4: as the OFP and NavBlue's text print it, so a landing or take-off permit
@@ -16404,23 +16430,23 @@ function renderAptOpsNotes(icao) {
       </div>`)
     .join('');
   
-  const bodyHtml = bodyRows ? `<div class="notam-group-body">${bodyRows}</div>` : '';
+  // O-155: collapsed by default, expanded by the crew: the Runway / General NOTAM group pattern
+  // (.notam-group-hdr + toggleNotamGroup + a hidden .notam-group-body).
+  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  const bodyHtml = bodyRows ? `<div class="notam-group-body" hidden>${bodyRows}</div>` : '';
   
   return `
-    <div class="apt-ops-note collapsed"
+    <div class="apt-ops-note"
          style="border-top:0.5px solid var(--sep)">
       <div class="notam-group-hdr"
-           onclick="this.parentElement.classList.toggle('collapsed')"
-           role="button" aria-expanded="false">
+           onclick="toggleNotamGroup(this)"
+           role="button">
         <span class="notam-dot y"></span>
         <span class="notam-group-label"
               style="color:var(--sys-yellow)">
           Company Remarks
         </span>
-        <svg class="cell-chevron" viewBox="0 0 9 14"
-             aria-hidden="true">
-          <path d="M1 1l6.5 6L1 13"/>
-        </svg>
+        ${CHEV}
       </div>
       ${bodyHtml}
     </div>`;
@@ -16449,8 +16475,9 @@ function renderAptRaw(icao) {
   const v  = _rawViews && _rawViews.apt ? _rawViews.apt[icao] : null;
   const rw = (airportData[icao] || {}).remarksWeather;
   let h = '';
-  if (ix && ix.includes('N')) h += renderRawGroup('RAW NOTAMs', _rawBody(v ? v.notams : null));
-  if (ix && ix.includes('W')) h += renderRawGroup('RAW Weather', _rawBody(v ? v.weather : null));
+  // O-157 / O-158: "Weather" first, then "NOTAMS"; the printed text is unchanged.
+  if (ix && ix.includes('W')) h += renderRawGroup('Weather', _rawBody(v ? v.weather : null));
+  if (ix && ix.includes('N')) h += renderRawGroup('NOTAMS', _rawBody(v ? v.notams : null));
   if (Array.isArray(rw) && rw.length) {
     h += renderRawGroup('Remarks Weather', rw.map(w => _rawBody([w.source, w.text].filter(Boolean).join('\n'))).join(''));
   }
@@ -16583,11 +16610,11 @@ function closeCurfewDetail(e) {
   document.getElementById('curfewDetailOverlay').classList.remove('open');
 }
 
-function toggleAptInputs(icao) {
-  const inp = document.getElementById(`api-in-${icao}`);
-  const open = inp.style.display === 'flex';
-  inp.style.display = open ? 'none' : 'flex';
-  inp.style.flexDirection = 'column';
+function toggleAptInputs(icao) {   // O-156: the chevron opens or closes ALL subsections of the card (_aptToggleAll)
+  const card = document.getElementById(`apc-${icao}`), inp = document.getElementById(`api-in-${icao}`);
+  const hdr = card.querySelector('.apt-card-header'), open = hdr.getAttribute('aria-expanded') !== 'true';
+  hdr.setAttribute('aria-expanded', open ? 'true' : 'false');
+  _aptToggleAll(card, inp, open);
 }
 
 function updateApt(icao, field, value) {
@@ -17389,6 +17416,20 @@ function pGVis(wx, g) {
   return worst;
 }
 
+// O-156: every group of the airport card (STARs / SIDs, runway, taxiway and general NOTAM groups, Company
+// Remarks, Weather, NOTAMS, Remarks Weather), the sub-groups inside a runway group, and the paste boxes (which
+// this chevron opened before) open together or close together. A single NOTAM's own raw text (a leaf item) is
+// not opened. The header's aria-expanded says which way the next tap goes.
+function _aptToggleAll(card, inp, open) {
+  card.querySelectorAll('.notam-group-hdr, .notam-item-hdr').forEach(hdr => {
+    const body = hdr.nextElementSibling;
+    if (!body || body.tagName === 'PRE') return;   // no body, or a leaf item's raw text
+    if (open) body.removeAttribute('hidden'); else body.setAttribute('hidden', '');
+    const chev = hdr.querySelector('.notam-chev');
+    if (chev) chev.classList.toggle('open', open);
+  });
+  if (inp) { inp.style.display = open ? 'flex' : 'none'; inp.style.flexDirection = 'column'; }
+}
 // ══════════════════════════════════════════════════════
 //  FCIR / ASAP TOGGLE
 // ══════════════════════════════════════════════════════

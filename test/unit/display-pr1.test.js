@@ -585,7 +585,7 @@ fixtureTest('TC-176-051 D89 NEGATIVE: a FlightKeys and a NavBlue package open th
 
 // ══ TC-176-060 dispatchContact ═════════════════════════════════════════════════
 
-fixtureTest('TC-176-060 D72 dispatchContact: 26 FK on the Departure subcard (REQUIRED 22, IF QUESTIONS 4); NavBlue none; escaped', async () => {
+fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group below DDG (O-152; REQUIRED 22, IF QUESTIONS 4); NavBlue none; escaped', async () => {
   const n = { REQUIRED: 0, 'IF QUESTIONS': 0 };
   for (const fx of fkFixtures()) {
     const imp = await imported(fx);
@@ -593,7 +593,11 @@ fixtureTest('TC-176-060 D72 dispatchContact: 26 FK on the Departure subcard (REQ
     n[lbl]++;
     const h = imp.app.renderPreflightPhase();
     const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
-    assert.ok(dep.includes(`<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${lbl}</span></div>`), `${fx.id}: on the Departure subcard (O-123 label)`);
+    const row = `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${lbl}</span></div>`;
+    // O-152: the row moved from the Departure subcard into the OFP Remarks group (O-153: directly below DDG)
+    assert.ok(!dep.includes('Dispatch contact'), `${fx.id}: NEGATIVE: no longer on the Departure subcard`);
+    const grp = h.indexOf('<span class="notam-group-label">OFP Remarks</span>');
+    assert.ok(grp > h.indexOf('>DDG</span>') && h.slice(grp).includes(row), `${fx.id}: in the OFP Remarks group (O-123 label)`);
     assert.ok(!/<span class="data-label">Dispatch<\/span>/.test(h), 'NEGATIVE: not the former label');
   }
   assert.deepEqual(n, { REQUIRED: 22, 'IF QUESTIONS': 4 });

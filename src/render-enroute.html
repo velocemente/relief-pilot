@@ -281,10 +281,20 @@ function _natCardTrack() {
     unreadableDirs.push(d);
     if (m.tmi && !dirTmi[d]) dirTmi[d] = m.tmi;
   }
+  // O-159 (D79): the "FILED NAT x NOT IN TRACK MESSAGE TMI nnn (DIR)" warning is also shown on the row of the
+  // TMI it names (that direction's NAT Tracks row), same text; it stays on OFP Alerts too (D92). Only the
+  // parser's own findings (the chosen message's, O-59); a warning naming no TMI row on the card is not placed.
+  const dirWarn = {};
+  (Array.isArray(S.ofpFindings) ? S.ofpFindings : []).forEach(f => {
+    const w = f && f.code === 'NAT-FILED-NOT-IN-MESSAGE' && typeof f.message === 'string' ? /TMI (\S+) \((EAST|WEST|\?)\)/.exec(f.message) : null;
+    if (!w) return;
+    const d = dirTmi[w[2]] === w[1] ? w[2] : ['EAST', 'WEST'].find(x => dirTmi[x] === w[1]);
+    if (d && !(dirWarn[d] || []).includes(f.message)) (dirWarn[d] = dirWarn[d] || []).push(f.message);
+  });
   const chosen = ordered[0].selected ? ordered[0] : null;
   return Object.assign({}, nt, {
     blocks, eastComments: cmt.EAST, westComments: cmt.WEST,
-    published: msgs.length, unreadableDirs, dirTmi,
+    published: msgs.length, unreadableDirs, dirTmi, dirWarn,
     dirOrder: chosen ? dirOf(chosen) : null,
     assignedDir: chosen && chosen.direction ? chosen.direction : null,
   });

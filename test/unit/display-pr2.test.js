@@ -5,7 +5,7 @@
  * was the last used. Positive and negative per scope item and per Exec answer (CLAUDE.md rule 6).
  *
  *   TC-177-001  O-104 / D64 airport RAW NOTAMs: the card group is the NOTAM Briefing block as printed, line by
- *               line (2 airports); 118 cards, every one with RAW NOTAMs and RAW Weather; collapsed; NEGATIVE the
+ *               line (2 airports); 118 cards, every one with its NOTAMS and Weather group (labels without "RAW" since step 5e-3, O-157 / O-158); collapsed; NEGATIVE the
  *               card's evaluated rows are unchanged, a NavBlue card has no RAW group
  *   TC-177-002  D65 RAW weather TAF -> METAR -> ATIS as printed; NEGATIVE the evaluated weather keeps the reader's
  *               order (METAR first, TAF last) and is not the RAW text
@@ -137,9 +137,9 @@ fixtureTest('TC-177-001 O-104/D64: airport RAW NOTAMs as printed, line by line; 
     for (const a of imp.app.getAllAirports()) {
       const g = groups(aptRaw(imp.app, a.icao));
       if (g.length) cards++;
-      const n = g.find(x => x.label === 'RAW NOTAMs'), w = g.find(x => x.label === 'RAW Weather');
+      const n = g.find(x => x.label === 'NOTAMS'), w = g.find(x => x.label === 'Weather');   // O-157 / O-158: labels without RAW
       const ad = r.airportData[a.icao] || {};
-      assert.equal(!!n, !!(ad.notamsRaw || '').trim(), `${fx.id} ${a.icao}: a RAW NOTAMs group iff the briefing prints a block`);
+      assert.equal(!!n, !!(ad.notamsRaw || '').trim(), `${fx.id} ${a.icao}: a NOTAMS group iff the briefing prints a block`);
       if (n) {
         withN++;
         assert.ok(n.hidden, 'collapsed by default');
@@ -170,7 +170,7 @@ fixtureTest('TC-177-002 D65: RAW weather TAF -> METAR -> ATIS as printed; the ev
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), r = parsed(imp);
     for (const a of imp.app.getAllAirports()) {
-      const w = groups(aptRaw(imp.app, a.icao)).find(x => x.label === 'RAW Weather');
+      const w = groups(aptRaw(imp.app, a.icao)).find(x => x.label === 'Weather');   // O-157
       const raw = r.airportData[a.icao].weatherRaw;
       assert.deepEqual(raws(w.body), [raw], `${fx.id} ${a.icao}`);
       const heads = raw.split('\n').map(l => l.trim()).filter(l => /^(TAF|METAR|ATIS)$/.test(l));
@@ -262,12 +262,14 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
     const h = imp.app.renderPreflightPhase();
     const g = groups(h).filter(x => x.label === 'OFP Remarks');
     const want = r.ofpRemarks.filter(x => SHOWN.includes(x.category));
-    assert.equal(g.length, want.length ? 1 : 0, `${fx.id}: one group when there is a record`);
+    // O-152: the group also holds the Dispatch contact row, which every FlightKeys package has: one group on all 26,
+    // its printed records (raw blocks) are the same as before
+    assert.equal(g.length, 1, `${fx.id}: one group (the Dispatch contact row is always in it)`);
+    assert.ok(g[0].hidden, 'collapsed');
+    assert.deepEqual(raws(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
     r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => { hidden[x.category] = (hidden[x.category] || 0) + 1; });
     if (!want.length) continue;
     pk++;
-    assert.ok(g[0].hidden, 'collapsed');
-    assert.deepEqual(raws(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
     want.forEach(x => { per[x.category] = (per[x.category] || 0) + 1; });
     // NEGATIVE: no other record of the package is in the group (the slotted ones and those left on the OFP tab)
     r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => {
@@ -284,7 +286,9 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
   const imp = await importFixture(fkBy(/KCVG-KSEA/), FIX);
   assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'));
   run(imp.app, 'delete S.ofpRemarks');
-  assert.ok(!labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'));
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'O-152: the Dispatch contact row alone keeps the group');
+  run(imp.app, 'delete S.dispatchContact; delete S.securityMessages');
+  assert.ok(!labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'nothing to show: no group');
 });
 
 fixtureTest('TC-177-005 D76: 155 hazard groups by FIR, collapsed, as printed; empty blocks none; never weather or E-WINS', async () => {
@@ -583,7 +587,7 @@ fixtureTest('TC-177-026 remarks weather feeds D-EVAL; both sources expandable; E
   assert.deepEqual(plain(evalOf(imp.app, 'PWAK')), withRw, 'E-WINS controlling: the remarks TAF changes nothing');
   run(imp.app, 'airportData.PWAK.remarksWeather = __rw');
   const g = groups(aptRaw(imp.app, 'PWAK'));
-  assert.deepEqual(g.map(x => x.label), ['RAW NOTAMs', 'RAW Weather', 'Remarks Weather'].filter(l => l !== 'RAW NOTAMs' || imp.S.rawIndex.apt.PWAK.includes('N')), 'both weather sources expandable');
+  assert.deepEqual(g.map(x => x.label), ['Weather', 'NOTAMS', 'Remarks Weather'].filter(l => l !== 'NOTAMS' || imp.S.rawIndex.apt.PWAK.includes('N')), 'both weather sources expandable (O-157 / O-158: Weather before NOTAMS)');
   assert.deepEqual(raws(g.find(x => x.label === 'Remarks Weather').body), [pw.remarksWeather[0].source + '\n' + pw.remarksWeather[0].text]);
   // synthetic: a card airport (not E-WINS) with open briefing weather; a remarks TAF below minima turns it red
   const dest = imp.S.destIcao;
@@ -674,7 +678,7 @@ fixtureTest('TC-177-031 O-118: navlog after reload — an ETP time read from the
 fixtureTest('TC-177-032 O-113: an old save loads safely (missing fields not shown); the save is smaller than before', async () => {
   const fx = fkBy(/LLBG-OMDW/), imp = await imported(fx);
   const st = plain(imp.S);
-  for (const k of ['ofpFormat', 'rawIndex', 'securityMessages', 'permits', 'catIiIiiRestrictions', 'ofpRemarks']) delete st[k];
+  for (const k of ['ofpFormat', 'rawIndex', 'securityMessages', 'permits', 'catIiIiiRestrictions', 'ofpRemarks', 'dispatchContact']) delete st[k];   // O-152: the Dispatch contact row is in the OFP Remarks group now
   const apt = plain(imp.airportData);
   Object.values(apt).forEach(a => { delete a.remarks; delete a.remarksWeather; });
   const app = loadApp({ storageData: { rp_flights: [{ id: 'f_old', fltNum: st.fltNum, date: st.date, at: '2026-11-01T00:00:00.000Z', state: st, aptData: apt }] } });
@@ -729,6 +733,21 @@ fixtureTest('TC-177-034 esc() on every RAW and remark text (synthetic markup)', 
 // ══ TC-177-040 / 041 NavBlue unchanged, labels ═══════════════════════════════════
 
 const sha16 = s => crypto.createHash('sha256').update(String(s)).digest('hex').slice(0, 16);
+// main's Company Remarks markup (before O-155) from the new one: the class, the toggle, the chevron and the body's hidden
+// attribute are the only differences.
+function opsNoteAsMain(h) {
+  if (!h) return h;
+  const CHEV = '<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>';
+  const OLD_CHEV = '<svg class="cell-chevron" viewBox="0 0 9 14"\n             aria-hidden="true">\n          <path d="M1 1l6.5 6L1 13"/>\n        </svg>';
+  const steps = [
+    ['<div class="apt-ops-note"\n', '<div class="apt-ops-note collapsed"\n'],
+    ['onclick="toggleNotamGroup(this)"\n           role="button">', 'onclick="this.parentElement.classList.toggle(\'collapsed\')"\n           role="button" aria-expanded="false">'],
+    [CHEV, OLD_CHEV],
+    ['<div class="notam-group-body" hidden>', '<div class="notam-group-body">'],
+  ];
+  return steps.reduce((t, [n, o]) => { assert.ok(t.includes(n), 'markup step present: ' + n.slice(0, 40)); return t.replace(n, () => o); }, h);
+}
+
 fixtureTest('TC-177-040 NavBlue screens (30) byte-identical to main; OFP Alerts unchanged (D92)', async () => {
   for (const fx of nbFixtures()) {
     const imp = await imported(fx), app = imp.app;
@@ -736,7 +755,10 @@ fixtureTest('TC-177-040 NavBlue screens (30) byte-identical to main; OFP Alerts 
     assert.ok(want, fx.id);
     const got = { pre: sha16(app.renderPreflightPhase()), enr: sha16(app.renderEnroutePhase()), des: sha16(run(app, 'renderDescentPhase()')), notes: sha16(run(app, 'renderNotesSection()')) };
     for (const a of app.getAllAirports()) {
-      got['card:' + a.icao] = sha16(run(app, `(function(){const d=airportData[${J(a.icao)}]||{notams:'',weather:''};const a=getAllAirports().find(x=>x.icao===${J(a.icao)});return renderAptIssues(evalAirport(a.icao,a.eta,d.notams,d.weather,a.wxWindow,a.role,S.acftType))+renderAptOpsNotes(a.icao)+renderAptRaw(a.icao)})()`));
+      // O-155 (step 5e-3): Company Remarks is a collapsed group now; its markup is mapped back to main's (opsNoteAsMain) so
+      // this hash still shows that nothing else on the card changed. The new markup itself is TC-179-030.
+      got['card:' + a.icao] = sha16(run(app, `(function(){const d=airportData[${J(a.icao)}]||{notams:'',weather:''};const a=getAllAirports().find(x=>x.icao===${J(a.icao)});return renderAptIssues(evalAirport(a.icao,a.eta,d.notams,d.weather,a.wxWindow,a.role,S.acftType))})()`)
+        + opsNoteAsMain(run(app, `renderAptOpsNotes(${J(a.icao)})`)) + run(app, `renderAptRaw(${J(a.icao)})`));
       run(app, `S.descentAirport=${J(a.icao)}`);
       got['desc:' + a.icao] = sha16(run(app, 'renderDescentAirportSummary()'));
     }
