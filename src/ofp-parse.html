@@ -169,6 +169,8 @@ function _ofpRawIndex(v) {
            haz: v.haz.map(z => ({ code: z.code, name: z.name })) };
 }
 
+const _OFP_REMARKS_SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];   // O-127
+
 // Returns false when the package is refused (D89): the caller stays on the import screen.
 function parseOFP() {
   let result;
@@ -292,6 +294,11 @@ function parseOFP() {
     S.catIiIiiRestrictions = (result.catIiIiiRestrictions || []).map(c => ({ airport: c.airport || null,
       category: String(c.category || ''), runways: Array.isArray(c.runways) ? c.runways.map(String) : [],
       text: String(c.text || ''), source: String(c.source || '') }));
+    // O-127 (Exec, C): the OFP remark records shown in "OFP Remarks" on the Preflight card, as the parser
+    // groups them (D63 / D63a, line breaks kept), in release order: PCF reasons, extra-fuel reasons, route,
+    // ADHOC penalty. Every other record without a NavBlue slot stays on the OFP tab.
+    S.ofpRemarks = (result.ofpRemarks || []).filter(r => r && _OFP_REMARKS_SHOWN.includes(r.category) && r.text)
+      .map(r => ({ category: String(r.category), text: String(r.text) }));
     // O-107: the RAW views from the PDF just read; pasted text has no RAW (D95).
     _rawViews = pdfPages ? _ofpRawViews(result) : null;
     if (_rawViews) S.rawIndex = _ofpRawIndex(_rawViews);

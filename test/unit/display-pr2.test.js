@@ -12,8 +12,9 @@
  *   TC-177-003  O-104 / O-112 / D64 per-FIR groups: 221 "FIR XXXX NOTAMs" groups (2 blocks line by line),
  *               collapsed; the parser's combined "FIR Company NOTAMs" group is never shown with them; NEGATIVE
  *               NavBlue and pasted FlightKeys text keep the combined group
- *   TC-177-004  D71 / O-40 FIR-keyed Company items: 3, each under "Company NOTAMs" in its own FIR block; NEGATIVE
- *               no other block has the label, and no Company item is in an airport card
+ *   TC-177-004  D71 / O-40 / O-131 FIR-keyed Company items: 3, each in its own collapsed "Company NOTAMs" group
+ *               directly after its FIR group, never inside it; NEGATIVE no Company group for any other block, and no
+ *               Company item is in an airport card
  *   TC-177-005  D76 hazards: 155 "FIR XXXX Hazards" groups (the blocks that print a product), collapsed, text as
  *               printed; NEGATIVE the 66 empty blocks have no group; hazard text is never in weather, E-WINS,
  *               remarks weather or an airport's RAW weather
@@ -37,6 +38,8 @@
  *   TC-177-026  remarks weather feeds D-EVAL (synthetic below-minima TAF turns the card red); both weather sources
  *               expandable; NEGATIVE E-WINS stays controlling (L15 PWAK), a report adds no duplicate row; on the
  *               26 no card status changes
+ *   TC-177-027  O-127 (Exec, C): one collapsed "OFP Remarks" group on the Preflight card: PCF 17, extra fuel 3,
+ *               route 5, ADHOC penalty 6 records as printed; NEGATIVE the other 261 records, NavBlue and old saves none
  *   TC-177-030  O-118 / F-5: no OFP text and no crew name or number in any save, either format (56); every old save
  *               stripped once at app start, not only when opened; NEGATIVE clean saves are not rewritten
  *   TC-177-031  O-118 navlog after reload: the ETP times read from the navigation log are the same after reload
@@ -188,7 +191,7 @@ fixtureTest('TC-177-003 O-104/O-112/D64: 221 per-FIR groups as printed (2 blocks
   let n = 0, lineChecked = 0;
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), r = parsed(imp);
-    const g = groups(enrRaw(imp.app)).filter(x => / NOTAMs$/.test(x.label));
+    const g = groups(enrRaw(imp.app)).filter(x => /^FIR \S+ NOTAMs$/.test(x.label));
     assert.deepEqual(g.map(x => x.label), plain(r.firRaw.map(b => `FIR ${b.code} NOTAMs`)), fx.id);
     g.forEach((x, k) => {
       assert.ok(x.hidden, 'collapsed');
@@ -220,22 +223,66 @@ fixtureTest('TC-177-003 O-104/O-112/D64: 221 per-FIR groups as printed (2 blocks
   assert.ok(!labels(app.renderEnroutePhase()).some(l => /^FIR \S+ (NOTAMs|Hazards)$|^Other briefing airports$/.test(l)));
 });
 
-fixtureTest('TC-177-004 D71/O-40: 3 FIR-keyed Company items, each with its own FIR block under "Company NOTAMs"', async () => {
-  let n = 0;
+fixtureTest('TC-177-004 D71/O-131: 3 FIR-keyed Company items, each in its own "Company NOTAMs" group right after its FIR block', async () => {
+  let n = 0, groupsN = 0;
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), r = parsed(imp);
-    const g = groups(enrRaw(imp.app)).filter(x => / NOTAMs$/.test(x.label));
-    r.firNotams.forEach((b, k) => {
+    const g = groups(enrRaw(imp.app));
+    const firAt = g.map((x, k) => (/^FIR \S+ NOTAMs$/.test(x.label) ? k : -1)).filter(k => k >= 0);
+    assert.equal(firAt.length, r.firNotams.length, fx.id);
+    r.firNotams.forEach((b, j) => {
       const co = b.items.filter(i => i.origin === 'COMPANY');
-      const has = g[k].body.includes('<span class="notam-item-label" style="font-weight:600">Company NOTAMs</span>');
-      assert.equal(has, co.length > 0, `${fx.id} ${b.code}: the label only with Company items`);
-      if (co.length) assert.deepEqual(raws(g[k].body).slice(1), plain(co.map(i => i.text)), 'the Company items as printed, after the block');
+      const k = firAt[j], next = g[k + 1];
+      // never inside the FIR group: its body is the printed block only
+      assert.deepEqual(raws(g[k].body), [r.firRaw[j].raw], `${fx.id} ${b.code}: the FIR group holds its block only`);
+      assert.ok(!g[k].body.includes('Company NOTAMs'));
+      if (co.length) {
+        assert.equal(next.label, 'Company NOTAMs', `${fx.id} ${b.code}: the Company group directly after its FIR group`);
+        assert.ok(next.hidden, 'collapsed');
+        assert.deepEqual(raws(next.body), plain(co.map(i => i.text)), 'the Company items as printed');
+        groupsN++;
+      } else assert.ok(!next || next.label !== 'Company NOTAMs', `${fx.id} ${b.code}: NEGATIVE no Company group without Company items`);
       n += co.length;
-      // the Company item belongs to the FIR, never to an airport card
       co.forEach(i => imp.app.getAllAirports().forEach(a => assert.ok(!aptRaw(imp.app, a.icao).includes(i.text.split('\n')[0] + '\n' + (i.text.split('\n')[1] || '')))));
     });
+    // every "Company NOTAMs" group follows a FIR group
+    g.forEach((x, k) => { if (x.label === 'Company NOTAMs') assert.ok(k > 0 && /^FIR \S+ NOTAMs$/.test(g[k - 1].label)); });
   }
-  assert.equal(n, 3);
+  assert.deepEqual([n, groupsN], [3, 3]);
+});
+
+fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, extra fuel 3, route 5, ADHOC penalty 6; nothing else', async () => {
+  const SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];
+  const per = {}, hidden = {};
+  let pk = 0;
+  for (const fx of fkFixtures()) {
+    const imp = await imported(fx), r = parsed(imp);
+    const h = imp.app.renderPreflightPhase();
+    const g = groups(h).filter(x => x.label === 'OFP Remarks');
+    const want = r.ofpRemarks.filter(x => SHOWN.includes(x.category));
+    assert.equal(g.length, want.length ? 1 : 0, `${fx.id}: one group when there is a record`);
+    r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => { hidden[x.category] = (hidden[x.category] || 0) + 1; });
+    if (!want.length) continue;
+    pk++;
+    assert.ok(g[0].hidden, 'collapsed');
+    assert.deepEqual(raws(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
+    want.forEach(x => { per[x.category] = (per[x.category] || 0) + 1; });
+    // NEGATIVE: no other record of the package is in the group (the slotted ones and those left on the OFP tab)
+    r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => {
+      if (!want.some(w => w.text === x.text)) assert.ok(!raws(g[0].body).includes(x.text), `${fx.id}: a ${x.category} record`);
+    });
+    // a wrapped record keeps its printed line breaks
+    want.filter(x => x.text.includes('\n')).forEach(x => assert.ok(raws(g[0].body).includes(x.text)));
+  }
+  assert.deepEqual(per, { pcf: 17, extraFuel: 3, route: 5, adhocPenalty: 6 });
+  assert.equal(Object.values(hidden).reduce((a, b) => a + b, 0), 292 - 31, 'every other record stays out');
+  assert.ok(pk > 0);
+  // NEGATIVE: NavBlue none; a flight saved before (no S.ofpRemarks) none
+  for (const fx of nbFixtures()) assert.ok(!labels((await imported(fx)).app.renderPreflightPhase()).includes('OFP Remarks'), fx.id);
+  const imp = await importFixture(fkBy(/KCVG-KSEA/), FIX);
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'));
+  run(imp.app, 'delete S.ofpRemarks');
+  assert.ok(!labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'));
 });
 
 fixtureTest('TC-177-005 D76: 155 hazard groups by FIR, collapsed, as printed; empty blocks none; never weather or E-WINS', async () => {
@@ -590,13 +637,14 @@ fixtureTest('TC-177-031 O-118: navlog after reload — an ETP time read from the
 fixtureTest('TC-177-032 O-113: an old save loads safely (missing fields not shown); the save is smaller than before', async () => {
   const fx = fkBy(/LLBG-OMDW/), imp = await imported(fx);
   const st = plain(imp.S);
-  for (const k of ['ofpFormat', 'rawIndex', 'securityMessages', 'permits', 'catIiIiiRestrictions']) delete st[k];
+  for (const k of ['ofpFormat', 'rawIndex', 'securityMessages', 'permits', 'catIiIiiRestrictions', 'ofpRemarks']) delete st[k];
   const apt = plain(imp.airportData);
   Object.values(apt).forEach(a => { delete a.remarks; delete a.remarksWeather; });
   const app = loadApp({ storageData: { rp_flights: [{ id: 'f_old', fltNum: st.fltNum, date: st.date, at: '2026-11-01T00:00:00.000Z', state: st, aptData: apt }] } });
   assert.doesNotThrow(() => app.loadFlight(app.getFlights()[0]));
   assert.doesNotThrow(() => { app.renderPreflightPhase(); app.renderEnroutePhase(); run(app, 'renderDescentPhase(); renderNotesSection()'); });
   assert.ok(!/data-label">Security</.test(app.renderPreflightPhase()), 'no security row');
+  assert.ok(!labels(app.renderPreflightPhase()).includes('OFP Remarks'), 'no OFP Remarks group');
   assert.equal(enrRaw(app), '', 'no RAW groups');
   assert.ok(app.getAllAirports().every(a => aptRaw(app, a.icao) === ''));
   assert.ok(run(app, 'renderNotesSection()').includes(`<span class="notes-sub-body">${run(app, 'esc(S.overflightPerms)')}</span>`), 'permits as before');
@@ -628,6 +676,7 @@ fixtureTest('TC-177-034 esc() on every RAW and remark text (synthetic markup)', 
     _rawViews.haz.forEach(z=>{ z.text = X; });
     airportData[icao].remarks = [{ text: X + '\\n' + X, subHeading: X }];
     airportData[icao].remarksWeather = [{ source: X, type: 'TAF', text: X }];
+    S.ofpRemarks = [{ category: 'pcf', text: X + '\\n' + X }];
     S.securityMessages = [X]; S.permits = [{ type: X, country: X, reference: X, route: X, restriction: X, adc: X, missing: false }];
     S.catIiIiiRestrictions = [{ airport: icao, category: X, runways: [], text: X, source: 'OFP Remarks' }];
     S.ddgItems = [{ code: '21-00-00', desc: 'synthetic', tlr: 'landing', type: 'MEL', notes: [{ text: X + '\\n' + X, indent: 1 }] }];

@@ -88,10 +88,10 @@ Same 26 parts. FlightKeys RAW views, hazards, FIR labels, FIR-keyed Company item
 |---|---|---|
 | `src/state.html` | `_rawViews` | the open flight's RAW views (never saved); cleared by `resetStateForNewFlight()` with the new FlightKeys state keys |
 | `src/pdf.html` | `_pdfReadText()` | the `processPDF()` text-and-items loop (the `tools/extract` copy), also used for the stored PDF |
-| `src/ofp-parse.html` | `_ofpRawViews`, `_ofpRawIndex`; `parseOFP()` | O-104 / O-107 RAW views and their index (`S.rawIndex`, no text); FlightKeys `S.ofpFormat`, `securityMessages`, `permits`, `catIiIiiRestrictions`; `airportData[icao].remarks` / `remarksWeather` |
+| `src/ofp-parse.html` | `_ofpRawViews`, `_ofpRawIndex`; `parseOFP()` | O-104 / O-107 RAW views and their index (`S.rawIndex`, no text); FlightKeys `S.ofpFormat`, `securityMessages`, `permits`, `catIiIiiRestrictions`, `ofpRemarks` (O-127: PCF, extra fuel, route, ADHOC penalty); `airportData[icao].remarks` / `remarksWeather` |
 | `src/storage.html` | `_saveStrip`, `_savesStrip`; `saveFlight()`, `loadFlight()`; `_ofpRederive`, `_rawMissing`, `_rerenderOpen` | O-118 / F-5: no OFP text or crew name in a save, every save stripped at start (`src/copy.html` INIT); the OFP text and RAW views re-derived from the stored PDF |
 | `src/edit.html` | `_opsNoteBody`, `renderAptOpsNotes()`, `_rawBody`, `renderRawGroup`, `renderAptRaw` | airport remarks and CAT II/III restrictions in Company Remarks; TANKER rule; the card's RAW NOTAMs / RAW Weather / Remarks Weather groups |
 | `src/airports.html` | `buildAirportCards()`, `evalAirport()` (`_wxSource`) | the card's RAW groups; remarks weather as a second weather source (not under E-WINS) |
-| `src/render-enroute.html` | `renderEnrouteRaw()`; `renderEnroutePhase()` Route NOTAMs | "FIR XXXX NOTAMs" + "Company NOTAMs", "FIR XXXX Hazards", "Other briefing airports" |
-| `src/render-preflight.html` | `renderPreflightPhase()` Departure subcard | D45 Security row |
+| `src/render-enroute.html` | `renderEnrouteRaw()`; `renderEnroutePhase()` Route NOTAMs | "FIR XXXX NOTAMs", then its own "Company NOTAMs" group (O-131), "FIR XXXX Hazards", "Other briefing airports" |
+| `src/render-preflight.html` | `renderPreflightPhase()` Departure subcard | D45 Security row; O-127 "OFP Remarks" group |
 | `src/render-descent.html` | `_ddgNotesHtml`; `renderNotesSection()`, `renderDescentPhase()`, `renderDescentAirportSummary()` | MEL / DDG notes; permits with ADC; CAT II/III restriction rows |

@@ -288,8 +288,9 @@ function _natCardTrack() {
 
 // ── Enroute RAW groups (step 5e-2 display PR 2; FlightKeys PDF import only) ─────
 // O-104, O-112, D64, D71: one collapsed group per printed FIR block of the NOTAM Briefing, labelled
-// "FIR XXXX NOTAMs", its text as printed; the Company items FlightKeys keys to that FIR follow under
-// "Company NOTAMs". D76: one collapsed group per Hazard Briefing FIR block that prints a product,
+// "FIR XXXX NOTAMs", its text as printed; the Company items FlightKeys keys to that FIR follow in their
+// own collapsed group "Company NOTAMs" directly after it (O-131), never inside it.
+// D76: one collapsed group per Hazard Briefing FIR block that prints a product,
 // never in weather or E-WINS. O-111: one "Other briefing airports" group for the briefing airports
 // that have no card: RAW only, no evaluation. The text is in _rawViews (never saved, O-107).
 function renderEnrouteRaw() {
@@ -297,14 +298,12 @@ function renderEnrouteRaw() {
   if (!ix) return '';
   const v = _rawViews;
   const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
-  const subLabel = label => `<div class="notam-item"><div class="notam-item-hdr"><span class="notam-dot y"></span>`
-    + `<span class="notam-item-label" style="font-weight:600">${esc(label)}</span></div></div>`;
   let h = '';
   (ix.fir || []).forEach((b, k) => {
     const vb = v && Array.isArray(v.fir) ? v.fir[k] : null;
-    let body = _rawBody(vb ? vb.raw : null);
-    if (vb && vb.company.length) body += subLabel('Company NOTAMs') + vb.company.map(t => _rawBody(t)).join('');
-    h += renderRawGroup(`FIR ${b.code || b.name} NOTAMs`, body);
+    h += renderRawGroup(`FIR ${b.code || b.name} NOTAMs`, _rawBody(vb ? vb.raw : null));
+    // O-131: the Company items keyed to this FIR, their own collapsed group directly after it (D71).
+    if (b.company) h += renderRawGroup('Company NOTAMs', vb ? vb.company.map(t => _rawBody(t)).join('') : _rawBody(null));
   });
   (ix.haz || []).forEach((z, k) => {
     const vz = v && Array.isArray(v.haz) ? v.haz[k] : null;
