@@ -14,3 +14,4 @@ require('../rules/notam-flightkeys.test.js');
 require('../rules/notam-obstacle.test.js');
 require('../rules/nat-rules.test.js');
 require('../rules/ofp-flightkeys-v100.test.js');
+require('../rules/ofp-flightkeys-v101.test.js');

@@ -8,7 +8,8 @@
  *
  *   TC-174-001  build order: every rule module once, in order (nat-rules before src/nat.html; icao-fpl,
  *               ofp-flightkeys, ofp-navblue before src/ofp-parse.html); each built in once, byte for byte
- *   TC-174-002  rules/manifest.json has no *-next key; v1.13.0 and the v1.1.0 NAT parser are out (O-79)
+ *   TC-174-002  rules/manifest.json has no *-next key; v1.13.0 and the v1.1.0 NAT parser are out (O-79).
+ *               Step 5e-2 (D90): one declared exception, ofp-flightkeys-next (v1.0.1), not built in (TC-175)
  *   TC-174-003  NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; the renderer is
  *               byte-identical to v1.1.0 and draws the same card
  *   TC-174-004  NavBlue lock (D47): the built app = the NavBlue module with NAT v1.1.0, except exactly the 26
@@ -108,6 +109,9 @@ const HTML_NOTAM13 = (() => {
 
 // ══ TC-174-001 / 002 / 003 build, manifest, NAT ══════════════════════════════════
 
+// Step 5e-2 (D90, O-103 option B): the FlightKeys parser v1.0.1 waits under ofp-flightkeys-next, not built in,
+// until its integration PR moves it to ofp-flightkeys (TC-175-002). The only *-next key allowed; any other fails.
+const NOT_BUILT_IN = ['ofp-flightkeys-next'];
 const RULE_ORDER = [['aircraft-profile', 'notam.html'], ['notam-rules', 'notam.html'], ['nat-rules', 'nat.html'],
   ['icao-fpl', 'ofp-parse.html'], ['ofp-flightkeys', 'ofp-parse.html'], ['ofp-navblue', 'ofp-parse.html']];
 // Problems with a module list: each rule once, in the order above, before the fragment that uses it.
@@ -130,7 +134,8 @@ test('TC-174-001 build order: every rule module once, in order, before its user;
   assert.deepEqual(orderProblems(MODULES), []);
   assert.deepEqual(MODULES.filter(m => typeof m !== 'string').map(m => m.rule), RULE_ORDER.map(([k]) => k));
   assert.equal(MODULES.length, 26);
-  for (const k of Object.keys(MANIFEST)) assert.equal(HTML.split(ruleSrc(k)).length, 2, `${k}: in index.html once, byte for byte`);
+  for (const k of Object.keys(MANIFEST).filter(k => !NOT_BUILT_IN.includes(k))) assert.equal(HTML.split(ruleSrc(k)).length, 2, `${k}: in index.html once, byte for byte`);
+  for (const k of NOT_BUILT_IN) assert.ok(!HTML.includes(ruleSrc(k)), `${k}: not in index.html until its integration PR (D90)`);
   assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html = node build/build.js output');
   // NEGATIVE: a module twice, a module after its user, two modules swapped
   const dup = [...MODULES]; dup.splice(dup.indexOf('pdf.html'), 0, { rule: 'icao-fpl' });
@@ -147,16 +152,16 @@ const manifestProblems = man => Object.entries(man).flatMap(([k, e]) => [
   ...(e.file.split('/')[0] !== k ? [`${k}: file not in rules/${k}/`] : [])]);
 
 test('TC-174-002 rules/manifest.json: no *-next key; v1.13.0 and the NAT v1.1.0 parser are out; frozen copies in test/oracle (O-79)', () => {
-  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules']);
-  assert.deepEqual(manifestProblems(MANIFEST), []);
-  assert.deepEqual(Object.values(MANIFEST).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.0.0', '1.2.0']);
+  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', ...NOT_BUILT_IN]);
+  assert.deepEqual(manifestProblems(MANIFEST), NOT_BUILT_IN.map(k => `${k}: a *-next key`), 'no *-next key but the declared one (step 5e-2, D90)');
+  assert.deepEqual(Object.values(MANIFEST).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.0.0', '1.2.0', '1.0.1']);
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules-next')) && !fs.existsSync(path.join(RULES, 'nat-rules-next')), 'no *-next folder');
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.13.0.js')), 'v1.13.0 is out of rules/');
   assert.equal(sha(NOTAM13), 'e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b', 'test/oracle: NOTAM v1.13.0 byte for byte');
   assert.equal(sha(NAT11), '4fa953e938dd09805eee31f4cf88b0f718109afb50333cb43be0686be5fb78a0', 'test/oracle: src/nat.html v1.1.0 byte for byte');
   assert.ok(!HTML.includes(NOTAM13) && !HTML.includes("RULESET_VERSION = '1.13.0'"), 'NOTAM v1.13.0 is not in index.html');
   // NEGATIVE: a *-next key, a file outside its folder
-  assert.deepEqual(manifestProblems({ ...MANIFEST, 'notam-rules-next': { file: 'notam-rules-next/x.js' } }), ['notam-rules-next: a *-next key']);
+  assert.deepEqual(manifestProblems({ ...MANIFEST, 'notam-rules-next': { file: 'notam-rules-next/x.js' } }), [...NOT_BUILT_IN.map(k => `${k}: a *-next key`), 'notam-rules-next: a *-next key']);
   assert.deepEqual(manifestProblems({ 'nat-rules': { file: 'nat-rules-next/nat-rules-v1.2.0.js' } }), ['nat-rules: file not in rules/nat-rules/']);
 });
 
