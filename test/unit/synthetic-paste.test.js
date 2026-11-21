@@ -11,6 +11,9 @@
  *   TC-178-020  D57: no readable flight date → "Operating date needed", the date pop-up open, and a later time
  *               past 0000Z (ETA 0130Z after OUT 2330Z): once the crew enters the date, the ETA is on the next UTC
  *               day. NEGATIVE: the same text with a readable date → no pop-up, no "Operating date needed"
+ *   TC-178-021  D57: no date line at all (no flight plan date field, no OFP header date line) → the same pop-up,
+ *               and the 0130Z arrival after OUT 2330Z on the next UTC day once the crew enters the date.
+ *               NEGATIVE: the same text with a flight plan date field (DOF) → no pop-up
  *
  * Pasted FlightKeys text is read from the text only (no positions): its WARN says so (O-80).
  * All times are UTC.
@@ -25,6 +28,7 @@ const { peek } = require('../lib/app-path');
 const DIR  = path.resolve(__dirname, '..', 'synthetic');
 const F_O68 = 'SYNTHETIC-o68-filed-nat-not-in-message.txt';
 const F_D57 = 'SYNTHETIC-d57-no-flight-date.txt';
+const F_D57B = 'SYNTHETIC-d57-no-date-line.txt';
 const read = f => fs.readFileSync(path.join(DIR, f), 'utf8');
 const plain = x => JSON.parse(JSON.stringify(x));   // a value made in the app's vm realm, as a plain value here
 const unEsc = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
@@ -51,10 +55,10 @@ function alertLines(app) {
 const at = ms => class extends Date { constructor(...a) { if (a.length) super(...a); else super(ms); } static now() { return ms; } };
 
 test('TC-178-001 the synthetic inputs are labelled SYNTHETIC in the file name and the first line', () => {
-  for (const f of [F_O68, F_D57]) {
+  for (const f of [F_O68, F_D57, F_D57B]) {
     assert.match(f, /SYNTHETIC/);
     assert.match(read(f).split('\n')[0], /^SYNTHETIC TEST INPUT/);
-    assert.match(read(f), /FUFI: 00000000-0000-0000-0000-000000000000 PAGE 1\/2/, 'invented FlightKeys footer');
+    assert.match(read(f), /FUFI: 00000000-0000-0000-0000-000000000000 PAGE 1\/\d/, 'invented FlightKeys footer');
   }
 });
 
@@ -108,4 +112,42 @@ test('TC-178-020 D57 (synthetic paste): no readable flight date → "Operating d
   app2.renderNote();
   assert.ok(!/Operating date needed/.test(app2.document.getElementById('briefingStickyHeader').innerHTML));
   assert.equal(new Date(peek(app2, '_tl').etaDestMs).toISOString(), '2026-11-04T01:30:00.000Z');
+});
+
+test('TC-178-021 D57 (synthetic paste): no date line at all → "Operating date needed", the pop-up, and the 0130Z arrival goes to the next UTC day; NEGATIVE: a flight plan date field → no prompt', () => {
+  const text = read(F_D57B);
+  assert.ok(!/DOF\//.test(text) && !/\d{2}\s?[A-Z]{3}\s?\d{2}\b/.test(text.replace(/FUFI:[^\n]*/, '').split('\n').slice(1).join('\n')), 'the text holds no date');
+  const clock = at(Date.UTC(2026, 10, 3, 12, 0));
+  const load = t => {
+    const app = loadApp({ domModel: true });
+    app.fireDomReady();
+    app.sandbox.Date = clock;
+    pasteInto(app, t);
+    app.importManual();
+    return app;
+  };
+  const app = load(text);
+  const S = app.S, input = app.document.getElementById('editInput');
+  assert.equal(peek(app, '_ofpDetectFormat(pdfRawText)'), 'flightkeys');
+  assert.equal(peek(app, 'pdfPages'), null, 'the paste route: text only, no positions');
+  assert.ok(S.fltNum, 'the release is read');
+  assert.deepEqual([S.date, S.outZ, S.etaDest], ['', '2330', '0130']);
+  assert.ok(S.ofpFindings.some(f => f.field === 'flightDateISO'), 'the parser says no date was found');
+  assert.equal(peek(app, '_editField'), 'date', 'the date pop-up is open after the import');
+  assert.equal(input.value, '03 11 2026', "prefilled with today's UTC date");
+  app.renderNote();
+  assert.match(app.document.getElementById('briefingStickyHeader').innerHTML, />Operating date needed<\/span>/);
+  assert.equal(peek(app, '_tl').outMs, null, 'nothing is dated before the crew enters the date');
+  app.openEdit('date'); input.value = '03 11 2026'; app.confirmEdit();
+  assert.deepEqual([S.date, S.dateEnteredByCrew], ['03 NOV 26', true]);
+  const tl = peek(app, '_tl');
+  assert.equal(new Date(tl.outMs).toISOString(), '2026-11-03T23:30:00.000Z');
+  assert.equal(new Date(tl.etaDestMs).toISOString(), '2026-11-04T01:30:00.000Z', 'ETA past 0000Z is the next UTC day');
+  // NEGATIVE: the flight plan carries its date field → dated, no prompt
+  const dated = load(text.replace('-PBN/A1B1 REG/', '-PBN/A1B1 DOF/261103 REG/'));
+  assert.equal(dated.S.date, '03 NOV 26');
+  assert.equal(peek(dated, '_editField'), null, 'no pop-up');
+  dated.renderNote();
+  assert.ok(!/Operating date needed/.test(dated.document.getElementById('briefingStickyHeader').innerHTML));
+  assert.equal(new Date(peek(dated, '_tl').etaDestMs).toISOString(), '2026-11-04T01:30:00.000Z');
 });

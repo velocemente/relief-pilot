@@ -18,11 +18,12 @@ test('TC-178-030 draft notes: no internal reference (D-, O-, SME-, CS-, package 
   assert.deepEqual(bad, []);
 });
 
-test('TC-178-031 draft notes: the six sections and the known limits as agreed; a draft, not linked to the label', () => {
-  for (const h of ['## What\'s New', '## NOTAMs', '## FlightKeys', '## Display', '## Saved Flights', '## Known Limits', '## Planned'])
+test('TC-178-031 draft notes: the sections and the known limits as agreed, no planned items; a draft, not linked to the label', () => {
+  for (const h of ['## What\'s New', '## NOTAMs', '## FlightKeys', '## Display', '## Saved Flights', '## Known Limits'])
     assert.ok(DRAFT.includes(h), h);
-  const limits = DRAFT.split('## Known Limits')[1].split('## Planned')[0].split('\n').filter(l => l.startsWith('- '));
+  const limits = DRAFT.split('## Known Limits')[1].split('\n').filter(l => l.startsWith('- '));
   assert.equal(limits.length, 6);
+  assert.ok(!/planned/i.test(DRAFT), 'no planned items anywhere (Exec)');
   assert.ok(/^# PilotBrief 1\.10\.0 Release Notes/.test(DRAFT) && /DRAFT/.test(DRAFT));
   // NEGATIVE: the live notes and the labels do not mention 1.10.0 yet
   assert.ok(!/1\.10\.0/.test(fs.readFileSync(path.join(ROOT, 'RELEASE_NOTES.md'), 'utf8')));
