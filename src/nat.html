@@ -135,7 +135,9 @@
 
     // F-2 (FlightKeys card object only): each direction under its own message's TMI; the
     // chosen message's direction first (dirOrder). A NavBlue object has neither: as before.
-    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\u00a0\u00b7\u00a0TMI\u00a0' + esc(nt.dirTmi[d]) : ''; };
+    // O-159 (FlightKeys card object only): the D79 warning on the row of the TMI it names (dirWarn); a NavBlue object has none.
+    var warnOf = function (d) { return nt.dirWarn && nt.dirWarn[d] ? '\u00a0\u00b7\u00a0<span class="nt-red">' + nt.dirWarn[d].map(esc).join('<br>') + '</span>' : ''; };
+    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\u00a0\u00b7\u00a0TMI\u00a0' + esc(nt.dirTmi[d]) + warnOf(d) : ''; };
     var eastSections = [
       makeSection('nat-east-tracks', 'Eastbound NAT Tracks' + tmiOf('EAST'), eastTracksContent, eastTracksOpen),
       makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),

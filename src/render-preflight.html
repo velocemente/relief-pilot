@@ -84,6 +84,41 @@ function ofpAlertsSelect() {
   renderNote();
 }
 
+// ── OFP Alerts callout (step 5e-1, O-76 / O-87 / O-88 / O-89; O-154: shown in NOTES, under the airport status) ──
+// One general list, the import screen's .section + .callout as they are; message text only. The
+// title is red (the existing .nt-red) until the crew taps the callout (O-89, O-98). No list → nothing.
+function renderOfpAlerts() {
+  const _findings = _ofpShownFindings(_ofpAlertFindings());   // F-3: with the card's own NAT parses
+  if (!_findings.length) return '';
+  const _alertsSeen = S.ofpAlertsSeen === true;
+  let h = `<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">`;
+  h += `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 7h.01"/></svg>`;
+  h += `<span class="callout-text"><span class="callout-title${_alertsSeen ? '' : ' nt-red'}">OFP Alerts</span>`;
+  h += _findings.map(f => esc(f.message)).join('<br>');
+  h += `</span></div></div>`;
+  return h;
+}
+
+// ── OFP Remarks group (FlightKeys; O-152 / O-153: shown in NOTES, directly below DDG) ──
+// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (D72: REQUIRED /
+// IF QUESTIONS), the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept), then
+// the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed). None of these → no group.
+// O-164: the group starts open when it holds a Security message or a Dispatch contact labelled REQUIRED;
+// otherwise collapsed. The crew can collapse and expand it either way.
+function renderOfpRemarksGroup() {
+  let rows = '';
+  if (S.dispatchContact && S.dispatchContact.label) {
+    rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
+  }
+  (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
+    if (m) rows += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
+  });
+  const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
+  const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _rawBody(r.text)).join('');
+  const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean));
+  return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';
+}
+
 // ── PREFLIGHT PHASE ───────────────────────────────────────────────────────
 
 // ── ATIS + Parking compact rows (used in preflight + descent) ──
@@ -109,19 +144,6 @@ function renderAtisParking(idSuffix) {
 
 function renderPreflightPhase() {
   let h = '';
-
-  // ── OFP Alerts (step 5e-1, O-76 / O-87 / O-88 / O-89): one general list, the
-  //    import screen's .section + .callout as they are; message text only. The
-  //    title is red (the existing .nt-red) until the crew taps the callout (O-89, O-98). ──
-  const _findings = _ofpShownFindings(_ofpAlertFindings());   // F-3: with the card's own NAT parses
-  if (_findings.length) {
-    const _alertsSeen = S.ofpAlertsSeen === true;
-    h += `<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">`;
-    h += `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 7h.01"/></svg>`;
-    h += `<span class="callout-text"><span class="callout-title${_alertsSeen ? '' : ' nt-red'}">OFP Alerts</span>`;
-    h += _findings.map(f => esc(f.message)).join('<br>');
-    h += `</span></div></div>`;
-  }
 
   // ── "Departure" subcard (ATIS + Parking + OEI + STAB) ──
   h += `<div class="subcard">`;
@@ -167,18 +189,7 @@ function renderPreflightPhase() {
   }
 
   h += `<div class="data-row"><span class="data-label">STAB</span><span class="data-value">${ev('stabTrim', S.stabTrim||'___/___')}</span></div>`;
-  // D72: the Dispatch contact (FlightKeys Company NOTAMs): REQUIRED / IF QUESTIONS. None → no row.
-  if (S.dispatchContact && S.dispatchContact.label) {
-    h += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
-  }
-  // D45 (O-110): the OFP Remarks security message(s) (FlightKeys), as printed, line breaks kept. None → no row.
-  (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
-    if (m) h += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
-  });
   h += `</div>`; // data-table
-  // O-127 (FlightKeys): one collapsed "OFP Remarks" group, each record as printed (line breaks kept).
-  const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
-  if (_ofpRem.length) h += `<div class="notam-groups">${renderRawGroup('OFP Remarks', _ofpRem.map(r => _rawBody(r.text)).join(''))}</div>`;
   h += `</div></div>`; // subcard-body + subcard
 
   // ── "OFP Fuel & Weight Summary" subcard ──

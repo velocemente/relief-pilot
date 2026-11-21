@@ -269,6 +269,9 @@ function renderNotesSection() {
     h += `</div>`;
   }
 
+  // O-154: the OFP Alerts callout sits in NOTES under the airport status (D92 behaviour unchanged).
+  h += renderOfpAlerts();
+
   h += `<span class="notes-sub-header">DDG</span>`;
 
   // Resolve DDG items — prefer structured ddgItems (new), fall back to legacy melItems string
@@ -320,6 +323,9 @@ function renderNotesSection() {
   } else {
     h += `<span class="notes-sub-body notes-sub-empty">—</span>`;
   }
+
+  // O-153: the OFP Remarks group (with the Dispatch contact and Security rows, O-152) directly below DDG.
+  h += renderOfpRemarksGroup();
 
   // O-110 (FlightKeys): the permits one per line as printed, each with its ADC number (§5.10), under their
   // printed group heading (QA F-4: as the OFP and NavBlue's text print it, so a landing or take-off permit

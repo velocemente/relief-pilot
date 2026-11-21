@@ -502,23 +502,23 @@ function renderAptOpsNotes(icao) {
       </div>`)
     .join('');
   
-  const bodyHtml = bodyRows ? `<div class="notam-group-body">${bodyRows}</div>` : '';
+  // O-155: collapsed by default, expanded by the crew: the Runway / General NOTAM group pattern
+  // (.notam-group-hdr + toggleNotamGroup + a hidden .notam-group-body).
+  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+  const bodyHtml = bodyRows ? `<div class="notam-group-body" hidden>${bodyRows}</div>` : '';
   
   return `
-    <div class="apt-ops-note collapsed"
+    <div class="apt-ops-note"
          style="border-top:0.5px solid var(--sep)">
       <div class="notam-group-hdr"
-           onclick="this.parentElement.classList.toggle('collapsed')"
-           role="button" aria-expanded="false">
+           onclick="toggleNotamGroup(this)"
+           role="button">
         <span class="notam-dot y"></span>
         <span class="notam-group-label"
               style="color:var(--sys-yellow)">
           Company Remarks
         </span>
-        <svg class="cell-chevron" viewBox="0 0 9 14"
-             aria-hidden="true">
-          <path d="M1 1l6.5 6L1 13"/>
-        </svg>
+        ${CHEV}
       </div>
       ${bodyHtml}
     </div>`;
@@ -533,11 +533,12 @@ function _rawBody(text) {
   if (typeof text === 'string') return `<pre class="notam-raw-text">${esc(text)}</pre>`;
   return _rawViews && _rawViews.missing ? `<pre class="notam-raw-text">${esc(_RAW_MISSING)}</pre>` : '';
 }
-function renderRawGroup(label, bodyHtml) {
-  const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
+// open (optional, O-164): the group starts expanded (the crew can collapse it); default collapsed.
+function renderRawGroup(label, bodyHtml, open) {
+  const CHEV = `<svg class="notam-chev${open ? ' open' : ''}" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
   let h = `<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)">`;
   h += `<span class="notam-group-label">${esc(label)}</span>${CHEV}</div>`;
-  h += `<div class="notam-group-body" hidden>${bodyHtml}</div></div>`;
+  h += `<div class="notam-group-body"${open ? '' : ' hidden'}>${bodyHtml}</div></div>`;
   return h;
 }
 // The airport card's RAW groups (FlightKeys): its NOTAM Briefing block, its Weather Briefing block
@@ -547,8 +548,9 @@ function renderAptRaw(icao) {
   const v  = _rawViews && _rawViews.apt ? _rawViews.apt[icao] : null;
   const rw = (airportData[icao] || {}).remarksWeather;
   let h = '';
-  if (ix && ix.includes('N')) h += renderRawGroup('RAW NOTAMs', _rawBody(v ? v.notams : null));
-  if (ix && ix.includes('W')) h += renderRawGroup('RAW Weather', _rawBody(v ? v.weather : null));
+  // O-157 / O-158: "Weather" first, then "NOTAMS"; the printed text is unchanged.
+  if (ix && ix.includes('W')) h += renderRawGroup('Weather', _rawBody(v ? v.weather : null));
+  if (ix && ix.includes('N')) h += renderRawGroup('NOTAMS', _rawBody(v ? v.notams : null));
   if (Array.isArray(rw) && rw.length) {
     h += renderRawGroup('Remarks Weather', rw.map(w => _rawBody([w.source, w.text].filter(Boolean).join('\n'))).join(''));
   }

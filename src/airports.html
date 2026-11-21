@@ -124,11 +124,11 @@ function closeCurfewDetail(e) {
   document.getElementById('curfewDetailOverlay').classList.remove('open');
 }
 
-function toggleAptInputs(icao) {
-  const inp = document.getElementById(`api-in-${icao}`);
-  const open = inp.style.display === 'flex';
-  inp.style.display = open ? 'none' : 'flex';
-  inp.style.flexDirection = 'column';
+function toggleAptInputs(icao) {   // O-156 / O-161: the display groups and sub-groups (_aptToggleAll); the paste boxes as in main
+  const card = document.getElementById(`apc-${icao}`), hdr = card.querySelector('.apt-card-header');
+  const open = hdr.getAttribute('aria-expanded') !== 'true';
+  hdr.setAttribute('aria-expanded', open ? 'true' : 'false');
+  _aptToggleAll(card, open); _aptTogglePaste(document.getElementById(`api-in-${icao}`));
 }
 
 function updateApt(icao, field, value) {
@@ -930,3 +930,22 @@ function pGVis(wx, g) {
   return worst;
 }
 
+// O-156 / O-161: every display group of the airport card (STARs / SIDs, runway, taxiway and general NOTAM groups,
+// Company Remarks, Weather, NOTAMS, Remarks Weather) and the sub-groups inside a runway group open together or close
+// together. A single NOTAM's own raw text (a leaf item) is not opened. The header's aria-expanded says which way the
+// next tap goes. The NOTAM / WX paste boxes are not part of it.
+function _aptToggleAll(card, open) {
+  card.querySelectorAll('.notam-group-hdr, .notam-item-hdr').forEach(hdr => {
+    const body = hdr.nextElementSibling;
+    if (!body || body.tagName === 'PRE') return;   // no body, or a leaf item's raw text
+    if (open) body.removeAttribute('hidden'); else body.setAttribute('hidden', '');
+    const chev = hdr.querySelector('.notam-chev');
+    if (chev) chev.classList.toggle('open', open);
+  });
+}
+// The paste boxes: main's behaviour, unchanged (flipped by their own state).
+function _aptTogglePaste(inp) {
+  const open = inp.style.display === 'flex';
+  inp.style.display = open ? 'none' : 'flex';
+  inp.style.flexDirection = 'column';
+}
