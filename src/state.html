@@ -343,6 +343,11 @@ const S = {
   oeiData:[], oeiSelectedRwy:'',
   blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
   crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
+  // Step 5e-2 display PR 1: operatingPilots (D62: the pilot count, no names), dispatchContact
+  // ({label} REQUIRED / IF QUESTIONS, D72), natMessages ([{tmi, direction, selected, track}],
+  // D85: parsed tracks, no message text), dateEnteredByCrew (D57). A flight saved before has
+  // none of them: that item is not shown (O-113).
+  operatingPilots:null, dispatchContact:null, natMessages:[], dateEnteredByCrew:false,
   // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
   //   code: ATA number string e.g. "36-12-02-01"
   //   desc: full description string (may be multi-line joined)
@@ -429,6 +434,7 @@ function resetStateForNewFlight() {
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
     navLog:[], enrouteNotams:null, natTrack:null,
+    operatingPilots:null, dispatchContact:null, natMessages:[], dateEnteredByCrew:false,
     zfwActual:0, zfwLimit:0, zfwOFP:0, ldgwActual:0, ldgwLimit:0,
     radioCallsign:'', verbalCallsign:'', isHeavy:false,
     hasPerishables:false,
@@ -588,6 +594,19 @@ function _tlPlaceNear(hhmm, refMs) {
 function _tlPlannedOffMs() {
   return _tl.outMs === null ? null : _tl.outMs + (S.taxiMins || 0) * 60000;
 }
+// O-121 (D57): on a flight whose operating date the crew entered, no time is dated
+// before that date: a time placed before its 0000Z goes on to the next day. Each later
+// time after 0000Z then takes the next day as D51 dates it.
+function _tlNotBeforeEntered() {
+  if (!S.dateEnteredByCrew) return;
+  const day = _tlDayMs(window._flightDateISO);
+  if (day === null) return;
+  const up = ms => (ms === null || ms >= day) ? ms : ms + Math.ceil((day - ms) / _TL_DAY) * _TL_DAY;
+  _tl.outMs = up(_tl.outMs);
+  _tl.offMs = up(_tl.offMs);
+  _tl.etaDestMs = up(_tl.etaDestMs);
+  for (const k of Object.keys(_tl.alt)) _tl.alt[k] = up(_tl.alt[k]);
+}
 
 // Builds the timeline from S as at import: OUT on the flight date (DOF), OFF
 // nearest the planned OFF, each ETA the first time at or after OFF (or OUT).
@@ -606,6 +625,7 @@ function _tlBuild() {
     const ms = _tlPlaceAfter(a.currentEta, base);
     if (ms !== null) _tl.alt[a.icao] = ms;
   });
+  _tlNotBeforeEntered();   // O-121
 }
 
 // Restores a saved timeline. False (nothing restored) when it is missing or
@@ -685,6 +705,7 @@ function _tlRecover() {
     const ms = p === null ? _tlPlaceAfter(a.currentEta, base) : shifted ? p : _tlPlaceNear(a.currentEta, p);
     if (ms !== null) _tl.alt[a.icao] = ms;
   });
+  _tlNotBeforeEntered();   // O-121
 }
 
 // confirmEdit(): places an edited OUT / OFF / IN on its UTC date (see above).
@@ -699,7 +720,7 @@ function _tlPlaceEdit(field, hhmm) {
   if (_tlHM(hhmm) === null) return;
   let ref = _tl[key];
   if (ref === null && field === 'offZ') ref = _tlPlannedOffMs();
-  if (ref !== null) { _tl[key] = _tlPlaceNear(hhmm, ref); return; }
+  if (ref !== null) { _tl[key] = _tlPlaceNear(hhmm, ref); _tlNotBeforeEntered(); return; }   // O-121
   if (field === 'outZ') {
     const day = _tlDayMs(window._flightDateISO), m = _tlHM(hhmm);
     _tl.outMs = (day === null || m === null) ? null : day + m * 60000;
@@ -708,6 +729,7 @@ function _tlPlaceEdit(field, hhmm) {
   } else {
     _tl[key] = null;
   }
+  _tlNotBeforeEntered();   // O-121
 }
 
 // The dated ETA (DEP for ORIG) of an airport: the timeline entry for its role,

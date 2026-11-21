@@ -25,7 +25,13 @@ function renderNote() {
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
   sh += `</div>`;
   sh += `<div class="flt-date-row">`;
-  sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
+  // D57 (O-106): no readable flight date → "Operating date needed" in the date slot; a tap opens
+  // the date pop-up (also for a date the crew entered, to correct it).
+  if (!S.date || S.dateEnteredByCrew) {
+    sh += `<span class="flt-date" role="button" tabindex="0" onclick="openEdit('date')">${esc(S.date || 'Operating date needed')}</span>`;
+  } else {
+    sh += `<span class="flt-date">${esc(S.date)}</span>`;
+  }
   sh += `</div>`;
   sh += `</div>`;
   if (S.etopsSpec || S.etopsEntry) {
@@ -107,7 +113,7 @@ function renderPreflightPhase() {
   // ── OFP Alerts (step 5e-1, O-76 / O-87 / O-88 / O-89): one general list, the
   //    import screen's .section + .callout as they are; message text only. The
   //    title is red (the existing .nt-red) until the crew taps the callout (O-89, O-98). ──
-  const _findings = _ofpShownFindings(S.ofpFindings);
+  const _findings = _ofpShownFindings(_ofpAlertFindings());   // F-3: with the card's own NAT parses
   if (_findings.length) {
     const _alertsSeen = S.ofpAlertsSeen === true;
     h += `<div class="section"><div class="callout" onclick="ofpAlertsSelect()" role="button" aria-label="OFP Alerts">`;
@@ -161,6 +167,10 @@ function renderPreflightPhase() {
   }
 
   h += `<div class="data-row"><span class="data-label">STAB</span><span class="data-value">${ev('stabTrim', S.stabTrim||'___/___')}</span></div>`;
+  // D72: the Dispatch contact (FlightKeys Company NOTAMs): REQUIRED / IF QUESTIONS. None → no row.
+  if (S.dispatchContact && S.dispatchContact.label) {
+    h += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
+  }
   h += `</div>`; // data-table
   h += `</div></div>`; // subcard-body + subcard
 

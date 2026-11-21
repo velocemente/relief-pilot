@@ -1,9 +1,46 @@
+// ── D57 (O-106): the operating date the crew enters when the OFP has none ──
+// The pop-up is prefilled with today's UTC date, DD MM YYYY. The prefill moves
+// forward when 0000Z passes and never back (a later prefill is never earlier).
+let _d57Prefill = '';
+function _d57Today() {
+  const iso = new Date().toISOString().slice(0, 10);   // UTC
+  if (iso > _d57Prefill) _d57Prefill = iso;
+  return _d57Prefill;
+}
+const _D57_MON = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const _d57Show = iso => `${iso.slice(8, 10)} ${iso.slice(5, 7)} ${iso.slice(0, 4)}`;
+// "DD MM YYYY" (or DDMMYYYY, '.', '/', '-') → "YYYY-MM-DD", null when not a real date.
+function _d57Read(val) {
+  const m = String(val || '').trim().match(/^(\d{1,2})[\s.\/-]*(\d{1,2})[\s.\/-]*(\d{4})$/);
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  if (d.getUTCFullYear() !== +m[3] || d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[1]) return null;
+  return d.toISOString().slice(0, 10);
+}
+// Stores the date as the OFP prints it (DD MON YY) with the crew flag; the timeline,
+// NOTAM and weather windows follow (D51).
+function _d57Set(iso) {
+  const oldDate = S.date;
+  const date = `${iso.slice(8, 10)} ${_D57_MON[+iso.slice(5, 7) - 1]} ${iso.slice(2, 4)}`;
+  const flights = getFlights(), k = flights.findIndex(f => f.fltNum === S.fltNum && f.date === oldDate);
+  if (k >= 0) { flights[k].date = date; putFlights(flights); }   // keep the same saved flight
+  S.date = date;
+  S.dateEnteredByCrew = true;
+  window._flightDateISO = iso;
+  _tlBuild();
+  buildAirportCards();
+}
+
 function openEdit(field) {
   _editField = field;
   const inp = document.getElementById('editInput');
   inp.maxLength = (STRING_FIELD_RULES[field] || {}).maxLen || 20;
+  if (field === 'date') {   // D57
+    inp.value = _d57Show(window._flightDateISO || _d57Today());
+    inp.inputMode = 'numeric';
+    inp.autocapitalize = 'off';
   // Weight int fields: show raw integer, numeric keyboard
-  if (WEIGHT_INT_FIELDS.has(field)) {
+  } else if (WEIGHT_INT_FIELDS.has(field)) {
     inp.value = S[field] ? String(S[field]) : '';
     inp.inputMode = 'numeric';
     inp.autocapitalize = 'off';
@@ -66,6 +103,11 @@ function confirmEdit() {
       if (_editField === 'togwActual' && S.ldgwActual)
         S.ldgwActual = S.ldgwActual + (parsed - _prevTOGW);
     }
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
+  if (_editField === 'date') {   // D57: a date that cannot be read is not taken (the field reverts)
+    const iso = _d57Read(val);
+    if (iso) _d57Set(iso);
     cancelEdit(); renderNote(); saveFlight(); return;
   }
   if (_editField === 'crewRestBuffer') {

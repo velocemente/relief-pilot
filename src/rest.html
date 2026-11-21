@@ -197,7 +197,7 @@ function renderInflightRestModule() {
         h += `<div style="display:flex;align-items:center;gap:4px;
                 background:var(--fill3);border-radius:20px;padding:4px 6px 4px 12px;
                 min-height:32px;font-size:13px;font-family:var(--font);color:var(--label2)">
-                <span style="font-weight:700">${c.role}</span>
+                <span style="font-weight:700">${esc(c.role)}</span>
                 <span>${esc(c.displayName)}</span>
                 <button onclick="removeManualCrew(${idx})" aria-label="Remove manual crew"
                   style="width:20px;height:20px;border-radius:50%;background:var(--fill);
@@ -207,14 +207,14 @@ function renderInflightRestModule() {
               </div>`;
       } else {
         // Parsed crew: tap to toggle active/inactive
-        h += `<button onclick="toggleCrewMember(${idx})" aria-label="Toggle ${c.role}"
+        h += `<button onclick="toggleCrewMember(${idx})" aria-label="Toggle ${esc(c.role)}"
                 aria-pressed="${isActive}"
                 style="display:flex;align-items:center;gap:4px;
                   background:${isActive ? 'var(--tint-bg)' : 'var(--fill3)'};
                   color:${isActive ? 'var(--tint)' : 'var(--label3)'};
                   border:none;border-radius:20px;padding:4px 12px;
                   font-size:13px;font-family:var(--font);cursor:pointer;min-height:32px">
-                <span style="font-weight:700">${c.role}${c.isSen ? ' ★' : ''}</span>
+                <span style="font-weight:700">${esc(c.role)}${c.isSen ? ' ★' : ''}</span>
                 <span>${esc(c.displayName)}</span>
               </button>`;
       }
@@ -413,6 +413,10 @@ function toggleRestCard() {
   S.restCardCollapsed = !S.restCardCollapsed;
   saveFlight(); renderNote();
 }
+// O-124: the pilot count (S.operatingPilots) follows the crew's edits of the chips.
+function _crewCountSync() {
+  S.operatingPilots = (S.crewMembers || []).filter(m => m.role !== 'JS' && m.role !== 'DH' && m.active !== false).length || null;
+}
 function toggleCrewMember(idx) {
   const c = (S.crewMembers || [])[idx];
   if (!c) return;
@@ -422,7 +426,7 @@ function toggleCrewMember(idx) {
     showToast('Minimum 3 operating crew required', 'info'); return;
   }
   c.active = (c.active === false) ? true : false;
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function verifyCrewList() { S.crewVerified = true; saveFlight(); renderNote(); }
 function adjustBuffer(deltaMins) {
@@ -445,12 +449,12 @@ function addManualCrew(role) {
   var label = { CA:'Captain', FO:'First Officer' }[r] || r;
   S.crewMembers.push({ role:r, empNum:'', lastName:label, initial:'',
                        displayName:label, active: true, manual:true });
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function removeManualCrew(idx) {
   if (!S.crewMembers || !S.crewMembers[idx]) return;
   S.crewMembers.splice(idx, 1);
-  S.crewVerified = false; saveFlight(); renderNote();
+  S.crewVerified = false; _crewCountSync(); saveFlight(); renderNote();
 }
 function copyInflightRestLog() {
   const data = calcInflightRest();
@@ -505,6 +509,7 @@ function addBulkCrew(count) {
     });
   });
   S.crewVerified = false;
+  _crewCountSync();
   saveFlight();
   renderNote();
 }

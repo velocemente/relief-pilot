@@ -9,9 +9,11 @@
  *   TC-174-001  build order: every rule module once, in order (nat-rules before src/nat.html; icao-fpl,
  *               ofp-flightkeys, ofp-navblue before src/ofp-parse.html); each built in once, byte for byte
  *   TC-174-002  rules/manifest.json has no *-next key; v1.13.0 and the v1.1.0 NAT parser are out (O-79).
- *               Step 5e-2 (D90): one declared exception, ofp-flightkeys-next (v1.0.1), not built in (TC-175)
+ *               Step 5e-2 display PR 1 (O-116): the declared exception ofp-flightkeys-next is removed; v1.0.1 is
+ *               ofp-flightkeys, built in; any *-next key fails (D96)
  *   TC-174-003  NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; the renderer is
- *               byte-identical to v1.1.0 and draws the same card
+ *               v1.1.0 + the five declared D85 / O-122 / F-2 / F-3 edits (step 5e-2 display PR 1) and draws the same card for a
+ *               NavBlue object
  *   TC-174-004  NavBlue lock (D47): the built app = the NavBlue module with NAT v1.1.0, except exactly the 26
  *               natTrack fl lines of NAT v1.2.0 (D83 / O-65)
  *   TC-174-005  NOTAM v1.14.0 on the app path, per NOTAM ID against change list v1.2 (O-82): at the OFP ETA
@@ -37,7 +39,7 @@
  *   TC-174-032  O-89: the list title "OFP Alerts" is red (the existing .nt-red) until the crew selects it, then
  *               the normal title colour; the selection is stored with the flight; a new import starts red; a
  *               flight saved before O-89 (no state) reads safely (red); no list → no title
- *   TC-174-040  safety fields on FlightKeys (rule 6): crew count, CAT II/III, DOT exemption, ETOPS, slot,
+ *   TC-174-040  safety fields on FlightKeys (rule 6): crew count (step 5e-2: operatingPilots, D62), CAT II/III, DOT exemption, ETOPS, slot,
  *               block and minimum fuel = the parser's values on all 26; a package without the field →
  *               empty, never carried over from the flight before
  *   TC-174-050  the app-path golden covers the 26 FlightKeys packages (snapshots-app, 56 fixtures)
@@ -109,9 +111,8 @@ const HTML_NOTAM13 = (() => {
 
 // ══ TC-174-001 / 002 / 003 build, manifest, NAT ══════════════════════════════════
 
-// Step 5e-2 (D90, O-103 option B): the FlightKeys parser v1.0.1 waits under ofp-flightkeys-next, not built in,
-// until its integration PR moves it to ofp-flightkeys (TC-175-002). The only *-next key allowed; any other fails.
-const NOT_BUILT_IN = ['ofp-flightkeys-next'];
+// Step 5e-2 display PR 1 (O-116): the FlightKeys parser v1.0.1 moved from ofp-flightkeys-next to ofp-flightkeys and
+// is built in; the declared exception of the module PR is gone. Every manifest module is built in; no *-next key.
 const RULE_ORDER = [['aircraft-profile', 'notam.html'], ['notam-rules', 'notam.html'], ['nat-rules', 'nat.html'],
   ['icao-fpl', 'ofp-parse.html'], ['ofp-flightkeys', 'ofp-parse.html'], ['ofp-navblue', 'ofp-parse.html']];
 // Problems with a module list: each rule once, in the order above, before the fragment that uses it.
@@ -134,8 +135,8 @@ test('TC-174-001 build order: every rule module once, in order, before its user;
   assert.deepEqual(orderProblems(MODULES), []);
   assert.deepEqual(MODULES.filter(m => typeof m !== 'string').map(m => m.rule), RULE_ORDER.map(([k]) => k));
   assert.equal(MODULES.length, 26);
-  for (const k of Object.keys(MANIFEST).filter(k => !NOT_BUILT_IN.includes(k))) assert.equal(HTML.split(ruleSrc(k)).length, 2, `${k}: in index.html once, byte for byte`);
-  for (const k of NOT_BUILT_IN) assert.ok(!HTML.includes(ruleSrc(k)), `${k}: not in index.html until its integration PR (D90)`);
+  for (const k of Object.keys(MANIFEST)) assert.equal(HTML.split(ruleSrc(k)).length, 2, `${k}: in index.html once, byte for byte`);
+  assert.equal(MANIFEST['ofp-flightkeys'].version, '1.0.1', 'O-116: the FlightKeys parser built in is v1.0.1');
   assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html = node build/build.js output');
   // NEGATIVE: a module twice, a module after its user, two modules swapped
   const dup = [...MODULES]; dup.splice(dup.indexOf('pdf.html'), 0, { rule: 'icao-fpl' });
@@ -152,20 +153,21 @@ const manifestProblems = man => Object.entries(man).flatMap(([k, e]) => [
   ...(e.file.split('/')[0] !== k ? [`${k}: file not in rules/${k}/`] : [])]);
 
 test('TC-174-002 rules/manifest.json: no *-next key; v1.13.0 and the NAT v1.1.0 parser are out; frozen copies in test/oracle (O-79)', () => {
-  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', ...NOT_BUILT_IN]);
-  assert.deepEqual(manifestProblems(MANIFEST), NOT_BUILT_IN.map(k => `${k}: a *-next key`), 'no *-next key but the declared one (step 5e-2, D90)');
-  assert.deepEqual(Object.values(MANIFEST).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.0.0', '1.2.0', '1.0.1']);
-  assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules-next')) && !fs.existsSync(path.join(RULES, 'nat-rules-next')), 'no *-next folder');
+  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules']);
+  assert.deepEqual(manifestProblems(MANIFEST), [], 'no *-next key (O-116 removed the declared exception, D96)');
+  assert.deepEqual(Object.values(MANIFEST).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.0.1', '1.2.0']);
+  assert.ok(fs.readdirSync(RULES).every(d => !/-next$/.test(d)), 'no *-next folder');
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.13.0.js')), 'v1.13.0 is out of rules/');
   assert.equal(sha(NOTAM13), 'e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b', 'test/oracle: NOTAM v1.13.0 byte for byte');
   assert.equal(sha(NAT11), '4fa953e938dd09805eee31f4cf88b0f718109afb50333cb43be0686be5fb78a0', 'test/oracle: src/nat.html v1.1.0 byte for byte');
   assert.ok(!HTML.includes(NOTAM13) && !HTML.includes("RULESET_VERSION = '1.13.0'"), 'NOTAM v1.13.0 is not in index.html');
   // NEGATIVE: a *-next key, a file outside its folder
-  assert.deepEqual(manifestProblems({ ...MANIFEST, 'notam-rules-next': { file: 'notam-rules-next/x.js' } }), [...NOT_BUILT_IN.map(k => `${k}: a *-next key`), 'notam-rules-next: a *-next key']);
+  assert.deepEqual(manifestProblems({ ...MANIFEST, 'notam-rules-next': { file: 'notam-rules-next/x.js' } }), ['notam-rules-next: a *-next key']);
+  assert.deepEqual(manifestProblems({ ...MANIFEST, 'ofp-flightkeys-next': { file: 'ofp-flightkeys-next/x.js' } }), ['ofp-flightkeys-next: a *-next key'], 'the former exception now fails too');
   assert.deepEqual(manifestProblems({ 'nat-rules': { file: 'nat-rules-next/nat-rules-v1.2.0.js' } }), ['nat-rules: file not in rules/nat-rules/']);
 });
 
-test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; renderer byte-identical to v1.1.0, same card', () => {
+test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; renderer = v1.1.0 + the declared D85 edits (step 5e-2), same card for a NavBlue object', () => {
   const app = loadApp();
   assert.equal(app.sandbox.NatRules.RULESET_VERSION, '1.2.0');
   assert.equal(app.sandbox.parseNatTrack, app.sandbox.NatRules.parseNatTrack, 'the app binds the module');
@@ -173,7 +175,24 @@ test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.pars
   const now = fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8');
   const r11 = NAT11.slice(NAT11.indexOf('§ 2  RENDERER'), NAT11.indexOf('§ 3  EXPORTS'));
   const r12 = now.slice(now.indexOf('§ 2  RENDERER'), now.indexOf('§ 3  EXPORTS'));
-  assert.ok(r11.length > 4000 && r11 === r12, 'renderNatTrack: byte-identical to v1.1.0');
+  // Step 5e-2 display PR 1 (D85, O-122, QA F-2 / F-3): renderNatTrack = v1.1.0 with exactly these five declared edits,
+  // each read only from fields a FlightKeys card object carries (published, unreadableDirs, assignedDir, dirTmi,
+  // dirOrder); a NavBlue object has none of them, so its card is unchanged (the equal-card check below, and
+  // TC-176-020 on the 8 NavBlue NAT cards).
+  const D85 = [
+    ["    if (!blocks.some(function (b) { return b.tracks.length > 0; })) return '';",
+     "    if (!blocks.some(function (b) { return b.tracks.length > 0; }) && !nt.published) return '';   // D85: a published message keeps the card"],
+    ["      var isAssigned = tr.assigned || tr.id === nt.assignedId;",
+     "      var isAssigned = tr.assigned || (tr.id === nt.assignedId && (!nt.assignedDir || nt.assignedDir === dir));   // D85"],
+    ["      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';",
+     "      : (nt.unreadableDirs && nt.unreadableDirs.indexOf('EAST') >= 0)   // D85: a published direction is never \"no tracks\"; F-3: only with its OFP Alerts line\n        ? '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">Tracks not readable \\u2013 see OFP Alerts</div>'   // O-122\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';"],
+    ["      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';",
+     "      : (nt.unreadableDirs && nt.unreadableDirs.indexOf('WEST') >= 0)   // D85; F-3: only with its OFP Alerts line\n        ? '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">Tracks not readable \\u2013 see OFP Alerts</div>'   // O-122\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';"],
+    ["    var innerContent = [\n      makeSection('nat-east-tracks', 'Eastbound NAT Tracks',    eastTracksContent, eastTracksOpen),\n      makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),\n      makeSection('nat-west-tracks', 'Westbound NAT Tracks',    westTracksContent, westTracksOpen),\n      makeSection('nat-west-cmts',   'Westbound Track Comments', westCmtContent,   false),\n    ].join('');",
+     "    // F-2 (FlightKeys card object only): each direction under its own message's TMI; the\n    // chosen message's direction first (dirOrder). A NavBlue object has neither: as before.\n    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\\u00a0\\u00b7\\u00a0TMI\\u00a0' + esc(nt.dirTmi[d]) : ''; };\n    var eastSections = [\n      makeSection('nat-east-tracks', 'Eastbound NAT Tracks' + tmiOf('EAST'), eastTracksContent, eastTracksOpen),\n      makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),\n    ];\n    var westSections = [\n      makeSection('nat-west-tracks', 'Westbound NAT Tracks' + tmiOf('WEST'), westTracksContent, westTracksOpen),\n      makeSection('nat-west-cmts',   'Westbound Track Comments', westCmtContent,   false),\n    ];\n    var innerContent = (nt.dirOrder === 'WEST' ? westSections.concat(eastSections) : eastSections.concat(westSections)).join('');"],
+  ];
+  for (const [a] of D85) assert.equal(r11.split(a).length, 2, `v1.1.0 has the line once: ${a.trim().slice(0, 50)}`);
+  assert.ok(r11.length > 4000 && D85.reduce((t, [a, b]) => t.replace(a, () => b), r11) === r12, 'renderNatTrack: v1.1.0 + the five declared edits, nothing else');
   assert.ok(!/function parseNatTrack\(/.test(now) && !HTML.includes("var VERSION = '1.1.0';"), 'no v1.1.0 parser left in the app');
   // the same card from the same track object (v1.1.0 renderer in its own context, esc() as the app's)
   const win = {};
@@ -717,8 +736,10 @@ fixtureTest('TC-174-040 safety fields on FlightKeys (rule 6): crew count, CAT II
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), S = imp.S;
     const r = fk.parseFlightKeys(fk.inputFromExtractor(readText(fx), readItems(fx)), opts);
-    // POSITIVE: the app's state = the parser's values
-    assert.equal(JSON.stringify(S.crewMembers), JSON.stringify(r.crewMembers), `${lbl.get(fx.id)} crew`);
+    // POSITIVE: the app's state = the parser's values. Crew (step 5e-2 display PR 1, D62 / O-106): the
+    // parser's operatingPilots and one chip per pilot with its printed role, no name (O-124, TC-176-040), no crew record of the parser.
+    assert.equal(S.operatingPilots, r.operatingPilots, `${lbl.get(fx.id)} crew count`);
+    assert.equal(JSON.stringify(S.crewMembers.map(c => c.role)), JSON.stringify(r.crewMembers.filter(c => c.role !== 'JS' && c.role !== 'DH').map(c => c.role)), `${lbl.get(fx.id)} crew chips: the printed roles (O-124)`);
     for (const k of ['catIiIiiApproaches', 'dotExemption', 'etopsEntry', 'etopsExit', 'etopsSpec', 'slotTime'])
       assert.equal(JSON.stringify(S[k]), JSON.stringify(r[k] === undefined ? null : r[k]), `${lbl.get(fx.id)} ${k}`);
     assert.equal(S.blockFuel, imp.app.sandbox.fuelK(r.blockFuelRaw), `${lbl.get(fx.id)} block fuel`);

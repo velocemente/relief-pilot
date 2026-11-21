@@ -163,7 +163,8 @@ async function processPDF(file) {
     pdfRawText = fullText;
     pdfPages = pages;
     showToast('ok', `✓ Loaded ${pdf.numPages} pages — parsing OFP…`);
-    setTimeout(() => { parseOFP(); push('screen-flight'); }, 400);
+    // D89: a refused package (parseOFP() false) leaves the crew on the import screen.
+    setTimeout(() => { if (parseOFP() !== false) push('screen-flight'); }, 400);
   } catch(err) { showToast('err', 'Error: ' + err.message); }
 }
 
@@ -173,8 +174,7 @@ function importManual() {
   resetStateForNewFlight();
   pdfRawText = txt;
   pdfArrayBuffer = null;  // no PDF binary available for manual paste
-  parseOFP();
-  push('screen-flight');
+  if (parseOFP() !== false) push('screen-flight');   // D89
 }
 
 // ── Native iOS Share entry point ──────────────────────────────────────────────

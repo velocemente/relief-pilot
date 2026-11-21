@@ -39,12 +39,12 @@
     var CHEV = '<svg style="width:9px;height:14px;flex-shrink:0;margin-left:auto;transition:transform .2s;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 9 14"><path d="M1 1l6.5 6L1 13"/></svg>';
     var trackType = nt.trackType || 'NAT';
     var blocks = nt.blocks || [];
-    if (!blocks.some(function (b) { return b.tracks.length > 0; })) return '';
+    if (!blocks.some(function (b) { return b.tracks.length > 0; }) && !nt.published) return '';   // D85: a published message keeps the card
 
     // ── Render one track row (expand/collapse per track) ─────────────────
     function renderTrackRow(tr, dir, idx) {
       var domId = 'nat-track-' + dir + '-' + tr.id;
-      var isAssigned = tr.assigned || tr.id === nt.assignedId;
+      var isAssigned = tr.assigned || (tr.id === nt.assignedId && (!nt.assignedDir || nt.assignedDir === dir));   // D85
       var h = '<div class="notam-group"' + (idx === 0 ? ' style="border-top:none"' : '') + '>';
       h += '<div class="notam-group-hdr" onclick="(function(el){';
       h += 'var b=document.getElementById(\'' + domId + '\');';
@@ -110,10 +110,14 @@
 
     var eastTracksContent = (eastBlk && eastBlk.tracks.length)
       ? '<div style="padding:0">' + eastBlk.tracks.map(function (tr, i) { return renderTrackRow(tr, 'EAST', i); }).join('') + '</div>'
+      : (nt.unreadableDirs && nt.unreadableDirs.indexOf('EAST') >= 0)   // D85: a published direction is never "no tracks"; F-3: only with its OFP Alerts line
+        ? '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">Tracks not readable \u2013 see OFP Alerts</div>'   // O-122
       : '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No eastbound tracks found.</div>';
 
     var westTracksContent = (westBlk && westBlk.tracks.length)
       ? '<div style="padding:0">' + westBlk.tracks.map(function (tr, i) { return renderTrackRow(tr, 'WEST', i); }).join('') + '</div>'
+      : (nt.unreadableDirs && nt.unreadableDirs.indexOf('WEST') >= 0)   // D85; F-3: only with its OFP Alerts line
+        ? '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">Tracks not readable \u2013 see OFP Alerts</div>'   // O-122
       : '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No westbound tracks found.</div>';
 
     var eastCmtContent = nt.eastComments
@@ -129,12 +133,18 @@
     var eastTracksOpen = flightDir === 'EAST' || !(westBlk && westBlk.tracks.length);
     var westTracksOpen = flightDir === 'WEST' || !(eastBlk && eastBlk.tracks.length);
 
-    var innerContent = [
-      makeSection('nat-east-tracks', 'Eastbound NAT Tracks',    eastTracksContent, eastTracksOpen),
+    // F-2 (FlightKeys card object only): each direction under its own message's TMI; the
+    // chosen message's direction first (dirOrder). A NavBlue object has neither: as before.
+    var tmiOf = function (d) { return nt.dirTmi && nt.dirTmi[d] ? '\u00a0\u00b7\u00a0TMI\u00a0' + esc(nt.dirTmi[d]) : ''; };
+    var eastSections = [
+      makeSection('nat-east-tracks', 'Eastbound NAT Tracks' + tmiOf('EAST'), eastTracksContent, eastTracksOpen),
       makeSection('nat-east-cmts',   'Eastbound Track Comments', eastCmtContent,   false),
-      makeSection('nat-west-tracks', 'Westbound NAT Tracks',    westTracksContent, westTracksOpen),
+    ];
+    var westSections = [
+      makeSection('nat-west-tracks', 'Westbound NAT Tracks' + tmiOf('WEST'), westTracksContent, westTracksOpen),
       makeSection('nat-west-cmts',   'Westbound Track Comments', westCmtContent,   false),
-    ].join('');
+    ];
+    var innerContent = (nt.dirOrder === 'WEST' ? westSections.concat(eastSections) : eastSections.concat(westSections)).join('');
 
     // ── Outer Track Message subcard — collapsible, badge always visible ───
     // Header always shows filed track + TMI even when body is collapsed.

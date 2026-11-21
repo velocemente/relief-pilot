@@ -55,7 +55,11 @@ const { checkRules } = require('../../build/check-rules');
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
-const MOD_FILE = path.join(RULES, MANIFEST['ofp-flightkeys'].file);
+// Step 5e-2 (O-116): v1.0.1 replaced v1.0.0 in the app. These tests pin v1.0.0 on its frozen copy (test/oracle);
+// TC-175-010 shows v1.0.1 = v1.0.0 on all 26 except the finding texts (O-100).
+const MOD_FILE = path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.0.js');
+const V100_SHA = '8a7d3e8fbf02ebae421739dfd65f8598d47e4d016ae1e7a3a2a791389e548e40';   // v1.0.0 (#68), frozen
+const BUILT_IN = fs.readFileSync(path.join(RULES, MANIFEST['ofp-flightkeys'].file), 'utf8');   // v1.0.1 (O-116)
 const MOD_SRC  = fs.readFileSync(MOD_FILE, 'utf8');
 const mod      = require(MOD_FILE);
 const ORACLE   = path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v0.4.0.js');
@@ -204,9 +208,9 @@ test('TC-164-001 identity: v1.0.0, contract 2.4; manifest entry and SHA-256; v0.
   assert.deepEqual([mod.RULESET_TYPE, mod.OFP_FORMAT, mod.RULESET_VERSION, mod.SCHEMA_VERSION, mod.CONTRACT_VERSION], ['ofp', 'flightkeys', '1.0.0', 2, '2.4']);
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
-  assert.deepEqual([e.version, e.file], ['1.0.0', 'ofp-flightkeys/ofp-flightkeys-v1.0.0.js']);
-  assert.equal(sha(fs.readFileSync(MOD_FILE)), e.sha256, 'the module file = the manifest SHA-256');
-  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.0.0.js'], 'one module file; v0.4.0 is no longer in rules/');
+  assert.deepEqual([e.version, e.file], ['1.0.1', 'ofp-flightkeys/ofp-flightkeys-v1.0.1.js'], 'O-116: v1.0.1 replaced v1.0.0');
+  assert.equal(sha(fs.readFileSync(MOD_FILE)), V100_SHA, 'test/oracle/ofp-flightkeys-v1.0.0.js is v1.0.0, byte for byte');
+  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.0.1.js'], 'one module file; v0.4.0 and v1.0.0 are no longer in rules/');
   assert.equal(sha(fs.readFileSync(ORACLE)), V04_SHA, 'test/oracle/ofp-flightkeys-v0.4.0.js is the v0.4.0 master, byte for byte');
   assert.equal(v04.RULESET_VERSION, '0.4.0');
   assert.match(MOD_SRC.slice(0, 2000), /v1\.0\.0[\s\S]*NOT built into index\.html[\s\S]*switch PR/, 'the header says not built in until the switch PR');
@@ -230,7 +234,8 @@ test('TC-164-001 identity: v1.0.0, contract 2.4; manifest entry and SHA-256; v0.
 
 test('TC-164-002 built in by the switch PR (step 5e-1, O-74; was: not built in): once, byte for byte, called only by the router; beta hold 1.9.9-hf6 (O-75)', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  assert.equal(html.split(MOD_SRC).length, 2, 'index.html carries v1.0.0 once, byte for byte');
+  assert.equal(html.split(BUILT_IN).length, 2, 'index.html carries v1.0.1 once, byte for byte (O-116)');
+  assert.ok(!html.includes(MOD_SRC), 'v1.0.0 is no longer in index.html (O-116)');
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1, 'build/build.js lists it once');
   const users = fs.readdirSync(path.join(ROOT, 'src'), { recursive: true }).filter(f => fs.statSync(path.join(ROOT, 'src', f)).isFile())
     .filter(f => /OfpFlightKeys/.test(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')));
@@ -437,7 +442,7 @@ fixtureTest('TC-164-020 all 26 vs v0.4.0: only natTrack on L08, L11, L12, L22, L
 fixtureTest('TC-164-021 pinned values on all 26 (expected/ofp-flightkeys-v1.0.0/nat.json); shape; no NAT-FILED-NOT-IN-MESSAGE', () => {
   const pin = JSON.parse(fs.readFileSync(path.join(FIX, EXPECTED_FILE), 'utf8'));
   assert.equal(pin.module.version, '1.0.0');
-  assert.equal(pin.module.sha256, MANIFEST['ofp-flightkeys'].sha256, 'the pinned values were made with this module');
+  assert.equal(pin.module.sha256, V100_SHA, 'the pinned values were made with this module (v1.0.0, frozen copy)');
   assert.deepEqual(Object.keys(pin.packages).sort(), fk().map(p => p.fx.id).sort());
   let warn79 = 0;
   for (const p of fk()) {

@@ -77,7 +77,10 @@ const { findFixtures, readManifest } = require('../lib/app-path');
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
-const MOD_FILE = path.join(RULES, MANIFEST['ofp-flightkeys'].file);
+// Step 5e-2 (O-116): v1.0.1 replaced v1.0.0 in the app. These tests pin v1.0.0's behaviour on its frozen copy
+// (test/oracle); TC-175-010 shows v1.0.1 = v1.0.0 on all 26 except the finding texts (O-100).
+const MOD_FILE = path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.0.js');
+const BUILT_IN = path.join(RULES, MANIFEST['ofp-flightkeys'].file);   // v1.0.1, built in (O-116)
 const MOD_SRC  = fs.readFileSync(MOD_FILE, 'utf8');
 const mod      = require(MOD_FILE);
 const icaoFpl  = require(path.join(RULES, MANIFEST['icao-fpl'].file));
@@ -162,12 +165,14 @@ test('TC-160-001 metadata; validateSchema() valid; broken objects rejected', () 
 
 // ══ TC-160-002 manifest ══════════════════════════════════════════════════════
 
-test('TC-160-002 rules/manifest.json lists ofp-flightkeys 1.0.0 with its SHA-256', () => {
+test('TC-160-002 rules/manifest.json lists ofp-flightkeys 1.0.1 (O-116) with its SHA-256; v1.0.0 frozen in test/oracle', () => {
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
-  assert.equal(e.version, mod.RULESET_VERSION);
-  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v1.0.0.js');
-  assert.equal(e.sha256, crypto.createHash('sha256').update(fs.readFileSync(MOD_FILE)).digest('hex'));
+  assert.equal(e.version, '1.0.1');
+  assert.equal(e.file, 'ofp-flightkeys/ofp-flightkeys-v1.0.1.js');
+  assert.equal(e.sha256, crypto.createHash('sha256').update(fs.readFileSync(BUILT_IN)).digest('hex'));
+  assert.equal(mod.RULESET_VERSION, '1.0.0');
+  assert.equal(crypto.createHash('sha256').update(fs.readFileSync(MOD_FILE)).digest('hex'), '8a7d3e8fbf02ebae421739dfd65f8598d47e4d016ae1e7a3a2a791389e548e40', 'test/oracle: v1.0.0 byte for byte');
 });
 
 // ══ TC-160-003 dual context, no app state ════════════════════════════════════
@@ -244,7 +249,8 @@ test('TC-160-003 dual context; no window / DOM / storage / clock / app globals; 
 test('TC-160-004 built into the app at step 5e-1 (flipped): once, byte for byte, in build order; only the router calls it', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const { MODULES } = require('../../build/build');
-  assert.equal(html.split(fs.readFileSync(MOD_FILE, 'utf8')).length, 2, 'index.html carries the module once, byte for byte');
+  assert.equal(html.split(fs.readFileSync(BUILT_IN, 'utf8')).length, 2, 'index.html carries the module (v1.0.1, O-116) once, byte for byte');
+  assert.ok(!html.includes(MOD_SRC), 'v1.0.0 is no longer in index.html (O-116)');
   const at = MODULES.findIndex(m => m && m.rule === 'ofp-flightkeys');
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
   assert.ok(at > MODULES.findIndex(m => m && m.rule === 'icao-fpl') && at < MODULES.indexOf('ofp-parse.html'),

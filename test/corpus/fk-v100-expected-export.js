@@ -27,7 +27,7 @@ if (!out) { console.error('--out <file> is required'); process.exit(2); }
 const FIX = findFixtures(opt('--fixtures'));
 if (!FIX) { console.error('fixtures directory not found'); process.exit(2); }
 
-const modFile = path.join(RULES, MAN['ofp-flightkeys'].file);
+const modFile = path.join(__dirname, '..', 'oracle', 'ofp-flightkeys-v1.0.0.js');   // v1.0.0 (frozen copy since O-116)
 const mod = require(modFile);
 const OPTS = {
   icaoFpl: require(path.join(RULES, MAN['icao-fpl'].file)),

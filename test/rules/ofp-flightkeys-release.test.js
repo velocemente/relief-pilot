@@ -70,7 +70,9 @@ const { findFixtures, readManifest } = require('../lib/app-path');
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
-const mod      = require(path.join(RULES, MANIFEST['ofp-flightkeys'].file));
+// Step 5e-2 (O-116): v1.0.1 replaced v1.0.0 in the app; these tests pin v1.0.0 on its frozen copy (test/oracle).
+// TC-175-010: v1.0.1 = v1.0.0 on all 26 except the finding texts (O-100).
+const mod      = require(path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.0.js'));
 const icaoFpl  = require(path.join(RULES, MANIFEST['icao-fpl'].file));
 const acProf   = require(path.join(RULES, MANIFEST['aircraft-profile'].file));
 const navblue  = require(path.join(RULES, MANIFEST['ofp-navblue'].file));
