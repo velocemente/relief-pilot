@@ -17,6 +17,8 @@
  *   TC-179-040  O-156 / O-161  the chevron on the airport ID row opens / closes ALL display groups and sub-groups of the
  *               card; a single NOTAM's raw text stays closed; the NOTAM / WX paste boxes behave as in main (flipped by
  *               their own state, not by the groups); NEGATIVE: a group header toggles only its group
+ *   TC-179-070  O-166  rule 6 (CAT II/III): a departure-airport CAT II/III restriction is in that airport's Company Remarks
+ *               group, collapsed by default, revealed on tap, and shown nowhere else (Exec-decided hide)
  *   TC-179-050  O-157 / O-158  "Weather" then "NOTAMS" (no "RAW"), content as printed; Remarks Weather, FIR groups and
  *               "Other briefing airports" unchanged
  *   TC-179-060  O-159  the D79 warning is on the row of the TMI it names in the NAT Track subsection, same text, and
@@ -454,4 +456,55 @@ test('TC-179-060 O-159 (SYNTHETIC-o68): the D79 warning is also on the TMI row o
   const old = loadApp();
   old.S.natTrack = plain(app.S.natTrack);
   assert.doesNotThrow(() => old.renderEnroutePhase());
+});
+
+// ══ TC-179-070 O-166 (rule 6: CAT II/III) ══════════════════════════════════════════
+// Exec-decided (O-166, QA F-1): the departure airport's CAT II/III restriction stays inside the collapsed Company Remarks
+// group of its card. The restriction text is read from the flight's own state at run time, never written in the test.
+fixtureTest('TC-179-070 O-166 rule 6: a departure-airport CAT II/III restriction is in Company Remarks, collapsed by default, revealed on tap, shown nowhere else; NEGATIVE: not on other cards, not for a MEL restriction', async () => {
+  const fx = fkFixtures().find(f => f.id === 'FK_KCVG-KSEA_04NOV26_pax-catiii_live');   // the one FlightKeys package whose CAT II/III restriction names its departure airport
+  const imp = await imported(fx), app = imp.app, S = imp.S;
+  const dep = S.origIcao;
+  const restr = plain(S.catIiIiiRestrictions).filter(r => r && r.text && r.airport === dep);
+  assert.equal(restr.length, 1, 'the fixture has one CAT II/III restriction for its departure airport');
+  const markup = r => r.text.split('\n').map(l => run(app, `esc(${J(l)})`)).join('<br>');   // how the card prints it
+  const want = markup(restr[0]);
+  assert.ok(want.length > 20, 'a real restriction text');
+  // POSITIVE: in the departure card's Company Remarks group, collapsed by default
+  const ops = run(app, `renderAptOpsNotes(${J(dep)})`);
+  assert.ok(ops.includes('Company Remarks') && ops.includes(want), 'in the Company Remarks group');
+  const dom = parseDom(ops), hdr = dom.querySelector('.notam-group-hdr'), body = hdr.nextElementSibling;
+  assert.ok(body.hasAttribute('hidden'), 'collapsed by default');
+  assert.ok(!hdr.querySelector('.notam-chev').classList.contains('open'));
+  assert.ok(ops.indexOf(want) > ops.indexOf('<div class="notam-group-body" hidden>'), 'the text is inside the hidden body');
+  // revealed on tap (the existing handler)
+  app.sandbox.toggleNotamGroup(hdr);
+  assert.ok(!body.hasAttribute('hidden'), 'revealed on tap');
+  assert.ok(body.children.length > 0 && ops.slice(ops.indexOf(want) - 200).includes(want));
+  // NEGATIVE: shown nowhere else: not on any phase, not in the card's other parts, not on any other card, not in any
+  // Descent airport summary (the departure airport has none)
+  const others = {
+    preflight: app.renderPreflightPhase(), enroute: app.renderEnroutePhase(), descent: run(app, 'renderDescentPhase()'), notes: run(app, 'renderNotesSection()'),
+  };
+  for (const a of app.getAllAirports()) {
+    run(app, `S.descentAirport = ${J(a.icao)}`);
+    others['summary:' + a.icao] = run(app, 'renderDescentAirportSummary()');
+    others['raw:' + a.icao] = run(app, `renderAptRaw(${J(a.icao)})`);
+    others['issues:' + a.icao] = run(app, `(function(){const d=airportData[${J(a.icao)}]||{notams:'',weather:''};const a=getAllAirports().find(x=>x.icao===${J(a.icao)});return renderAptIssues(evalAirport(a.icao,a.eta,d.notams,d.weather,a.wxWindow,a.role,S.acftType))})()`);
+    if (a.icao !== dep) others['ops:' + a.icao] = run(app, `renderAptOpsNotes(${J(a.icao)})`);
+  }
+  assert.ok(app.getAllAirports().length >= 2);
+  for (const [k, v] of Object.entries(others)) assert.ok(!v.includes(want), `not shown in ${k.replace(/:.*/, '')}${k.includes(':') ? ' (' + k.split(':')[0] + ')' : ''}`);
+  // NEGATIVE: a restriction with no airport (a MEL item's) is on no airport card's Company Remarks
+  const mel = fkFixtures().find(f => f.id === 'FK_MKJP-KMIA_03NOV26_caribbean-callsign_live');
+  const m = await imported(mel);
+  const melR = plain(m.S.catIiIiiRestrictions).filter(r => r && r.text && !r.airport);
+  assert.ok(melR.length > 0, 'the MEL-restriction case is in the data');
+  for (const a of m.app.getAllAirports()) {
+    const o = run(m.app, `renderAptOpsNotes(${J(a.icao)})`);
+    for (const r of melR) assert.ok(!o.includes(r.text.split('\n').map(l => run(m.app, `esc(${J(l)})`)).join('<br>')), `${a.icao}: a restriction naming no airport is not on a card`);
+  }
+  // NEGATIVE: without the flight's restriction nothing is shown on the card
+  run(app, 'S.catIiIiiRestrictions = []');
+  assert.ok(!run(app, `renderAptOpsNotes(${J(dep)})`).includes(want), 'no restriction in state: none shown');
 });
