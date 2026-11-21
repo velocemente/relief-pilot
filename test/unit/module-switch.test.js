@@ -12,7 +12,8 @@
  *               Step 5e-2 display PR 1 (O-116): the declared exception ofp-flightkeys-next is removed; v1.0.1 is
  *               ofp-flightkeys, built in; any *-next key fails (D96)
  *   TC-174-003  NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; the renderer is
- *               byte-identical to v1.1.0 and draws the same card
+ *               v1.1.0 + the four declared D85 edits (step 5e-2 display PR 1) and draws the same card for a
+ *               NavBlue object
  *   TC-174-004  NavBlue lock (D47): the built app = the NavBlue module with NAT v1.1.0, except exactly the 26
  *               natTrack fl lines of NAT v1.2.0 (D83 / O-65)
  *   TC-174-005  NOTAM v1.14.0 on the app path, per NOTAM ID against change list v1.2 (O-82): at the OFP ETA
@@ -38,7 +39,7 @@
  *   TC-174-032  O-89: the list title "OFP Alerts" is red (the existing .nt-red) until the crew selects it, then
  *               the normal title colour; the selection is stored with the flight; a new import starts red; a
  *               flight saved before O-89 (no state) reads safely (red); no list → no title
- *   TC-174-040  safety fields on FlightKeys (rule 6): crew count, CAT II/III, DOT exemption, ETOPS, slot,
+ *   TC-174-040  safety fields on FlightKeys (rule 6): crew count (step 5e-2: operatingPilots, D62), CAT II/III, DOT exemption, ETOPS, slot,
  *               block and minimum fuel = the parser's values on all 26; a package without the field →
  *               empty, never carried over from the flight before
  *   TC-174-050  the app-path golden covers the 26 FlightKeys packages (snapshots-app, 56 fixtures)
@@ -166,7 +167,7 @@ test('TC-174-002 rules/manifest.json: no *-next key; v1.13.0 and the NAT v1.1.0 
   assert.deepEqual(manifestProblems({ 'nat-rules': { file: 'nat-rules-next/nat-rules-v1.2.0.js' } }), ['nat-rules: file not in rules/nat-rules/']);
 });
 
-test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; renderer byte-identical to v1.1.0, same card', () => {
+test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; renderer = v1.1.0 + the four D85 edits (step 5e-2), same card for a NavBlue object', () => {
   const app = loadApp();
   assert.equal(app.sandbox.NatRules.RULESET_VERSION, '1.2.0');
   assert.equal(app.sandbox.parseNatTrack, app.sandbox.NatRules.parseNatTrack, 'the app binds the module');
@@ -174,7 +175,21 @@ test('TC-174-003 NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.pars
   const now = fs.readFileSync(path.join(ROOT, 'src', 'nat.html'), 'utf8');
   const r11 = NAT11.slice(NAT11.indexOf('§ 2  RENDERER'), NAT11.indexOf('§ 3  EXPORTS'));
   const r12 = now.slice(now.indexOf('§ 2  RENDERER'), now.indexOf('§ 3  EXPORTS'));
-  assert.ok(r11.length > 4000 && r11 === r12, 'renderNatTrack: byte-identical to v1.1.0');
+  // Step 5e-2 display PR 1 (D85): renderNatTrack = v1.1.0 with exactly these four declared edits, each read only
+  // from fields a FlightKeys card object carries (published, publishedDirs, assignedDir); a NavBlue object has
+  // none of them, so its card is unchanged (the equal-card check below, and TC-176-030 on the 8 NavBlue NAT cards).
+  const D85 = [
+    ["    if (!blocks.some(function (b) { return b.tracks.length > 0; })) return '';",
+     "    if (!blocks.some(function (b) { return b.tracks.length > 0; }) && !nt.published) return '';   // D85: a published message keeps the card"],
+    ['      var isAssigned = tr.assigned || tr.id === nt.assignedId;',
+     '      var isAssigned = tr.assigned || (tr.id === nt.assignedId && (!nt.assignedDir || nt.assignedDir === dir));   // D85'],
+    ["      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';",
+     "      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0) ? ''   // D85: a published direction is never \"no tracks\"\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No eastbound tracks found.</div>';"],
+    ["      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';",
+     "      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0) ? ''   // D85\n      : '<div style=\"padding:var(--sp3);font-size:14px;color:var(--label3)\">No westbound tracks found.</div>';"],
+  ];
+  for (const [a] of D85) assert.equal(r11.split(a).length, 2, `v1.1.0 has the line once: ${a.trim().slice(0, 50)}`);
+  assert.ok(r11.length > 4000 && D85.reduce((t, [a, b]) => t.replace(a, () => b), r11) === r12, 'renderNatTrack: v1.1.0 + the four D85 edits, nothing else');
   assert.ok(!/function parseNatTrack\(/.test(now) && !HTML.includes("var VERSION = '1.1.0';"), 'no v1.1.0 parser left in the app');
   // the same card from the same track object (v1.1.0 renderer in its own context, esc() as the app's)
   const win = {};
@@ -718,8 +733,10 @@ fixtureTest('TC-174-040 safety fields on FlightKeys (rule 6): crew count, CAT II
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), S = imp.S;
     const r = fk.parseFlightKeys(fk.inputFromExtractor(readText(fx), readItems(fx)), opts);
-    // POSITIVE: the app's state = the parser's values
-    assert.equal(JSON.stringify(S.crewMembers), JSON.stringify(r.crewMembers), `${lbl.get(fx.id)} crew`);
+    // POSITIVE: the app's state = the parser's values. Crew (step 5e-2 display PR 1, D62 / O-106): the
+    // parser's operatingPilots and one anonymous chip per pilot (TC-176-040), no crew record of the parser.
+    assert.equal(S.operatingPilots, r.operatingPilots, `${lbl.get(fx.id)} crew count`);
+    assert.equal(JSON.stringify(S.crewMembers.map(c => c.role)), JSON.stringify(['CA', 'FO', 'AO', 'AO'].slice(0, r.operatingPilots)), `${lbl.get(fx.id)} crew chips`);
     for (const k of ['catIiIiiApproaches', 'dotExemption', 'etopsEntry', 'etopsExit', 'etopsSpec', 'slotTime'])
       assert.equal(JSON.stringify(S[k]), JSON.stringify(r[k] === undefined ? null : r[k]), `${lbl.get(fx.id)} ${k}`);
     assert.equal(S.blockFuel, imp.app.sandbox.fuelK(r.blockFuelRaw), `${lbl.get(fx.id)} block fuel`);

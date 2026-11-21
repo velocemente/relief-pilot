@@ -325,6 +325,16 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     rwyGroups = result.rwyGroups;
     sidIssues = result.sidIssues || [];
     starIssues = result.starIssues || [];
+    // D67b (O-105): a row for every shown obstacle NOTAM without one (see _d67bRows).
+    const d67b = _d67bRows(result);
+    if (d67b.sid.length)  sidIssues  = [...sidIssues, ...d67b.sid].sort(_byRowLabel);
+    if (d67b.star.length) starIssues = [...starIssues, ...d67b.star].sort(_byRowLabel);
+    if (d67b.general.length) {
+      rwyGroups = new Map(rwyGroups);
+      const g = rwyGroups.get('GENERAL');
+      rwyGroups.set('GENERAL', { rwy: null, groupType: 'general', label: '',
+        ...(g || {}), items: [...(g ? g.items : []), ...d67b.general].sort(_byRowLabel) });
+    }
     result.issues.forEach(i => {
       if (i.level !== 'green') issues.push({ level: i.level, text: i.text });
     });
@@ -474,6 +484,42 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   if (worst === 'unknown' && (hN || hW_eff)) worst = 'green';
   return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues, isEwins: !!isEwins };
 }
+
+// ── D67b card rows (step 5e-2 display PR 1, Exec answer O-105 A+) ───────────────
+// The airport card draws rows only for the E2 groups: runway, taxiway, general, SID, STAR
+// (renderAptIssues). Every shown obstacle NOTAM the NOTAM module gave none of these is put
+// in one, from the module's own output only — its obstacle-rule decision
+// (NotamRules._obstacleRule: group and pattern code) — never from the NOTAM text:
+//   take-off / climb effects → SIDs; STAR effects → STARs; all others → GENERAL.
+// Level, label, text and the card colour stay the module's; only the row is added.
+const _D67B_SID  = new Set(['TKOF_ODP', 'TKOF_MINIMA', 'CLIMB_GRADIENT', 'CLOSE_IN_OBSTACLE']);
+const _D67B_STAR = new Set([]);   // no STAR-only effect code in NOTAM v1.14.0 (open item, report)
+// The text the module's content rules read (FlightKeys: without the item header rows and the
+// type heading lines, as evalNotams() cuts them with its own _fkHeader / _fkTypeHeading).
+function _d67bRuleText(raw) {
+  const h = NotamRules._fkHeader(raw);
+  if (!h) return raw;
+  const ls = raw.split('\n');
+  const skip = new Set(h.headerRows);
+  ls.forEach((l, k) => { if (NotamRules._fkTypeHeading(l)) skip.add(k); });
+  return ls.filter((_, k) => !skip.has(k)).join('\n');
+}
+// { sid: [], star: [], general: [] }: the shown obstacle NOTAMs of one evalNotams() result
+// that have no card row, by the E2 group they go to.
+function _d67bRows(result) {
+  const out = { sid: [], star: [], general: [] };
+  if (typeof NotamRules._obstacleRule !== 'function') return out;   // a NOTAM module without the obstacle rule
+  const inRow = new Set([...(result.sidIssues || []), ...(result.starIssues || [])]);
+  for (const g of result.rwyGroups.values()) g.items.forEach(i => inRow.add(i));
+  for (const it of result.issues) {
+    if (inRow.has(it) || it.level === 'green' || !it.notamRaw) continue;
+    const ob = NotamRules._obstacleRule(_d67bRuleText(it.notamRaw), it.fkCategory || null);
+    if (!ob.obstacle || !ob.show) continue;
+    out[_D67B_SID.has(ob.pattern) ? 'sid' : _D67B_STAR.has(ob.pattern) ? 'star' : 'general'].push(it);
+  }
+  return out;
+}
+const _byRowLabel = (a, b) => (a.rowLabel || '').localeCompare(b.rowLabel || '');
 
 
 // ── TAF window extractor ─────────────────────────────────────────────────

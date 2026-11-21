@@ -1,0 +1,605 @@
+'use strict';
+/**
+ * TC-176 — step 5e-2 display PR 1 (Exec answers O-103 B, O-105 A+, O-106, O-107 A, O-108, O-109, O-113,
+ * O-116 A; sheet "Scoping Decisions", tab 5e-2). The series is TC-176: TC-175 (FlightKeys v1.0.1) was the
+ * last used. Positive and negative per scope item and per Exec answer (CLAUDE.md rule 6).
+ *
+ *   TC-176-001  O-116: ofp-flightkeys v1.0.1 built in once, v1.0.0 not; no *-next key or folder; NEGATIVE a
+ *               *-next key is refused
+ *   TC-176-010  data path, 26 FlightKeys + 30 NavBlue: the fields copied from the parser are the parser's; the
+ *               new fields (operatingPilots, dispatchContact, natMessages, dateEnteredByCrew) as declared; no raw
+ *               text in them (O-107); NEGATIVE a NavBlue package has no dispatchContact and no natMessages
+ *   TC-176-011  O-113 old save: a flight saved before this PR (no new fields, crew names) loads without an
+ *               error; the missing items are not shown; NAT card as before; names removed (D62)
+ *   TC-176-012  O-107: a failed save shows the existing error toast "Flight not saved – storage full";
+ *               NEGATIVE a save that works shows none
+ *   TC-176-020  D85 NAT card: FK EBLG-KORD East 5 + West 6 (chosen message first); single-direction packages:
+ *               "No … tracks found." only for the direction no message has; NavBlue 8 / 8 byte-identical
+ *   TC-176-021  D85 synthetic: a published message with no tracks keeps the card (WARN stays on OFP Alerts);
+ *               the filed track marked in the chosen direction only; NEGATIVE an object with no published
+ *               message and no tracks has no card, as before
+ *   TC-176-030  D57 synthetic: no readable flight date → "Operating date needed" in the header date slot and
+ *               the date pop-up prefilled with today's UTC DD MM YYYY; the prefill moves forward past 0000Z,
+ *               never back; the entered date → S.date DD MON YY + dateEnteredByCrew; the timeline is dated;
+ *               reload keeps it; NEGATIVE an unreadable entry is not taken; 56 / 56 dated show no prompt
+ *   TC-176-040  D62 / O-106 / O-109: FK counts 2:4, 3:12, 4:10; one anonymous chip per pilot (CA, FO, AO);
+ *               no crew name or number in state or save, either format; editable (toggle, add, picker);
+ *               NEGATIVE a package without a count gives no chips and the existing picker, never carried over
+ *   TC-176-050  D89 / O-108: a mixed package is refused with the named error; the crew stays on the import
+ *               screen, nothing saved; NEGATIVE a FlightKeys package goes to the flight screen
+ *   TC-176-060  D72 dispatchContact: 26 FK (REQUIRED 22, IF QUESTIONS 4) on the Departure subcard; NavBlue none
+ *   TC-176-070  D67b / O-105 rows on the app path, per card and group: FK 5 + NavBlue 11 departure, 21 + 37
+ *               destination / alternate; KMIA A3054/26, KSFO A5323/26; every row by NOTAM ID against change
+ *               list v1.2; card colour and issues unchanged
+ *   TC-176-071  D67b negatives on the app path: no added row changes a card colour or an issue; D67a hides stay
+ *               hidden; every added row is drawn inside an E2 group
+ *   TC-176-072  D67b synthetic: "RWY 09 GLIDESLOPE U/S" unchanged; take-off / climb effects → SIDs, others →
+ *               GENERAL; a NOTAM the module already rows is not added twice; a hidden one never; esc() on every row
+ *   TC-176-080  D92 OFP Alerts: order unchanged; red until tapped, per flight; the new items (date, crew, NAT,
+ *               dispatch) do not reset it; a new import starts red
+ *   TC-176-090  release labels: APP_VERSION, CACHE_NAME, manifest.json stay 1.9.9-hf6 (D91)
+ *   TC-176-099  fixtures missing → the fixture tests FAIL, never skip
+ *
+ * Synthetic packages and NOTAMs are labelled "synthetic" (invented identifiers). Fixture tests assert counts,
+ * codes, NOTAM IDs and airports only; no crew name, employee number or fixture text is printed or asserted.
+ * All times are UTC.
+ */
+const test   = require('node:test');
+const assert = require('node:assert/strict');
+const fs     = require('fs');
+const path   = require('path');
+const vm     = require('vm');
+const { loadApp } = require('../harness');
+const { findFixtures, readManifest, importFixture, importItems, peek, notamKey } = require('../lib/app-path');
+const { MODULES } = require('../../build/build');
+
+const ROOT     = path.resolve(__dirname, '..', '..');
+const RULES    = path.join(ROOT, 'rules');
+const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
+const HTML     = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const CHANGES  = require('../rules/data/notam-v1.14.0-obstacle-changes.json');
+const plain    = x => JSON.parse(JSON.stringify(x));
+
+const FIX = findFixtures(process.env.PB_FIXTURES || null);
+const needFix = () => assert.ok(FIX, 'fixtures not found (set PB_FIXTURES or clone pilotbrief-fixtures beside the repo)');
+const fixtureTest = (name, fn) => test(name, async () => { needFix(); return fn(); });
+let _man = null;
+const manifest = () => (_man = _man || readManifest(FIX));
+const fkFixtures = () => manifest().fixtures.filter(f => f.format === 'flightkeys');
+const nbFixtures = () => manifest().fixtures.filter(f => f.format !== 'flightkeys');
+const readItems = fx => JSON.parse(fs.readFileSync(path.join(FIX, fx.files.items), 'utf8'));
+const _imp = new Map();
+async function imported(fx) {
+  if (!_imp.has(fx.id)) _imp.set(fx.id, await importFixture(fx, FIX));
+  return _imp.get(fx.id);
+}
+// The crew record fields the OFP parsers return (a name, a number, a date of the person); none may be stored.
+const CREW_RECORD = ['empNum', 'lastName', 'firstName', 'initial', 'name', 'toLndgExpiry', 'isSen'];
+const chipProblems = list => plain(list || []).flatMap((c, i) => [
+  ...Object.keys(c).filter(k => !['role', 'active', 'displayName'].includes(k)).map(k => `${i}: field ${k}`),
+  ...(c.displayName ? [`${i}: displayName set`] : []),
+  ...(['CA', 'FO', 'AO'].includes(c.role) ? [] : [`${i}: role ${c.role}`])]);
+
+// A one-page synthetic items document whose text lines are `lines` (the app's own line assembly reads it).
+function itemsDoc(lines) {
+  return { pages: [{ n: 1, width: 600, height: 800, items: lines.map((t, i) => ({ str: t, x: 10, y: 20 + i * 12, w: t.length * 5, h: 10, font: 'f1' })) }] };
+}
+
+// ══ TC-176-001 O-116 ════════════════════════════════════════════════════════════
+
+test('TC-176-001 O-116: ofp-flightkeys v1.0.1 built in once, v1.0.0 not; no *-next key or folder; a *-next key is refused', () => {
+  const v101 = fs.readFileSync(path.join(RULES, MANIFEST['ofp-flightkeys'].file), 'utf8');
+  const v100 = fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.0.js'), 'utf8');
+  assert.equal(MANIFEST['ofp-flightkeys'].version, '1.0.1');
+  assert.equal(HTML.split(v101).length, 2, 'v1.0.1 once, byte for byte');
+  assert.ok(!HTML.includes(v100), 'v1.0.0 not in index.html');
+  assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), [], 'no *-next key (D96)');
+  assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)), [], 'no *-next folder');
+  assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
+  // NEGATIVE: the manifest check of TC-174-002 refuses the former exception
+  const nextKeys = man => Object.keys(man).filter(k => /-next$/.test(k));
+  assert.deepEqual(nextKeys({ ...MANIFEST, 'ofp-flightkeys-next': {} }), ['ofp-flightkeys-next']);
+});
+
+// ══ TC-176-010 … 012 data path, old save, failed save ═══════════════════════════
+
+// The parser fields parseOFP copies unchanged (the rest: fuel in tonnes, the callsign, the crew chips).
+const COPIED = { fltNum: 'fltNum', outZ: 'offFromOFP', etaDest: 'etaDest', origIcao: 'origIcao', destIcao: 'destIcao',
+  altData: 'altData', acftType: 'acftType', ballastFuel: 'ballastFuel', togwActual: 'togwActual', zfwActual: 'zfwActual',
+  ldgwActual: 'ldgwActual', ddgItems: 'ddgItems', melItems: 'melItems', overflightPerms: 'overflightPerms',
+  oeiData: 'oeiData', hasPerishables: 'hasPerishables', slotTime: 'slotTime', catIiIiiApproaches: 'catIiIiiApproaches',
+  etopsEntry: 'etopsEntry', etopsExit: 'etopsExit', etopsSpec: 'etopsSpec', natTrack: 'natTrack' };
+
+fixtureTest('TC-176-010 data path, 26 FlightKeys + 30 NavBlue: copied fields = the parser; new fields as declared; no raw text', async () => {
+  const fk = fkFixtures(), nb = nbFixtures();
+  assert.deepEqual([fk.length, nb.length], [26, 30]);
+  for (const fx of [...fk, ...nb]) {
+    const imp = await imported(fx), S = imp.S;
+    const r = imp.app._ofpParse(imp.rawText, peek(imp.app, 'pdfPages'));
+    for (const [k, rk] of Object.entries(COPIED)) {
+      const want = r[rk] === undefined ? null : r[rk];
+      assert.equal(JSON.stringify(S[k] === undefined ? null : S[k]), JSON.stringify(k === 'natTrack' ? (want || null) : want), `${fx.id}: ${k}`);
+    }
+    assert.equal(S.date, r.dateStr, `${fx.id}: dated (D57 not triggered)`);
+    assert.equal(S.dateEnteredByCrew, false);
+    // the new fields: nothing raw (O-107)
+    for (const m of S.natMessages) assert.deepEqual(Object.keys(m), ['tmi', 'direction', 'selected', 'track'], `${fx.id}: natMessages entry, no message text`);
+    if (S.dispatchContact) assert.deepEqual(Object.keys(S.dispatchContact), ['label']);
+    if (fx.format === 'flightkeys') {
+      assert.equal(S.operatingPilots, r.operatingPilots);
+      assert.equal(S.natMessages.length, (r.natMessages || []).length, `${fx.id}: every NAT message`);
+      assert.equal(JSON.stringify(S.dispatchContact), JSON.stringify(r.dispatchContact ? { label: r.dispatchContact.label } : null));
+    } else {
+      // NEGATIVE: NavBlue (locked, D47) has no Dispatch contact and no NAT message list
+      assert.equal(S.dispatchContact, null, fx.id);
+      assert.deepEqual(plain(S.natMessages), [], fx.id);
+      assert.equal(S.operatingPilots, (r.crewMembers || []).filter(c => c.role !== 'JS' && c.role !== 'DH').length || null, `${fx.id}: the NavBlue pilot count`);
+    }
+    // the save carries them (the stored entry = S)
+    const saved = imp.app.getFlights()[0].state;
+    for (const k of ['operatingPilots', 'dispatchContact', 'natMessages', 'dateEnteredByCrew']) assert.equal(JSON.stringify(saved[k]), JSON.stringify(S[k]), `${fx.id}: ${k} saved`);
+  }
+});
+
+// A flight as main (before this PR) saved it: no new fields, the OFP's crew records (synthetic names).
+function oldSave(imp) {
+  const st = plain(imp.S);
+  for (const k of ['operatingPilots', 'dispatchContact', 'natMessages', 'dateEnteredByCrew']) delete st[k];
+  st.crewMembers = [
+    { role: 'CA', empNum: '000001', lastName: 'SYNTHETICA', initial: 'A', displayName: 'SYNTHETICA A', active: true, isSen: false },
+    { role: 'FO', empNum: '000002', lastName: 'SYNTHETICB', initial: 'B', displayName: 'SYNTHETICB B', active: false, isSen: true },
+    { role: 'FO', empNum: '000003', lastName: 'SYNTHETICC', initial: 'C', displayName: 'SYNTHETICC C', active: true, isSen: false },
+    { role: 'FO', empNum: '', lastName: 'First Officer', initial: '', displayName: 'First Officer', active: true, manual: true },
+  ];
+  return { id: 'f_old', fltNum: st.fltNum, date: st.date, at: '2026-11-01T00:00:00.000Z', state: st, raw: '', aptData: plain(imp.airportData) };
+}
+
+fixtureTest('TC-176-011 O-113 old save: loads safely; missing items not shown; NAT card as before; crew names removed in the app and in storage', async () => {
+  const fx = fkFixtures().find(f => /EBLG-KORD/.test(f.id));
+  const entry = oldSave(await imported(fx));
+  const app = loadApp({ storageData: { rp_flights: [entry] } });
+  assert.doesNotThrow(() => app.loadFlight(app.getFlights()[0]));
+  const S = app.S;
+  assert.equal(S.operatingPilots, null);
+  assert.equal(S.dispatchContact, null);
+  assert.deepEqual(plain(S.natMessages), []);
+  assert.ok(!/<span class="data-label">Dispatch<\/span>/.test(app.renderPreflightPhase()), 'no Dispatch row');
+  assert.equal(app.sandbox.renderNatTrack(app._natCardTrack(), S.navLog), app.sandbox.renderNatTrack(S.natTrack, S.navLog), 'NAT card as before (the chosen message only)');
+  // D62: names gone, roles and on/off kept; the manual chip (role words only) kept as it was
+  assert.deepEqual(plain(S.crewMembers).slice(0, 3), [{ role: 'CA', active: true, displayName: '' }, { role: 'FO', active: false, displayName: '' }, { role: 'FO', active: true, displayName: '' }]);
+  assert.equal(S.crewMembers[3].manual, true);
+  const stored = JSON.stringify(app.getFlights()[0].state.crewMembers);
+  assert.ok(!/SYNTHETIC|00000[123]/.test(stored), 'no name or number left in storage');
+  assert.ok(!/SYNTHETIC/.test(app.renderInflightRestModule()), 'no name on the rest card');
+  // NEGATIVE: a flight saved with anonymous chips is not rewritten
+  const app2 = loadApp({ storageData: { rp_flights: [{ ...entry, state: { ...entry.state, crewMembers: [{ role: 'CA', active: true, displayName: '' }] } }] } });
+  const writes = [];
+  const set = app2.sandbox.localStorage.setItem;
+  app2.sandbox.localStorage.setItem = (k, v) => { writes.push(k); return set(k, v); };
+  app2.loadFlight(app2.getFlights()[0]);
+  assert.ok(!writes.includes('rp_flights'), 'nothing to strip: storage untouched by the load');
+});
+
+fixtureTest('TC-176-012 O-107: a failed save shows "Flight not saved – storage full"; a save that works shows nothing', async () => {
+  const imp = await imported(fkFixtures()[0]);
+  const toasts = [];
+  imp.app.sandbox.showToast = (t, m) => toasts.push([t, m]);
+  imp.app.saveFlight();
+  assert.deepEqual(toasts, [], 'NEGATIVE: saved, no toast');
+  imp.app.sandbox.localStorage.setItem = () => { const e = new Error('quota'); e.name = 'QuotaExceededError'; throw e; };
+  assert.doesNotThrow(() => imp.app.saveFlight());
+  assert.deepEqual(toasts, [['err', 'Flight not saved – storage full']]);
+  assert.equal(imp.app.putFlights([]), false);
+});
+
+// ══ TC-176-020 / 021 NAT card (D85) ════════════════════════════════════════════
+
+const rows = (h, d) => (h.match(new RegExp(`id="nat-track-${d}-`, 'g')) || []).length;
+const card = app => app.sandbox.renderNatTrack(app._natCardTrack(), app.S.navLog);
+
+fixtureTest('TC-176-020 D85 NAT card: EBLG-KORD East 5 + West 6; single-direction packages; NavBlue 8 / 8 unchanged', async () => {
+  const fk = fkFixtures();
+  // EBLG-KORD (westbound): both messages published → both directions, the chosen (westbound) message first
+  const two = await imported(fk.find(f => /EBLG-KORD/.test(f.id)));
+  const h2 = card(two.app);
+  assert.deepEqual([rows(h2, 'EAST'), rows(h2, 'WEST')], [5, 6]);
+  assert.deepEqual(plain(two.S.natMessages.map(m => [m.direction, m.selected])), [['EAST', false], ['WEST', true]]);
+  assert.equal(two.app._natCardTrack().blocks[0].dir, 'WEST', 'the chosen message first');
+  assert.ok(!/No (east|west)bound tracks found/.test(h2), 'no "no tracks" text: both directions published');
+  const before = two.app.sandbox.renderNatTrack(two.S.natTrack, two.S.navLog);
+  assert.equal(rows(before, 'EAST'), 0, 'before this PR the eastbound message was not shown');
+  // one message only: the other direction says "No … tracks found." (no message has it), as before
+  const single = { 'KMIA-EHBK': ['WEST', 6], 'KGSP-EPWA': ['EAST', 5], 'EPPW-KPSM': ['EAST', 10], 'KDOV-ETAR': ['EAST', 10] };
+  for (const [k, [dir, n]] of Object.entries(single)) {
+    const imp = await imported(fk.find(f => f.id.includes(k)));
+    const h = card(imp.app), other = dir === 'EAST' ? 'WEST' : 'EAST';
+    assert.deepEqual([rows(h, dir), rows(h, other)], [n, 0], k);
+    assert.match(h, new RegExp(`No ${other.toLowerCase()}bound tracks found`), `${k}: the unpublished direction`);
+    assert.ok(!new RegExp(`No ${dir.toLowerCase()}bound tracks found`).test(h), `${k}: the published direction`);
+    assert.equal(h, imp.app.sandbox.renderNatTrack(imp.S.natTrack, imp.S.navLog), `${k}: one message → the card as before`);
+  }
+  // FlightKeys packages without NAT pages: no card
+  for (const fx of fk.filter(f => !/EBLG-KORD|KMIA-EHBK|KGSP-EPWA|EPPW-KPSM|KDOV-ETAR/.test(f.id))) {
+    const imp = await imported(fx);
+    assert.equal(imp.S.natTrack, null, fx.id);
+    assert.ok(!/Track Message/.test(imp.app.renderEnroutePhase()), `${fx.id}: no NAT card`);
+  }
+  // NavBlue: the same card, byte for byte, on every NavBlue package with a NAT card (8)
+  let n = 0;
+  for (const fx of nbFixtures()) {
+    const imp = await imported(fx);
+    if (!imp.S.natTrack) continue;
+    assert.equal(card(imp.app), imp.app.sandbox.renderNatTrack(imp.S.natTrack, imp.S.navLog), fx.id);
+    n++;
+  }
+  assert.equal(n, 8);
+});
+
+// Synthetic track objects (invented fixes), in the shape NatRules.parseNatTrack returns for a FlightKeys message.
+const trk = (id, dir, assigned = false) => ({ id, waypoints: ['AAAAA', '50N020W', 'BBBBB'], fl: 'FL340–400', mach: '', valid: '', assigned });
+const msgTrack = (dir, ids, extra = {}) => ({ trackType: 'NAT', tmi: '301', flightDir: 'WEST', assignedId: null, rawFallback: '', eastComments: '', westComments: '',
+  blocks: ids.length ? [{ dir, tracks: ids.map(i => trk(i, dir, extra.filed === i)) }] : [], ...extra.over });
+
+test('TC-176-021 D85 synthetic: a published message with no tracks keeps the card; filed track in its direction only; no message and no tracks → no card', () => {
+  const app = loadApp();
+  const S = app.S;
+  // the chosen westbound message has no readable track (NAT-NO-TRACKS, a WARN on OFP Alerts), an eastbound one has two
+  const chosen = msgTrack('WEST', []);
+  S.natTrack = chosen;
+  S.natMessages = [{ tmi: '301', direction: null, selected: true, track: chosen }, { tmi: '302', direction: 'EAST', selected: false, track: msgTrack('EAST', ['A', 'B']) }];
+  let h = card(app);
+  assert.match(h, /Track Message/, 'the card is shown');
+  assert.deepEqual([rows(h, 'EAST'), rows(h, 'WEST')], [2, 0]);
+  assert.match(h, /No westbound tracks found/, 'no message has a westbound direction');
+  // only the no-track message: the card is still shown (before this PR: hidden)
+  S.natMessages = [S.natMessages[0]];
+  h = card(app);
+  assert.match(h, /Track Message/);
+  assert.equal(app.sandbox.renderNatTrack(S.natTrack, S.navLog), '', 'before: no card');
+  // a published direction with no readable track never says "no tracks"
+  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: chosen }];
+  h = card(app);
+  assert.ok(!/No westbound tracks found/.test(h) && /No eastbound tracks found/.test(h));
+  // filed track B: marked in the chosen (westbound) message only, never the eastbound B
+  const w = msgTrack('WEST', ['A', 'B'], { filed: 'B', over: { assignedId: 'B' } });
+  S.natTrack = w;
+  S.natMessages = [{ tmi: '301', direction: 'WEST', selected: true, track: w }, { tmi: '302', direction: 'EAST', selected: false, track: msgTrack('EAST', ['A', 'B']) }];
+  h = card(app);
+  assert.equal((h.match(/ — FILED/g) || []).length, 1, 'one track row marked');
+  assert.match(h, /id="nat-track-WEST-B" class="notam-group-body" >/, 'the westbound B is open (filed)');
+  assert.match(h, /id="nat-track-EAST-B" class="notam-group-body" hidden>/, 'the eastbound B is not');
+  // esc() on the message's values
+  S.natMessages[1].track.blocks[0].tracks[0].waypoints = ['<b>X</b>', 'YYYYY'];
+  assert.ok(!card(app).includes('<b>X</b>') && card(app).includes('&lt;b&gt;X&lt;/b&gt;'));
+  // NEGATIVE: no published message (NavBlue shape) and no tracks → no card, as before
+  S.natMessages = [];
+  S.natTrack = msgTrack('WEST', []);
+  assert.equal(card(app), '');
+});
+
+// ══ TC-176-030 D57 ═════════════════════════════════════════════════════════════
+
+// A synthetic no-date case: a real FlightKeys package whose parse result has no readable flight date.
+async function noDateImport(app) {
+  const fx = fkFixtures().find(f => /KGSP-EPWA/.test(f.id));
+  const real = app.sandbox._ofpParse;
+  app.sandbox._ofpParse = (t, p) => Object.assign(real(t, p), { dateStr: '', flightDateISO: '' });
+  return importItems(readItems(fx), 'synthetic-nodate.pdf', { app });
+}
+const at = ms => class extends Date { constructor(...a) { if (a.length) super(...a); else super(ms); } static now() { return ms; } };
+
+fixtureTest('TC-176-030 D57 synthetic: "Operating date needed", pop-up prefilled with today (UTC), forward past 0000Z never back; entered date stored, dated, kept on reload', async () => {
+  const app = loadApp({ domModel: true });
+  app.fireDomReady();
+  app.sandbox.Date = at(Date.UTC(2026, 10, 3, 23, 59));
+  const imp = await noDateImport(app);
+  const S = imp.S, input = app.document.getElementById('editInput');
+  assert.equal(S.date, '');
+  assert.equal(peek(app, '_editField'), 'date', 'the date pop-up is open after the import');
+  assert.equal(input.value, '03 11 2026', "prefilled with today's UTC date, DD MM YYYY");
+  app.renderNote();
+  assert.match(app.document.getElementById('briefingStickyHeader').innerHTML, /<span class="flt-date" role="button" tabindex="0" onclick="openEdit\('date'\)">Operating date needed<\/span>/);
+  // past 0000Z → the next day; the clock back → never back
+  app.sandbox.Date = at(Date.UTC(2026, 10, 4, 0, 1));
+  app.openEdit('date');
+  assert.equal(input.value, '04 11 2026');
+  app.sandbox.Date = at(Date.UTC(2026, 10, 3, 12, 0));
+  app.openEdit('date');
+  assert.equal(input.value, '04 11 2026', 'never back');
+  // NEGATIVE: an entry that is not a date is not taken
+  for (const bad of ['31 02 2026', '2026-11-04', 'ABC', '']) {
+    app.openEdit('date'); input.value = bad; app.confirmEdit();
+    assert.equal(S.date, '', JSON.stringify(bad));
+  }
+  assert.equal(app._d57Read('4/11/2026'), '2026-11-04');
+  // the crew enters the date
+  app.openEdit('date'); input.value = '04 11 2026'; app.confirmEdit();
+  assert.deepEqual([S.date, S.dateEnteredByCrew, app.sandbox.window._flightDateISO], ['04 NOV 26', true, '2026-11-04']);
+  assert.ok(peek(app, '_tl').outMs !== null, 'the timeline is dated (D51)');
+  assert.equal(new Date(peek(app, '_tl').outMs).toISOString().slice(0, 10), '2026-11-04');
+  app.renderNote();
+  assert.match(app.document.getElementById('briefingStickyHeader').innerHTML, />04 NOV 26<\/span>/);
+  // one saved flight, with the date; reload keeps it
+  const flights = app.getFlights();
+  assert.equal(flights.length, 1, 'the same saved flight (not a second one)');
+  assert.deepEqual([flights[0].date, flights[0].state.dateEnteredByCrew], ['04 NOV 26', true]);
+  const app2 = loadApp({ storageData: { rp_flights: flights } });
+  app2.loadFlight(app2.getFlights()[0]);
+  assert.deepEqual([app2.S.date, app2.S.dateEnteredByCrew, app2.sandbox.window._flightDateISO], ['04 NOV 26', true, '2026-11-04']);
+});
+
+fixtureTest('TC-176-031 D57 NEGATIVE: the 56 dated packages show no prompt and no "Operating date needed"', async () => {
+  let n = 0;
+  for (const fx of manifest().fixtures) {
+    const imp = await imported(fx);
+    assert.ok(imp.S.date, fx.id);
+    assert.equal(peek(imp.app, '_editField'), null, `${fx.id}: no pop-up`);
+    n++;
+  }
+  assert.equal(n, 56);
+});
+
+// ══ TC-176-040 D62 ═════════════════════════════════════════════════════════════
+
+fixtureTest('TC-176-040 D62: FK counts 2:4, 3:12, 4:10; anonymous chips; no names in state or save, either format; editable; no count → no chips', async () => {
+  const count = {};
+  for (const fx of [...fkFixtures(), ...nbFixtures()]) {
+    const imp = await imported(fx), S = imp.S;
+    if (fx.format === 'flightkeys') count[S.operatingPilots] = (count[S.operatingPilots] || 0) + 1;
+    assert.deepEqual(chipProblems(S.crewMembers), [], `${fx.id}: chips carry a role only`);
+    assert.equal(S.crewMembers.length, S.operatingPilots || 0, `${fx.id}: one chip per pilot`);
+    const saved = JSON.stringify(imp.app.getFlights()[0].state.crewMembers);
+    for (const k of CREW_RECORD) assert.ok(!saved.includes(`"${k}"`), `${fx.id}: no ${k} saved`);
+    // the OFP's names are not on the rest card (checked against the parser's own crew records)
+    const r = imp.app._ofpParse(imp.rawText, peek(imp.app, 'pdfPages'));
+    const names = (r.crewMembers || []).map(c => c.lastName).filter(x => x && x.length > 2);
+    const card = imp.app.renderInflightRestModule();
+    assert.ok(names.every(nm => !card.includes(nm) && !saved.includes(nm)), `${fx.id}: no crew name shown or saved`);
+  }
+  assert.deepEqual(count, { 2: 4, 3: 12, 4: 10 });
+  // editable by the crew: the count on the existing N-pilot line and chips
+  const imp = await importFixture(fkFixtures().find(f => /KORD-RKSI_05NOV26/.test(f.id)), FIX);
+  const app = imp.app, S = imp.S;
+  assert.deepEqual(plain(S.crewMembers.map(c => c.role)), ['CA', 'FO', 'AO', 'AO']);
+  app.toggleCrewMember(3);
+  assert.equal(S.crewMembers.filter(c => c.active).length, 3, '4 → 3');
+  S.crewVerified = true;
+  assert.match(app.renderInflightRestModule(), /3-pilot confirmed/);
+  app.addManualCrew('FO');
+  S.crewVerified = true;
+  assert.match(app.renderInflightRestModule(), /4-pilot confirmed/, 'added');
+  // NEGATIVE: a package without a pilot count → no chips, the existing 2/3/4 picker; not carried over
+  const real = app.sandbox._ofpParse;
+  app.sandbox._ofpParse = (t, p) => Object.assign(real(t, p), { operatingPilots: null });
+  await importItems(readItems(fkFixtures().find(f => /KORD-RKSI_05NOV26/.test(f.id))), 'synthetic-nocount.pdf', { app });
+  assert.equal(app.S.operatingPilots, null);
+  assert.deepEqual(plain(app.S.crewMembers), [], 'no chips (nothing from the flight before)');
+  assert.match(app.renderInflightRestModule(), /No crew parsed — add manually below\.[\s\S]*Add Crew Rest/);
+  app.addBulkCrew(3);
+  assert.equal(app.S.crewMembers.length, 3, 'the 2/3/4 picker');
+});
+
+// ══ TC-176-050 D89 ═════════════════════════════════════════════════════════════
+
+const UUID = '12345678-90AB-CDEF-1234-567890ABCDEF';
+test('TC-176-050 D89: a mixed package is refused with the named error and the crew stays on the import screen; a FlightKeys package opens the flight', async () => {
+  const app = loadApp();
+  const toasts = [];
+  app.sandbox.showToast = (t, m) => toasts.push([t, m]);
+  const nav0 = [...app._navStack];
+  await importItems(itemsDoc(['synthetic', 'ATLAS AIR BRIEF PAGE 1 OF 2', `FUFI: ${UUID} PAGE 1/9`]), 'synthetic-mixed.pdf', { app });
+  assert.ok(toasts.some(([t, m]) => t === 'err' && /OFP format not recognised: both FlightKeys \(FUFI:\) and NavBlue \(BRIEF PAGE\)/.test(m)));
+  assert.deepEqual([...app._navStack], nav0, 'no flight screen pushed');
+  assert.equal(app.S.fltNum, '');
+  assert.deepEqual(plain(app.getFlights()), [], 'nothing saved');
+  assert.equal(app.parseOFP(), false);
+});
+
+fixtureTest('TC-176-051 D89 NEGATIVE: a FlightKeys and a NavBlue package open the flight screen', async () => {
+  for (const fx of [fkFixtures()[0], nbFixtures()[0]]) {
+    const imp = await imported(fx);
+    assert.equal(imp.app._navStack[imp.app._navStack.length - 1], 'screen-flight', fx.id);
+  }
+});
+
+// ══ TC-176-060 dispatchContact ═════════════════════════════════════════════════
+
+fixtureTest('TC-176-060 D72 dispatchContact: 26 FK on the Departure subcard (REQUIRED 22, IF QUESTIONS 4); NavBlue none; escaped', async () => {
+  const n = { REQUIRED: 0, 'IF QUESTIONS': 0 };
+  for (const fx of fkFixtures()) {
+    const imp = await imported(fx);
+    const lbl = imp.S.dispatchContact.label;
+    n[lbl]++;
+    const h = imp.app.renderPreflightPhase();
+    const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
+    assert.ok(dep.includes(`<div class="data-row"><span class="data-label">Dispatch</span><span class="data-value">${lbl}</span></div>`), `${fx.id}: on the Departure subcard`);
+  }
+  assert.deepEqual(n, { REQUIRED: 22, 'IF QUESTIONS': 4 });
+  for (const fx of nbFixtures()) {
+    const imp = await imported(fx);
+    assert.ok(!/<span class="data-label">Dispatch<\/span>/.test(imp.app.renderPreflightPhase()), `${fx.id}: no row`);
+  }
+  const app = loadApp();
+  app.S.dispatchContact = { label: '<b>' };
+  assert.ok(app.renderPreflightPhase().includes('<span class="data-value">&lt;b&gt;</span>'), 'esc()');
+});
+
+// ══ TC-176-070 / 071 D67b rows ═════════════════════════════════════════════════
+
+// Every D67b row on the app path, at the OFP times: { fmt, pkg, card, role, icao, id, group, pattern }.
+let _d67 = null;
+async function d67bAll() {
+  if (_d67) return _d67;
+  const out = [];
+  for (const fx of manifest().fixtures) {
+    const imp = await imported(fx), app = imp.app, sb = app.sandbox;
+    const orig = sb._d67bRows;
+    let cur = null;
+    sb._d67bRows = r => (cur = orig(r));
+    for (const apt of app.getAllAirports()) {
+      const d = imp.airportData[apt.icao] || { notams: '', weather: '' };
+      cur = null;
+      const st = app.evalAirport(apt.icao, apt.eta, d.notams, d.weather, apt.wxWindow, apt.role, imp.S.acftType);
+      if (!cur) continue;
+      for (const g of ['sid', 'star', 'general']) for (const it of cur[g]) {
+        const ob = sb.NotamRules._obstacleRule(app._d67bRuleText(it.notamRaw), it.fkCategory || null);
+        out.push({ fmt: fx.format === 'flightkeys' ? 'FK' : 'NB', pkg: fx.id, card: apt.role === 'ORIG' ? 'DEP' : 'DEST/ALT', role: apt.role,
+          icao: apt.icao, id: (notamKey(it.notamRaw) || {}).id || null, group: g, ob, item: it, st });
+      }
+    }
+    sb._d67bRows = orig;
+  }
+  return (_d67 = out);
+}
+
+fixtureTest('TC-176-070 D67b rows: FK 5 + NavBlue 11 departure, 21 + 37 destination / alternate; named NOTAMs; by NOTAM ID against change list v1.2', async () => {
+  const all = await d67bAll();
+  const by = {};
+  for (const r of all) by[`${r.fmt} ${r.card}`] = (by[`${r.fmt} ${r.card}`] || 0) + 1;
+  assert.deepEqual(by, { 'FK DEP': 5, 'NB DEP': 11, 'FK DEST/ALT': 21, 'NB DEST/ALT': 37 });
+  const grp = {};
+  for (const r of all) grp[`${r.card} ${r.group}`] = (grp[`${r.card} ${r.group}`] || 0) + 1;
+  assert.deepEqual(grp, { 'DEP general': 14, 'DEP sid': 2, 'DEST/ALT general': 16, 'DEST/ALT sid': 42 });
+  // the group comes from the module's pattern code only
+  for (const r of all) {
+    assert.ok(r.ob.obstacle && r.ob.show, `${r.pkg} ${r.id}: an obstacle NOTAM the module shows`);
+    assert.equal(r.group === 'sid', ['TKOF_ODP', 'TKOF_MINIMA', 'CLIMB_GRADIENT', 'CLOSE_IN_OBSTACLE'].includes(r.ob.pattern), `${r.id} ${r.ob.pattern}`);
+    assert.ok(r.id, 'every row has a NOTAM ID');
+  }
+  // the named ones (D67b O-32 note): KMIA A3054/26, KSFO A5323/26 have a row now (GENERAL, approach minima)
+  for (const [icao, id] of [['KMIA', 'A3054/26'], ['KSFO', 'A5323/26']]) {
+    const rs = all.filter(r => r.icao === icao && r.id === id);
+    assert.ok(rs.length >= 1 && rs.every(r => r.group === 'general' && r.ob.pattern === 'MINIMA_VALUE'), `${icao} ${id}`);
+  }
+  assert.equal(all.filter(r => r.id === 'F1556/26').length, 0, 'ZSPD F1556/26: not shown at the OFP times on the app path (no row to add)');
+  // change list v1.2: every row is a change-list entry (group U: LTFM B0812/26, B0651/26) or a NOTAM outside it, which
+  // v1.13.0 and v1.14.0 both show for a stated effect or other content (O-32, the change list's closing statement)
+  const listed = r => CHANGES.entries.filter(e => e.pkg === r.pkg && e.id === r.id);
+  const inList = all.filter(r => listed(r).length);
+  assert.deepEqual(inList.map(r => `${r.icao} ${r.id} ${listed(r).map(e => e.group).join('/')}`).sort(), ['LTFM B0651/26 U', 'LTFM B0812/26 U']);
+  for (const r of all.filter(x => !listed(x).length)) assert.ok(['EFFECT', 'OTHER'].includes(r.ob.group), `${r.pkg} ${r.id}: outside the list → an effect or other content`);
+  console.log('TC-176-070 rows: ' + all.map(r => `${r.card} ${r.icao} ${r.id} ${r.group.toUpperCase()}`).join('; '));
+  // the card colour and the issues are the module's: only the rows are added
+  for (const r of all.slice(0, 10)) {
+    const ids = new Set([...(r.st.sidIssues || []), ...(r.st.starIssues || []), ...[...r.st.rwyGroups.values()].flatMap(g => g.items)]);
+    assert.ok(ids.has(r.item), `${r.id}: the row is on the card`);
+  }
+});
+
+fixtureTest('TC-176-071 D67b negatives: no added row changes a card colour or issue; D67a hides stay hidden; rows only in E2 groups', async () => {
+  const all = await d67bAll();
+  const seen = new Set();
+  for (const r of all) {
+    const key = `${r.pkg} ${r.icao} ${r.role}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const imp = await imported(manifest().fixtures.find(f => f.id === r.pkg)), app = imp.app;
+    const apt = app.getAllAirports().find(a => a.icao === r.icao && a.role === r.role);
+    const d = imp.airportData[apt.icao];
+    const orig = app.sandbox._d67bRows;
+    app.sandbox._d67bRows = () => ({ sid: [], star: [], general: [] });
+    const off = app.evalAirport(apt.icao, apt.eta, d.notams, d.weather, apt.wxWindow, apt.role, imp.S.acftType);
+    app.sandbox._d67bRows = orig;
+    const on = app.evalAirport(apt.icao, apt.eta, d.notams, d.weather, apt.wxWindow, apt.role, imp.S.acftType);
+    assert.equal(on.color, off.color, `${key}: card colour unchanged`);
+    assert.deepEqual(plain(on.issues), plain(off.issues), `${key}: issues unchanged`);
+    // the rendered card: the module's rows plus the added ones, all inside notam groups
+    const h = app.renderAptIssues(on);
+    for (const x of all.filter(y => `${y.pkg} ${y.icao} ${y.role}` === key)) {
+      const lbl = app.sandbox.esc(x.item.rowLabel);
+      assert.ok(h.includes(`<span class="notam-item-label">${lbl}</span>`), `${key} ${x.id}: a row`);
+    }
+    assert.ok(app.renderAptIssues(off).length < h.length);
+  }
+  // D67a hides stay hidden: ETAR P2531/26 (obstacle lights out) is neither an issue nor a row
+  const etar = all.filter(r => r.id === 'P2531/26');
+  assert.equal(etar.length, 0);
+});
+
+test('TC-176-072 D67b synthetic: "RWY 09 GLIDESLOPE U/S" unchanged; take-off / climb → SIDs, others → GENERAL; hidden stays hidden; esc() on the row', () => {
+  const app = loadApp();
+  // synthetic NavBlue NOTAMs (invented airport KAAA), dated across the fixed clock's day
+  const H = id => `- KAAA ${id} 2610010000-2612312359\n`;
+  const nt = (id, body) => H(id) + body + '\n';
+  const ev = (txt, role) => app.evalAirport('KAAA', '1200', txt, '', null, role, 'B744');
+  const res = (txt, role) => app.evalNotams(app._splitNotams(txt), role, 720, null, '2026-10-30', null);
+  const rowsOf = r => [...r.sidIssues, ...r.starIssues, ...[...r.rwyGroups.values()].flatMap(g => g.items)];
+  // NEGATIVE: the plain glideslope NOTAM is no obstacle NOTAM: the module's runway row only, nothing added
+  const gs = nt('A0001/26', 'RWY 09 GLIDESLOPE U/S');
+  const r0 = ev(gs, 'DEST');
+  assert.deepEqual(plain(app._d67bRows(res(gs, 'DEST'))), { sid: [], star: [], general: [] });
+  assert.deepEqual([...r0.rwyGroups.keys()], ['RWY-09']);
+  assert.equal(rowsOf(r0).length, 1, 'one row');
+  // POSITIVE: shown obstacle NOTAMs the module gave no row (slot 7) → SIDs (take-off / climb) or GENERAL (others)
+  const cases = [
+    ['DEST', nt('A0002/26', 'OBST TOWER 900FT AMSL. MINIMUM CLIMB OF 350FT PER NM REQUIRED <B>X</B>'), 'sid', 'CLIMB_GRADIENT'],
+    ['DEST', nt('A0003/26', 'OBST TOWER 900FT AMSL. ODP AMENDED <B>X</B>'), 'sid', 'TKOF_ODP'],
+    ['ORIG', nt('A0004/26', 'CLOSE-IN OBST <B>X</B> TREES 40FT AGL'), 'sid', 'CLOSE_IN_OBSTACLE'],
+    ['ORIG', nt('A0005/26', 'OBST TOWER 900FT AMSL. CIRCLING CAT C/D NA <B>X</B>'), 'general', 'NOT_AUTHORISED'],
+  ];
+  for (const [role, txt, group, pattern] of cases) {
+    const r = res(txt, role);
+    const shown = r.issues.filter(i => i.level !== 'green');
+    assert.equal(shown.length, 1);
+    assert.equal(shown[0].slot, 7, 'no card row from the module');
+    assert.equal(app.sandbox.NotamRules._obstacleRule(app._d67bRuleText(shown[0].notamRaw), null).pattern, pattern);
+    const add = app._d67bRows(r);
+    assert.deepEqual(['sid', 'star', 'general'].map(g => add[g].length), ['sid', 'star', 'general'].map(g => (g === group ? 1 : 0)), `${role} ${pattern}`);
+    const st = ev(txt, role);
+    assert.equal(rowsOf(st).length, 1, `${pattern}: a row on the card`);
+    assert.equal(group === 'sid' ? st.sidIssues.length : st.rwyGroups.get('GENERAL').items.length, 1);
+    const h = app.renderAptIssues(st);
+    assert.ok(!h.includes('<B>X</B>') && h.includes('&lt;B&gt;X&lt;/B&gt;'), `${pattern}: esc() on the row`);
+    assert.ok(group !== 'sid' || /<span class="notam-group-label">SIDs<\/span>/.test(h), 'in the SIDs group');
+  }
+  // the same take-off NOTAM at a destination, where the module already gives it a row → kept, not added twice
+  const close = nt('A0006/26', 'CLOSE-IN OBST TREES 40FT AGL');
+  assert.equal(res(close, 'DEST').issues[0].slot, 4);
+  assert.deepEqual(plain(app._d67bRows(res(close, 'DEST'))), { sid: [], star: [], general: [] });
+  assert.equal(rowsOf(ev(close, 'DEST')).length, 1);
+  // NEGATIVE (D67a O-22): a hidden obstacle NOTAM (a height near a runway) is never added
+  const hid = nt('A0007/26', 'OBST CRANE 120FT AGL 0.5NM E APCH END RWY 27');
+  assert.equal(res(hid, 'DEST').issues.filter(i => i.level !== 'green').length, 0);
+  assert.equal(rowsOf(ev(hid, 'DEST')).length, 0);
+});
+
+// ══ TC-176-080 OFP Alerts (D92) ════════════════════════════════════════════════
+
+const alertsTitle = h => { const m = h.match(/<span class="callout-title( nt-red)?">OFP Alerts<\/span>/); return m ? (m[1] ? 'red' : 'normal') : null; };
+
+fixtureTest('TC-176-080 D92 OFP Alerts: order unchanged; red until tapped, per flight; the new items do not reset it; a new import starts red', async () => {
+  const fx = fkFixtures().find(f => /EBLG-KORD/.test(f.id));
+  const imp = await importFixture(fx, FIX), app = imp.app, S = imp.S;
+  const shown = app._ofpShownFindings(S.ofpFindings);
+  const lv = plain(shown.map(f => f.level));
+  assert.deepEqual(lv, [...lv].sort((a, b) => (a === 'WARN' ? 0 : 1) - (b === 'WARN' ? 0 : 1)), 'every WARN first, then the NAT INFOs');
+  assert.equal(alertsTitle(app.renderPreflightPhase()), 'red');
+  app.ofpAlertsSelect();
+  assert.equal(alertsTitle(app.renderPreflightPhase()), 'normal');
+  // the new items of this PR: crew chips, the NAT card, the dispatch row, a date entry, a save → still normal
+  app.toggleCrewMember(3);
+  app.renderEnroutePhase();
+  vm.runInContext("_d57Set('2026-11-03')", app.sandbox);
+  app.saveFlight();
+  assert.equal(S.ofpAlertsSeen, true);
+  assert.equal(alertsTitle(app.renderPreflightPhase()), 'normal');
+  // per flight: reload keeps it; a new import starts red
+  const app2 = loadApp({ storageData: { rp_flights: app.getFlights() } });
+  app2.loadFlight(app2.getFlights()[0]);
+  assert.equal(alertsTitle(app2.renderPreflightPhase()), 'normal');
+  await importItems(readItems(fx), 'again.pdf', { app: app2 });
+  assert.equal(alertsTitle(app2.renderPreflightPhase()), 'red');
+});
+
+// ══ TC-176-090 / 099 ═══════════════════════════════════════════════════════════
+
+test('TC-176-090 release labels unchanged (D91): APP_VERSION, CACHE_NAME, manifest.json 1.9.9-hf6', () => {
+  assert.match(HTML, /const APP_VERSION = '1\.9\.9-hf6';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.9\.9-hf6';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.9.9-hf6');
+});
+
+test('TC-176-099 fixtures missing → the fixture tests FAIL, never skip', () => {
+  assert.equal(findFixtures(path.join(ROOT, 'no-such-dir')) === path.join(ROOT, 'no-such-dir'), false);
+  assert.ok(FIX, 'the fixtures are available in this run');
+});

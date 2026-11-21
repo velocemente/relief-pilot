@@ -28,7 +28,11 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  // Preflight card that shows them; the pasted-text import.
                  '_ofpDetectFormat', '_ofpParse', '_ofpShownFindings', 'renderPreflightPhase', 'importManual',
                  // O-89: the crew selects the OFP Alerts title.
-                 'ofpAlertsSelect'];
+                 'ofpAlertsSelect',
+                 // Step 5e-2 display PR 1 (TC-176): the NAT card object, the D67b rows, the date pop-up,
+                 // the rest chips and their handlers, the Enroute card.
+                 '_natCardTrack', '_d67bRows', '_d67bRuleText', 'openEdit', '_d57Read', 'renderNote',
+                 'renderInflightRestModule', 'toggleCrewMember', 'addManualCrew', 'addBulkCrew', 'renderEnroutePhase'];
 // The NOTAM functions the standalone module (rules/notam-rules) provides. index.html builds the
 // module in (global NotamRules) and binds only evalNotams and _splitNotams as app names; for a
 // name the app does not bind, the harness reads the module's export from the same script.

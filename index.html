@@ -6924,12 +6924,12 @@ return API;
     var CHEV = '<svg style="width:9px;height:14px;flex-shrink:0;margin-left:auto;transition:transform .2s;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 9 14"><path d="M1 1l6.5 6L1 13"/></svg>';
     var trackType = nt.trackType || 'NAT';
     var blocks = nt.blocks || [];
-    if (!blocks.some(function (b) { return b.tracks.length > 0; })) return '';
+    if (!blocks.some(function (b) { return b.tracks.length > 0; }) && !nt.published) return '';   // D85: a published message keeps the card
 
     // ── Render one track row (expand/collapse per track) ─────────────────
     function renderTrackRow(tr, dir, idx) {
       var domId = 'nat-track-' + dir + '-' + tr.id;
-      var isAssigned = tr.assigned || tr.id === nt.assignedId;
+      var isAssigned = tr.assigned || (tr.id === nt.assignedId && (!nt.assignedDir || nt.assignedDir === dir));   // D85
       var h = '<div class="notam-group"' + (idx === 0 ? ' style="border-top:none"' : '') + '>';
       h += '<div class="notam-group-hdr" onclick="(function(el){';
       h += 'var b=document.getElementById(\'' + domId + '\');';
@@ -6995,10 +6995,12 @@ return API;
 
     var eastTracksContent = (eastBlk && eastBlk.tracks.length)
       ? '<div style="padding:0">' + eastBlk.tracks.map(function (tr, i) { return renderTrackRow(tr, 'EAST', i); }).join('') + '</div>'
+      : (nt.publishedDirs && nt.publishedDirs.indexOf('EAST') >= 0) ? ''   // D85: a published direction is never "no tracks"
       : '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No eastbound tracks found.</div>';
 
     var westTracksContent = (westBlk && westBlk.tracks.length)
       ? '<div style="padding:0">' + westBlk.tracks.map(function (tr, i) { return renderTrackRow(tr, 'WEST', i); }).join('') + '</div>'
+      : (nt.publishedDirs && nt.publishedDirs.indexOf('WEST') >= 0) ? ''   // D85
       : '<div style="padding:var(--sp3);font-size:14px;color:var(--label3)">No westbound tracks found.</div>';
 
     var eastCmtContent = nt.eastComments
@@ -7408,6 +7410,11 @@ const S = {
   oeiData:[], oeiSelectedRwy:'',
   blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
   crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
+  // Step 5e-2 display PR 1: operatingPilots (D62: the pilot count, no names), dispatchContact
+  // ({label} REQUIRED / IF QUESTIONS, D72), natMessages ([{tmi, direction, selected, track}],
+  // D85: parsed tracks, no message text), dateEnteredByCrew (D57). A flight saved before has
+  // none of them: that item is not shown (O-113).
+  operatingPilots:null, dispatchContact:null, natMessages:[], dateEnteredByCrew:false,
   // ddgItems: structured DDG/MEL array [{code, desc, tlr}]
   //   code: ATA number string e.g. "36-12-02-01"
   //   desc: full description string (may be multi-line joined)
@@ -7494,6 +7501,7 @@ function resetStateForNewFlight() {
     ddgItems:[], melItems:'', overflightPerms:'',
     altRoutes:[], acftType:'', weightUnit:'KGS', togwActual:0, togwLimit:0,
     navLog:[], enrouteNotams:null, natTrack:null,
+    operatingPilots:null, dispatchContact:null, natMessages:[], dateEnteredByCrew:false,
     zfwActual:0, zfwLimit:0, zfwOFP:0, ldgwActual:0, ldgwLimit:0,
     radioCallsign:'', verbalCallsign:'', isHeavy:false,
     hasPerishables:false,
@@ -7864,8 +7872,17 @@ const _pdfDb = (() => {
 function getFlights() {
   try { return JSON.parse(localStorage.getItem('rp_flights') || '[]'); } catch(e) { return []; }
 }
+// O-107: a save that fails (storage full) shows the existing error toast; false when not saved.
 function putFlights(arr) {
-  try { localStorage.setItem('rp_flights', JSON.stringify(arr.slice(0,25))); } catch(e) {}
+  try { localStorage.setItem('rp_flights', JSON.stringify(arr.slice(0,25))); return true; }
+  catch(e) { showToast('err', 'Flight not saved \u2013 storage full'); return false; }
+}
+// D62 (O-106): rest chips carry a role only. A flight saved before keeps its chips' roles and
+// on/off state; the names the OFP gave are removed (manual chips hold role words only).
+function _crewAnon(c) {
+  if (!c || typeof c !== 'object') return null;
+  if (c.manual) return c;
+  return { role: String(c.role || ''), active: c.active !== false, displayName: '' };
 }
 function saveFlight() {
   if (!S.fltNum && !S.date) return;
@@ -7909,6 +7926,15 @@ function loadFlight(entry) {
   resetStateForNewFlight();
   // Restore state from saved entry
   Object.assign(S, entry.state || {});
+  // D62: names in a flight saved before are removed, in the app and in storage.
+  if (Array.isArray(S.crewMembers)) {
+    const anon = S.crewMembers.map(_crewAnon).filter(Boolean);
+    if (JSON.stringify(anon) !== JSON.stringify(S.crewMembers)) {
+      S.crewMembers = anon;
+      const flights = getFlights(), k = flights.findIndex(f => f.id === entry.id);
+      if (k >= 0 && flights[k].state) { flights[k].state.crewMembers = anon; putFlights(flights); }
+    }
+  }
   pdfRawText = entry.raw || '';
   pdfArrayBuffer = null;   // start null; async restore from IndexedDB below
   clearOFPPanel();         // wipe any canvas pages from the previously viewed flight
@@ -8158,7 +8184,8 @@ async function processPDF(file) {
     pdfRawText = fullText;
     pdfPages = pages;
     showToast('ok', `✓ Loaded ${pdf.numPages} pages — parsing OFP…`);
-    setTimeout(() => { parseOFP(); push('screen-flight'); }, 400);
+    // D89: a refused package (parseOFP() false) leaves the crew on the import screen.
+    setTimeout(() => { if (parseOFP() !== false) push('screen-flight'); }, 400);
   } catch(err) { showToast('err', 'Error: ' + err.message); }
 }
 
@@ -8168,8 +8195,7 @@ function importManual() {
   resetStateForNewFlight();
   pdfRawText = txt;
   pdfArrayBuffer = null;  // no PDF binary available for manual paste
-  parseOFP();
-  push('screen-flight');
+  if (parseOFP() !== false) push('screen-flight');   // D89
 }
 
 // ── Native iOS Share entry point ──────────────────────────────────────────────
@@ -13320,15 +13346,52 @@ function fuelK(raw) {
 // AircraftProfile. The app has no other copy.
 const { deriveCallsign } = AircraftProfile;
 
+// ── Step 5e-2 display PR 1: the parser fields the screens show (no raw text, O-107) ──
+// D62 (O-106, O-109): crew rest takes the operating pilot count only, never a name.
+// FlightKeys: the parser's operatingPilots (null when none); NavBlue (locked, D47, no such
+// field): the OFP's operating crew lines, counted as the rest module counts them (not JS / DH).
+function _ofpPilotCount(result) {
+  if (result.operatingPilots !== undefined) {
+    const n = result.operatingPilots;
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }
+  const n = (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH').length;
+  return n || null;
+}
+// Anonymous rest chips for a pilot count: CA, FO, then AO (the roles of the 2/3/4 picker).
+function _crewChips(n) {
+  const out = [];
+  for (let i = 0; i < (n || 0); i++) out.push({ role: i === 0 ? 'CA' : i === 1 ? 'FO' : 'AO', active: true, displayName: '' });
+  return out;
+}
+// D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none.
+function _ofpDispatchContact(result) {
+  const d = result.dispatchContact;
+  return d && (d.label === 'REQUIRED' || d.label === 'IF QUESTIONS') ? { label: d.label } : null;
+}
+// D85: every NAT track message, parsed once here with the NAT ruleset; the parsed track is
+// kept, never the message text. The message the parser chose keeps its natTrack (filed track
+// marked); the others are parsed without a filed letter. NavBlue: none.
+function _ofpNatMessages(result) {
+  const msgs = Array.isArray(result.natMessages) ? result.natMessages : [];
+  if (!msgs.length || !result.natTrack || typeof window.parseNatTrack !== 'function') return [];
+  return msgs.map(m => ({
+    tmi: m.tmi || null, direction: m.direction || null, selected: !!m.selected,
+    track: m.selected ? result.natTrack : (window.parseNatTrack(m.text || '', result.origIcao, result.destIcao, { findings: [] }) || null),
+  }));
+}
+
+// Returns false when the package is refused (D89): the caller stays on the import screen.
 function parseOFP() {
   let result;
   try {
     result = _ofpParse(pdfRawText, pdfPages);
   } catch (err) {
-    if (err && err.name === 'OfpFormatMixedError') { showToast('err', err.message); return; }
+    if (err && err.name === 'OfpFormatMixedError') { showToast('err', err.message); return false; }
     throw err;
   }
   if (!result) return;
+  const _pilots = _ofpPilotCount(result);
 
   // Merge parsed airportData into global (preserves any user edits already present)
   Object.keys(result.airportData || {}).forEach(icao => {
@@ -13350,7 +13413,9 @@ function parseOFP() {
 
   Object.assign(S, {
     fltNum:     result.fltNum,
-    date:       result.dateStr,
+    // D57: no readable flight date → no date; the crew enters it (S.dateEnteredByCrew).
+    date:       result.flightDateISO ? result.dateStr : '',
+    dateEnteredByCrew: false,
     outZ:       result.offFromOFP,
     etaDest:    result.etaDest,
     origIcao:   result.origIcao,
@@ -13362,7 +13427,10 @@ function parseOFP() {
     minfFuel:   fuelK(result.minfFuelRaw),
     fresFuel:   fuelK(result.fresFuelRaw),
     ballastFuel: result.ballastFuel,
-    crewMembers:   result.crewMembers || [],
+    // D62: anonymous chips from the pilot count; the OFP's crew names are not kept.
+    crewMembers:   _crewChips(_pilots),
+    operatingPilots: _pilots,
+    dispatchContact: _ofpDispatchContact(result),
     tocOffsetMins: result.tocOffsetMins,
     togwActual: result.togwActual,
     togwLimit:  result.togwLimit,
@@ -13378,6 +13446,7 @@ function parseOFP() {
     navLog:         result.navLog     || [],
     enrouteNotams:  result.enrouteNotams || null,
     natTrack:       result.natTrack   || null,
+    natMessages:    _ofpNatMessages(result),
     oeiData:    result.oeiData,
     oeiSelectedRwy: result.oeiData.length ? (S.oeiSelectedRwy || '') : '',
     hasPerishables: result.hasPerishables,
@@ -13437,6 +13506,9 @@ function parseOFP() {
 
   renderNote();
   saveFlight();
+  // D57: no readable flight date → the date pop-up, prefilled with today's UTC date.
+  if (!S.date) openEdit('date');
+  return true;
 }
 
 //  TIMEZONE HELPERS
@@ -13528,7 +13600,13 @@ function renderNote() {
   sh += `<span class="flt-id${_fcirActive ? ' fcir-active' : ''}">${esc(S.fltNum || '------')}</span>`;
   sh += `</div>`;
   sh += `<div class="flt-date-row">`;
-  sh += `<span class="flt-date">${esc(S.date || '-- --- --')}</span>`;
+  // D57 (O-106): no readable flight date → "Operating date needed" in the date slot; a tap opens
+  // the date pop-up (also for a date the crew entered, to correct it).
+  if (!S.date || S.dateEnteredByCrew) {
+    sh += `<span class="flt-date" role="button" tabindex="0" onclick="openEdit('date')">${esc(S.date || 'Operating date needed')}</span>`;
+  } else {
+    sh += `<span class="flt-date">${esc(S.date)}</span>`;
+  }
   sh += `</div>`;
   sh += `</div>`;
   if (S.etopsSpec || S.etopsEntry) {
@@ -13664,6 +13742,10 @@ function renderPreflightPhase() {
   }
 
   h += `<div class="data-row"><span class="data-label">STAB</span><span class="data-value">${ev('stabTrim', S.stabTrim||'___/___')}</span></div>`;
+  // D72: the Dispatch contact (FlightKeys Company NOTAMs): REQUIRED / IF QUESTIONS. None → no row.
+  if (S.dispatchContact && S.dispatchContact.label) {
+    h += `<div class="data-row"><span class="data-label">Dispatch</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
+  }
   h += `</div>`; // data-table
   h += `</div></div>`; // subcard-body + subcard
 
@@ -14286,7 +14368,7 @@ function renderEnroutePhase() {
   h += `</div></div>`; // subcard-body + subcard
 
   // NAT Track Message — between enroute timeline and rest module (nat-rules.js v1.1.0)
-  if (S.natTrack) h += window.renderNatTrack(S.natTrack, navLog);
+  if (S.natTrack) h += window.renderNatTrack(_natCardTrack(), navLog);
 
   // Regular (>400px): rest module as its own subcard below enroute times
   h += `<div class="rest-module-regular">${renderInflightRestModule()}</div>`;
@@ -14314,6 +14396,35 @@ function renderEnroutePhase() {
 
   h += renderFcirSubcard();
   return h;
+}
+
+// ── NAT card, every published direction (step 5e-2 display PR 1, D85) ─────
+// FlightKeys: S.natMessages holds every track message of the package, each parsed
+// once at import (parseOFP). The card shows the chosen message first, then each
+// other published direction (the first message of that direction); each direction's
+// comments come from its message. "No … tracks found." only for a direction no
+// message has (publishedDirs); a published message with no tracks keeps the card
+// (published). The filed track is marked in the chosen message's direction only
+// (assignedDir). NavBlue and flights saved without natMessages: S.natTrack as before.
+function _natCardTrack() {
+  const nt = S.natTrack;
+  const msgs = (Array.isArray(S.natMessages) ? S.natMessages : []).filter(m => m && m.track);
+  if (!nt || !msgs.length) return nt;
+  const ordered = msgs.filter(m => m.selected).concat(msgs.filter(m => !m.selected));
+  const blocks = [];
+  const cmt = { EAST: '', WEST: '' };
+  for (const m of ordered) {
+    for (const b of (m.track.blocks || [])) if (!blocks.some(x => x.dir === b.dir)) blocks.push(b);
+    if (!cmt.EAST && m.track.eastComments) cmt.EAST = m.track.eastComments;
+    if (!cmt.WEST && m.track.westComments) cmt.WEST = m.track.westComments;
+  }
+  const chosen = ordered[0].selected ? ordered[0] : null;
+  return Object.assign({}, nt, {
+    blocks, eastComments: cmt.EAST, westComments: cmt.WEST,
+    published: msgs.length,
+    publishedDirs: [...new Set(msgs.map(m => m.direction).filter(Boolean))],
+    assignedDir: chosen && chosen.direction ? chosen.direction : null,
+  });
 }
 // ═══════════════════════════════════════════════════════════════════
 // INFLIGHT REST MODULE  v1.2.0  (14 CFR 121.467 — Augmented Crews)
@@ -14514,7 +14625,7 @@ function renderInflightRestModule() {
         h += `<div style="display:flex;align-items:center;gap:4px;
                 background:var(--fill3);border-radius:20px;padding:4px 6px 4px 12px;
                 min-height:32px;font-size:13px;font-family:var(--font);color:var(--label2)">
-                <span style="font-weight:700">${c.role}</span>
+                <span style="font-weight:700">${esc(c.role)}</span>
                 <span>${esc(c.displayName)}</span>
                 <button onclick="removeManualCrew(${idx})" aria-label="Remove manual crew"
                   style="width:20px;height:20px;border-radius:50%;background:var(--fill);
@@ -14524,14 +14635,14 @@ function renderInflightRestModule() {
               </div>`;
       } else {
         // Parsed crew: tap to toggle active/inactive
-        h += `<button onclick="toggleCrewMember(${idx})" aria-label="Toggle ${c.role}"
+        h += `<button onclick="toggleCrewMember(${idx})" aria-label="Toggle ${esc(c.role)}"
                 aria-pressed="${isActive}"
                 style="display:flex;align-items:center;gap:4px;
                   background:${isActive ? 'var(--tint-bg)' : 'var(--fill3)'};
                   color:${isActive ? 'var(--tint)' : 'var(--label3)'};
                   border:none;border-radius:20px;padding:4px 12px;
                   font-size:13px;font-family:var(--font);cursor:pointer;min-height:32px">
-                <span style="font-weight:700">${c.role}${c.isSen ? ' ★' : ''}</span>
+                <span style="font-weight:700">${esc(c.role)}${c.isSen ? ' ★' : ''}</span>
                 <span>${esc(c.displayName)}</span>
               </button>`;
       }
@@ -15483,12 +15594,49 @@ const STRING_FIELD_RULES = {
 };
 let _editField = null;
 
+// ── D57 (O-106): the operating date the crew enters when the OFP has none ──
+// The pop-up is prefilled with today's UTC date, DD MM YYYY. The prefill moves
+// forward when 0000Z passes and never back (a later prefill is never earlier).
+let _d57Prefill = '';
+function _d57Today() {
+  const iso = new Date().toISOString().slice(0, 10);   // UTC
+  if (iso > _d57Prefill) _d57Prefill = iso;
+  return _d57Prefill;
+}
+const _D57_MON = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const _d57Show = iso => `${iso.slice(8, 10)} ${iso.slice(5, 7)} ${iso.slice(0, 4)}`;
+// "DD MM YYYY" (or DDMMYYYY, '.', '/', '-') → "YYYY-MM-DD", null when not a real date.
+function _d57Read(val) {
+  const m = String(val || '').trim().match(/^(\d{1,2})[\s.\/-]*(\d{1,2})[\s.\/-]*(\d{4})$/);
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  if (d.getUTCFullYear() !== +m[3] || d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[1]) return null;
+  return d.toISOString().slice(0, 10);
+}
+// Stores the date as the OFP prints it (DD MON YY) with the crew flag; the timeline,
+// NOTAM and weather windows follow (D51).
+function _d57Set(iso) {
+  const oldDate = S.date;
+  const date = `${iso.slice(8, 10)} ${_D57_MON[+iso.slice(5, 7) - 1]} ${iso.slice(2, 4)}`;
+  const flights = getFlights(), k = flights.findIndex(f => f.fltNum === S.fltNum && f.date === oldDate);
+  if (k >= 0) { flights[k].date = date; putFlights(flights); }   // keep the same saved flight
+  S.date = date;
+  S.dateEnteredByCrew = true;
+  window._flightDateISO = iso;
+  _tlBuild();
+  buildAirportCards();
+}
+
 function openEdit(field) {
   _editField = field;
   const inp = document.getElementById('editInput');
   inp.maxLength = (STRING_FIELD_RULES[field] || {}).maxLen || 20;
+  if (field === 'date') {   // D57
+    inp.value = _d57Show(window._flightDateISO || _d57Today());
+    inp.inputMode = 'numeric';
+    inp.autocapitalize = 'off';
   // Weight int fields: show raw integer, numeric keyboard
-  if (WEIGHT_INT_FIELDS.has(field)) {
+  } else if (WEIGHT_INT_FIELDS.has(field)) {
     inp.value = S[field] ? String(S[field]) : '';
     inp.inputMode = 'numeric';
     inp.autocapitalize = 'off';
@@ -15551,6 +15699,11 @@ function confirmEdit() {
       if (_editField === 'togwActual' && S.ldgwActual)
         S.ldgwActual = S.ldgwActual + (parsed - _prevTOGW);
     }
+    cancelEdit(); renderNote(); saveFlight(); return;
+  }
+  if (_editField === 'date') {   // D57: a date that cannot be read is not taken (the field reverts)
+    const iso = _d57Read(val);
+    if (iso) _d57Set(iso);
     cancelEdit(); renderNote(); saveFlight(); return;
   }
   if (_editField === 'crewRestBuffer') {
@@ -16257,6 +16410,16 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
     rwyGroups = result.rwyGroups;
     sidIssues = result.sidIssues || [];
     starIssues = result.starIssues || [];
+    // D67b (O-105): a row for every shown obstacle NOTAM without one (see _d67bRows).
+    const d67b = _d67bRows(result);
+    if (d67b.sid.length)  sidIssues  = [...sidIssues, ...d67b.sid].sort(_byRowLabel);
+    if (d67b.star.length) starIssues = [...starIssues, ...d67b.star].sort(_byRowLabel);
+    if (d67b.general.length) {
+      rwyGroups = new Map(rwyGroups);
+      const g = rwyGroups.get('GENERAL');
+      rwyGroups.set('GENERAL', { rwy: null, groupType: 'general', label: '',
+        ...(g || {}), items: [...(g ? g.items : []), ...d67b.general].sort(_byRowLabel) });
+    }
     result.issues.forEach(i => {
       if (i.level !== 'green') issues.push({ level: i.level, text: i.text });
     });
@@ -16406,6 +16569,42 @@ function evalAirport(icao, etaZ, notamText, weatherText, wxWindowOverride, role,
   if (worst === 'unknown' && (hN || hW_eff)) worst = 'green';
   return { color: worst, issues, wxIssues, rwyGroups, sidIssues, starIssues, isEwins: !!isEwins };
 }
+
+// ── D67b card rows (step 5e-2 display PR 1, Exec answer O-105 A+) ───────────────
+// The airport card draws rows only for the E2 groups: runway, taxiway, general, SID, STAR
+// (renderAptIssues). Every shown obstacle NOTAM the NOTAM module gave none of these is put
+// in one, from the module's own output only — its obstacle-rule decision
+// (NotamRules._obstacleRule: group and pattern code) — never from the NOTAM text:
+//   take-off / climb effects → SIDs; STAR effects → STARs; all others → GENERAL.
+// Level, label, text and the card colour stay the module's; only the row is added.
+const _D67B_SID  = new Set(['TKOF_ODP', 'TKOF_MINIMA', 'CLIMB_GRADIENT', 'CLOSE_IN_OBSTACLE']);
+const _D67B_STAR = new Set([]);   // no STAR-only effect code in NOTAM v1.14.0 (open item, report)
+// The text the module's content rules read (FlightKeys: without the item header rows and the
+// type heading lines, as evalNotams() cuts them with its own _fkHeader / _fkTypeHeading).
+function _d67bRuleText(raw) {
+  const h = NotamRules._fkHeader(raw);
+  if (!h) return raw;
+  const ls = raw.split('\n');
+  const skip = new Set(h.headerRows);
+  ls.forEach((l, k) => { if (NotamRules._fkTypeHeading(l)) skip.add(k); });
+  return ls.filter((_, k) => !skip.has(k)).join('\n');
+}
+// { sid: [], star: [], general: [] }: the shown obstacle NOTAMs of one evalNotams() result
+// that have no card row, by the E2 group they go to.
+function _d67bRows(result) {
+  const out = { sid: [], star: [], general: [] };
+  if (typeof NotamRules._obstacleRule !== 'function') return out;   // a NOTAM module without the obstacle rule
+  const inRow = new Set([...(result.sidIssues || []), ...(result.starIssues || [])]);
+  for (const g of result.rwyGroups.values()) g.items.forEach(i => inRow.add(i));
+  for (const it of result.issues) {
+    if (inRow.has(it) || it.level === 'green' || !it.notamRaw) continue;
+    const ob = NotamRules._obstacleRule(_d67bRuleText(it.notamRaw), it.fkCategory || null);
+    if (!ob.obstacle || !ob.show) continue;
+    out[_D67B_SID.has(ob.pattern) ? 'sid' : _D67B_STAR.has(ob.pattern) ? 'star' : 'general'].push(it);
+  }
+  return out;
+}
+const _byRowLabel = (a, b) => (a.rowLabel || '').localeCompare(b.rowLabel || '');
 
 
 // ── TAF window extractor ─────────────────────────────────────────────────

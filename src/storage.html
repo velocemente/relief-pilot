@@ -1,8 +1,17 @@
 function getFlights() {
   try { return JSON.parse(localStorage.getItem('rp_flights') || '[]'); } catch(e) { return []; }
 }
+// O-107: a save that fails (storage full) shows the existing error toast; false when not saved.
 function putFlights(arr) {
-  try { localStorage.setItem('rp_flights', JSON.stringify(arr.slice(0,25))); } catch(e) {}
+  try { localStorage.setItem('rp_flights', JSON.stringify(arr.slice(0,25))); return true; }
+  catch(e) { showToast('err', 'Flight not saved \u2013 storage full'); return false; }
+}
+// D62 (O-106): rest chips carry a role only. A flight saved before keeps its chips' roles and
+// on/off state; the names the OFP gave are removed (manual chips hold role words only).
+function _crewAnon(c) {
+  if (!c || typeof c !== 'object') return null;
+  if (c.manual) return c;
+  return { role: String(c.role || ''), active: c.active !== false, displayName: '' };
 }
 function saveFlight() {
   if (!S.fltNum && !S.date) return;
@@ -46,6 +55,15 @@ function loadFlight(entry) {
   resetStateForNewFlight();
   // Restore state from saved entry
   Object.assign(S, entry.state || {});
+  // D62: names in a flight saved before are removed, in the app and in storage.
+  if (Array.isArray(S.crewMembers)) {
+    const anon = S.crewMembers.map(_crewAnon).filter(Boolean);
+    if (JSON.stringify(anon) !== JSON.stringify(S.crewMembers)) {
+      S.crewMembers = anon;
+      const flights = getFlights(), k = flights.findIndex(f => f.id === entry.id);
+      if (k >= 0 && flights[k].state) { flights[k].state.crewMembers = anon; putFlights(flights); }
+    }
+  }
   pdfRawText = entry.raw || '';
   pdfArrayBuffer = null;   // start null; async restore from IndexedDB below
   clearOFPPanel();         // wipe any canvas pages from the previously viewed flight

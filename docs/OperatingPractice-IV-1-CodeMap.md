@@ -61,3 +61,18 @@ Extracted from SOP-PROJ-OperatingPractice-NEW-20260606-v1.0 (Volume IV — Techn
 | 13235–13493 | `src/ofp-parse.html` | `_ofpRulesetParse` (NavBlue adapter, unchanged); **`_ofpDetectFormat`** (O-78), **`_ofpParse`** (router), **`_ofpShownFindings`** (O-88); `parseOFP()` (~13313) stores `S.ofpFindings` |
 | 13494–14058 | `src/render-preflight.html` | `renderPreflightPhase()` (~13587): the **OFP findings** list at the top (O-76, O-87) |
 | 14059–17661 | the other `src/` fragments | unchanged order: enroute, rest, descent, edit, airports, oei, copy, import, settings, sw-register |
+
+## Step 5e-2 display PR 1
+
+Same 26 parts. FlightKeys parser v1.0.1 is built in (O-116; v1.0.0 frozen in `test/oracle`). The new code lives here:
+
+| Part | Function | What |
+|---|---|---|
+| `src/ofp-parse.html` | `_ofpPilotCount`, `_crewChips`, `_ofpDispatchContact`, `_ofpNatMessages`; `parseOFP()` | D62 pilot count and anonymous rest chips; D72 Dispatch contact label; D85 NAT messages parsed once; D57 date rule; D89 refusal returns `false` |
+| `src/pdf.html` | `processPDF()`, `importManual()` | D89: stay on the import screen after a refusal |
+| `src/storage.html` | `putFlights()`, `_crewAnon()`, `loadFlight()` | O-107 failed-save toast; D62 names removed from saved flights |
+| `src/edit.html` | `_d57Today`, `_d57Read`, `_d57Set`; `openEdit('date')`, `confirmEdit()` | D57 date pop-up |
+| `src/render-preflight.html` | `renderNote()` header date slot; `renderPreflightPhase()` Departure subcard | D57 "Operating date needed"; D72 Dispatch row |
+| `src/render-enroute.html` | `_natCardTrack()` | D85 NAT card object: every published direction |
+| `src/nat.html` | `renderNatTrack()` | four D85 edits (TC-174-003) |
+| `src/airports.html` | `_d67bRows`, `_d67bRuleText` (below `evalAirport`) | D67b / O-105 card rows |

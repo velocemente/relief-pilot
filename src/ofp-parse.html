@@ -76,15 +76,52 @@ function fuelK(raw) {
 // AircraftProfile. The app has no other copy.
 const { deriveCallsign } = AircraftProfile;
 
+// ── Step 5e-2 display PR 1: the parser fields the screens show (no raw text, O-107) ──
+// D62 (O-106, O-109): crew rest takes the operating pilot count only, never a name.
+// FlightKeys: the parser's operatingPilots (null when none); NavBlue (locked, D47, no such
+// field): the OFP's operating crew lines, counted as the rest module counts them (not JS / DH).
+function _ofpPilotCount(result) {
+  if (result.operatingPilots !== undefined) {
+    const n = result.operatingPilots;
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }
+  const n = (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH').length;
+  return n || null;
+}
+// Anonymous rest chips for a pilot count: CA, FO, then AO (the roles of the 2/3/4 picker).
+function _crewChips(n) {
+  const out = [];
+  for (let i = 0; i < (n || 0); i++) out.push({ role: i === 0 ? 'CA' : i === 1 ? 'FO' : 'AO', active: true, displayName: '' });
+  return out;
+}
+// D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none.
+function _ofpDispatchContact(result) {
+  const d = result.dispatchContact;
+  return d && (d.label === 'REQUIRED' || d.label === 'IF QUESTIONS') ? { label: d.label } : null;
+}
+// D85: every NAT track message, parsed once here with the NAT ruleset; the parsed track is
+// kept, never the message text. The message the parser chose keeps its natTrack (filed track
+// marked); the others are parsed without a filed letter. NavBlue: none.
+function _ofpNatMessages(result) {
+  const msgs = Array.isArray(result.natMessages) ? result.natMessages : [];
+  if (!msgs.length || !result.natTrack || typeof window.parseNatTrack !== 'function') return [];
+  return msgs.map(m => ({
+    tmi: m.tmi || null, direction: m.direction || null, selected: !!m.selected,
+    track: m.selected ? result.natTrack : (window.parseNatTrack(m.text || '', result.origIcao, result.destIcao, { findings: [] }) || null),
+  }));
+}
+
+// Returns false when the package is refused (D89): the caller stays on the import screen.
 function parseOFP() {
   let result;
   try {
     result = _ofpParse(pdfRawText, pdfPages);
   } catch (err) {
-    if (err && err.name === 'OfpFormatMixedError') { showToast('err', err.message); return; }
+    if (err && err.name === 'OfpFormatMixedError') { showToast('err', err.message); return false; }
     throw err;
   }
   if (!result) return;
+  const _pilots = _ofpPilotCount(result);
 
   // Merge parsed airportData into global (preserves any user edits already present)
   Object.keys(result.airportData || {}).forEach(icao => {
@@ -106,7 +143,9 @@ function parseOFP() {
 
   Object.assign(S, {
     fltNum:     result.fltNum,
-    date:       result.dateStr,
+    // D57: no readable flight date → no date; the crew enters it (S.dateEnteredByCrew).
+    date:       result.flightDateISO ? result.dateStr : '',
+    dateEnteredByCrew: false,
     outZ:       result.offFromOFP,
     etaDest:    result.etaDest,
     origIcao:   result.origIcao,
@@ -118,7 +157,10 @@ function parseOFP() {
     minfFuel:   fuelK(result.minfFuelRaw),
     fresFuel:   fuelK(result.fresFuelRaw),
     ballastFuel: result.ballastFuel,
-    crewMembers:   result.crewMembers || [],
+    // D62: anonymous chips from the pilot count; the OFP's crew names are not kept.
+    crewMembers:   _crewChips(_pilots),
+    operatingPilots: _pilots,
+    dispatchContact: _ofpDispatchContact(result),
     tocOffsetMins: result.tocOffsetMins,
     togwActual: result.togwActual,
     togwLimit:  result.togwLimit,
@@ -134,6 +176,7 @@ function parseOFP() {
     navLog:         result.navLog     || [],
     enrouteNotams:  result.enrouteNotams || null,
     natTrack:       result.natTrack   || null,
+    natMessages:    _ofpNatMessages(result),
     oeiData:    result.oeiData,
     oeiSelectedRwy: result.oeiData.length ? (S.oeiSelectedRwy || '') : '',
     hasPerishables: result.hasPerishables,
@@ -193,6 +236,9 @@ function parseOFP() {
 
   renderNote();
   saveFlight();
+  // D57: no readable flight date → the date pop-up, prefilled with today's UTC date.
+  if (!S.date) openEdit('date');
+  return true;
 }
 
 //  TIMEZONE HELPERS

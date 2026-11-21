@@ -197,7 +197,7 @@ function renderInflightRestModule() {
         h += `<div style="display:flex;align-items:center;gap:4px;
                 background:var(--fill3);border-radius:20px;padding:4px 6px 4px 12px;
                 min-height:32px;font-size:13px;font-family:var(--font);color:var(--label2)">
-                <span style="font-weight:700">${c.role}</span>
+                <span style="font-weight:700">${esc(c.role)}</span>
                 <span>${esc(c.displayName)}</span>
                 <button onclick="removeManualCrew(${idx})" aria-label="Remove manual crew"
                   style="width:20px;height:20px;border-radius:50%;background:var(--fill);
@@ -207,14 +207,14 @@ function renderInflightRestModule() {
               </div>`;
       } else {
         // Parsed crew: tap to toggle active/inactive
-        h += `<button onclick="toggleCrewMember(${idx})" aria-label="Toggle ${c.role}"
+        h += `<button onclick="toggleCrewMember(${idx})" aria-label="Toggle ${esc(c.role)}"
                 aria-pressed="${isActive}"
                 style="display:flex;align-items:center;gap:4px;
                   background:${isActive ? 'var(--tint-bg)' : 'var(--fill3)'};
                   color:${isActive ? 'var(--tint)' : 'var(--label3)'};
                   border:none;border-radius:20px;padding:4px 12px;
                   font-size:13px;font-family:var(--font);cursor:pointer;min-height:32px">
-                <span style="font-weight:700">${c.role}${c.isSen ? ' ★' : ''}</span>
+                <span style="font-weight:700">${esc(c.role)}${c.isSen ? ' ★' : ''}</span>
                 <span>${esc(c.displayName)}</span>
               </button>`;
       }
