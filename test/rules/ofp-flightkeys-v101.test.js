@@ -1,8 +1,9 @@
 'use strict';
 /**
  * TC-175 — FlightKeys OFP parser v1.0.1 (rules/ofp-flightkeys-next; step 5e-2 module PR, Exec answers O-100,
- * O-103 option B): the module only, NOT built into the app (D90: the integration is its own PR). The only change
- * from v1.0.0: the internal references ("(SME-n)", "(O-n)", "(D63a)" and combinations) are removed from the
+ * O-103 option B, O-115): the module only, NOT built into the app (D90: the integration is its own PR). The only
+ * change from v1.0.0: the internal references ("(SME-n)", "(O-n)", "(D63a)", "(CS-1)", "rows 29–31", "read in
+ * 5d", "(§A.8)" and combinations) are removed from the
  * crew-facing finding texts, at the source (O-100); meaning, wording and capitals are unchanged, and only the
  * spaces and brackets the references leave behind are tidied. Level, field and code of every finding unchanged.
  * The references stay in the module's comments, the SPEC and these tests.
@@ -15,15 +16,16 @@
  *               manifest.json stay 1.9.9-hf6 (D91)
  *   TC-175-003  validateSchema(): valid
  *   TC-175-004  every finding template, by level and field (static, all templates, fired or not): none in v1.0.1
- *               carries "(SME-", "(O-", "D-n" or a version number; NEGATIVE control: the same scan finds the
- *               references in v1.0.0 — 10 WARN and 17 INFO templates
- *   TC-175-005  the source differs from v1.0.0 only in the header comment, RULESET_VERSION and those 27 templates,
+ *               carries "(SME-", "(O-", "D-n", "CS-n", "§", a row or step reference or a version number (O-115);
+ *               NEGATIVE control: the same scan finds the references in v1.0.0 — 11 WARN and 20 INFO templates;
+ *               the deferred-field INFO keeps the text O-84 set; its unused 5d step is unreachable
+ *   TC-175-005  the source differs from v1.0.0 only in the header comment, RULESET_VERSION and those 31 templates,
  *               and each changed template is the v1.0.0 one with the references removed (an independent strip),
  *               expressions untouched; a template without a reference is unchanged (negative)
  *   TC-175-010  all 26 vs v1.0.0: every key except findings byte-identical, keys in order; findings[] the same
  *               length, order, level, field, code and keys; a message differs only where v1.0.0's carried a
  *               reference, and then equals v1.0.0's with the reference removed; no message of v1.0.1 carries a
- *               reference; counts: 114 texts on 26 packages, 4 of them WARN (L08, L21, L22, L23)
+ *               reference; counts: 143 texts on 26 packages, 4 of them WARN (L08, L21, L22, L23)
  *   TC-175-011  pinned values on all 26 (fixtures expected/ofp-flightkeys-v1.0.1/messages.json): every changed
  *               text with its index, level and field, made with this module (SHA-256)
  *   TC-175-020  the 4 shown WARNs on OFP Alerts (the app's real import path, index.html with v1.0.1 in place of
@@ -71,11 +73,14 @@ const EXPECTED_FILE = path.join('expected', 'ofp-flightkeys-v1.0.1', 'messages.j
 const sha      = s => crypto.createHash('sha256').update(s).digest('hex');
 const j        = x => JSON.stringify(x);
 
-// The brief's reference patterns (O-100, D99): "(SME-", "(O-", "D-n" (D63a, D47 …) or a version number.
-const REF = /\((?:SME|O)-|\bSME-\d|\bO-\d|\bD-?\d+[a-z]?\b|\bv?\d+\.\d+\.\d+\b/;
+// The reference patterns (O-100, O-115, D99): "(SME-", "(O-", "D-n" (D63a, D47 …), "CS-n", "§", a field-map row
+// ("rows 29–31"), a step ("in 5d", "step 5e") or a version number.
+const REF = /\((?:SME|O)-|\bSME-\d|\bO-\d|\bD-?\d+[a-z]?\b|\bCS-\d|§|\brows? \d|\b(?:in|step) \d[a-e]\b|\bv?\d+\.\d+\.\d+\b/;
 // Independent strip (the oracle): " (O-42, SME-20)", " (SME-17/21)", " (D63a)" → ""; "; SME-18a)" → ")".
-const ITEM  = '(?:(?:SME|O)-\\d+[a-z]?(?:\\/\\d+)?|D\\d+[a-z]?)';
-const STRIP = [[new RegExp(` \\(${ITEM}(?:, ${ITEM})*\\)`, 'g'), ''], [new RegExp(`; ${ITEM}\\)`, 'g'), ')']];
+// O-115: " (CS-1)", " (§A.8)" as above; "rows 29–31 " → ""; ", read in 5d" → "".
+const ITEM  = '(?:(?:SME|O|CS)-\\d+[a-z]?(?:\\/\\d+)?|D\\d+[a-z]?|§[A-Z]\\.\\d+)';
+const STRIP = [[new RegExp(` \\(${ITEM}(?:, ${ITEM})*\\)`, 'g'), ''], [new RegExp(`; ${ITEM}\\)`, 'g'), ')'],
+  [/\brows? \d+(?:[–-]\d+)? /g, ''], [/, read in \d[a-e]\b/g, '']];
 const strip = s => STRIP.reduce((t, [re, to]) => t.replace(re, to), s);
 
 // ══ static scan of the finding templates ═════════════════════════════════════════════════════════
@@ -182,7 +187,7 @@ test('TC-175-003 validateSchema(): valid', () => {
   assert.deepEqual(mod.validateSchema(), { valid: true, errors: [] });
 });
 
-test('TC-175-004 no finding template carries "(SME-", "(O-", "D-n" or a version number (all templates, by level and field); v1.0.0 had 10 WARN + 17 INFO', () => {
+test('TC-175-004 no finding template carries "(SME-", "(O-", "D-n", "CS-n", "§", a row / step reference or a version number (all templates, by level and field); v1.0.0 had 11 WARN + 20 INFO', () => {
   assert.equal(T_NEW.length, T_OLD.length, 'the same templates, in the same order');
   assert.equal(T_NEW.length, 147, 'every add() / ctx.add() / warns.push() finding call of the module (grep count)');
   T_NEW.forEach((t, i) => assert.deepEqual([t.level, t.field], [T_OLD[i].level, T_OLD[i].field], `template ${i}: level and field unchanged`));
@@ -190,21 +195,27 @@ test('TC-175-004 no finding template carries "(SME-", "(O-", "D-n" or a version 
   assert.deepEqual(left.map(t => `${t.level} ${t.field} (line ${t.line})`), [], 'no template of v1.0.1 carries a reference');
   // NEGATIVE control: the scan finds the references where they were
   const had = withRef(T_OLD);
-  assert.deepEqual(count(had), { WARN: 10, INFO: 17 });
+  assert.deepEqual(count(had), { WARN: 11, INFO: 20 });
   assert.equal(had.filter(t => t.level === 'WARN/INFO').length, 0);
   assert.deepEqual(had.map(t => `${t.level} ${t.field}`).sort(), [
     'INFO airportData', 'INFO airportData.curfew', 'INFO airportData.opsNotes', 'INFO crewMembers', 'INFO crewMembers',
-    'INFO ddgItems', 'INFO dispatchContact', 'INFO dispatchContact', 'INFO enrouteNotams', 'INFO enrouteNotams',
-    'INFO enrouteNotams', 'INFO enrouteNotams', 'INFO enrouteNotams', 'INFO ewins', 'INFO hazards', 'INFO natTrack', 'INFO sections',
-    'WARN airportData.curfew', 'WARN airportData.curfew', 'WARN airportData.curfew', 'WARN altData', 'WARN enrouteNotams',
+    'INFO ddgItems', 'INFO designator', 'INFO dispatchContact', 'INFO dispatchContact', 'INFO enrouteNotams', 'INFO enrouteNotams',
+    'INFO enrouteNotams', 'INFO enrouteNotams', 'INFO enrouteNotams', 'INFO enrouteNotams', 'INFO ewins', 'INFO ewins', 'INFO hazards',
+    'INFO natTrack', 'INFO sections',
+    'WARN airportData.curfew', 'WARN airportData.curfew', 'WARN airportData.curfew', 'WARN altData', 'WARN dotExemption', 'WARN enrouteNotams',
     'WARN natTrack', 'WARN natTrack', 'WARN natTrack', 'WARN natTrack', 'WARN ofpRemarks',
   ]);
   // the scan sees a planted reference (negative)
   assert.equal(withRef(templates("add('WARN', 'x', `text (O-7)`); add('INFO', 'y', 'v1.2.3'); add('INFO', 'z', 'see D47');")).length, 3);
+  assert.equal(withRef(templates("add('WARN', 'x', `text (CS-1)`); add('INFO', 'y', 'rows 29–31 not read'); add('INFO', 'z', 'read in 5d (§A.8)');")).length, 3);
   assert.equal(withRef(templates("add('WARN', 'x', `text ${a.b} (aircraft ${c})`); s.add(`(O-1)`);")).length, 0);
+  // the deferred-field INFO is built from DEFERRED_STEPS, not a literal: it keeps the text the Exec set (O-84),
+  // and the '5d' step text is unreachable (no field is deferred to 5d)
+  assert.deepEqual(Object.values(mod.DEFERRED_FIELDS), ['open']);
+  assert.ok(NEW_SRC.includes("add('INFO', f, `not read: ${DEFERRED_STEPS[DEFERRED_FIELDS[f]]}`)"));
 });
 
-test('TC-175-005 the source differs from v1.0.0 only in the header, RULESET_VERSION and the 27 templates, each = v1.0.0 with the references stripped', () => {
+test('TC-175-005 the source differs from v1.0.0 only in the header, RULESET_VERSION and the 31 templates, each = v1.0.0 with the references stripped', () => {
   const oldL = OLD_SRC.split('\n'), newL = NEW_SRC.split('\n');
   const anchor = l => l.findIndex(x => x.startsWith(' * v1.0.0 (D58; step 5e-1'));
   const ao = anchor(oldL), an = anchor(newL);
@@ -218,14 +229,14 @@ test('TC-175-005 the source differs from v1.0.0 only in the header, RULESET_VERS
   const version = changed.filter(i => !tplLines.has(i));
   assert.deepEqual(version.map(i => oldL[i]), ["const RULESET_VERSION  = '1.0.0';"], 'outside the templates only RULESET_VERSION changes');
   assert.equal(newL[an + version[0] - ao], "const RULESET_VERSION  = '1.0.1';");
-  assert.equal(changed.length - 1, 28, '28 changed lines: 27 templates, one of them over two lines');
+  assert.equal(changed.length - 1, 32, '32 changed lines: 31 templates, one of them over two lines');
   // each changed template = the v1.0.0 template with the references stripped; every other template unchanged
   let stripped = 0;
   T_OLD.forEach((t, i) => {
     if (REF.test(t.literals)) { assert.equal(T_NEW[i].text, strip(t.text), `${t.level} ${t.field} (line ${t.line})`); assert.notEqual(T_NEW[i].text, t.text); stripped++; }
     else assert.equal(T_NEW[i].text, t.text, `NEGATIVE: ${t.level} ${t.field} (line ${t.line}) has no reference and is unchanged`);
   });
-  assert.equal(stripped, 27);
+  assert.equal(stripped, 31);
 });
 
 // ══ TC-175-010 / 011 / 020 / 030 / 090 fixtures ══════════════════════════════════════════════════
@@ -246,7 +257,7 @@ function fk() {
 }
 const SHOWN_WARN = ['L08', 'L21', 'L22', 'L23'];
 
-fixtureTest('TC-175-010 all 26 vs v1.0.0: every other field byte-identical; findings differ only in the texts that carried a reference (114 on 26, 4 WARN)', () => {
+fixtureTest('TC-175-010 all 26 vs v1.0.0: every other field byte-identical; findings differ only in the texts that carried a reference (143 on 26, 4 WARN)', () => {
   assert.equal(fk().length, 26);
   let n = 0, kept = 0;
   const warnPkgs = [], perLevel = { WARN: 0, INFO: 0 };
@@ -266,8 +277,8 @@ fixtureTest('TC-175-010 all 26 vs v1.0.0: every other field byte-identical; find
       } else { assert.equal(g.message, f.message, `NEGATIVE: ${lbl} #${i} ${f.level} ${f.field}: no reference, unchanged`); kept++; }
     });
   }
-  assert.equal(n, 114, 'changed texts on the 26');
-  assert.deepEqual(perLevel, { WARN: 4, INFO: 110 });
+  assert.equal(n, 143, 'changed texts on the 26');
+  assert.deepEqual(perLevel, { WARN: 4, INFO: 139 });
   assert.deepEqual(warnPkgs.sort(), SHOWN_WARN);
   assert.equal(fk().filter(p => p.a.findings.some((f, i) => f.message !== p.b.findings[i].message)).length, 26, 'a changed text in every package');
   console.log(`TC-175-010: ${n} texts changed (WARN ${perLevel.WARN}, INFO ${perLevel.INFO}), ${kept} unchanged, on ${fk().length} packages; every other field equal`);
@@ -286,7 +297,7 @@ fixtureTest('TC-175-011 pinned values on all 26 (expected/ofp-flightkeys-v1.0.1/
     assert.deepEqual(got, e.changed, `${p.lbl}: changed texts`);
     total += e.changed.length;
   }
-  assert.equal(total, 114);
+  assert.equal(total, 143);
 });
 
 // The app's real import path (processPDF → parseOFP → S.ofpFindings → the Preflight card), with an index.html.

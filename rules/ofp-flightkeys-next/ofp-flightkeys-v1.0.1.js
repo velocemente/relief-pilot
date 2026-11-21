@@ -7,10 +7,11 @@
  * and meanings, as the locked NavBlue parser (FK-P), plus the Appendix B
  * extensions and findings[].
  *
- * v1.0.1 (step 5e-2, module PR; Exec answers O-100, O-103) changes only the
- * crew-facing finding texts: the internal references ("(SME-n)", "(O-n)",
- * "(D63a)" and combinations) are removed from the 10 WARN and 17 INFO
- * templates that carried them; meaning, wording and capitals are unchanged.
+ * v1.0.1 (step 5e-2, module PR; Exec answers O-100, O-103, O-115) changes
+ * only the crew-facing finding texts: the internal references ("(SME-n)",
+ * "(O-n)", "(D63a)", "(CS-1)", "rows 29–31", "read in 5d", "(§A.8)" and
+ * combinations) are removed from the 11 WARN and 20 INFO templates that
+ * carried them; meaning, wording and capitals are unchanged.
  * The references stay in the comments, the SPEC and the tests. Every other
  * output is byte-identical to v1.0.0 (TC-175). Not built into index.html:
  * rules/ofp-flightkeys-next until the integration PR (D90).
@@ -635,7 +636,7 @@ function _readIdentity(ctx) {
   }
   if (ext.designator && acp && acp.CALLSIGN_INDEX && typeof acp.CALLSIGN_INDEX === 'object'
       && !Object.prototype.hasOwnProperty.call(acp.CALLSIGN_INDEX, ext.designator)) {
-    add('INFO', 'designator', `designator ${ext.designator} is not in the callsign index (CS-1): no verbal callsign`);
+    add('INFO', 'designator', `designator ${ext.designator} is not in the callsign index: no verbal callsign`);
   }
 
   // Aircraft type and wake: FPL field 9 through icao-fpl (as NavBlue reads FPL 9).
@@ -827,7 +828,7 @@ function _readRemarksItems(ctx) {
   const { out, add, rel } = ctx;
   const lines = rel ? rel.lines : [];
   const s = lines.findIndex(l => PATTERNS.REMARKS_START.test(l));
-  if (s === -1) { if (rel) add('WARN', 'dotExemption', 'Remarks block not found in the release: rows 29–31 not read'); return; }
+  if (s === -1) { if (rel) add('WARN', 'dotExemption', 'Remarks block not found in the release: not read'); return; }
   let e = lines.findIndex((l, i) => i > s && PATTERNS.REMARKS_END.test(l));
   if (e === -1) e = lines.length;
   const rem = lines.slice(s + 1, e).join('\n');
@@ -1504,7 +1505,7 @@ function _readRemarks(ctx, from, to) {
   // D45: security messages.
   for (const en of entries.filter(x => x.category === 'security')) ext.securityMessages.push({ text: en.text, page: en.page, line: en.line });
   // E-WINS release line: no airport, no forecast — sets nothing (SME-17, SME-21).
-  if (entries.some(x => x.category === 'ewins')) add('INFO', 'ewins', 'E-WINS release line names no airport and no forecast: sets nothing here (the E-WINS forecast is the * PRIO * briefing TAF, read in 5d)');
+  if (entries.some(x => x.category === 'ewins')) add('INFO', 'ewins', 'E-WINS release line names no airport and no forecast: sets nothing here (the E-WINS forecast is the * PRIO * briefing TAF)');
   // Air-defence clearances (row 35, permits[]).
   ctx.adc = entries.filter(x => x.category === 'permit').map(x => { const m = PATTERNS.PERMIT_ADC.exec(x.text); return { country: m[1], adc: m[2] }; });
 
@@ -2620,7 +2621,7 @@ function _readFirs(ctx) {
   out.enrouteNotams = { route: '', fir: txt.join('\n\n'), airway: '', waypoint: '', geographic: '' };
   const empties = recs.filter(x => x.empty);
   if (!docs.length) add('WARN', 'enrouteNotams', 'no NOTAM Briefing document: FIR NOTAMs not read');
-  else add('INFO', 'enrouteNotams', `${recs.length} FIR blocks in the NOTAM Briefing, ${nItems} FIR NOTAM items; route, airway, waypoint and geographic are empty: FlightKeys prints en-route NOTAMs per FIR only (§A.8)`);
+  else add('INFO', 'enrouteNotams', `${recs.length} FIR blocks in the NOTAM Briefing, ${nItems} FIR NOTAM items; route, airway, waypoint and geographic are empty: FlightKeys prints en-route NOTAMs per FIR only`);
   if (empties.length) add('INFO', 'enrouteNotams', `${empties.length} FIR block(s) print no active NOTAMs and are left out of enrouteNotams.fir: ${empties.map(x => x.code).join(', ')}`);
 }
 
