@@ -68,8 +68,8 @@ test('TC-178-010 O-68 / D79 (synthetic paste): the filed NAT track is not in the
   assert.equal(peek(app, 'pdfPages'), null, 'the paste route: text only, no positions');
   assert.ok(app.S.fltNum, 'the release is read from the pasted text');
   const d79 = app.S.ofpFindings.filter(f => f.code === 'NAT-FILED-NOT-IN-MESSAGE');
-  assert.deepEqual(plain(d79), [{ level: 'WARN', field: 'natTrack', code: 'NAT-FILED-NOT-IN-MESSAGE', message: D79('Z', '307', 'WEST') }], 'stored with the flight');
-  assert.ok(alertLines(app).includes(D79('Z', '307', 'WEST')), 'the D79 text exactly, as one line of OFP Alerts');
+  assert.deepEqual(plain(d79), [{ level: 'WARN', field: 'natTrack', code: 'NAT-FILED-NOT-IN-MESSAGE', message: D79('Z', '361', 'WEST') }], 'stored with the flight');
+  assert.ok(alertLines(app).includes(D79('Z', '361', 'WEST')), 'the D79 text exactly, as one line of OFP Alerts');
   assert.equal(app.S.natTrack.assignedId, 'Z');
   // NEGATIVE: the track letter is printed in the filed route
   const ok = pasted(read(F_O68).replace('NATZ', 'NATB'));
