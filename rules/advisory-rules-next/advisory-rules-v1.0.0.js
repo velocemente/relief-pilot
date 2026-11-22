@@ -13,8 +13,9 @@
  *        - An advisory = the FlightKeys Volcanic Ash Advisories page with an
  *          actual advisory listed (volcanicAsh.state ADVISORY, ofp-flightkeys
  *          v1.1.0). The "no advisories" page is none.
- *        - A VA remark = an OFP remark that carries a term of the closed VA
- *          term list (VA_TERMS). It is NEGATIVE when, after every form of the
+ *        - A VA remark = an OFP remark of ANY category (RAIM records included,
+ *          QA F-02) that carries a term of the closed VA term list
+ *          (VA_TERMS). It is NEGATIVE when, after every form of the
  *          closed negative list (VA_NEGATIVE_FORMS) is taken out, no VA term is
  *          left; otherwise POSITIVE.
  *        - An advisory is linked to a positive remark that names its volcano.
@@ -25,6 +26,10 @@
  *   § 4  RAIM (O-171, D115)
  *        - Any PASSED form printed (plain or ETOPS ALTN) → no RAIM output for
  *          the flight, even if another RAIM remark is printed too (Exec-decided).
+ *        - A RAIM remark = an ofpRemarks record of category raim, or a remark of
+ *          another category flagged raim: true (ofp-flightkeys v1.1.0, QA
+ *          F-01); the PASSED hide suppresses only this RAIM attention output,
+ *          never a remark, a field or another rule's result (the VA WARN).
  *        - No PASSED form + any other RAIM remark (outage, unreadable, unknown
  *          form) → a RAIM attention record per remark, text as printed. Never an
  *          OFP Alerts line (O-171).
@@ -96,10 +101,6 @@ var RAIM_PASSED_FORMS = Object.freeze([
   /^RAIM VALIDATION PASSED$/,
   /^RAIM VALIDATION FOR ETOPS ALTN [A-Z]{4} PASSED$/,
 ]);
-// The OFP remarks never read for a VA term: the dispatcher line (a name), the
-// FlightKeys boilerplate (fixed text), the CDC attestation (signatures) and the
-// RAIM remarks (§ 4).
-var VA_SKIPPED_CATEGORIES = Object.freeze(['dispatcher', 'boilerplate', 'cdcAttestation', 'raim']);
 // O-178 (Exec, 22 Nov): the crew texts, exact (capitals, en dash, no full stop; D79). No
 // internal reference (D103) and no version number (D99).
 var VA_WARN = Object.freeze({
@@ -147,7 +148,9 @@ function _volcanicAsh(ofp, add) {
   var state = page ? page.state : null;
   var remarks = [];
   (Array.isArray(ofp && ofp.ofpRemarks) ? ofp.ofpRemarks : []).forEach(function (r, i) {
-    if (!r || typeof r.text !== 'string' || VA_SKIPPED_CATEGORIES.indexOf(r.category) >= 0) return;
+    // QA F-02: every remark is read, whatever its category — RAIM records too (the O-171 hide is for RAIM
+    // output only, never for volcanic ash content)
+    if (!r || typeof r.text !== 'string') return;
     var pol = remarkPolarity(r.text);
     if (pol) remarks.push({ index: i, text: r.text, page: r.page, line: r.line, polarity: pol, terms: vaTerms(r.text), advisories: [] });
   });
@@ -190,7 +193,8 @@ function isRaimPassed(text) {
 function _raim(ofp) {
   var records = [];
   (Array.isArray(ofp && ofp.ofpRemarks) ? ofp.ofpRemarks : []).forEach(function (r, i) {
-    if (r && r.category === 'raim' && typeof r.text === 'string') records.push({ index: i, text: r.text, page: r.page, line: r.line, passed: isRaimPassed(r.text) });
+    // a raim record, or a remark of another category flagged raim (QA F-01: it keeps its own category)
+    if (r && (r.category === 'raim' || r.raim === true) && typeof r.text === 'string') records.push({ index: i, text: r.text, page: r.page, line: r.line, passed: isRaimPassed(r.text) });
   });
   var passed = records.some(function (r) { return r.passed; });
   return {
@@ -320,7 +324,7 @@ var API = {
   vaTerms: vaTerms,                         // (text) → the VA terms it carries
   vaSigmetCount: vaSigmetCount,             // (hazard text) → the number of SIGMETs with a VA term
   FINDING_CODES: FINDING_CODES, VA_TERMS: VA_TERMS, VA_NEGATIVE_FORMS: VA_NEGATIVE_FORMS,
-  RAIM_PASSED_FORMS: RAIM_PASSED_FORMS, VA_WARN: VA_WARN, VA_SKIPPED_CATEGORIES: VA_SKIPPED_CATEGORIES,
+  RAIM_PASSED_FORMS: RAIM_PASSED_FORMS, VA_WARN: VA_WARN,
 };
 return API;
 });

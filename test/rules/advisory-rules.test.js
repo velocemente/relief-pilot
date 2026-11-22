@@ -24,9 +24,14 @@
  *               remark; VAA + remark naming another volcano; garbled VA page (with and without a remark); VA remark
  *               joined to a neighbouring paragraph; NO VA ACTIVITY + VAA; NONE / no page + positive remark; both
  *               WARNs once each; two advisories; a volcano name over a line break; skipped remark kinds
+ *   TC-181-021  SYNTHETIC QA F-02: a VA remark naming RAIM; a VA line after an outage line; both with PASSED → the O-177
+ *               WARN (and without PASSED with the RAIM attention record); a VA name in a raim record links an advisory;
+ *               PASSED only → nothing (negative)
  *   TC-181-030  SYNTHETIC RAIM, end to end: outage with satellite and times; "no outages" wording; FAILED;
  *               garbled; outage with continuation lines; PASSED + outage → no output (also ETOPS ALTN); the word
  *               RAIM in a non-RAIM remark; RAIM in NOTAM text; no RAIM remark; never a WARN (O-171)
+ *   TC-181-031  SYNTHETIC QA F-01: CAT II/III, security, PCF, extra fuel, route remarks naming RAIM keep their
+ *               category and field; without PASSED a RAIM attention record, with PASSED none — the remark stays
  *   TC-181-040  SYNTHETIC volcanic FIR items (O-180): ASHTAM, "no ash cloud", VAAC, a Company item, lower-case
  *               "va" (negative), hazards with and without a VA SIGMET
  *   TC-181-050  D88 / D118: the 30 NavBlue results give nothing; the same content in a format-neutral object
@@ -138,7 +143,7 @@ test('TC-181-005 the closed lists and their rules', () => {
   assert.deepEqual(adv.VA_TERMS.map(t => t.term), ['VA', 'VOLCANO', 'VOLCANIC', 'ASH', 'ASHTAM', 'ERUPTION', 'VAAC']);
   assert.deepEqual(adv.VA_NEGATIVE_FORMS, ['NO VA ACTIVITY AFFECTING FLIGHT']);
   assert.deepEqual(adv.RAIM_PASSED_FORMS.map(String), ['/^RAIM VALIDATION PASSED$/', '/^RAIM VALIDATION FOR ETOPS ALTN [A-Z]{4} PASSED$/']);
-  assert.deepEqual(adv.VA_SKIPPED_CATEGORIES, ['dispatcher', 'boilerplate', 'cdcAttestation', 'raim']);
+  assert.ok(!('VA_SKIPPED_CATEGORIES' in adv), 'QA F-02: no remark category is skipped by the VA scan');
   // terms: whole words; "VA" in capitals only
   assert.deepEqual(adv.vaTerms('ROUTED SOUTH TO AVOID POTENTIAL VA FROM X'), ['VA']);
   assert.deepEqual(adv.vaTerms('NO ASH CLOUD IS\nPRODUCED'), ['ASH']);
@@ -290,10 +295,34 @@ test('TC-181-020 SYNTHETIC volcanic ash: the brief\'s cases, end to end through 
   // a two-word volcano name split over a line break is linked
   const g = run({ remarks: ['ROUTED NORTH TO AVOID VA FROM GREAT', 'SITKIN'] }, vaa([{ nr: '2026/003', volcano: 'GREAT SITKIN', vaac: 'ANCHORAGE', volcanoNo: '311120' }]));
   assert.deepEqual(msgs(g), [ADVISORY]);
-  // NEGATIVE: VA terms in the dispatcher line, the boilerplate, a RAIM remark are not VA remarks
-  const skip = adv.evaluateAdvisories({ ofpRemarks: [{ text: 'DISPATCHER DESK: 00 ASH', category: 'dispatcher' }, { text: 'VA BOILER', category: 'boilerplate' },
+  // QA F-02: the VA scan reads every remark whatever its category — RAIM records, the dispatcher line, the
+  // boilerplate and the CDC attestation included
+  const all = adv.evaluateAdvisories({ ofpRemarks: [{ text: 'DISPATCHER DESK: 00 ASH', category: 'dispatcher' }, { text: 'VA BOILER', category: 'boilerplate' },
     { text: 'RAIM OUTAGE VA', category: 'raim' }, { text: 'SIGNED ASH', category: 'cdcAttestation' }] });
-  assert.deepEqual([skip.volcanicAsh.remarks, skip.findings], [[], []]);
+  assert.deepEqual(all.volcanicAsh.remarks.map(x => [x.index, x.polarity]), [[0, 'POSITIVE'], [1, 'POSITIVE'], [2, 'POSITIVE'], [3, 'POSITIVE']]);
+  assert.deepEqual(msgs(all), [ROUTING]);
+});
+
+test('TC-181-021 SYNTHETIC QA F-02: a VA remark naming RAIM, and a VA line after an outage line, raise the O-177 WARN — PASSED printed or not', () => {
+  // a positive VA remark that names RAIM (a raim record: it matches no other category) + PASSED → ROUTING
+  const a = run({ remarks: [S5.BL, 'VOLCANIC ASH TESTPEAK - EXPECT REROUTE, GPS RAIM REDUCED', S5.BL] });
+  assert.equal(a.raim.passed, true);
+  assert.deepEqual(a.raim.records.map(x => x.text), ['VOLCANIC ASH TESTPEAK - EXPECT REROUTE, GPS RAIM REDUCED', 'RAIM VALIDATION PASSED']);
+  assert.deepEqual([msgs(a), a.openOfpRemarks, a.raim.attention], [[ROUTING], true, []], 'the VA WARN is raised; only the RAIM attention is hidden (O-171)');
+  // a VA line following an outage line (one raim paragraph, O-172) + PASSED → ROUTING
+  const OUT = ['RAIM OUTAGE PREDICTED FOR KCCC', 'PRN 05 0500Z-0530Z', 'VOLCANIC ASH CLOUD TESTPEAK FL200-FL350'];
+  const b = run({ raim: ['RAIM VALIDATION PASSED', ...OUT] });
+  assert.deepEqual(b.raim.records.map(x => x.text), ['RAIM VALIDATION PASSED', OUT.join('\n')]);
+  assert.deepEqual([msgs(b), b.openOfpRemarks, b.raim.attention], [[ROUTING], true, []]);
+  // the same without PASSED → the WARN and the RAIM attention record
+  const c = run({ raim: OUT });
+  assert.deepEqual([msgs(c), c.raim.attention.map(x => x.text)], [[ROUTING], [OUT.join('\n')]]);
+  // naming the advisory volcano on an ADVISORY page → the ADVISORY WARN, also inside a raim record
+  const d = run({ raim: ['RAIM VALIDATION PASSED', 'RAIM OUTAGE PREDICTED FOR KCCC', 'VA FROM TESTVOLCANO NEAR KCCC'] }, vaa());
+  assert.deepEqual(msgs(d), [ADVISORY]);
+  // NEGATIVE: PASSED only → nothing
+  const e = run({});
+  assert.deepEqual([msgs(e), e.openOfpRemarks, e.raim.attention, e.volcanicAsh.remarks], [[], false, [], []]);
 });
 
 test('TC-181-030 SYNTHETIC RAIM end to end (O-171, D115): attention only without a PASSED form; never a WARN', () => {
@@ -325,6 +354,32 @@ test('TC-181-030 SYNTHETIC RAIM end to end (O-171, D115): attention only without
     '               A0001/26        2026-Mar-01 00:00 - UFN', 'CREATED:2026-Feb-28 00:00       FL: SFC - UNL', 'SUBJECT: GPS', 'RAIM OUTAGE PREDICTED KZZZ 0300-0400Z'])]);
   assert.deepEqual([nt.raim.records, nt.raim.attention, nt.openOfpRemarks], [[], [], false]);
   assert.deepEqual(att({ raim: [] }), { passed: false, records: [], attention: [] });
+});
+
+// QA F-01 (parser, carried here): a remark of another category naming RAIM keeps its category and field; the engine
+// counts it as a RAIM remark (flag), and PASSED hides only the RAIM attention, never the remark.
+const F01 = [['catIiIii', 'KBBB CAT II/III NOT AUTHORIZED RAIM', p => p.catIiIiiRestrictions.length],
+  ['security', 'SECURITY LEVEL 2 RAIM', p => p.securityMessages.length], ['pcf', 'PCF 002000 FOR RAIM OUTAGE', p => p.pcf.reasons.length],
+  ['extraFuel', 'EXTRA FUEL 1500 FOR RAIM', p => p.extraFuel.reasons.length], ['route', 'ROUTE VIA AAAAA DUE RAIM', p => p.ofpRemarks.filter(x => x.category === 'route').length]];
+
+test('TC-181-031 SYNTHETIC QA F-01: CAT II/III, security, PCF, extra fuel, route remarks naming RAIM — attention without PASSED; with PASSED only the attention is hidden', () => {
+  for (const [cat, line, field] of F01) {
+    for (const passed of [true, false]) {
+      const inp = S5.input(S5.release({ remarks: [S5.BL, line, S5.BL], raim: passed ? ['RAIM VALIDATION PASSED'] : [] }));
+      const p = fk.parseFlightKeys(inp, OPTS), e = adv.evaluateAdvisories(p);
+      const tag = `${cat}, ${passed ? 'PASSED' : 'no PASSED'}`;
+      const rmk = p.ofpRemarks.find(x => x.text === line);
+      assert.deepEqual([rmk.category, rmk.raim], [cat, true], `${tag}: own category, flagged`);
+      assert.ok(field(p) >= 1, `${tag}: its field is filled`);
+      assert.ok(e.raim.records.some(x => x.text === line), `${tag}: a RAIM remark for the engine`);
+      assert.deepEqual(e.raim.attention.map(x => x.text), passed ? [] : [line], `${tag}: attention`);
+      assert.equal(e.openOfpRemarks, !passed, `${tag}: O-179 flag`);
+      assert.deepEqual(e.findings, [], `${tag}: no WARN (O-171)`);
+    }
+  }
+  // a VA term in such a remark still gives the O-177 WARN with PASSED (QA F-02)
+  const v = run({ remarks: [S5.BL, 'ROUTE VIA AAAAA DUE RAIM AND VA NEAR TESTPEAK', S5.BL] });
+  assert.deepEqual([msgs(v), v.raim.attention], [[ROUTING], []]);
 });
 
 test('TC-181-040 SYNTHETIC volcanic FIR items (O-180): flagged by the closed term list, "no ash cloud" too', () => {

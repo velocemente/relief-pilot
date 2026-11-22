@@ -28,7 +28,7 @@ Module standard: one standalone file, dual context (Node `module.exports`; brows
 | `isRaimPassed(text)` | → whether the text is one of the PASSED forms (§4) |
 | `vaTerms(text)` | → the VA terms the text carries, in list order (§3.1) |
 | `vaSigmetCount(text)` | → the SIGMET products of a hazard block that carry a VA term (§5) |
-| `VA_TERMS`, `VA_NEGATIVE_FORMS`, `RAIM_PASSED_FORMS`, `VA_SKIPPED_CATEGORIES`, `VA_WARN`, `FINDING_CODES` | the closed lists and crew texts (frozen) |
+| `VA_TERMS`, `VA_NEGATIVE_FORMS`, `RAIM_PASSED_FORMS`, `VA_WARN`, `FINDING_CODES` | the closed lists and crew texts (frozen) |
 | `RULESET_TYPE` `'advisory-rules'`, `RULESET_VERSION` `'1.0.0'`, `SCHEMA_VERSION` 1, `RULESET_SOURCE`, `validateSchema()` | identity |
 
 ## 3. Volcanic ash (O-169, O-170, O-177, O-178; D116)
@@ -51,7 +51,7 @@ Not terms (negatives, TC-181-005): `AVAIL`, `NOVA`, `EVAC`, `CASH`, `WASH`, `VAA
 
 ### 3.2 VA remarks and the negative list (O-177)
 
-A **VA remark** is an `ofpRemarks[]` record that carries a VA term, except the categories `dispatcher` (a name line), `boilerplate` (fixed FlightKeys text), `cdcAttestation` (signatures) and `raim` (§4). Every line of the record counts, so a VA line joined to a neighbouring paragraph (D63a) is still found.
+A **VA remark** is an `ofpRemarks[]` record of **any category** that carries a VA term — RAIM records, the dispatcher line, the boilerplate and the CDC attestation included (QA F-02, fix round 1: the O-171 RAIM hide is for RAIM output only and never hides volcanic ash content; a VA line taken as the continuation of an outage remark, or a VA remark that names RAIM, is read). Every line of the record counts, so a VA line joined to a neighbouring paragraph (D63a) is still found.
 
 The **closed negative list** — the form seen in the corpus (L14):
 
@@ -81,14 +81,14 @@ Each WARN at most once per flight, ADVISORY first; both can appear (one linked a
 
 ## 4. RAIM (O-171, D115)
 
-The RAIM records are the `ofpRemarks[]` records of category `raim` (ofp-flightkeys v1.1.0, O-172: a remark whose first line names RAIM; continuation lines kept). The **closed PASSED list** (the two forms seen in both corpora):
+The **RAIM remarks** are the `ofpRemarks[]` records of category `raim` (ofp-flightkeys v1.1.0, O-172: a remark whose first line names RAIM and that matches no other category; continuation lines kept) **and** the remarks of another category flagged `raim: true` (QA F-01: a CAT II/III, security, PCF, extra fuel, route … remark naming RAIM keeps its own category and field; the engine counts it as a RAIM remark too). The **closed PASSED list** (the two forms seen in both corpora):
 
 | PASSED form (the whole record, trimmed) |
 | :--- |
 | `RAIM VALIDATION PASSED` |
 | `RAIM VALIDATION FOR ETOPS ALTN <ICAO> PASSED` |
 
-- **Any PASSED form printed → no RAIM output for the flight** (`attention` `[]`), even if another RAIM remark is printed too (O-171, Exec-decided hide).
+- **Any PASSED form printed → no RAIM output for the flight** (`attention` `[]`), even if another RAIM remark is printed too (O-171, Exec-decided hide). It suppresses **only** the RAIM attention output: it never removes or hides a remark, a field, a display or the volcanic ash result (§3) (QA F-01, F-02).
 - **No PASSED form + any other RAIM remark** (an outage, a `no outages` wording, `FAILED`, unreadable, an unknown form) → one **attention record per remark**, `{ text (as printed, every line), page, line }` (D115: crew attention).
 - **Never an OFP Alerts line** for RAIM (O-171): the display shows the record in the Preflight NOTES section below DDG.
 - The ETOPS-alternate form is not linked to the alternate (O-176 c). RAIM inside NOTAM text never reaches the remarks (O-172).
@@ -142,11 +142,13 @@ Per package (VA state · VA WARN · RAIM attention · volcanic FIR / hazard flag
 | TC-181-001 … 005 | identity, not built in, static purity, schema (negatives), O-178 texts byte for byte, the closed lists and their rules (negatives) | PASS |
 | TC-181-010, 011, 015 | the 26 against scoping; FIR / hazard flags; pinned results (`expected/advisory-rules-v1.0.0/results.json`, made with this module and ofp-flightkeys v1.1.0) | PASS |
 | TC-181-020 | SYNTHETIC VA (D87): VAA + positive remark; VAA, no remark; VAA + another volcano; garbled page with and without a remark; VA remark joined to a neighbouring paragraph (positive and negative); NO VA ACTIVITY + VAA; NONE / no page; both WARNs; two advisories; a name over a line break; skipped kinds | PASS |
+| TC-181-021 | SYNTHETIC QA F-02: a VA remark naming RAIM; a VA line after an outage line; both with PASSED → the O-177 WARN (without PASSED also the attention record); a volcano name in a raim record links an advisory; PASSED only → nothing | PASS |
 | TC-181-030 | SYNTHETIC RAIM: outage with satellite and times and continuation lines; `no outages`; FAILED; garbled; PASSED + outage (plain and ETOPS ALTN) → no output; RAIM in a non-RAIM remark; RAIM in NOTAM text; none; no WARN | PASS |
+| TC-181-031 | SYNTHETIC QA F-01: CAT II/III, security, PCF, extra fuel, route remarks naming RAIM keep their category and field; attention without PASSED, none with PASSED; a VA term in one still warns with PASSED | PASS |
 | TC-181-040 | SYNTHETIC FIR flags: ASHTAM, "no ash cloud", VAAC, Company item, lower-case `va` (negative), hazards with / without a VA SIGMET | PASS |
 | TC-181-050, 051, 090 | D88 / D118 (NavBlue 30/30 empty; format-neutral input = same result); input unchanged; fixtures missing → fail | PASS |
 
-14/14 PASS.
+16/16 PASS.
 
 ## 9. Known limitations / open items
 
@@ -162,4 +164,4 @@ Per package (VA state · VA WARN · RAIM attention · volcanic FIR / hazard flag
 
 | Version | Date | Status | Changes |
 | :--- | :--- | :--- | :--- |
-| **1.0.0** | 2026-11-22 | NEW (not built in, D90, D96) | Step 5f module PR B, Exec answers O-169 … O-181: volcanic ash (advisory + linked remark WARN, positive unlinked remark WARN, closed term and negative lists), RAIM (PASSED hides, attention records), volcanic FIR item / hazard flags, the OFP Remarks flag. |
+| **1.0.0** | 2026-11-22 | NEW (not built in, D90, D96) | Step 5f module PR B, Exec answers O-169 … O-181 (fix round 1: QA F-02 — every remark read for VA terms; F-01 — flagged remarks are RAIM remarks): volcanic ash (advisory + linked remark WARN, positive unlinked remark WARN, closed term and negative lists), RAIM (PASSED hides, attention records), volcanic FIR item / hazard flags, the OFP Remarks flag. |
