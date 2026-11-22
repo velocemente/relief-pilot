@@ -14,11 +14,13 @@
  * printed, advisories[] { volcano, vaac, number } } (contract 2.5, addendum 5;
  * O-169); a remark whose first line names RAIM is category raim, the two
  * PASSED forms stay one line and any other RAIM remark takes its continuation
- * lines up to the D63/D63a paragraph end (O-172); dispatchContact.text is the
- * whole Contact Dispatch remark as printed, every line (O-175; the label stays
- * as the internal short-form / long-form flag); the deferred-field INFO and
- * step texts carry no internal phrase (O-117); "PERISHABLES ONBOARD: NO" no
- * longer sets hasPerishables (O-129). Every other output is byte-identical to
+ * lines up to the D63/D63a paragraph end (O-172); dispatchContact carries every
+ * Contact Dispatch text printed — the Company NOTAM line and the whole OFP
+ * remark, every line (O-175, O-183; the label stays the internal short-form /
+ * long-form flag); the deferred-field INFO and
+ * step texts carry no internal phrase (O-117); hasPerishables only when the
+ * package prints YES — never for ": NO" or the bare "PERISHABLES ONBOARD" line,
+ * as the NavBlue rule (O-129, O-182). Every other output is byte-identical to
  * v1.0.1 (frozen as test/oracle/ofp-flightkeys-v1.0.1.js). Not built into
  * index.html: rules/ofp-flightkeys-next until the integration PR (D90, D96).
  *
@@ -129,7 +131,7 @@ const SCHEMA_VERSION   = 2;
 // notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65) (contract 2.3, addendum 3);
 // the top-level extensions firNotams, firRaw (D64, O-41), natMessages (O-43), hazards (O-45)
 // and dispatchContact (O-46) (contract 2.4, addendum 4); the top-level extension volcanicAsh (O-169)
-// and dispatchContact.source (O-175) (contract 2.5, addendum 5).
+// and dispatchContact.company / .remark (O-175) (contract 2.5, addendum 5).
 // Adding fields is a minor contract version (ADR-005 §2.4).
 const CONTRACT_VERSION = '2.5';
 const RULESET_SOURCE   = 'FlightKeys OFP issued by Atlas Air / Polar Air Cargo dispatch (release, ICAO FPL and briefing package); field map SPRINT-OFP-FlightKeysMigration v1.1; ICAO Doc 4444 App 2/3 through icao-fpl';
@@ -328,9 +330,9 @@ const PATTERNS = {
   // also prints the bare line "PERISHABLES ONBOARD" (row 27)
   PERISHABLE:      /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES|LIVE\s+ANIMALS\s*:\s*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
   PERISHABLES_ONBOARD: /^PERISHABLES?\s+ON\s*BOARD\b/,
-  // v1.1.0 (O-129, O-176 f): the printed value of that line. ": YES" → perishables; ": NO" → none;
-  // the bare line (7 of the 26 print it so, one item, nothing after it) → perishables, as v1.0.1.
-  PERISHABLES_VALUE:   /^PERISHABLES?\s+ON\s*BOARD\s*:\s*(YES|NO)\s*$/,
+  // v1.1.0 (O-129, O-182): the printed value of that line. ": YES" / " YES" → perishables; ": NO", the bare
+  // line (7 of the 26 print it so, one item, nothing after it) or any other value → none (the NavBlue rule).
+  PERISHABLES_VALUE:   /^PERISHABLES?\s+ON\s*BOARD\s*:?\s*(YES|NO)\s*$/,
   TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
   // Row 35: "Overflight/Landing Permits" … the nav-log header; groups "--- OVERFLIGHT PERMITS" etc.
   PERMITS_START:   /^Overflight\/Landing Permits?\s*$/,
@@ -1501,11 +1503,13 @@ function _readRemarks(ctx, from, to) {
   const remText = lines.slice(from, to).join('\n');
 
   // Rows 27, 28 (D55): the NavBlue rules on the release Remarks; FlightKeys bare line.
-  // v1.1.0 (O-129): "PERISHABLES ONBOARD: NO" sets nothing; ": YES" and the bare line set it (as v1.0.1).
+  // v1.1.0 (O-129, O-182, Exec 22 Nov): perishables only when the package prints YES — the NavBlue pattern
+  // or "PERISHABLES ONBOARD: YES"; ": NO" and the bare "PERISHABLES ONBOARD" line set nothing (v1.0.1: the
+  // bare line set it).
   out.hasPerishables = PATTERNS.PERISHABLE.test(remText) || entries.some(en => {
     if (en.category !== 'perishables') return false;
     const v = PATTERNS.PERISHABLES_VALUE.exec(lines[en.lines[0]].trim());
-    return !v || v[1] === 'YES';
+    return !!v && v[1] === 'YES';
   });
   out.hasTemperatureControl = PATTERNS.TEMPERATURE_CONTROL.test(remText);
 
@@ -2413,18 +2417,23 @@ function _readDispatchContact(ctx) {
     }
   }
   const label = found.REQUIRED ? 'REQUIRED' : found['IF QUESTIONS'] ? 'IF QUESTIONS' : null;
-  // v1.1.0 (O-175, D131 as amended): the text is the whole Contact Dispatch remark as printed — every OFP
-  // Remarks record whose text says "Contact Dispatch" (any case, across its line breaks), every line, in
-  // printed order (all variants: "… Contact Dispatch with questions.", "… if you have any questions.", any
-  // other). No such remark → the Company NOTAM line as printed (T1–T3). The label stays the internal
-  // short-form / long-form flag (REQUIRED / IF QUESTIONS; null when no Company line), never crew text.
+  // v1.1.0 (O-175, O-183, D131 as amended; Exec 22 Nov): every Contact Dispatch text the package prints is
+  // carried as printed, so the crew can see whether the contact is compulsory:
+  //   company = the Company NOTAM Dispatch contact line(s) — each printed form once, in printed order (the
+  //             HSCN and Company copies of one line are one text);
+  //   remark  = every OFP Remarks record that says "Contact Dispatch" (any case, across its line breaks),
+  //             every line, in printed order (all variants);
+  //   text    = all of them, the Company line(s) first; nothing printed → dispatchContact null.
+  // The label stays the internal short-form / long-form flag (REQUIRED / IF QUESTIONS; null when no Company
+  // line), for the open state only (O-181), never crew text.
   const rmk = ext.ofpRemarks.filter(r => DISPATCH_CONTACT_REMARK.test(r.text.replace(/\n/g, ' ')));
-  const source = rmk.length ? 'OFP Remarks' : label ? 'Company NOTAMs' : null;
-  ext.dispatchContact = source ? { label, text: rmk.length ? rmk.map(r => r.text).join('\n') : found[label].text, source } : null;
-  const form = label === 'REQUIRED' ? 'short' : 'long';
-  const co = label ? `; Company NOTAM ${form} form (${found[label].at.join(', ')})${found.REQUIRED && found['IF QUESTIONS'] ? `, the long form also printed (${found['IF QUESTIONS'].at.join(', ')})` : ''}` : '; no Company NOTAM line';
-  if (source === 'OFP Remarks') add('INFO', 'dispatchContact', `Dispatch contact as printed in the OFP Remarks: ${rmk.length} remark(s), PDF p${rmk.map(r => `${r.page} line ${r.line}`).join(', p')}${co}`);
-  else if (source) add('INFO', 'dispatchContact', `Dispatch contact as printed in the Company NOTAMs: "${found[label].text}"${co}; no Contact Dispatch remark in the OFP Remarks`);
+  const forms = Object.keys(found);   // printed order of the first copy of each form
+  const company = forms.length ? forms.map(k => found[k].text).join('\n') : null;
+  const remark = rmk.length ? rmk.map(r => r.text).join('\n') : null;
+  ext.dispatchContact = company || remark ? { label, text: [company, remark].filter(Boolean).join('\n'), company, remark } : null;
+  const co = forms.length ? `Company NOTAM line(s): ${forms.map(k => `${k === 'REQUIRED' ? 'short' : 'long'} form (${found[k].at.join(', ')})`).join(', ')}` : 'no Company NOTAM line';
+  const rm = rmk.length ? `OFP Remarks: ${rmk.length} remark(s), PDF p${rmk.map(r => `${r.page} line ${r.line}`).join(', p')}` : 'no Contact Dispatch remark in the OFP Remarks';
+  if (ext.dispatchContact) add('INFO', 'dispatchContact', `Dispatch contact as printed: ${co}; ${rm}`);
   else add('INFO', 'dispatchContact', 'no Contact Dispatch remark in the OFP Remarks and no Dispatch contact line in the Company NOTAMs: dispatchContact null');
 }
 // O-175: an OFP remark that is a Dispatch contact message (the words "Contact Dispatch", any case).

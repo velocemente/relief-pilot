@@ -18,21 +18,22 @@
  *   TC-180-005  O-117 / D99 / D103: no finding template and no step text carries "(open item)", "brief",
  *               "read in 5d", an O-/D-/SME- reference or a version number; the deferred INFO reads
  *               "not read: not yet read from FlightKeys packages"; NEGATIVE control: v1.0.1 gives the old text
- *   TC-180-010  all 26 vs v1.0.1: every field except dispatchContact, volcanicAsh and findings byte-identical
- *               (ofpRemarks, hasPerishables included); findings = v1.0.1's with exactly 3 changes per package:
+ *   TC-180-010  all 26 vs v1.0.1: every field except dispatchContact, volcanicAsh, hasPerishables (the 7 bare
+ *               packages, O-182) and findings byte-identical (ofpRemarks included); findings = v1.0.1's with
+ *               exactly 3 changes per package:
  *               the dispatchContact INFO and the fplEquipment INFO reworded in place, one volcanicAsh INFO
  *               added after the hazards INFO — 52 removed, 78 added, no WARN touched
  *   TC-180-011  volcanicAsh on the 26 (O-169): 26 pages = sections[] va; 1 ADVISORY (L02: SHEVELUCH, TOKYO,
  *               2026/370), 25 NONE, 0 UNREADABLE; text = the page as printed
- *   TC-180-012  dispatchContact on the 26 (O-175): 23 from the OFP Remarks (18 "… Contact Dispatch with
- *               questions." form, 5 "… if you have any questions." form), 3 from the Company NOTAMs (T1–T3, no
- *               such remark); the label (internal flag, O-181) = v1.0.1's (22 REQUIRED, 4 IF QUESTIONS); no
- *               text carries REQUIRED or IF QUESTIONS
+ *   TC-180-012  dispatchContact on the 26 (O-175, O-183): every printed Contact Dispatch text carried — the
+ *               Company NOTAM line on all 26 (22 short, 4 long) and the OFP remark on 23 (18 "… with questions.",
+ *               5 "… if you have any questions."); T1–T3 the Company line only; none dropped; the label
+ *               (internal flag, O-181) = v1.0.1's (22 REQUIRED, 4 IF QUESTIONS); no label word in a text
  *   TC-180-013  RAIM on the 26 (O-171, O-172): 27 raim records (26 plain PASSED, 1 ETOPS ALTN PASSED), one line
  *               each; no other OFP remark names RAIM
- *   TC-180-014  perishables on the 26 (O-129, O-176 f): 7 packages print PERISHABLES ONBOARD bare — one item,
- *               alone on its row, no YES/NO anywhere after it on the page row or the next line — and keep
- *               hasPerishables true (as v1.0.1); 0 print ": YES" or ": NO"
+ *   TC-180-014  perishables on the 26 (O-129, O-176 f, O-182): 7 packages print PERISHABLES ONBOARD bare — one
+ *               item, alone on its row, no YES/NO after it — and now give hasPerishables false (v1.0.1: true,
+ *               declared); 0 print YES; the other 19 unchanged (false)
  *   TC-180-015  pinned values (fixtures expected/ofp-flightkeys-v1.1.0/changes.json), made with this module
  *   TC-180-020  VA page synthetic: NONE form; one and two advisories; volcano from the list row when its
  *               VOLCANO: line is missing; UNREADABLE: garbled page, rows ≠ blocks, no volcano, heading only;
@@ -42,16 +43,17 @@
  *               FAILED / garbled forms are raim and take continuation; PASSED stays one line (= v1.0.1);
  *               PASSED + outage → two records; RAIM named mid-line in a new remark → raim; the word RAIM on a
  *               continuation line, in a station block, in a Company NOTAM → no raim record (negatives)
- *   TC-180-040  perishables synthetic (O-129): ": YES" → true; ": NO" → false (v1.0.1: true — negative
- *               control); bare → true; none → false; the NavBlue form still → true
- *   TC-180-050  Dispatch contact synthetic (O-175): "with questions" / "if you have any questions" /
+ *   TC-180-040  perishables synthetic (O-129, O-182): ": YES" / " YES" → true; ": NO" → false; bare → false
+ *               (v1.0.1: true for both — negative controls); none → false; the NavBlue form still decides
+ *   TC-180-050  Dispatch contact synthetic (O-175, O-183): "with questions" / "if you have any questions" /
  *               an extra Contact Dispatch remark / the words split over two lines / other case → the whole
- *               remark(s) as printed; no such remark and no Company line → null; boilerplate without the words
- *               → null (negative)
+ *               remark(s) as printed; the Company short and long lines with a remark → all carried, Company first;
+ *               nothing printed → null; boilerplate without the words → null (negative)
  *   TC-180-060  NavBlue identical, 30 of 30: _ofpRulesetParse with v1.1.0 swapped in = the golden snapshots
- *   TC-180-061  the app's real import path with v1.1.0 swapped in (in memory) on all 26: the Preflight card and
- *               the stored flight are identical to the committed app's except S.ofpFindings, which = the
- *               module's findings (no app change in this PR; the display is the integration PR)
+ *   TC-180-061  the app's real import path with v1.1.0 swapped in (in memory) on all 26: the Preflight card,
+ *               the NOTES section (perishables banner) and the stored flight are identical to the committed app's except S.ofpFindings
+ *               (= the module's findings) and, on the 7 bare packages, S.hasPerishables false (O-182, declared;
+ *               with it set false in the committed app the cards are identical)
  *   TC-180-090  fixtures missing → the fixture tests FAIL (never skip)
  *
  * Every synthetic case is built by test/lib/fk-synth.js and is labelled SYNTHETIC (D87); made-up identifiers.
@@ -207,7 +209,7 @@ test('TC-180-005 O-117: no finding template or step text carries "(open item)", 
     for (; i < NEW_SRC.length; i++) { const c = NEW_SRC[i]; s += c; if (c === '(') depth++; else if (c === ')' && --depth === 0) break; }
     calls.push(s);
   }
-  assert.ok(calls.length >= 150, `finding calls found: ${calls.length}`);
+  assert.equal(calls.length, 149, 'every add() / ctx.add() / warns.push() finding call of v1.1.0 (grep count)');
   const lit = s => (s.match(/'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g) || []).map(x => x.replace(/\$\{[^}]*\}/g, '')).join('|');
   assert.deepEqual(calls.filter(c => INTERNAL.test(lit(c))), [], 'no internal phrase in a v1.1.0 finding template');
   assert.match(NEW_SRC, /const DEFERRED_STEPS = Object\.freeze\(\{ open: 'not yet read from FlightKeys packages' \}\);/);
@@ -234,16 +236,19 @@ function fk() {
   }).sort((x, y) => x.lbl.localeCompare(y.lbl));
   return _fk;
 }
-const CHANGED_FIELDS = ['dispatchContact', 'volcanicAsh', 'findings'];
+const CHANGED_FIELDS = ['dispatchContact', 'volcanicAsh', 'hasPerishables', 'findings'];
 const PERISHABLES_BARE = ['L03', 'L08', 'L10', 'L12', 'L13', 'L16', 'L17'];
 
-fixtureTest('TC-180-010 all 26 vs v1.0.1: every other field byte-identical; findings = v1.0.1 with 3 declared changes per package (52 removed, 78 added, no WARN)', () => {
+fixtureTest('TC-180-010 all 26 vs v1.0.1: every other field byte-identical; hasPerishables on the 7 bare; findings = v1.0.1 with 3 declared changes per package (52 removed, 78 added, no WARN)', () => {
   assert.equal(fk().length, 26);
   let removed = 0, added = 0;
   for (const { lbl, a, b } of fk()) {
     assert.deepEqual(Object.keys(b).filter(k => k !== 'volcanicAsh'), Object.keys(a), `${lbl}: keys in order, volcanicAsh added`);
     for (const k of Object.keys(a)) if (!CHANGED_FIELDS.includes(k)) assert.equal(j(b[k]), j(a[k]), `${lbl}: ${k} byte-identical`);
     assert.equal(a.volcanicAsh, undefined);
+    // O-182: hasPerishables changes on the 7 bare packages only (true → false)
+    if (PERISHABLES_BARE.includes(lbl)) assert.deepEqual([a.hasPerishables, b.hasPerishables], [true, false], `${lbl}: declared change`);
+    else assert.equal(b.hasPerishables, a.hasPerishables, `NEGATIVE: ${lbl}: hasPerishables unchanged`);
     // findings: v1.0.1's, with the volcanicAsh INFO added right after the hazards INFO and two INFO texts reworded in place
     const vi = b.findings.findIndex(f => f.field === 'volcanicAsh');
     assert.equal(b.findings.filter(f => f.field === 'volcanicAsh').length, 1, `${lbl}: one volcanicAsh finding`);
@@ -288,32 +293,43 @@ fixtureTest('TC-180-011 volcanicAsh on the 26 (O-169): 26 pages; 1 ADVISORY (L02
   assert.ok(l02.text.includes('\nVA ADVISORY\n') && l02.text.includes('INTERSECTS'));
 });
 
-fixtureTest('TC-180-012 dispatchContact on the 26 (O-175): 23 OFP Remarks (18 + 5 forms), 3 Company NOTAMs (T1–T3); label = v1.0.1 (22 REQUIRED, 4 IF QUESTIONS); never REQUIRED / IF QUESTIONS in the text', () => {
-  const by = { 'OFP Remarks': [], 'Company NOTAMs': [] }, forms = { with: 0, ifAny: 0 };
+fixtureTest('TC-180-012 dispatchContact on the 26 (O-175, O-183): the Company line on 26 (22 short, 4 long), the OFP remark on 23 (18 + 5 forms), T1–T3 Company only; none dropped; label = v1.0.1', () => {
+  const companyForms = { short: [], long: [] }, remarkForms = { with: 0, ifAny: 0 }, noRemark = [];
   const labels = { REQUIRED: 0, 'IF QUESTIONS': 0 };
   for (const { lbl, a, b } of fk()) {
     const d = b.dispatchContact;
-    assert.deepEqual(Object.keys(d), ['label', 'text', 'source']);
+    assert.deepEqual(Object.keys(d), ['label', 'text', 'company', 'remark']);
     assert.equal(d.label, a.dispatchContact.label, `${lbl}: label (internal flag) as v1.0.1`);
     labels[d.label]++;
-    by[d.source].push(lbl);
-    assert.ok(!/REQUIRED|IF QUESTIONS/.test(d.text), `${lbl}: no label text in the dispatch text`);
-    assert.match(d.text.replace(/\n/g, ' '), /\bContact Dispatch\b/);
-    if (d.source === 'OFP Remarks') {
-      const r = b.ofpRemarks.filter(x => /contact\s+dispatch/i.test(x.text.replace(/\n/g, ' ')));
+    // the Company NOTAM line: v1.0.1's text, as printed (the HSCN and Company copies are one text)
+    assert.equal(d.company, a.dispatchContact.text, `${lbl}: the Company NOTAM line as printed`);
+    if (d.company === 'Contact Dispatch for a preflight briefing.') companyForms.short.push(lbl);
+    else if (d.company === 'Contact Dispatch for a preflight briefing if you have any questions.') companyForms.long.push(lbl);
+    else assert.fail(`${lbl}: unknown Company form`);
+    // the OFP remark: the whole record, every line
+    const r = b.ofpRemarks.filter(x => /contact\s+dispatch/i.test(x.text.replace(/\n/g, ' ')));
+    if (!r.length) { assert.equal(d.remark, null); noRemark.push(lbl); }
+    else {
       assert.equal(r.length, 1, `${lbl}: one Contact Dispatch remark`);
-      assert.equal(d.text, r[0].text, `${lbl}: the whole remark, every line, as printed`);
+      assert.equal(d.remark, r[0].text, `${lbl}: the whole remark, every line, as printed`);
       assert.equal(r[0].category, 'boilerplate');
-      assert.equal(d.text.split('\n').length, 3);
-      if (/Contact Dispatch with\nquestions\.$/.test(d.text)) forms.with++;
-      else if (/Contact Dispatch if you have\nany questions\.$/.test(d.text)) forms.ifAny++;
-      else assert.fail(`${lbl}: unknown form`);
-    } else assert.equal(d.text, a.dispatchContact.text, `${lbl}: the Company NOTAM line as printed (no remark)`);
+      if (/Contact Dispatch with\nquestions\.$/.test(d.remark)) remarkForms.with++;
+      else if (/Contact Dispatch if you have\nany questions\.$/.test(d.remark)) remarkForms.ifAny++;
+      else assert.fail(`${lbl}: unknown remark form`);
+    }
+    // text = everything printed, the Company line first; nothing dropped
+    assert.equal(d.text, [d.company, d.remark].filter(Boolean).join('\n'));
+    assert.ok(!/REQUIRED|IF QUESTIONS/.test(d.text), `${lbl}: no label word in the dispatch text`);
   }
-  assert.equal(by['OFP Remarks'].length, 23);
-  assert.deepEqual(by['Company NOTAMs'], ['T1', 'T2', 'T3']);
-  assert.deepEqual(forms, { with: 18, ifAny: 5 });
+  assert.equal(companyForms.short.length, 22);
+  assert.deepEqual(companyForms.long, ['L20', 'L21', 'L22', 'L23']);
+  assert.deepEqual(remarkForms, { with: 18, ifAny: 5 });
+  assert.deepEqual(noRemark, ['T1', 'T2', 'T3']);
   assert.deepEqual(labels, { REQUIRED: 22, 'IF QUESTIONS': 4 });
+  // the 19 REQUIRED packages with a "questions" remark (L01–L19, L02 included) carry the short Company line too
+  const both = fk().filter(p => p.b.dispatchContact.label === 'REQUIRED' && p.b.dispatchContact.remark);
+  assert.equal(both.length, 19);
+  assert.ok(both.some(p => p.lbl === 'L02') && both.every(p => p.b.dispatchContact.company === 'Contact Dispatch for a preflight briefing.'));
 });
 
 fixtureTest('TC-180-013 RAIM on the 26 (O-171, O-172): 27 raim records, all PASSED forms, one line each; no other remark names RAIM', () => {
@@ -329,16 +345,15 @@ fixtureTest('TC-180-013 RAIM on the 26 (O-171, O-172): 27 raim records, all PASS
   assert.deepEqual([plain, etops], [26, 1]);
 });
 
-fixtureTest('TC-180-014 perishables on the 26 (O-129, O-176 f): 7 print PERISHABLES ONBOARD bare (one item, nothing after it) and keep hasPerishables; none prints YES or NO', () => {
+fixtureTest('TC-180-014 perishables on the 26 (O-129, O-176 f, O-182): 7 print PERISHABLES ONBOARD bare (one item, nothing after it) → hasPerishables false (v1.0.1 true); none prints YES', () => {
   const bare = [];
   for (const { lbl, a, b, items } of fk()) {
-    assert.equal(b.hasPerishables, a.hasPerishables, `${lbl}: hasPerishables as v1.0.1`);
     const pr = rec(b, 'perishables');
-    if (!pr.length) { assert.equal(b.hasPerishables, false, `${lbl}: no perishables line → false`); continue; }
+    if (!pr.length) { assert.deepEqual([a.hasPerishables, b.hasPerishables], [false, false], `${lbl}: no perishables line → false`); continue; }
     assert.equal(pr.length, 1);
     assert.equal(pr[0].text, 'PERISHABLES ONBOARD', `${lbl}: the bare form`);
     assert.equal(mod.PATTERNS.PERISHABLES_VALUE.exec(pr[0].text), null);
-    assert.equal(b.hasPerishables, true);
+    assert.deepEqual([a.hasPerishables, b.hasPerishables], [true, false], `${lbl}: bare → not shown (O-182); v1.0.1 showed it`);
     // how it is printed: one item, alone on its row; the next row is another remark, not a value
     const pg = items.pages.find(p => p.n === pr[0].page);
     const it = pg.items.filter(x => x.str.trim() === 'PERISHABLES ONBOARD');
@@ -362,6 +377,7 @@ fixtureTest('TC-180-015 pinned values on all 26 (expected/ofp-flightkeys-v1.1.0/
     assert.equal(e.label, p.lbl);
     assert.deepEqual(p.b.volcanicAsh, e.volcanicAsh, `${p.lbl}: volcanicAsh`);
     assert.deepEqual(p.b.dispatchContact, e.dispatchContact, `${p.lbl}: dispatchContact`);
+    assert.equal(p.b.hasPerishables, e.hasPerishables, `${p.lbl}: hasPerishables`);
     assert.deepEqual(minus(p.a.findings, p.b.findings), e.findingsRemoved, `${p.lbl}: findings removed`);
     assert.deepEqual(minus(p.b.findings, p.a.findings), e.findingsAdded, `${p.lbl}: findings added`);
   }
@@ -459,25 +475,30 @@ test('TC-180-030 SYNTHETIC RAIM (O-172): continuation for a non-PASSED remark, i
   assert.deepEqual(raimOf({ raim: [] }), []);
 });
 
-test('TC-180-040 SYNTHETIC perishables (O-129): YES → true; NO → false (v1.0.1 true); bare → true; none → false; NavBlue form → true', () => {
+test('TC-180-040 SYNTHETIC perishables (O-129, O-182): YES → true; NO and bare → false (v1.0.1 true); none → false; NavBlue form decides', () => {
   const per = (rm, m) => parse(SYN({ remarks: rm }), m).hasPerishables;
   assert.equal(per(['PERISHABLES ONBOARD: YES']), true);
+  assert.equal(per(['PERISHABLES ONBOARD YES']), true, '"perishables onboard YES"');
+  assert.equal(per(['PERISHABLES ON BOARD: YES']), true);
   assert.equal(per(['PERISHABLES ONBOARD: NO']), false);
   assert.equal(per(['PERISHABLES ONBOARD: NO'], v101), true, 'NEGATIVE control: v1.0.1 read ": NO" as perishables');
   assert.equal(per(['PERISHABLES ON BOARD: NO']), false);
-  assert.equal(per(['PERISHABLES ONBOARD']), true, 'the bare form, as v1.0.1 (O-176 f: open item)');
-  assert.equal(per(['PERISHABLES ONBOARD'], v101), true);
+  assert.equal(per(['PERISHABLES ONBOARD']), false, 'the bare form: not shown (O-182)');
+  assert.equal(per(['PERISHABLES ONBOARD'], v101), true, 'NEGATIVE control: v1.0.1 showed the bare form');
+  assert.equal(per(['PERISHABLES ONBOARD: UNKNOWN']), false, 'any other value: not YES');
   assert.equal(per([]), false);
   assert.equal(per(['PERISHABLES O/B: YES']), true, 'the NavBlue rule still applies');
   assert.equal(per(['PERISHABLES O/B: NO']), false);
-  // the remark itself is kept as printed in both cases
+  assert.equal(per(['LIVE ANIMALS: YES']), true, 'the NavBlue rule: live animals YES');
+  // the remark itself is kept as printed in every case
   assert.deepEqual(rec(parse(SYN({ remarks: ['PERISHABLES ONBOARD: NO'] })), 'perishables').map(r => r.text), ['PERISHABLES ONBOARD: NO']);
+  assert.deepEqual(rec(parse(SYN({ remarks: ['PERISHABLES ONBOARD'] })), 'perishables').map(r => r.text), ['PERISHABLES ONBOARD']);
 });
 
 test('TC-180-050 SYNTHETIC Dispatch contact (O-175): every variant as printed, every line; none → null', () => {
   const dc = o => parse(SYN(o)).dispatchContact;
   const withQ = dc({});
-  assert.deepEqual(withQ, { label: null, text: S5.BOILER.join('\n'), source: 'OFP Remarks' }, 'the "with questions" form; no Company line → label null');
+  assert.deepEqual(withQ, { label: null, text: S5.BOILER.join('\n'), company: null, remark: S5.BOILER.join('\n') }, 'the "with questions" form; no Company line → label null');
   const ifAny = ['This OFP prepared with FlightKeys. Review Operations Bulletin', 'for FlightKeys OFP and procedure changes. Contact Dispatch if you have', 'any questions.'];
   assert.equal(dc({ boiler: ifAny }).text, ifAny.join('\n'));
   // an extra Contact Dispatch remark: both, in printed order, each whole
@@ -491,6 +512,18 @@ test('TC-180-050 SYNTHETIC Dispatch contact (O-175): every variant as printed, e
   assert.equal(dc({ boiler: [] }), null);
   assert.equal(dc({ boiler: ['This OFP prepared with FlightKeys. Review Operations Bulletin', 'for FlightKeys OFP and procedure changes.'] }), null);
   assert.equal(dc({ boiler: [], remarks: ['DISPATCH CONTACTED CREW'] }), null);
+  // the Company NOTAM lines (short, long) and the remark: every printed text carried, the Company line(s) first
+  const co = (...ls) => S5.notamPage(['                              COMPANY NOTAMS', '                                    GENERAL',
+    '               P0110/26        2026-Mar-01 00:00 - UFN', 'CREATED:2026-Feb-28 00:00       FL: SFC - UNL', 'SUBJECT: TEST BRIEFING', 'TEXT OF THE ITEM.', ...ls]);
+  const SHORT = 'Contact Dispatch for a preflight briefing.', LONG = 'Contact Dispatch for a preflight briefing if you have any questions.';
+  const both = parse(SYN({}, [co(SHORT)])).dispatchContact;
+  assert.deepEqual(both, { label: 'REQUIRED', text: [SHORT, ...S5.BOILER].join('\n'), company: SHORT, remark: S5.BOILER.join('\n') });
+  const lng = parse(SYN({ boiler: ifAny }, [co(LONG)])).dispatchContact;
+  assert.deepEqual([lng.label, lng.company, lng.remark], ['IF QUESTIONS', LONG, ifAny.join('\n')]);
+  const two = parse(SYN({}, [co(SHORT, LONG)])).dispatchContact;
+  assert.deepEqual([two.label, two.company], ['REQUIRED', `${SHORT}\n${LONG}`], 'both forms printed → both carried');
+  const coOnly = parse(SYN({ boiler: [] }, [co(SHORT)])).dispatchContact;
+  assert.deepEqual(coOnly, { label: 'REQUIRED', text: SHORT, company: SHORT, remark: null }, 'O-183: the Company line where it is the only one printed (T1–T3)');
   // v1.0.1 read the Company line only: null here (no Company NOTAMs in the synthetic package)
   assert.equal(parse(SYN({}), v101).dispatchContact, null, 'NEGATIVE control: v1.0.1 did not read the remark');
 });
@@ -521,14 +554,21 @@ fixtureTest('TC-180-060 NavBlue identical, 30 of 30: _ofpRulesetParse with v1.1.
   assert.ok(diff(bad, first.snap).length > 0, 'NEGATIVE: a changed value is caught');
 });
 
-fixtureTest('TC-180-061 the app with v1.1.0 swapped in, all 26: Preflight card and stored flight = the committed app, S.ofpFindings = the module findings', async () => {
+fixtureTest('TC-180-061 the app with v1.1.0 swapped in, all 26: cards and stored flight = the committed app but the findings and, on the 7 bare packages, hasPerishables (O-182)', async () => {
   const strip = s => { const o = JSON.parse(JSON.stringify(s)); delete o.ofpFindings; return o; };
+  const cards = app => [app.renderPreflightPhase(), app.renderNotesSection()];
   for (const p of fk()) {
     const before = await importFixture(p.fx, FIX, { html: HTML }), after = await importFixture(p.fx, FIX, { html: HTML_V110 });
-    assert.equal(after.app.renderPreflightPhase(), before.app.renderPreflightPhase(), `${p.lbl}: the Preflight card is unchanged`);
-    assert.deepEqual(strip(after.S), strip(before.S), `${p.lbl}: the stored flight is unchanged but the findings`);
     assert.deepEqual(JSON.parse(JSON.stringify(after.S.ofpFindings)), p.b.findings, `${p.lbl}: findings = v1.1.0's`);
     assert.deepEqual(JSON.parse(JSON.stringify(before.S.ofpFindings)), p.a.findings, `${p.lbl}: NEGATIVE control: the committed app = v1.0.1's`);
+    if (PERISHABLES_BARE.includes(p.lbl)) {
+      assert.deepEqual([before.S.hasPerishables, after.S.hasPerishables], [true, false], `${p.lbl}: perishables no longer shown (O-182, declared)`);
+      assert.match(before.app.renderNotesSection(), /PERISHABLES — SEE SP/, `${p.lbl}: the committed app shows the banner`);
+      assert.doesNotMatch(after.app.renderNotesSection(), /PERISHABLES — SEE SP/, `${p.lbl}: v1.1.0: no banner`);
+      before.app.S.hasPerishables = false;   // the only difference: with it set, everything else is identical
+    }
+    assert.deepEqual(cards(after.app), cards(before.app), `${p.lbl}: the Preflight card and the NOTES section are otherwise unchanged`);
+    assert.deepEqual(strip(after.S), strip(before.S), `${p.lbl}: the stored flight is otherwise unchanged`);
   }
 });
 

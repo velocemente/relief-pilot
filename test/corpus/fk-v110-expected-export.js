@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Exports what the FlightKeys parser v1.1.0 (step 5f module PR A; Exec answers O-169 … O-181) changes on the
 // 26 FlightKeys packages against v1.0.1, for the pinned checks of TC-180-015 (test/rules/ofp-flightkeys-v110
-// .test.js): per package the label, volcanicAsh, dispatchContact, and the findings v1.0.1 has and v1.1.0 does
+// .test.js): per package the label, volcanicAsh, dispatchContact, hasPerishables (O-182), and the findings v1.0.1 has and v1.1.0 does
 // not (removed) and the other way round (added), each [index, level, field, message]. Every other field is
 // byte-identical to v1.0.1 (TC-180-010) and not listed.
 //
@@ -43,7 +43,7 @@ const j = x => JSON.stringify(x);
 const minus = (a, b) => { const left = b.map(j); return a.map((f, i) => [i, f]).filter(([, f]) => { const k = left.indexOf(j(f)); if (k < 0) return true; left.splice(k, 1); return false; }).map(([i, f]) => [i, f.level, f.field, f.message]); };
 
 const res = {
-  _about: 'ofp-flightkeys v1.1.0 (step 5f module PR A: VA page, RAIM, Dispatch contact as printed, O-117, O-129) - what differs from v1.0.1 on the 26 FlightKeys packages, for TC-180-015 (relief-pilot test/rules/ofp-flightkeys-v110.test.js); made by test/corpus/fk-v110-expected-export.js. Per package: volcanicAsh, dispatchContact, findings removed / added as [index, level, field, message].',
+  _about: 'ofp-flightkeys v1.1.0 (step 5f module PR A: VA page, RAIM, Dispatch contact as printed, O-117, O-129) - what differs from v1.0.1 on the 26 FlightKeys packages, for TC-180-015 (relief-pilot test/rules/ofp-flightkeys-v110.test.js); made by test/corpus/fk-v110-expected-export.js. Per package: volcanicAsh, dispatchContact, hasPerishables, findings removed / added as [index, level, field, message].',
   module: { version: mod.RULESET_VERSION, sha256: sha(fs.readFileSync(modFile)) },
   packages: {},
 };
@@ -56,6 +56,7 @@ for (const fx of readManifest(FIX).fixtures.filter(f => f.format === 'flightkeys
     label: LBL[fx.id],
     volcanicAsh: b.volcanicAsh,
     dispatchContact: b.dispatchContact,
+    hasPerishables: b.hasPerishables,
     findingsRemoved: minus(a.findings, b.findings),
     findingsAdded: minus(b.findings, a.findings),
   };

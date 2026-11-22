@@ -5,7 +5,7 @@
 **Tier:** 2 — Platform Architecture
 **Module file:** `rules/ofp-flightkeys-next/ofp-flightkeys-v1.1.0.js` (manifest key `ofp-flightkeys-next`, SHA-256 in `rules/manifest.json`; not built in, D90, D96). The built-in v1.0.1 stays `rules/ofp-flightkeys/ofp-flightkeys-v1.0.1.js` (key `ofp-flightkeys`, SHA-256 `a307b185…750d`) with its SPEC v1.0.1 until the integration PR; it is frozen byte for byte as `test/oracle/ofp-flightkeys-v1.0.1.js` for the TC-180 comparison (the v1.0.0 and v0.4.0 files stay frozen there for TC-175 and TC-164)
 **Architecture:** ADR-005 §2.1 (module catalogue: "FlightKeys OFP parser"), §2.2 (module standard), §2.4 (output contract, FK-P); D88 (interpretation lives in the shared rules engines: the advisory-rules module, step 5f PR B, reads what this version extracts)
-**Field reference:** `docs/SPRINT-OFP-FlightKeysMigration-UPD-20261118-v1.2-FieldMap.md` (rows, SME answers); `docs/ADR-005-AppendixB-Addendum-NEW-20261117-v1.0.md` (contract 2.1: `specialQualification`, `swa`); `docs/ADR-005-AppendixB-Addendum2-NEW-20261117-v1.0.md` (contract 2.2: `operatingPilots`, crew-record extensions); `docs/ADR-005-AppendixB-Addendum3-NEW-20261118-v1.0.md` (contract 2.3: `notamItems`, `notamsRaw`, `briefing`, `weatherRaw`); `docs/ADR-005-AppendixB-Addendum4-NEW-20261119-v1.0.md` (contract 2.4: `firNotams`, `firRaw`, `natMessages`, `hazards`, `dispatchContact`); `docs/ADR-005-AppendixB-Addendum5-NEW-20261122-v1.0.md` (contract 2.5: `volcanicAsh`, `dispatchContact.source`, the O-175 meaning of `dispatchContact.text`); grammar `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md`
+**Field reference:** `docs/SPRINT-OFP-FlightKeysMigration-UPD-20261118-v1.2-FieldMap.md` (rows, SME answers); `docs/ADR-005-AppendixB-Addendum-NEW-20261117-v1.0.md` (contract 2.1: `specialQualification`, `swa`); `docs/ADR-005-AppendixB-Addendum2-NEW-20261117-v1.0.md` (contract 2.2: `operatingPilots`, crew-record extensions); `docs/ADR-005-AppendixB-Addendum3-NEW-20261118-v1.0.md` (contract 2.3: `notamItems`, `notamsRaw`, `briefing`, `weatherRaw`); `docs/ADR-005-AppendixB-Addendum4-NEW-20261119-v1.0.md` (contract 2.4: `firNotams`, `firRaw`, `natMessages`, `hazards`, `dispatchContact`); `docs/ADR-005-AppendixB-Addendum5-NEW-20261122-v1.0.md` (contract 2.5: `volcanicAsh`, `dispatchContact.company` / `.remark`, the O-175 meaning of `dispatchContact.text`); grammar `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.1.md`
 **Ledger:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261122-v1.9.md` (beside this file)
 **Supersedes:** SPEC v1.0.1 (same folder, kept while v1.0.1 is built in; history in §10 and the ledger). The ADR-004 FlightKeys profile (`src/import/atlas-fk.js`) is retired only after this parser is gated and integrated (ADR-005 §2.7).
 
@@ -16,9 +16,9 @@
 **v1.1.0 (step 5f module PR A, 22 Nov; Exec answers O-169 … O-181, D115, D116, D88, D131 as amended by O-175).** Extraction only (D88): whether the crew is told anything is decided by the shared `advisory-rules` engine (module PR B), which the app calls in `parseOFP()` after this parser. Five changes, everything else byte-identical to v1.0.1 on all 26 (TC-180-010):
 1. **Volcanic Ash Advisories page (O-169, §5.26):** the new top-level extension `volcanicAsh { page, state, text, advisories[] }` (contract 2.5, addendum 5): `state` `NONE` (the closed "no advisories" form), `ADVISORY` (an advisory list, every volcano readable) or `UNREADABLE` (anything else); `text` the page as printed; `advisories[]` `{ volcano, vaac, number }` as printed or `null`. On the 26: 1 ADVISORY (L02: SHEVELUCH, TOKYO, 2026/370), 25 NONE.
 2. **RAIM remarks (O-172, §5.27):** a remark whose first line names RAIM is category `raim` (v1.0.1: only a line starting `RAIM VALIDATION`); the two PASSED forms stay one line; any other RAIM remark takes its continuation lines up to the D63/D63a paragraph end. RAIM in NOTAM text never reaches the remarks reader. On the 26: 27 raim records, all PASSED, one line each — unchanged.
-3. **Dispatch contact as printed (O-175, §5.18):** `dispatchContact.text` is the whole Contact Dispatch remark of the OFP Remarks, every line, all variants; without such a remark the Company NOTAM line (T1–T3). `label` stays the internal short-form / long-form flag (O-181), never crew text; new `source`. On the 26: 23 from the OFP Remarks, 3 from the Company NOTAMs; labels unchanged.
+3. **Dispatch contact as printed (O-175, O-183, §5.18):** `dispatchContact` carries **every** Contact Dispatch text the package prints, as printed: `company` (the Company NOTAM line) and `remark` (the whole OFP remark, every line, all variants); `text` = both, the Company line first. Nothing printed → `null`. `label` stays the internal short-form / long-form flag (O-181), never crew text. On the 26: the Company line on all 26 (22 short, 4 long), the remark on 23; T1–T3 the Company line only; labels unchanged.
 4. **O-117 (§5.25):** the deferred-field INFO reads `not read: not yet read from FlightKeys packages` (v1.0.1: `… not in any brief yet (open item)`); the unused step text `read in 5d` is gone, and `validateSchema()` accepts the step `open` only.
-5. **O-129 (§5.9):** `PERISHABLES ONBOARD: NO` no longer sets `hasPerishables`; `: YES` and the bare line do (as v1.0.1). On the 26: unchanged (7 bare, none YES / NO; O-176 f, §5.9).
+5. **O-129, O-182 (§5.9):** `hasPerishables` only when the package prints YES (the NavBlue rule, or `PERISHABLES ONBOARD: YES`); `: NO` and the bare `PERISHABLES ONBOARD` line set nothing (v1.0.1: both set it). On the 26: **7 change** (L03, L08, L10, L12, L13, L16, L17: bare line, true → false); the other 19 unchanged (false).
 
 **Not built into `index.html`** (D90, D96): `ofp-flightkeys-next` until its integration PR; its master copy is published to the Drive after its own QA (CLAUDE.md rule 14). The app (`src/`, `index.html`, 1.10.0) is unchanged: with v1.1.0 swapped in, the Preflight card and the stored flight of every one of the 26 are identical but the stored findings (TC-180-061).
 
@@ -166,12 +166,12 @@ The release fields are never read from the briefing pages, NAT or Jeppesen pages
 ### 5.9 Perishables, temperature control (rows 27, 28; D55)
 
 Both are read on the release Remarks only (`Remarks` to `MEL/CDL`):
-- `hasPerishables` = the NavBlue `PERISHABLE` pattern, or a line beginning `PERISHABLES ONBOARD` (FlightKeys). **v1.1.0 (O-129, O-176 f):** that line printed `PERISHABLES ONBOARD: NO` sets nothing; `: YES` sets it; the bare line `PERISHABLES ONBOARD` sets it, as v1.0.1. The remark stays in `ofpRemarks` (`perishables`) as printed either way.
+- `hasPerishables` = the NavBlue `PERISHABLE` pattern, or a line `PERISHABLES ONBOARD` that prints `YES` (FlightKeys). **v1.1.0 (O-129, O-182, Exec 22 Nov: "perishables shown only when the package prints YES … same as the NavBlue ruleset"):** `PERISHABLES ONBOARD: YES` (or ` YES`) sets it; `PERISHABLES ONBOARD: NO`, any other value and the **bare** line `PERISHABLES ONBOARD` set nothing (v1.0.1: the bare line and `: NO` set it). The remark stays in `ofpRemarks` (`perishables`) as printed in every case.
 - `hasTemperatureControl` = the NavBlue `TEMPERATURE_CONTROL` pattern (D55).
 
 The Company NOTAM boilerplate `*ANYTIME PERISHABLES OR LIVE ANIMALS ARE ON BOARD` never sets either, inside or outside the release. A cargo declaration `LIVE ANIMALS: NO` / `TEMPERATURE REQUIREMENTS: NO` gives `false`.
 
-**O-176 f — how the 7 "bare" packages print the value (measured, TC-180-014).** L03, L08, L10, L12, L13, L16, L17 print `PERISHABLES ONBOARD` as **one text item, alone on its row** (release page 3, the line after the FlightKeys boilerplate); no other item shares the row, and the next line is another remark (route, PCF, slot, permit or NAT) — there is no `YES`, `NO` or other value after it. The form is truly bare. Behaviour as on main (`hasPerishables` true); open item **O-182** (§9). No package of the 26 prints `PERISHABLES ONBOARD: YES` or `: NO`; those forms are tested on synthetic packages only (TC-180-040).
+**O-176 f — how the 7 "bare" packages print the value (measured, TC-180-014).** L03, L08, L10, L12, L13, L16, L17 print `PERISHABLES ONBOARD` as **one text item, alone on its row** (release page 3, the line after the FlightKeys boilerplate); no other item shares the row, and the next line is another remark (route, PCF, slot, permit or NAT) — there is no `YES`, `NO` or other value after it. The form is truly bare. **O-182 (Exec, 22 Nov): not displayed** — `hasPerishables` false on these 7 (v1.0.1: true; declared output change, TC-180-010, 014; with v1.1.0 swapped in the app no longer shows `PERISHABLES — SEE SP`, TC-180-061). No package of the 26 prints `PERISHABLES ONBOARD: YES` or `: NO`; those forms are tested on synthetic packages only (TC-180-040).
 
 ### 5.10 Permits (row 35)
 
@@ -414,14 +414,16 @@ Read from the positioned items: the High Severity page (heading `HIGH SEVERITY C
 
 **O-46 (Exec, 19 Nov) — Dispatch contact.** Both lines stay in the P0110 text exactly as printed: **`Contact Dispatch for a preflight briefing.`** (T1–T3, L01–L19: 44 lines, the HSCN and the Company copy of the P0110-type item; T1 / T2 print it in P0100) and **`Contact Dispatch for a preflight briefing if you have any questions.`** (L20–L23: 8 lines). Both are printed inside the item, before its closing banner; the item's `source` positions cover the line. The package-level field **`dispatchContact`** (addendum 4) = `{ label, text }`: `label` **`'REQUIRED'`** for the short form, **`'IF QUESTIONS'`** for the long form; both printed → `'REQUIRED'`; neither → `null`. `text` = the line of the label, as printed. A form is one whole printed line (trimmed) of a Company NOTAM (HSCN or Company); other wording (`… CONTACT DISPATCH.`) is not a form. One INFO names the label, the line and the items it was read from. On the 26: REQUIRED 22, IF QUESTIONS 4 (L20–L23), null 0 (TC-163-111).
 
-**v1.1.0 — O-175 (Exec, 22 Nov; D131 as amended): the Dispatch contact as printed.** `dispatchContact` = `{ label, text, source }`:
-- `text` = **the whole Contact Dispatch remark as printed** — every `ofpRemarks` record whose text says `Contact Dispatch` (any case; the words may be split over a line break), **every line**, joined by `"\n"` in printed order; **all variants** (`… Contact Dispatch with questions.`, `… Contact Dispatch if you have any questions.`, a remark of its own such as `CONTACT DISPATCH PRIOR TO DEPARTURE …`). `source` `'OFP Remarks'`.
-- No such remark → the Company NOTAM line of the label, as printed (v1.0.1's text); `source` `'Company NOTAMs'` (T1–T3 print no FlightKeys boilerplate remark). This fallback is open item **O-183** (§9).
+**v1.1.0 — O-175, O-183 (Exec, 22 Nov; D131 as amended): every Contact Dispatch text, as printed.** "Every Contact Dispatch text the package prints is carried as printed — the Company NOTAM short line AND the OFP remark where both exist, so the crew can see whether contact is compulsory"; "show a Contact Dispatch line only where one is printed; nothing when none is printed". `dispatchContact` = `{ label, text, company, remark }`:
+- `company` = the Company NOTAM Dispatch contact line(s) as printed — the forms `Contact Dispatch for a preflight briefing.` (short) and `Contact Dispatch for a preflight briefing if you have any questions.` (long), each printed form once, in printed order (the HSCN and the Company copy of one line are one text); `null` when none is printed.
+- `remark` = **the whole Contact Dispatch remark as printed** — every `ofpRemarks` record whose text says `Contact Dispatch` (any case; the words may be split over a line break), **every line**, joined by `"\n"` in printed order; **all variants** (`… Contact Dispatch with questions.`, `… Contact Dispatch if you have any questions.`, a remark of its own such as `CONTACT DISPATCH PRIOR TO DEPARTURE …`); `null` when none is printed.
+- `text` = every printed text, the Company line(s) first, then the remark, joined by `"\n"`. No printed Contact Dispatch text is dropped.
+- Nothing printed → `dispatchContact` `null` (O-183: nothing shown). A Company line with no remark (T1–T3) → the Company line only.
 - `label` keeps its v1.0.1 values and rule (`'REQUIRED'` short form, `'IF QUESTIONS'` long form, REQUIRED wins), from the Company NOTAM lines only; `null` when neither line is printed. It is the **internal** short-form / long-form flag for the OFP Remarks group's open state (O-181) and is never crew text: no `REQUIRED` / `IF QUESTIONS` is shown (display PR).
-- Neither a remark nor a Company line → `null`. The dispatch contact is read also when no briefing document was read (pasted text: the remark is printed in the release); v1.0.1 then gave `null`. The read moved from `_readCompany` to its own step `_readDispatchContact`, right after it, so the finding order is unchanged.
-- One INFO names the source, the remark positions and the Company form (`short` / `long`), without the label words.
+- Other "contact dispatch" wording inside other Company NOTAMs (e.g. an ACARS item `… MESSAGE IS NOT RECEIVED, CONTACT DISPATCH.`, 4 items; a TAF item, 1) is not a Dispatch contact line: it stays in its Company NOTAM as printed (`companyNotams[]`), never dropped.
+- The dispatch contact is read also when no briefing document was read (pasted text: the remark is printed in the release); v1.0.1 then gave `null`. The read moved from `_readCompany` to its own step `_readDispatchContact`, right after it, so the finding order is unchanged. One INFO names the Company form(s) and items and the remark positions, without the label words.
 
-On the 26 (TC-180-012): 23 from the OFP Remarks — the 3-line FlightKeys boilerplate (`This OFP prepared with FlightKeys. …`), 18 in the `… Contact Dispatch with questions.` form (L01, L03–L19), 5 in the `… Contact Dispatch if you have any questions.` form (L02, L20–L23) — and 3 from the Company NOTAMs (T1–T3, `Contact Dispatch for a preflight briefing.`). Labels unchanged: REQUIRED 22, IF QUESTIONS 4. L02 prints the short Company form (REQUIRED) but the `if you have any questions` remark: the case the 1.10.0 release notes name as a known limit, now available as printed.
+On the 26 (TC-180-012): `company` on all 26 — the short line on 22 (L01–L19, T1–T3), the long line on 4 (L20–L23); `remark` on 23 — the 3-line FlightKeys boilerplate (`This OFP prepared with FlightKeys. …`), 18 in the `… Contact Dispatch with questions.` form (L01, L03–L19), 5 in the `… Contact Dispatch if you have any questions.` form (L02, L20–L23); T1–T3 print no such remark (`remark` null). Labels unchanged: REQUIRED 22, IF QUESTIONS 4. The 19 REQUIRED packages that print a "questions" remark (L01–L19, L02 included) now carry the short Company line with it, so the crew sees both.
 
 `companyNotams[]`, one record per printed item, the HSCN item first, then the Company items in printed order: `{ id, location, subject, start, end, severity, origin, text, source }` — `location` the header's location, else `'GENERAL'` (`PUBS-` is no location); `subject` the `SUBJECT:` key; `start` / `end` as printed (`'UFN'`, `'UFN(EST …)'`); `severity` `'high'` (HSCN) or `'normal'`; `origin` `'HSCN'` or `'COMPANY'` (the source flag of O-40); `text` the item as printed, header rows included, line breaks and indentation kept (D54); `source` the printed positions as in `notamItems`. The P0110 pair (HSCN and Company) is two records, never merged (D43). On the 26: **298 = 26 HSCN + 272**, per package = grammar §A.2, texts = the independent reading with the Contact line kept (TC-163-011).
 
@@ -583,7 +585,7 @@ No VA document → `volcanicAsh` **`null`**; with other briefing documents read,
 
 | ID | What | Result (2026-11-20; TC-180: 2026-11-22) |
 | :--- | :--- | :--- |
-| **TC-180-001 … 090** | **v1.1.0** (`test/rules/ofp-flightkeys-v110.test.js`, step 5f module PR A): 001 identity, key `ofp-flightkeys-next`, v1.0.1 frozen in `test/oracle`; 002 not built in, build = `index.html`, labels 1.10.0; 003 schema (volcanicAsh, the `5d` step refused); 004 the code differs from v1.0.1 only in 10 declared declarations, 3 new ones and 11 new patterns (+ `RMK_RAIM`); 005 O-117 texts; 010 all 26 vs v1.0.1 (every other field byte-identical; 3 declared finding changes per package); 011 volcanicAsh on the 26; 012 dispatchContact on the 26; 013 RAIM on the 26; 014 perishables on the 26 (O-176 f); 015 pinned values (`expected/ofp-flightkeys-v1.1.0/changes.json`); 020 VA synthetic; 030 RAIM synthetic; 040 perishables synthetic; 050 Dispatch contact synthetic; 060 NavBlue 30/30 with v1.1.0 swapped in; 061 the app with v1.1.0 swapped in, all 26 (card and stored flight unchanged but the findings); 090 fixtures missing → fail | 18/18 PASS |
+| **TC-180-001 … 090** | **v1.1.0** (`test/rules/ofp-flightkeys-v110.test.js`, step 5f module PR A): 001 identity, key `ofp-flightkeys-next`, v1.0.1 frozen in `test/oracle`; 002 not built in, build = `index.html`, labels 1.10.0; 003 schema (volcanicAsh, the `5d` step refused); 004 the code differs from v1.0.1 only in 10 declared declarations, 3 new ones and 11 new patterns (+ `RMK_RAIM`); 005 O-117 texts; 010 all 26 vs v1.0.1 (every other field byte-identical; 3 declared finding changes per package); 011 volcanicAsh on the 26; 012 dispatchContact on the 26; 013 RAIM on the 26; 014 perishables on the 26 (O-176 f); 015 pinned values (`expected/ofp-flightkeys-v1.1.0/changes.json`); 020 VA synthetic; 030 RAIM synthetic; 040 perishables synthetic; 050 Dispatch contact synthetic; 060 NavBlue 30/30 with v1.1.0 swapped in; 061 the app with v1.1.0 swapped in, all 26 (card, NOTES section and stored flight unchanged but the findings and, on the 7 bare packages, the perishables banner, O-182); 090 fixtures missing → fail | 18/18 PASS |
 | TC-160-001 … 040 | the v0.1.0 battery (`test/rules/ofp-flightkeys.test.js`), scoped to the v0.1.0 fields; version / contract / airport keys / deferred-list asserts updated for v0.3.0 | 20/20 PASS |
 | TC-161-001 | **v0.1.0 fields byte-identical**: SHA-256 per field vs the recorded v0.1.0 output (`test/rules/data/ofp-flightkeys-v0.1.0-baseline.json`) on 26 fixtures; v0.1.0 findings kept in order; one airport entry added (L15 PWAK) | PASS |
 | TC-161-002 | QA F4: the FPL from the release only | PASS |
@@ -685,7 +687,7 @@ FK `UAAA-EHAM 27OCT` prototype (this module) against EOFP `UAAA-EHAM 27OCT` matc
 - **Equal:** `hasTemperatureControl`. **Crew:** the same four pilots, and every NavBlue key (`role, empNum, lastName, initial, displayName, active, isSen`) is equal person by person; the two plans print them in another order. **CAT II/III:** equal for all four airports both packages list (UAAA, EHAM, EBBR, LTAC). **DDG:** the same four codes and the same `tlr` values.
 - **Different because the packages print different content** (EOFP release 11 vs an unreleased FlightKeys prototype; checked in both texts): `hasPerishables` (only the EOFP prints `PERISHABLES O/B - YES`); `catIiIiiApproaches` (other airports: EOFP EDDB/EDDP, its redispatch airports; FK EBLG/EDDK/ELLX); `ddgItems`/`melItems` (titles worded differently, other order; a repeated item would also differ, since NavBlue lists it once and FlightKeys keeps every copy by Exec decision); `overflightPerms` (different permit lists; the FK prototype has two permits MISSING); `oeiData` (no TLR in the FK prototype); `crewMembers` (order only).
 
-On the 26 FlightKeys packages, `oeiData` equals NavBlue in 25 (the L10 difference is §5.8), and perishables/temperature equal NavBlue's whole-text rule in 19. The other 7 are the bare `PERISHABLES ONBOARD` line NavBlue misses (field map row 27).
+On the 26 FlightKeys packages, `oeiData` equals NavBlue in 25 (the L10 difference is §5.8). Perishables/temperature equal NavBlue's whole-text rule in 19 with v1.0.1 and in **all 26 with v1.1.0** (O-182: the bare `PERISHABLES ONBOARD` line, which NavBlue's rule does not read as YES, no longer sets `hasPerishables`).
 
 ---
 
@@ -786,44 +788,44 @@ Truth sheets: the 8 Exec sheets (drafts, not yet checked against the paper OFP) 
 | VA pages | 26: 1 advisory, 25 none | 26: 1 ADVISORY (L02), 25 NONE, 0 UNREADABLE | yes |
 | VA remarks (the advisory-rules engine reads them) | L03 positive, L14 negative | `ofpRemarks` unchanged: L03 `ROUTED SOUTH TO AVOID POTENTIAL VA FROM SHEVELUCH`, L14 `NO VA ACTIVITY AFFECTING FLIGHT` (both `route`) | yes |
 | RAIM records | 27, all PASSED → 0 attention | 27 `raim`, all PASSED forms (26 plain, 1 ETOPS ALTN, L14), one line each | yes |
-| Dispatch contact | the whole remark as printed (O-175) | 23 OFP Remarks (18 "with questions", 5 "if you have any questions"), 3 Company NOTAMs (T1–T3); labels 22 / 4 unchanged | yes (T1–T3 fallback: O-183) |
+| Dispatch contact | every printed text as printed (O-175, O-183) | Company line on 26 (22 short, 4 long) + remark on 23 (18 "with questions", 5 "if you have any questions"); T1–T3 Company line only; labels 22 / 4 unchanged | yes |
 | O-117 | 26 non-shown INFO texts | 26 (`fplEquipment`) | yes |
-| O-129 | nothing changes (no `: NO` printed) | `hasPerishables` unchanged on all 26 (7 bare → true) | yes |
+| O-129, O-182 | O-129: nothing (no `: NO` printed); O-182: the 7 bare packages not shown | `hasPerishables` true → false on L03, L08, L10, L12, L13, L16, L17; the other 19 unchanged (false) | yes |
 | Findings | — | 52 removed, 78 added: per package the `dispatchContact` and `fplEquipment` INFO reworded in place and one `volcanicAsh` INFO added after the `hazards` INFO; no WARN, level, field or code touched | — |
-| Any other field | 0 | 0 (`dispatchContact`, `volcanicAsh`, `findings` only) | yes |
+| Any other field | 0 | 0 (`dispatchContact`, `volcanicAsh`, `hasPerishables` on 7, `findings` only) | yes |
 | NavBlue outputs identical | 30 of 30 | 30 of 30 | yes |
-| The app with v1.1.0 swapped in | — | Preflight card and stored flight identical on all 26, but the stored findings | — |
+| The app with v1.1.0 swapped in | — | Preflight card, NOTES section and stored flight identical on all 26, but the stored findings and, on the 7, `hasPerishables` (no `PERISHABLES — SEE SP` banner) | — |
 
-**Per package** (`volcanicAsh.state` · advisories · `dispatchContact.source` / form · raim records · `hasPerishables`):
+**Per package** (`volcanicAsh.state` · advisories · `dispatchContact.company` + `.remark` · raim records · `hasPerishables` v1.0.1 → v1.1.0):
 
 | Pkg | VA state | Advisories | Dispatch text | RAIM | Perishables |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| L01 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L02 | ADVISORY | SHEVELUCH · TOKYO · 2026/370 | OFP Remarks, "if you have any questions" | 1 PASSED | false |
-| L03 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | true (bare) |
-| L04 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L05 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L06 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L07 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L08 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | true (bare) |
-| L09 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L10 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | true (bare) |
-| L11 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L12 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | true (bare) |
-| L13 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | true (bare) |
-| L14 | NONE | — | OFP Remarks, "with questions" | 2 PASSED (plain, ETOPS ALTN PAKN) | false |
-| L15 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L16 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | true (bare) |
-| L17 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | true (bare) |
-| L18 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L19 | NONE | — | OFP Remarks, "with questions" | 1 PASSED | false |
-| L20 | NONE | — | OFP Remarks, "if you have any questions" | 1 PASSED | false |
-| L21 | NONE | — | OFP Remarks, "if you have any questions" | 1 PASSED | false |
-| L22 | NONE | — | OFP Remarks, "if you have any questions" | 1 PASSED | false |
-| L23 | NONE | — | OFP Remarks, "if you have any questions" | 1 PASSED | false |
-| T1 | NONE | — | Company NOTAMs, short line | 1 PASSED | false |
-| T2 | NONE | — | Company NOTAMs, short line | 1 PASSED | false |
-| T3 | NONE | — | Company NOTAMs, short line | 1 PASSED | false |
+| L01 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L02 | ADVISORY | SHEVELUCH · TOKYO · 2026/370 | short Company line + remark "if you have any questions" | 1 PASSED | false |
+| L03 | NONE | — | short Company line + remark "with questions" | 1 PASSED | true → **false** (bare) |
+| L04 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L05 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L06 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L07 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L08 | NONE | — | short Company line + remark "with questions" | 1 PASSED | true → **false** (bare) |
+| L09 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L10 | NONE | — | short Company line + remark "with questions" | 1 PASSED | true → **false** (bare) |
+| L11 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L12 | NONE | — | short Company line + remark "with questions" | 1 PASSED | true → **false** (bare) |
+| L13 | NONE | — | short Company line + remark "with questions" | 1 PASSED | true → **false** (bare) |
+| L14 | NONE | — | short Company line + remark "with questions" | 2 PASSED (plain, ETOPS ALTN PAKN) | false |
+| L15 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L16 | NONE | — | short Company line + remark "with questions" | 1 PASSED | true → **false** (bare) |
+| L17 | NONE | — | short Company line + remark "with questions" | 1 PASSED | true → **false** (bare) |
+| L18 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L19 | NONE | — | short Company line + remark "with questions" | 1 PASSED | false |
+| L20 | NONE | — | long Company line + remark "if you have any questions" | 1 PASSED | false |
+| L21 | NONE | — | long Company line + remark "if you have any questions" | 1 PASSED | false |
+| L22 | NONE | — | long Company line + remark "if you have any questions" | 1 PASSED | false |
+| L23 | NONE | — | long Company line + remark "if you have any questions" | 1 PASSED | false |
+| T1 | NONE | — | short Company line; no remark | 1 PASSED | false |
+| T2 | NONE | — | short Company line; no remark | 1 PASSED | false |
+| T3 | NONE | — | short Company line; no remark | 1 PASSED | false |
 
 ### 8.3 Grammar errata (O-49, Exec 19 Nov: the measured counts with their method)
 
@@ -849,8 +851,8 @@ For the grammar report `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.
 | Item | Note |
 | :--- | :--- |
 | Integration (v1.1.0) | **Not built in (D90, D96).** v1.1.0 is `ofp-flightkeys-next` (declared in `test/lib/not-built-in.js`); the integration PR moves it to `ofp-flightkeys`, rebuilds `index.html` with the advisory-rules engine and the display of O-178 … O-181, and removes the declaration. v1.0.1 stays built in until then. |
-| **O-182** PERISHABLES ONBOARD bare form (new, O-176 f) | **Open (for the Exec).** 7 of the 26 (L03, L08, L10, L12, L13, L16, L17) print `PERISHABLES ONBOARD` truly bare — one text item alone on its row, no YES / NO and no value on the next line (§5.9, TC-180-014). Behaviour as on main: `hasPerishables` true, so the perishables protocol is shown. Options: (A) keep — the bare line means perishables on board (as today); (B) treat the bare line as not stated: nothing shown, a WARN to check the cargo (can hide perishables that are on board). Impact on the 26: A none; B 7 packages lose the perishables display. Recommended: A (safe side). |
-| **O-183** Dispatch contact with no Contact Dispatch remark (new, O-175) | **Open (for the Exec).** T1–T3 print no FlightKeys boilerplate remark, only the Company NOTAM line `Contact Dispatch for a preflight briefing.`; v1.1.0 then takes that line as printed (`source` `'Company NOTAMs'`). Options: (A) as built — the Company line as printed; (B) nothing (only OFP Remarks count). Impact on the 26: A 3 packages show the Company line; B 3 packages show no Dispatch contact. Recommended: A (a printed dispatch instruction stays visible). |
+| **O-182** PERISHABLES ONBOARD bare form (O-176 f) | **Closed (Exec, 22 Nov):** perishables shown only when the package prints YES (`: YES` on a YES/NO form, or perishables on board YES); not displayed otherwise — the bare line (L03, L08, L10, L12, L13, L16, L17) and `: NO` included; the NavBlue rule. Applied in v1.1.0 (§5.9): the 7 are declared output changes (true → false). |
+| **O-183** Dispatch contact with no Contact Dispatch remark (O-175) | **Closed (Exec, 22 Nov): option A** — a Contact Dispatch line only where one is printed; nothing when none is printed. T1–T3 keep the Company NOTAM line (§5.18). With O-175 as answered: every printed Contact Dispatch text is carried (Company line and remark). |
 | O-117 deferred INFO text | **Done in v1.1.0 (Exec, 21 Nov: "fix in the next ofp-flightkeys module change"):** `not read: not yet read from FlightKeys packages`; `read in 5d` removed (§5.25). |
 | O-129 PERISHABLES ONBOARD: NO | **Done in v1.1.0:** `: NO` sets nothing (§5.9); synthetic only (TC-180-040). |
 | O-176 (b) NavBlue VA / RAIM remarks | **Exec, 22 Nov: ignore NavBlue** (D118): the locked NavBlue parser returns no `volcanicAsh` and no remarks; the app treats a missing `volcanicAsh` as `null`. |
@@ -910,4 +912,4 @@ For the grammar report `docs/RPT-OFP-FlightKeys-BriefingGrammar-UPD-20261118-v1.
 | **0.4.0** (amended) | 2026-11-20 | UPD (development, D58) | Exec answers O-46 … O-49 (19 Nov) and O-50 … O-52 (20 Nov), same development version: Dispatch contact lines kept in the P0110 text + `dispatchContact` (O-46; addendum 4, 19 extensions); filed NAT track from the OFP page 1 route and the ICAO FPL route (O-47); curfew family / variant table (O-48); FIR repeats kept only under FIRs on the OFP and the departure FIR (the first FIR block, always on the OFP), the other copies left out with an INFO (O-49, O-50; O-51 and O-52 as built); grammar errata E-1, E-2 (§8.3). Everything else byte-identical to build 1 (TC-163-100). |
 | **1.0.0** | 2026-11-20 | UPD (release version, D58; not built in, O-74) | Step 5e-1 PR 1, Exec answers O-74 … O-85: the filed NAT letter is worked out before the NAT call; the NAT ruleset is called with `{ filed, findings }` and its findings forwarded into `findings[]` with their code (O-68, module side; D79, D81); the deferred INFO is version-free (O-84). Everything else byte-identical to v0.4.0 on all 26 (TC-164-020). |
 | **1.0.1** | 2026-11-21 | UPD (not built in, D90) | Step 5e-2 module PR, Exec answers O-100, O-103 (option B), O-115, O-116: internal references out of the crew-facing finding texts at the source — 11 WARN and 20 INFO templates (§5.25); codes, levels and fields unchanged; manifest key `ofp-flightkeys-next`. Everything else byte-identical to v1.0.0 on all 26; 143 texts change (TC-175-010). |
-| **1.1.0** | 2026-11-22 | UPD (not built in, D90, D96) | Step 5f module PR A, Exec answers O-169 … O-181 (22 Nov), contract 2.5 (addendum 5): `volcanicAsh` — the Volcanic Ash Advisories page, state NONE / ADVISORY / UNREADABLE, text as printed, advisories `{ volcano, vaac, number }` (O-169, §5.26); RAIM remarks — first line names RAIM → `raim`, PASSED forms one line, other forms take their continuation lines to the D63a end (O-172, §5.27); `dispatchContact.text` the whole Contact Dispatch remark as printed, `source` added, label kept as the internal flag (O-175, O-181, §5.18); deferred INFO without internal phrases, step `5d` removed (O-117, §5.25); `PERISHABLES ONBOARD: NO` sets nothing (O-129, §5.9). Everything else byte-identical to v1.0.1 on all 26 (TC-180-010). |
+| **1.1.0** | 2026-11-22 | UPD (not built in, D90, D96) | Step 5f module PR A, Exec answers O-169 … O-181 (22 Nov), contract 2.5 (addendum 5): `volcanicAsh` — the Volcanic Ash Advisories page, state NONE / ADVISORY / UNREADABLE, text as printed, advisories `{ volcano, vaac, number }` (O-169, §5.26); RAIM remarks — first line names RAIM → `raim`, PASSED forms one line, other forms take their continuation lines to the D63a end (O-172, §5.27); `dispatchContact` carries every printed Contact Dispatch text — `company` (the Company NOTAM line) and `remark` (the whole OFP remark), `text` both — label kept as the internal flag (O-175, O-181, O-183, §5.18); deferred INFO without internal phrases, step `5d` removed (O-117, §5.25); perishables only when YES is printed — `: NO` and the bare line set nothing (O-129, O-182, §5.9; 7 packages true → false). Everything else byte-identical to v1.0.1 on all 26 (TC-180-010). |

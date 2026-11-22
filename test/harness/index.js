@@ -29,6 +29,8 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  '_ofpDetectFormat', '_ofpParse', '_ofpShownFindings', 'renderPreflightPhase', 'importManual',
                  // O-89: the crew selects the OFP Alerts title.
                  'ofpAlertsSelect',
+                 // Step 5f module PR A (TC-180-061): the NOTES section, which shows the perishables banner (O-182).
+                 'renderNotesSection',
                  // Step 5e-2 display PR 1 (TC-176): the NAT card object, the D67b rows, the date pop-up,
                  // the rest chips and their handlers, the Enroute card.
                  '_natCardTrack', '_d67bRows', '_d67bRuleText', 'openEdit', '_d57Read', 'renderNote',
