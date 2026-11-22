@@ -49,6 +49,7 @@ const crypto = require('crypto');
 const { findFixtures, readManifest, importFixture } = require('../lib/app-path');
 const { loadApp } = require('../harness');
 const { normalize } = require('../golden/serialize');
+const { NOT_BUILT_IN } = require('../lib/not-built-in');   // step 5f: the declared *-next keys (D90, D96)
 const { diff } = require('../golden/diff');
 const { MODULES, assemble } = require('../../build/build');
 const { checkRules } = require('../../build/check-rules');
@@ -150,7 +151,9 @@ test('TC-175-001 identity: v1.0.1 under ofp-flightkeys (O-116, was ofp-flightkey
   assert.equal(sha(fs.readFileSync(NEW_FILE)), e.sha256, 'the module file = the manifest SHA-256');
   assert.equal(e.sha256, 'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d', 'the bytes of the module PR (#70), moved unchanged');
   assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.0.1.js'], 'one module file in rules/ofp-flightkeys');
-  assert.ok(!fs.existsSync(path.join(RULES, 'ofp-flightkeys-next')), 'no rules/ofp-flightkeys-next (O-116, D96)');
+  // Step 5f: rules/ofp-flightkeys-next holds the next version only (v1.1.0, declared, not built in); v1.0.1 is not there
+  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys-next')), ['ofp-flightkeys-v1.1.0.js']);
+  assert.ok(NOT_BUILT_IN.includes('ofp-flightkeys-next'));
   // v1.0.0: out of rules/, frozen copy byte for byte
   assert.equal(sha(fs.readFileSync(OLD_FILE)), '8a7d3e8fbf02ebae421739dfd65f8598d47e4d016ae1e7a3a2a791389e548e40');
   assert.equal(v100.RULESET_VERSION, '1.0.0');
@@ -162,7 +165,7 @@ test('TC-175-001 identity: v1.0.1 under ofp-flightkeys (O-116, was ofp-flightkey
     'aircraft-profile': ['1.0.0',  '7ca993193303228d595454ac5bf24ee82eddb9ae1fecc56ad7176dad238a4be5'],
   };
   for (const [k, v] of Object.entries(pinned)) assert.deepEqual([MANIFEST[k].version, MANIFEST[k].sha256], v, k);
-  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules']);
+  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', ...NOT_BUILT_IN]);
   assert.equal(checkRules(ROOT).ok, true);
   // NEGATIVE: one changed byte in a copy of rules/ → the manifest check fails
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tc175-'));

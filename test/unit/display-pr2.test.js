@@ -63,6 +63,7 @@ const vm     = require('vm');
 const crypto = require('crypto');
 const { loadApp } = require('../harness');
 const { findFixtures, readManifest, importFixture, importItems, fakePdfjs, peek } = require('../lib/app-path');
+const { NOT_BUILT_IN } = require('../lib/not-built-in');   // step 5f: the declared *-next keys (D90, D96)
 
 const ROOT  = path.resolve(__dirname, '..', '..');
 const plain = x => JSON.parse(JSON.stringify(x));
@@ -780,7 +781,8 @@ test('TC-177-041 labels are 1.10.0 (release); no rule module or module text chan
   assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0'/);
   assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
   const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'rules', 'manifest.json'), 'utf8'));
-  assert.deepEqual(Object.fromEntries(Object.entries(man).map(([k, v]) => [k, v.version])),
+  // Step 5f: the declared *-next keys (not built in, D90) are not this PR's modules
+  assert.deepEqual(Object.fromEntries(Object.entries(man).filter(([k]) => !NOT_BUILT_IN.includes(k)).map(([k, v]) => [k, v.version])),
     { 'notam-rules': '1.14.0', 'ofp-navblue': '2.0.1', 'aircraft-profile': '1.0.0', 'icao-fpl': '1.0.0', 'ofp-flightkeys': '1.0.1', 'nat-rules': '1.2.0' });
   assert.equal(man['ofp-flightkeys'].sha256, 'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d');
 });

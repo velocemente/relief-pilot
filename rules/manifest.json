@@ -28,5 +28,10 @@
     "version": "1.2.0",
     "file": "nat-rules/nat-rules-v1.2.0.js",
     "sha256": "a0ed2a31a344680424e96fd31d3046ac8cd65244e58cebd553fe5021fa2ca80d"
+  },
+  "ofp-flightkeys-next": {
+    "version": "1.1.0",
+    "file": "ofp-flightkeys-next/ofp-flightkeys-v1.1.0.js",
+    "sha256": "d2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9"
   }
 }
