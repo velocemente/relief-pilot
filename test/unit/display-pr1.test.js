@@ -113,7 +113,7 @@ test('TC-176-001 O-116: ofp-flightkeys v1.0.1 built in once, v1.0.0 not; no *-ne
   assert.ok(!HTML.includes(v100), 'v1.0.0 not in index.html');
   // Step 5f (D90, D96): only the declared *-next keys of test/lib/not-built-in.js, none built in
   assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), NOT_BUILT_IN, 'no *-next key but the declared ones (D96)');
-  assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)), NOT_BUILT_IN, 'no *-next folder but the declared ones');
+  assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)).sort(), NOT_BUILT_IN.slice().sort(), 'no *-next folder but the declared ones');
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
   assert.equal(MODULES.filter(m => m && /-next$/.test(m.rule)).length, 0, 'no *-next module built in');
   // NEGATIVE: the manifest check of TC-174-002 refuses any other *-next key

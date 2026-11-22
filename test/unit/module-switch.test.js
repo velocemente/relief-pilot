@@ -160,7 +160,7 @@ test('TC-174-002 rules/manifest.json: no *-next key; v1.13.0 and the NAT v1.1.0 
   assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', ...NOT_BUILT_IN]);
   assert.deepEqual(manifestProblems(MANIFEST), NOT_BUILT_IN.map(k => `${k}: a *-next key`), 'no *-next key but the declared ones (D96)');
   assert.deepEqual(Object.values(MANIFEST).slice(0, 6).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.0.1', '1.2.0']);
-  assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)), NOT_BUILT_IN, 'no *-next folder but the declared ones');
+  assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)).sort(), NOT_BUILT_IN.slice().sort(), 'no *-next folder but the declared ones');
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.13.0.js')), 'v1.13.0 is out of rules/');
   assert.equal(sha(NOTAM13), 'e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b', 'test/oracle: NOTAM v1.13.0 byte for byte');
   assert.equal(sha(NAT11), '4fa953e938dd09805eee31f4cf88b0f718109afb50333cb43be0686be5fb78a0', 'test/oracle: src/nat.html v1.1.0 byte for byte');
