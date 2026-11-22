@@ -10,7 +10,7 @@
  *               (SHA-256 c4ccb8c4…); a changed byte is caught by the manifest check (negative)
  *   TC-164-002  built in by the switch PR (step 5e-1; was "not built in", O-74): once, byte for byte, called only by
  *               the router in src/ofp-parse.html;
- *               APP_VERSION, CACHE_NAME and manifest.json version stay 1.9.9-hf6 (O-75)
+ *               APP_VERSION, CACHE_NAME and manifest.json version are 1.10.0 (release)
  *   TC-164-003  validateSchema(): valid; broken objects rejected
  *   TC-164-010  O-68: the NAT call gets { filed, findings }; the letter is known at the call; the probe call has
  *               no options; the NAT findings are forwarded as given, after the D74 WARN and before the natTrack
@@ -232,7 +232,7 @@ test('TC-164-001 identity: v1.0.0, contract 2.4; manifest entry and SHA-256; v0.
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-164-002 built in by the switch PR (step 5e-1, O-74; was: not built in): once, byte for byte, called only by the router; beta hold 1.9.9-hf6 (O-75)', () => {
+test('TC-164-002 built in by the switch PR (step 5e-1, O-74; was: not built in): once, byte for byte, called only by the router; labels 1.10.0 (release)', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   assert.equal(html.split(BUILT_IN).length, 2, 'index.html carries v1.0.1 once, byte for byte (O-116)');
   assert.ok(!html.includes(MOD_SRC), 'v1.0.0 is no longer in index.html (O-116)');
@@ -240,9 +240,9 @@ test('TC-164-002 built in by the switch PR (step 5e-1, O-74; was: not built in):
   const users = fs.readdirSync(path.join(ROOT, 'src'), { recursive: true }).filter(f => fs.statSync(path.join(ROOT, 'src', f)).isFile())
     .filter(f => /OfpFlightKeys/.test(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')));
   assert.deepEqual(users, ['ofp-parse.html'], 'only the router (src/ofp-parse.html) calls it');
-  assert.match(html, /const APP_VERSION = '1\.9\.9-hf6';/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.9\.9-hf6';/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.9.9-hf6');
+  assert.match(html, /const APP_VERSION = '1\.10\.0';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
 });
 
 test('TC-164-003 validateSchema(): valid; broken objects rejected', () => {

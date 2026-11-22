@@ -52,7 +52,7 @@
  *               GENERAL; a NOTAM the module already rows is not added twice; a hidden one never; esc() on every row
  *   TC-176-080  D92 OFP Alerts: order unchanged; red until tapped, per flight; the new items (date, crew, NAT,
  *               dispatch) do not reset it; a new import starts red
- *   TC-176-090  release labels: APP_VERSION, CACHE_NAME, manifest.json stay 1.9.9-hf6 (D91)
+ *   TC-176-090  release labels: APP_VERSION, CACHE_NAME, manifest.json are 1.10.0 (release)
  *   TC-176-099  fixtures missing → the fixture tests FAIL, never skip
  *
  * Synthetic packages and NOTAMs are labelled "synthetic" (invented identifiers). Fixture tests assert counts,
@@ -779,10 +779,10 @@ fixtureTest('TC-176-080 D92 OFP Alerts: order unchanged; red until tapped, per f
 
 // ══ TC-176-090 / 099 ═══════════════════════════════════════════════════════════
 
-test('TC-176-090 release labels unchanged (D91): APP_VERSION, CACHE_NAME, manifest.json 1.9.9-hf6', () => {
-  assert.match(HTML, /const APP_VERSION = '1\.9\.9-hf6';/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.9\.9-hf6';/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.9.9-hf6');
+test('TC-176-090 release labels (1.10.0 release): APP_VERSION, CACHE_NAME, manifest.json 1.10.0', () => {
+  assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
 });
 
 test('TC-176-099 fixtures missing → the fixture tests FAIL, never skip', () => {

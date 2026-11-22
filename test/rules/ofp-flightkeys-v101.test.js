@@ -13,7 +13,7 @@
  *               NAT, NOTAM and icao-fpl bytes unchanged; a changed byte is caught by the manifest check (negative)
  *   TC-175-002  built in (O-116): index.html carries v1.0.1 once and not v1.0.0; build/build.js has no -next
  *               entry; the build from src/ equals index.html; APP_VERSION, CACHE_NAME and manifest.json stay
- *               1.9.9-hf6 (D91)
+ *               1.10.0 (release)
  *   TC-175-003  validateSchema(): valid
  *   TC-175-004  every finding template, by level and field (static, all templates, fired or not): none in v1.0.1
  *               carries "(SME-", "(O-", "D-n", "CS-n", "§", a row or step reference or a version number (O-115);
@@ -175,16 +175,16 @@ test('TC-175-001 identity: v1.0.1 under ofp-flightkeys (O-116, was ofp-flightkey
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-175-002 built in (O-116, the integration PR): index.html carries v1.0.1 once, not v1.0.0; build = index.html; beta hold 1.9.9-hf6 (D91)', () => {
+test('TC-175-002 built in (O-116, the integration PR): index.html carries v1.0.1 once, not v1.0.0; build = index.html; labels 1.10.0 (release)', () => {
   assert.equal(HTML.split(NEW_SRC).length, 2, 'index.html carries v1.0.1 once, byte for byte');
   assert.ok(!HTML.includes(OLD_SRC), 'v1.0.0 not in index.html');
   assert.ok(!HTML.includes("const RULESET_VERSION  = '1.0.0';\n"), 'no v1.0.0 version line');
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
   assert.equal(MODULES.filter(m => m && /-next$/.test(m.rule)).length, 0, 'build/build.js has no -next module');
   assert.equal(sha(assemble(ROOT)), sha(fs.readFileSync(path.join(ROOT, 'index.html'))), 'the build from src/ and rules/ = the committed index.html');
-  assert.match(HTML, /const APP_VERSION = '1\.9\.9-hf6';/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.9\.9-hf6';/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.9.9-hf6');
+  assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
 });
 
 test('TC-175-003 validateSchema(): valid', () => {
