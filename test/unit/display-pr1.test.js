@@ -67,6 +67,7 @@ const vm     = require('vm');
 const { loadApp } = require('../harness');
 const { findFixtures, readManifest, importFixture, importItems, peek, notamKey } = require('../lib/app-path');
 const { MODULES } = require('../../build/build');
+const { NOT_BUILT_IN } = require('../lib/not-built-in');   // step 5f: the declared *-next keys (D90, D96)
 
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
@@ -110,12 +111,14 @@ test('TC-176-001 O-116: ofp-flightkeys v1.0.1 built in once, v1.0.0 not; no *-ne
   assert.equal(MANIFEST['ofp-flightkeys'].version, '1.0.1');
   assert.equal(HTML.split(v101).length, 2, 'v1.0.1 once, byte for byte');
   assert.ok(!HTML.includes(v100), 'v1.0.0 not in index.html');
-  assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), [], 'no *-next key (D96)');
-  assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)), [], 'no *-next folder');
+  // Step 5f (D90, D96): only the declared *-next keys of test/lib/not-built-in.js, none built in
+  assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), NOT_BUILT_IN, 'no *-next key but the declared ones (D96)');
+  assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)), NOT_BUILT_IN, 'no *-next folder but the declared ones');
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
-  // NEGATIVE: the manifest check of TC-174-002 refuses the former exception
-  const nextKeys = man => Object.keys(man).filter(k => /-next$/.test(k));
-  assert.deepEqual(nextKeys({ ...MANIFEST, 'ofp-flightkeys-next': {} }), ['ofp-flightkeys-next']);
+  assert.equal(MODULES.filter(m => m && /-next$/.test(m.rule)).length, 0, 'no *-next module built in');
+  // NEGATIVE: the manifest check of TC-174-002 refuses any other *-next key
+  const nextKeys = man => Object.keys(man).filter(k => /-next$/.test(k) && !NOT_BUILT_IN.includes(k));
+  assert.deepEqual(nextKeys({ ...MANIFEST, 'nat-rules-next': {} }), ['nat-rules-next']);
 });
 
 // ══ TC-176-010 … 012 data path, old save, failed save ═══════════════════════════

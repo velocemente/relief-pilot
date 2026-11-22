@@ -1,11 +1,11 @@
 # FlightKeys OFP Parser — Revision Ledger
 
-**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261121-v1.8.md` (supersedes ledger v1.7 of 20 Nov)
-**Module:** `ofp-flightkeys` — built in: `rules/ofp-flightkeys/ofp-flightkeys-v1.0.0.js` (key `ofp-flightkeys`); next: `rules/ofp-flightkeys-next/ofp-flightkeys-v1.0.1.js` (key `ofp-flightkeys-next`, not built in, D90)
-**Current Version:** 1.0.1 (step 5e-2 module PR, O-100; not built in until its integration PR, D90); the app runs 1.0.0 (built in by the switch PR, step 5e-1 PR 2, O-74)
-**Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50, and the rest of the briefing package (v0.4.0, step 5d-2, O-33 … O-45): rows 42, 46, 47, 49, Company NOTAMs, hazards, PACOTS; airport NOTAM type headings for NOTAM v1.14.0 (D67); the Exec answers O-46 … O-49 (K-11) and O-50 … O-52 (K-12); v1.0.0 (step 5e-1 PR 1): the NAT call with `{ filed, findings }`, NAT findings forwarded (O-68), version-free deferred INFO (O-84) (K-13).; v1.0.1 (step 5e-2): crew-facing finding texts without internal references (O-100) (K-14). Contract 2.4.
-**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22, TC-163 28/28, TC-164 14/14, TC-175 10/10 PASS on the 26 FlightKeys fixtures; independent QA of v1.0.1 pending (step 5e-2 module PR)
-**Last Updated:** 2026-11-21
+**File Standard:** `RPT-OFP-FlightKeys-RevisionLedger-UPD-20261122-v1.9.md` (supersedes ledger v1.8 of 21 Nov)
+**Module:** `ofp-flightkeys` — built in: `rules/ofp-flightkeys/ofp-flightkeys-v1.0.1.js` (key `ofp-flightkeys`, since display PR 1, O-116); next: `rules/ofp-flightkeys-next/ofp-flightkeys-v1.1.0.js` (key `ofp-flightkeys-next`, not built in, D90, D96); frozen: `test/oracle/ofp-flightkeys-v1.0.1.js`, `-v1.0.0.js`, `-v0.4.0.js`
+**Current Version:** 1.1.0 (step 5f module PR A, contract 2.5; not built in until its integration PR, D90); the app runs 1.0.1 (1.10.0)
+**Contents:** `parseFlightKeys()`. Release rows 1–23, 29–31, 33, 34, 36, 39–41 (v0.1.0) plus rows 24–28, 32, 32a, 35 and the Appendix B release/remarks extensions (v0.2.0) of field map v1.1, the briefing (v0.3.0, step 5d, D64): rows 37, 38, 43–45, 48, 50, and the rest of the briefing package (v0.4.0, step 5d-2, O-33 … O-45): rows 42, 46, 47, 49, Company NOTAMs, hazards, PACOTS; airport NOTAM type headings for NOTAM v1.14.0 (D67); the Exec answers O-46 … O-49 (K-11) and O-50 … O-52 (K-12); v1.0.0 (step 5e-1 PR 1): the NAT call with `{ filed, findings }`, NAT findings forwarded (O-68), version-free deferred INFO (O-84) (K-13).; v1.0.1 (step 5e-2): crew-facing finding texts without internal references (O-100) (K-14). v1.1.0 (step 5f module PR A, K-15): the Volcanic Ash Advisories page (`volcanicAsh`, O-169), RAIM remarks (O-172), the Dispatch contact as printed (O-175), O-117, O-129. Contract 2.5.
+**QA Status:** TC-160 20/20, TC-161 27/27, TC-162 22/22, TC-163 28/28, TC-164 14/14, TC-175 10/10, TC-180 18/18 PASS on the 26 FlightKeys fixtures; independent QA of v1.1.0 pending (step 5f module PR A)
+**Last Updated:** 2026-11-22
 
 ---
 
@@ -13,16 +13,29 @@
 
 | Metric | Value |
 |:-------|:------|
-| Total entries | 14 (K-01 … K-14) |
-| Current Version | 1.0.1 (next, not built in); 1.0.0 built in |
+| Total entries | 15 (K-01 … K-15) |
+| Current Version | 1.1.0 (next, not built in); 1.0.1 built in |
 | Sources | Field map `SPRINT-OFP-FlightKeysMigration-REF-20261113-v1.1`, since K-09 v1.2 (`…-UPD-20261118-v1.2-FieldMap.md`) (rows, SME-1 … SME-23, SME-3a, SME-18a); `rules/ofp-navblue` v2.0.1 (contract and NavBlue rules, FK-P); `rules/icao-fpl` v1.0.0; `rules/aircraft-profile` v1.0.0; 5b-1 QA on relief-pilot #60 (F3, F4); QA of relief-pilot #62 (F1–F4); Exec decisions D63, D63a; the Exec's 8 truth sheets (Rev 00) |
-| Masters reconciled | v1.0.1: none yet — published to the Drive after its own QA, before its integration PR (D90, CLAUDE.md rule 14); it must be byte-identical to `rules/ofp-flightkeys-next/ofp-flightkeys-v1.0.1.js` (SHA-256 in `rules/manifest.json`). v1.0.0: as K-13 |
+| Masters reconciled | v1.1.0: none yet — published to the Drive after its own QA, before its integration PR (D90, CLAUDE.md rule 14); it must be byte-identical to `rules/ofp-flightkeys-next/ofp-flightkeys-v1.1.0.js` (SHA-256 in `rules/manifest.json`). v1.0.1: as K-14 |
 | Gate Status | release version; gate O-68 met on the module side (the crew display is PR 2, O-76) |
-| Integration | v1.0.1 **not built in** (D90, O-103 option B: this module PR, then display PR 1, then display PR 2); the app keeps v1.0.0, **built in** by the switch PR (step 5e-1 PR 2, O-74; TC-174), with icao-fpl v1.0.0, NOTAM v1.14.0 and the NAT ruleset v1.2.0: `src/ofp-parse.html` routes a FlightKeys package (detector O-78) to `parseFlightKeys({ text, pages }, { icaoFpl, aircraftProfile, notamRules, parseNatTrack })` (O-18); `processPDF` keeps the positioned items; the findings are stored with the flight and shown on the Preflight card (O-76, O-87, O-88). Module file unchanged (SHA-256 `8a7d3e8f…8e40`). Beta stays 1.9.9-hf6 (O-75) |
+| Integration | v1.1.0 **not built in** (D90, D96: this module PR A, then the advisory-rules module PR B, then the integration and display PR); declared in `test/lib/not-built-in.js`. The app keeps v1.0.1 (built in by display PR 1, O-116), routed as K-13 / K-14 |
 
 ---
 
 ## History
+
+### K-15 — v1.1.0: Volcanic Ash Advisories page, RAIM remarks, Dispatch contact as printed, O-117, O-129 (step 5f module PR A) (2026-11-22)
+
+**Type:** UPD · **Brief:** step 5f module PR A (Exec answers O-169 … O-181, sheet "Scoping Decisions" tab 5f, clarified with the Exec 22 Nov; D115, D116, D88, D90, D96, D99, D103, D131 as amended by O-175, D63/D63a, D87, D47/D118) · **contract 2.5** (addendum 5) · not built in (D90)
+- **O-169 (§5.26):** new top-level extension `volcanicAsh { page, state NONE | ADVISORY | UNREADABLE, text as printed, advisories[] { volcano, vaac, number } }`, after `dispatchContact` (20 extensions). Extraction only (D88): no WARN (INFO only; O-170).
+- **O-172 (§5.27):** a remark whose first line names RAIM is `raim` (`RMK_RAIM` `^RAIM\b`, `RMK_RAIM_WORD`); the two PASSED forms stay one line (`RMK_RAIM_PASSED`); any other RAIM remark takes its continuation lines to the D63/D63a end (blank line, sub-heading, recognised item; a page break is not a blank line). RAIM in NOTAM text, on a continuation line or in a station block starts nothing.
+- **O-175, O-181 (§5.18):** `dispatchContact.text` = the whole Contact Dispatch remark(s) of the OFP Remarks as printed (every line, all variants); no such remark → the Company NOTAM line; new `source`; `label` kept as the internal short-form / long-form flag. Read in its own step `_readDispatchContact` (after `_readCompany`), also when no briefing document was read.
+- **O-117 (§5.25):** deferred INFO `not read: not yet read from FlightKeys packages`; step `5d` removed; `validateSchema()` accepts `open` only.
+- **O-129 (§5.9):** `PERISHABLES ONBOARD: NO` sets nothing; `: YES` and the bare form set `hasPerishables` (as v1.0.1). **O-176 f:** the 7 bare packages print the line truly bare (one item alone on its row, nothing after it) → open item **O-182**.
+- **On the 26 (TC-180-010 … 015), against v1.0.1:** every field but `dispatchContact`, `volcanicAsh` and `findings` byte-identical (`ofpRemarks`, `hasPerishables` included). `volcanicAsh`: 1 ADVISORY (L02 SHEVELUCH / TOKYO / 2026/370), 25 NONE. `dispatchContact`: 23 OFP Remarks (18 + 5 forms), 3 Company NOTAMs (T1–T3; open item **O-183**), labels unchanged (22 / 4). RAIM: 27 records, all PASSED, one line. Findings: 52 removed, 78 added (3 INFO per package), no WARN touched.
+- **Tests:** TC-180-001 … 005, 010 … 015, 020, 030, 040, 050, 060, 061, 090 (`test/rules/ofp-flightkeys-v110.test.js`, 18 tests; positive and negative per CLAUDE.md rule 6; synthetic cases labelled, D87, built by `test/lib/fk-synth.js`). Pinned values: fixtures `expected/ofp-flightkeys-v1.1.0/changes.json` (exporter `test/corpus/fk-v110-expected-export.js`).
+- **Wiring:** manifest key `ofp-flightkeys-next`; the "no *-next key" checks TC-174-001 / 002, TC-175-001, TC-176-001, TC-177-041 accept exactly the keys declared in `test/lib/not-built-in.js` (any other still fails). v1.0.1 frozen byte for byte as `test/oracle/ofp-flightkeys-v1.0.1.js`.
+- **Unchanged:** `index.html`, `src/`, `build/`, `sw.js`, `manifest.json` (1.10.0), `rules/ofp-flightkeys` v1.0.1, `rules/ofp-navblue` (D47), `rules/nat-rules`, `rules/notam-rules`, `rules/icao-fpl`, `rules/aircraft-profile`, the golden, NOTAM and app-path snapshots; NavBlue 30/30.
 
 ### K-14 — v1.0.1: internal references out of the crew-facing finding texts (step 5e-2 module PR) (2026-11-21)
 
