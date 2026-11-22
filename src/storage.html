@@ -146,7 +146,8 @@ function loadFlight(entry) {
 
 // O-107 / O-118: the opened flight's OFP text and RAW views, read again from its stored PDF exactly as
 // processPDF() reads it (_pdfReadText) and, for a FlightKeys flight (S.rawIndex), parsed again for the
-// RAW views only: nothing else in S or airportData is changed. The screens are redrawn when done.
+// RAW views and (step 5f display, D107) the OFP Remarks group's Dispatch contact and RAIM texts only:
+// nothing else in S or airportData is changed. The screens are redrawn when done.
 let _loadSeq = 0;
 function _ofpRederive(buf, seq) {
   return loadPdfJs()
@@ -160,6 +161,7 @@ function _ofpRederive(buf, seq) {
       if (S.rawIndex) {
         const r = _ofpParse(fullText, pages);
         _rawViews = r && Array.isArray(r.firRaw) ? _ofpRawViews(r) : { missing: true };
+        _ofpTexts = r && Array.isArray(r.firRaw) ? _ofpRemarkTexts(r, _ofpAdvisories(r)) : null;
       }
       _rerenderOpen();
     })

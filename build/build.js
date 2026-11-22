@@ -37,6 +37,7 @@ const MODULES = [
   'pdf.html',
   { rule: 'icao-fpl' },      // rules/icao-fpl: publishes IcaoFpl, passed to OfpFlightKeys in ofp-parse.html
   { rule: 'ofp-flightkeys' }, // rules/ofp-flightkeys: publishes OfpFlightKeys, called in ofp-parse.html (router)
+  { rule: 'advisory-rules' }, // rules/advisory-rules: publishes AdvisoryRules, called in parseOFP() after the format parser (ofp-parse.html)
   { rule: 'ofp-navblue' },   // rules/ofp-navblue: publishes OfpNavBlue, called in ofp-parse.html
   'ofp-parse.html',
   'render-preflight.html',

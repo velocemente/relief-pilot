@@ -7495,6 +7495,10 @@ let pdfArrayBuffer = null;   // ArrayBuffer of original PDF — slice a fresh Ui
 // open flight. Never saved: built at import, re-derived from the stored PDF when a flight is opened.
 // null = none (NavBlue, pasted text, not yet re-derived); { missing: true } = the stored PDF is missing.
 let _rawViews     = null;
+// Step 5f display (D107): the open flight's printed Dispatch contact and RAIM attention texts (OFP Remarks
+// group), { dispatch, raim[] } (_ofpRemarkTexts). Never saved: built at import, re-derived from the stored
+// PDF when a flight is opened. null = none (NavBlue, not yet re-derived, stored PDF missing).
+let _ofpTexts     = null;
 let _pdfDocProxy  = null;    // active PDFDocumentProxy — nulled before each new load (M3)
 
 // Recalculate DEST ETA and all alt ETAs from current outZ
@@ -7541,11 +7545,13 @@ function resetStateForNewFlight() {
   delete S.ofpAlertsSeen; // O-89: the OFP Alerts title selected by the crew; a new import starts red
   // Step 5e-2 display PR 2 (FlightKeys only; set by parseOFP() only when the parser returns them).
   delete S.ofpFormat; delete S.rawIndex; delete S.securityMessages; delete S.permits; delete S.catIiIiiRestrictions; delete S.ofpRemarks;
+  delete S.ofpRemarksOpen;   // step 5f display (O-179): set by parseOFP() only when true
   airportData = {};
   pdfRawText = '';
   pdfPages = null;
   pdfArrayBuffer = null;
   _rawViews = null;
+  _ofpTexts = null;
   _pdfDocProxy = null;
   _fcirActive = false;
   window._flightDateISO = '';
@@ -8050,7 +8056,8 @@ function loadFlight(entry) {
 
 // O-107 / O-118: the opened flight's OFP text and RAW views, read again from its stored PDF exactly as
 // processPDF() reads it (_pdfReadText) and, for a FlightKeys flight (S.rawIndex), parsed again for the
-// RAW views only: nothing else in S or airportData is changed. The screens are redrawn when done.
+// RAW views and (step 5f display, D107) the OFP Remarks group's Dispatch contact and RAIM texts only:
+// nothing else in S or airportData is changed. The screens are redrawn when done.
 let _loadSeq = 0;
 function _ofpRederive(buf, seq) {
   return loadPdfJs()
@@ -8064,6 +8071,7 @@ function _ofpRederive(buf, seq) {
       if (S.rawIndex) {
         const r = _ofpParse(fullText, pages);
         _rawViews = r && Array.isArray(r.firRaw) ? _ofpRawViews(r) : { missing: true };
+        _ofpTexts = r && Array.isArray(r.firRaw) ? _ofpRemarkTexts(r, _ofpAdvisories(r)) : null;
       }
       _rerenderOpen();
     })
@@ -8813,13 +8821,32 @@ const API = {
 return API;
 });
 /**
- * ofp-flightkeys.js — FlightKeys OFP Parser  (v1.0.1, contract v2.4)
+ * ofp-flightkeys.js — FlightKeys OFP Parser  (v1.1.0, contract v2.5)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.4): the FlightKeys OFP parser. It reads
  * an Atlas Air / Polar Air Cargo package in the FlightKeys format and returns
  * the briefing contract — the same 57 core fields, with the same names, types
  * and meanings, as the locked NavBlue parser (FK-P), plus the Appendix B
  * extensions and findings[].
+ *
+ * v1.1.0 (step 5f, module PR A; Exec answers O-169 … O-181, 22 Nov; D115,
+ * D116, D88) extracts, and never interprets (D88: the shared advisory-rules
+ * engine does that): the Volcanic Ash Advisories page as the new top-level
+ * extension volcanicAsh { page, state NONE | ADVISORY | UNREADABLE, text as
+ * printed, advisories[] { volcano, vaac, number } } (contract 2.5, addendum 5;
+ * O-169); a remark whose first line names RAIM and matches no other category
+ * is category raim — the two PASSED forms one line, any other with its
+ * continuation lines up to the D63/D63a paragraph end — and a remark of another
+ * category that names RAIM keeps it, flagged raim: true (O-172, QA F-01);
+ * dispatchContact carries every
+ * Contact Dispatch text printed — the Company NOTAM line and the whole OFP
+ * remark, every line (O-175, O-183; the label stays the internal short-form /
+ * long-form flag); the deferred-field INFO and
+ * step texts carry no internal phrase (O-117); hasPerishables only when the
+ * package prints YES — never for ": NO" or the bare "PERISHABLES ONBOARD" line,
+ * as the NavBlue rule (O-129, O-182). Every other output is byte-identical to
+ * v1.0.1 (frozen as test/oracle/ofp-flightkeys-v1.0.1.js). Not built into
+ * index.html: rules/ofp-flightkeys-next until the integration PR (D90, D96).
  *
  * v1.0.1 (step 5e-2, module PR; Exec answers O-100, O-103, O-115) changes
  * only the crew-facing finding texts: the internal references ("(SME-n)",
@@ -8919,7 +8946,7 @@ return API;
 
 const RULESET_TYPE     = 'ofp';
 const OFP_FORMAT       = 'flightkeys';
-const RULESET_VERSION  = '1.0.1';
+const RULESET_VERSION  = '1.1.0';
 const SCHEMA_VERSION   = 2;
 // Contract v2.0 (ADR-005 Appendix A + B) plus the extension fields of the
 // Appendix B addenda: specialQualification, swa (Exec SME answers 13 Nov,
@@ -8927,9 +8954,10 @@ const SCHEMA_VERSION   = 2;
 // firstName, toLndgExpiry (SME-9) (contract 2.2); the airport extensions
 // notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65) (contract 2.3, addendum 3);
 // the top-level extensions firNotams, firRaw (D64, O-41), natMessages (O-43), hazards (O-45)
-// and dispatchContact (O-46) (contract 2.4, addendum 4).
+// and dispatchContact (O-46) (contract 2.4, addendum 4); the top-level extension volcanicAsh (O-169)
+// and dispatchContact.company / .remark (O-175) (contract 2.5, addendum 5).
 // Adding fields is a minor contract version (ADR-005 §2.4).
-const CONTRACT_VERSION = '2.4';
+const CONTRACT_VERSION = '2.5';
 const RULESET_SOURCE   = 'FlightKeys OFP issued by Atlas Air / Polar Air Cargo dispatch (release, ICAO FPL and briefing package); field map SPRINT-OFP-FlightKeysMigration v1.1; ICAO Doc 4444 App 2/3 through icao-fpl';
 
 // ═══════════════════════════════════════════════════════════════
@@ -8954,12 +8982,13 @@ const CORE_FIELDS = Object.freeze([
 
 // Appendix B — top-level extensions, in order (contract v2.0 list with `swa`
 // (addendum 1), `operatingPilots` (addendum 2, D62) and `firNotams`, `firRaw`,
-// `natMessages`, `hazards`, `dispatchContact` (addendum 4, v0.4.0) added before `sections`).
+// `natMessages`, `hazards`, `dispatchContact` (addendum 4, v0.4.0) and `volcanicAsh` (addendum 5,
+// v1.1.0) added before `sections`).
 const EXTENSION_FIELDS = Object.freeze([
   'revision', 'companyNotams', 'ofpRemarks', 'fplEquipment',
   'catIiIiiRestrictions', 'securityMessages', 'extraFuel', 'pcf', 'permits',
   'designator', 'swa', 'operatingPilots', 'firNotams', 'firRaw', 'natMessages', 'hazards',
-  'dispatchContact', 'sections', 'findings',
+  'dispatchContact', 'volcanicAsh', 'sections', 'findings',
 ]);
 // Extensions on core records. specialQualification: addendum (SME-2).
 // notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65): addendum 3 (v0.3.0).
@@ -8980,7 +9009,9 @@ const CREW_EXTENSION_FIELDS    = Object.freeze(['firstName', 'toLndgExpiry']);
 const DEFERRED_FIELDS = Object.freeze({
   fplEquipment:           'open',  // D41 field 10a + MEL removals: not in the v0.2.0 brief (icao-fpl reads field 10)
 });
-const DEFERRED_STEPS = Object.freeze({ '5d': 'read in 5d', open: 'not in any brief yet (open item)' });
+// v1.1.0 (O-117): no internal phrase in the step text — "(open item)" and "brief" are out, and the
+// unused '5d' step ("read in 5d"; no field was deferred to it) is removed.
+const DEFERRED_STEPS = Object.freeze({ open: 'not yet read from FlightKeys packages' });
 
 // ═══════════════════════════════════════════════════════════════
 // § 3 · PATTERNS (FlightKeys release, structure per field map v1.1)
@@ -9123,6 +9154,10 @@ const PATTERNS = {
   // also prints the bare line "PERISHABLES ONBOARD" (row 27)
   PERISHABLE:      /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES|LIVE\s+ANIMALS\s*:\s*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
   PERISHABLES_ONBOARD: /^PERISHABLES?\s+ON\s*BOARD\b/,
+  // v1.1.0 (O-129, O-182; QA F-03): the printed value of that line — YES or NO after any punctuation or
+  // spacing (": YES", "- YES", " YES", "=YES" …). YES → perishables; NO, the bare line (7 of the 26 print it
+  // so, one item, nothing after it) or any other value → none (the NavBlue rule).
+  PERISHABLES_VALUE:   /^PERISHABLES?\s+ON\s*BOARD[^A-Za-z0-9]*(YES|NO)\b/,
   TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
   // Row 35: "Overflight/Landing Permits" … the nav-log header; groups "--- OVERFLIGHT PERMITS" etc.
   PERMITS_START:   /^Overflight\/Landing Permits?\s*$/,
@@ -9142,7 +9177,13 @@ const PATTERNS = {
   RMK_SECURITY:    /\bSECURITY\b/,
   RMK_SLOT:        /\bWHEELS\s+UP\b|\bSLOT\s+TIME\b/,
   RMK_EWINS:       /\bE-?WINS\b/i,
-  RMK_RAIM:        /^RAIM VALIDATION\b/,
+  // v1.1.0 (O-172; QA F-01): a remark whose first line names RAIM (RMK_RAIM at the start, RMK_RAIM_WORD
+  // anywhere) is a raim remark only when it matches no other category; otherwise it keeps its category
+  // and is flagged raim: true. The two PASSED forms (the only forms in both corpora, O-171) stay one line;
+  // any other raim remark takes its continuation lines.
+  RMK_RAIM:        /^RAIM\b/,
+  RMK_RAIM_WORD:   /\bRAIM\b/,
+  RMK_RAIM_PASSED: /^RAIM VALIDATION (?:FOR ETOPS ALTN [A-Z]{4} )?PASSED\s*$/,
   RMK_EXEMPTION:   /\bEXEMPTION\b/,
   RMK_FLEET_NOTE:  /^B7\d7-\d+[A-Z]*\/\s*\S/,
   RMK_STATION:     /^(?:\*\*\s*([A-Z]{4})(?:\/[A-Z]{3})?\s+FLIGHT\s+OP(?:S|ERATIONS)\s+RESTRICTIONS?\s*\*\*|([A-Z]{4})(?:\/[A-Z]{3})?\s+FLIGHT\s+OP(?:S|ERATIONS)\s+RESTRICTIONS?:?|([A-Z]{4})\s+(?:B?(7\d7)\s+)?(?:ARRIVALS|DEPARTURES|OPERATIONS):)\s*$/,
@@ -9178,6 +9219,18 @@ const PATTERNS = {
   BR_HSCN_HEAD:    /^HIGH SEVERITY COMPANY NOTAMS$/,
   BR_CN_HEAD:      /^COMPANY NOTAMS$/,
   BR_VA_TEXT:      /\bVOLCANIC ASH\b/,
+  // v1.1.0 (O-169): the Volcanic Ash Advisories page (one document, footer "Page1of1"). Closed forms:
+  // NONE = the page reads exactly VA_NONE (its lines joined with single spaces); ADVISORY = the heading,
+  // the INTERSECTS column and at least one "VA ADVISORY" block, one list row per block, every volcano
+  // readable; anything else is UNREADABLE. Lines trimmed; matched one line at a time.
+  VA_NONE:         /^NO VOLCANIC ASH ADVISORIES FOUND FOR THIS FLIGHT$/,
+  VA_HEAD:         /^VOLCANIC ASH ADVISORIES$/,
+  VA_INTERSECTS:   /^INTERSECTS$/,
+  VA_LIST_ROW:     /^VAA\s*(\d{4}\/\d+)\s+(\S(?:.*?\S)?)(?:\s{2,}FLIGHT)?$/,
+  VA_ADVISORY:     /^VA ADVISORY$/,
+  VA_VAAC:         /^VAAC:\s*(\S(?:.*\S)?)\s*$/,
+  VA_VOLCANO:      /^VOLCANO:\s*(\S(?:.*?\S)?)(?:\s+\d{3,6}(?:-\d{2})?)?\s*$/,
+  VA_NUMBER:       /^ADVISORY NR:\s*(\d{4}\/\d+)\s*$/,
   // §A.4: airport block. Name cell "[<IATA>] - <NAME>" (clipped by FlightKeys,
   // may be glued to the role) and the role cell "<ROLE> DD HH:MM - DD HH:MM".
   // The role is taken from the closed list, anchored to the window at the end of
@@ -9350,7 +9403,7 @@ function _emptyExtensions() {
     revision: null, companyNotams: [], ofpRemarks: [], fplEquipment: null,
     catIiIiiRestrictions: [], securityMessages: [], extraFuel: null, pcf: null, permits: [],
     designator: '', swa: null, operatingPilots: null, firNotams: [], firRaw: [], natMessages: [], hazards: [], dispatchContact: null,
-    sections: [], findings: [],
+    volcanicAsh: null, sections: [], findings: [],
   };
 }
 
@@ -9408,11 +9461,13 @@ function parseFlightKeys(input, options) {
   _readPending(ctx);
   _readBriefing(ctx);      // § 7 (v0.3.0): airportData weather / notams, card order
   _readCompany(ctx);       // § 7b (v0.4.0): companyNotams[] (§A.7)
+  _readDispatchContact(ctx); // § 7b (v0.4.0 O-46; v1.1.0 O-175): dispatchContact
   _readCurfews(ctx);       // § 7b (v0.4.0): airportData curfew (row 46; O-33 … O-37)
   _readOpsNotes(ctx);      // § 7b (v0.4.0): airportData opsNotes (row 47; O-38, O-39)
   _readFirs(ctx);          // § 7b (v0.4.0): enrouteNotams, firNotams[], firRaw[] (row 49; O-40, O-41)
   _readHazards(ctx);       // § 7b (v0.4.0): hazards[] (O-45)
-  _readNat(ctx);           // § 7b (v0.4.0): natMessages[], natTrack (row 42; O-42, O-43); v1.0.0: NAT findings (O-68)
+  _readVolcanicAsh(ctx);   // § 7b (v1.1.0): volcanicAsh (O-169)
+  _readNat(ctx);          // § 7b (v0.4.0): natMessages[], natTrack (row 42; O-42, O-43); v1.0.0: NAT findings (O-68)
   _readSections(ctx);      // § 7 (v0.3.0): sections[] (rows 37, 38); PACOTS (v0.4.0, O-44)
 
   // ── Deferred fields: explicit empties, one INFO each ───────────────
@@ -10148,7 +10203,6 @@ const _RMK_INHERIT = new Set(['boilerplate', 'pcf', 'extraFuel', 'ballast', 'mel
 function _remarkStart(t, first) {
   if (first && PATTERNS.RMK_DISPATCHER.test(t)) return 'dispatcher';
   if (PATTERNS.RMK_BOILERPLATE.test(t)) return 'boilerplate';
-  if (PATTERNS.RMK_RAIM.test(t)) return 'raim';
   if (PATTERNS.CAT_ANY.test(t)) return 'catIiIii';
   if (PATTERNS.RMK_STATION.test(t)) return 'stationRestriction';
   if (PATTERNS.RMK_FLEET_NOTE.test(t)) return 'fleetNote';
@@ -10165,6 +10219,9 @@ function _remarkStart(t, first) {
   if (PATTERNS.RMK_EXTRA.test(t)) return 'extraFuel';
   if (PATTERNS.RMK_BALLAST.test(t)) return 'ballast';
   if (PATTERNS.RMK_ROUTE.test(t)) return 'route';
+  // v1.1.0 (QA F-01): raim only when no other category matches; a remark of another category that names
+  // RAIM keeps its category and its field, and its record is flagged raim: true (_readRemarks).
+  if (PATTERNS.RMK_RAIM.test(t)) return 'raim';
   return null;
 }
 
@@ -10184,11 +10241,17 @@ function _readRemarks(ctx, from, to) {
     let c = _remarkStart(t, i === from);
     if (c === null && PATTERNS.RMK_DASHES.test(t) && i + 1 < to && PATTERNS.RMK_STATION.test(lines[i + 1].trim())) c = 'dashes';
     let cont = false, isSub = false;
-    if (mode === 'stationRestriction' && !(c && _RMK_HARD.has(c))) { c = 'stationRestriction'; cont = true; }
+    // a line starting with RAIM ends a station block whatever its category (as v1.0.1's RAIM VALIDATION line)
+    if (mode === 'stationRestriction' && !(c && _RMK_HARD.has(c)) && !PATTERNS.RMK_RAIM.test(t)) { c = 'stationRestriction'; cont = true; }
     else if (c === 'dashes') { c = 'stationRestriction'; station = { icao: null, heading: '', fleet: null, subHeading: null, subFleet: null, marker: null, cur: null }; }
     else if (c === null && PATTERNS.RMK_SUBHEAD.test(t)) { c = 'other'; isSub = true; }   // D63a: a sub-heading
     else if (c === null && mode && (mode !== 'boilerplate' || boilerOpen) && !blank && !afterSub) { c = mode; cont = true; }
     else if (c === null) c = 'other';
+    // v1.1.0 (O-172; QA F-01): a new remark whose first line names RAIM anywhere and that matches NO other
+    // category is category raim, a sub-heading too (it then opens the remark). A remark of another category
+    // keeps it (and its field) and is flagged raim: true below. A RAIM word on a continuation line starts
+    // nothing. NOTAM text never reaches this reader.
+    if (!cont && c === 'other' && PATTERNS.RMK_RAIM_WORD.test(t)) { c = 'raim'; isSub = false; }
     if (c !== 'stationRestriction') {
       if (isSub) genSub = t.replace(/:\s*$/, '');
       else if (!cont && (blank || !afterSub)) genSub = null;
@@ -10243,6 +10306,9 @@ function _readRemarks(ctx, from, to) {
     }
     if (!joined) {
       const rec = { text: t, category: c, airport, subHeading: general ? genSub : subHeading, page: pos[i].page, line: pos[i].line };
+      // QA F-01: a remark of another category whose first line names RAIM — an additional RAIM flag, never
+      // a replacement (the key is present only when true). The dispatcher line and the boilerplate excepted.
+      if (c !== 'raim' && c !== 'dispatcher' && c !== 'boilerplate' && PATTERNS.RMK_RAIM_WORD.test(t)) rec.raim = true;
       ext.ofpRemarks.push(rec);
       if (station && station.cur && !station.cur.record) station.cur.record = rec;
       if (general) entry = null;
@@ -10250,7 +10316,10 @@ function _readRemarks(ctx, from, to) {
     }
     if (cont && entry && entry.category === c) { entry.text += '\n' + t; entry.lines.push(i); }
     else { entry = { category: c, text: t, lines: [i], page: pos[i].page, line: pos[i].line, rec: newRec || null }; entries.push(entry); }
-    mode = _RMK_INHERIT.has(c) ? c : null;
+    // O-172: a raim remark that is not one of the two PASSED forms takes its continuation lines; it ends by
+    // the D63/D63a paragraph rule (a blank line, a sub-heading or a recognised item; a page break is no
+    // blank line). The PASSED forms stay one line (as v1.0.1).
+    mode = _RMK_INHERIT.has(c) ? c : c === 'raim' && (cont || !PATTERNS.RMK_RAIM_PASSED.test(t)) ? 'raim' : null;
   }
   // ADHOC penalty lines of the MEL/CDL block (not item notes): kept in order. The
   // block marks its items with "- " (D63): the heading line is a record of its own,
@@ -10267,7 +10336,14 @@ function _readRemarks(ctx, from, to) {
   const remText = lines.slice(from, to).join('\n');
 
   // Rows 27, 28 (D55): the NavBlue rules on the release Remarks; FlightKeys bare line.
-  out.hasPerishables = PATTERNS.PERISHABLE.test(remText) || entries.some(en => en.category === 'perishables');
+  // v1.1.0 (O-129, O-182, Exec 22 Nov): perishables only when the package prints YES — the NavBlue pattern
+  // or "PERISHABLES ONBOARD: YES"; ": NO" and the bare "PERISHABLES ONBOARD" line set nothing (v1.0.1: the
+  // bare line set it).
+  out.hasPerishables = PATTERNS.PERISHABLE.test(remText) || entries.some(en => {
+    if (en.category !== 'perishables') return false;
+    const v = PATTERNS.PERISHABLES_VALUE.exec(lines[en.lines[0]].trim());
+    return !!v && v[1] === 'YES';
+  });
   out.hasTemperatureControl = PATTERNS.TEMPERATURE_CONTROL.test(remText);
 
   // Row 24 (SC): authorisations (NavBlue form) and restrictions (never authorisations).
@@ -11156,6 +11232,13 @@ function _readCompany(ctx) {
   ext.companyNotams = recs.map(r => { const o = Object.assign({}, r); delete o._subjectRow; return o; });
   const n = o => recs.filter(r => r.origin === o).length;
   add('INFO', 'companyNotams', `${recs.length} Company NOTAMs read (${n('HSCN')} High Severity, ${n('COMPANY')} Company), as printed`);
+}
+
+// O-46 (v0.4.0), O-175 (v1.1.0): dispatchContact, read after the Company NOTAMs and from the OFP Remarks,
+// also when no briefing document was read (pasted text: the remark is still printed in the release).
+function _readDispatchContact(ctx) {
+  const { add, ext } = ctx;
+  const recs = ctx.company || [];
   // O-46: dispatchContact { label, text } from the Dispatch contact line(s) printed in
   // the Company NOTAMs (HSCN and Company): REQUIRED wins over IF QUESTIONS; none → null.
   const found = {};
@@ -11167,10 +11250,27 @@ function _readCompany(ctx) {
     }
   }
   const label = found.REQUIRED ? 'REQUIRED' : found['IF QUESTIONS'] ? 'IF QUESTIONS' : null;
-  ext.dispatchContact = label ? { label, text: found[label].text } : null;
-  if (label) add('INFO', 'dispatchContact', `Dispatch contact ${label}: "${found[label].text}" (${found[label].at.join(', ')})${found.REQUIRED && found['IF QUESTIONS'] ? `; the IF QUESTIONS form is also printed (${found['IF QUESTIONS'].at.join(', ')}): REQUIRED` : ''}`);
-  else add('INFO', 'dispatchContact', 'no Dispatch contact line printed in the Company NOTAMs: dispatchContact null');
+  // v1.1.0 (O-175, O-183, D131 as amended; Exec 22 Nov): every Contact Dispatch text the package prints is
+  // carried as printed, so the crew can see whether the contact is compulsory:
+  //   company = the Company NOTAM Dispatch contact line(s) — each printed form once, in printed order (the
+  //             HSCN and Company copies of one line are one text);
+  //   remark  = every OFP Remarks record that says "Contact Dispatch" (any case, across its line breaks),
+  //             every line, in printed order (all variants);
+  //   text    = all of them, the Company line(s) first; nothing printed → dispatchContact null.
+  // The label stays the internal short-form / long-form flag (REQUIRED / IF QUESTIONS; null when no Company
+  // line), for the open state only (O-181), never crew text.
+  const rmk = ext.ofpRemarks.filter(r => DISPATCH_CONTACT_REMARK.test(r.text.replace(/\n/g, ' ')));
+  const forms = Object.keys(found);   // printed order of the first copy of each form
+  const company = forms.length ? forms.map(k => found[k].text).join('\n') : null;
+  const remark = rmk.length ? rmk.map(r => r.text).join('\n') : null;
+  ext.dispatchContact = company || remark ? { label, text: [company, remark].filter(Boolean).join('\n'), company, remark } : null;
+  const co = forms.length ? `Company NOTAM line(s): ${forms.map(k => `${k === 'REQUIRED' ? 'short' : 'long'} form (${found[k].at.join(', ')})`).join(', ')}` : 'no Company NOTAM line';
+  const rm = rmk.length ? `OFP Remarks: ${rmk.length} remark(s), PDF p${rmk.map(r => `${r.page} line ${r.line}`).join(', p')}` : 'no Contact Dispatch remark in the OFP Remarks';
+  if (ext.dispatchContact) add('INFO', 'dispatchContact', `Dispatch contact as printed: ${co}; ${rm}`);
+  else add('INFO', 'dispatchContact', 'no Contact Dispatch remark in the OFP Remarks and no Dispatch contact line in the Company NOTAMs: dispatchContact null');
 }
+// O-175: an OFP remark that is a Dispatch contact message (the words "Contact Dispatch", any case).
+const DISPATCH_CONTACT_REMARK = /\bcontact\s+dispatch\b/i;
 
 // An item's text lines after its SUBJECT row (the item's own text, §A.7).
 const _companyBody = r => (r._subjectRow >= 0 ? r.text.split('\n').slice(r._subjectRow + 1) : r.text.split('\n'));
@@ -11454,6 +11554,53 @@ function _readHazards(ctx) {
   if (docs.length) add('INFO', 'hazards', `${recs.length} FIR blocks in the Hazard Briefing (${recs.filter(x => x.empty).length} with no SIGMET); kept as printed, not evaluated`);
 }
 
+// v1.1.0 (O-169; D116, D88): the Volcanic Ash Advisories page → volcanicAsh { page, state, text,
+// advisories[] }, extracted only — whether the crew is told is the advisory-rules engine's call.
+// page = the PDF page of the VA document (the first, if FlightKeys ever prints more than one);
+// text = its lines as printed (the RAW convention of notamsRaw / firRaw); state:
+//   NONE       every VA document reads the closed "no advisories" form (VA_NONE)
+//   ADVISORY   an advisory list: heading, INTERSECTS column, one list row per "VA ADVISORY" block, and
+//              the volcano of every advisory readable (from its VOLCANO: line, else its list row)
+//   UNREADABLE anything else (garbled, cut, unknown form); advisories[] keeps what could be read
+// advisories[] = { volcano, vaac, number } per "VA ADVISORY" block, in printed order, each value as
+// printed or null when not readable (the volcano without its volcano number; number "2026/370").
+// No VA document → volcanicAsh null. Findings: INFO only (D92 shows parser WARNs to the crew; O-170).
+function _readVolcanicAsh(ctx) {
+  const { ext, add } = ctx;
+  const docs = (ctx.briefDocs || []).filter(d => d.kind === 'VA');
+  if (!docs.length) {
+    if (ctx.briefDocs && ctx.briefDocs.length) add('INFO', 'volcanicAsh', 'no Volcanic Ash Advisories page in the briefing package: volcanicAsh null');
+    return;
+  }
+  const advisories = [];
+  const states = docs.map(d => {
+    const ls = d.lines.map(l => l.text.trim()).filter(Boolean);
+    if (PATTERNS.VA_NONE.test(ls.join(' ').replace(/\s+/g, ' '))) return 'NONE';
+    const rows = ls.map(l => PATTERNS.VA_LIST_ROW.exec(l)).filter(Boolean);
+    const starts = ls.map((l, k) => PATTERNS.VA_ADVISORY.test(l) ? k : -1).filter(k => k >= 0);
+    const val = (re, a, b) => { for (let k = a; k < b; k++) { const m = re.exec(ls[k]); if (m) return m[1]; } return null; };
+    const mine = starts.map((s, n) => {
+      const e = n + 1 < starts.length ? starts[n + 1] : ls.length;
+      const row = rows.length === starts.length ? rows[n] : null;
+      return {
+        volcano: val(PATTERNS.VA_VOLCANO, s, e) || (row ? row[2] : null),
+        vaac: val(PATTERNS.VA_VAAC, s, e),
+        number: val(PATTERNS.VA_NUMBER, s, e) || (row ? row[1] : null),
+      };
+    });
+    advisories.push(...mine);
+    const shaped = PATTERNS.VA_HEAD.test(ls[0] || '') && ls.some(l => PATTERNS.VA_INTERSECTS.test(l));
+    return shaped && starts.length && rows.length === starts.length && mine.every(a => a.volcano) ? 'ADVISORY' : 'UNREADABLE';
+  });
+  const state = states.includes('UNREADABLE') ? 'UNREADABLE' : states.includes('ADVISORY') ? 'ADVISORY' : 'NONE';
+  ext.volcanicAsh = { page: docs[0].first, state, text: docs.map(d => d.lines.map(l => l.text).join('\n')).join('\n'), advisories };
+  const at = `Volcanic Ash Advisories page (PDF p${docs.map(d => d.first).join(', p')})`;
+  const list = advisories.map(a => `${a.volcano || '(volcano not readable)'} (VAAC ${a.vaac || 'not readable'}, advisory ${a.number || 'number not readable'})`).join('; ');
+  if (state === 'NONE') add('INFO', 'volcanicAsh', `${at}: no advisories for this flight`);
+  else if (state === 'ADVISORY') add('INFO', 'volcanicAsh', `${at}: ${advisories.length} advisory(ies) listed: ${list}; kept as printed, not evaluated here`);
+  else add('INFO', 'volcanicAsh', `${at}: not readable as the no-advisories form or an advisory list${advisories.length ? ` (read: ${list})` : ''}; kept as printed`);
+}
+
 // Scope 5 (row 42; SME-14 as amended by O-42, SME-20; O-43): the NAT track
 // messages, complete across their pages. natMessages[] = every message: { tmi,
 // direction, valid, parts, complete, pages, text, selected }. The message returned
@@ -11704,7 +11851,7 @@ function validateSchema(ruleset) {
     if (new Set(v).size !== v.length || v.some(x => typeof x !== 'string' || !x)) errors.push(`${k} must be unique non-empty names`);
   };
   list('CORE_FIELDS', 57);
-  list('EXTENSION_FIELDS', 19);
+  list('EXTENSION_FIELDS', 20);
   list('AIRPORT_EXTENSION_FIELDS', 7);
   list('DDG_EXTENSION_FIELDS', 2);
   list('CREW_EXTENSION_FIELDS', 2);
@@ -11717,7 +11864,7 @@ function validateSchema(ruleset) {
       const top = k.split('.')[0];
       const known = (Array.isArray(r.CORE_FIELDS) && r.CORE_FIELDS.includes(top)) || (Array.isArray(r.EXTENSION_FIELDS) && r.EXTENSION_FIELDS.includes(top));
       if (!known) errors.push(`DEFERRED_FIELDS.${k} is not a contract field`);
-      if (v !== '5d' && v !== 'open') errors.push(`DEFERRED_FIELDS.${k}: step '${v}' is not 5d or open`);
+      if (v !== 'open') errors.push(`DEFERRED_FIELDS.${k}: step '${v}' is not open`);
     }
   }
   return { valid: errors.length === 0, errors };
@@ -11737,6 +11884,336 @@ const API = {
   CREW_EXTENSION_FIELDS,
   DEFERRED_FIELDS,
   CURFEW_TYPES, CURFEW_NOTES,   // v0.4.0: the O-33 / O-48 type table and the curfew notes (O-33, O-34)
+};
+return API;
+});
+/**
+ * advisory-rules.js — Volcanic ash and RAIM advisory rules  (v1.0.0)
+ * ─────────────────────────────────────────────────────────────────
+ * Standalone shared module (ADR-005 §2.1, §2.2; Exec answer O-173, 22 Nov
+ * 2026): the interpretation of what an OFP prints about volcanic ash and RAIM.
+ * D88: the format parsers only extract and normalise; the same content gives
+ * the same result whatever the format. The app calls evaluateAdvisories() in
+ * parseOFP() AFTER the format parser, on the parser's contract object, so the
+ * NavBlue parser and its 30 golden snapshots are untouched (D47, D118).
+ *
+ * WHAT IT DECIDES (Exec answers O-169 … O-181; D115, D116):
+ *   § 3  Volcanic ash (O-169, O-170, O-177, O-178, D116)
+ *        - An advisory = the FlightKeys Volcanic Ash Advisories page with an
+ *          actual advisory listed (volcanicAsh.state ADVISORY, ofp-flightkeys
+ *          v1.1.0). The "no advisories" page is none.
+ *        - A VA remark = an OFP remark of ANY category (RAIM records included,
+ *          QA F-02) that carries a term of the closed VA term list
+ *          (VA_TERMS). It is NEGATIVE when, after every form of the
+ *          closed negative list (VA_NEGATIVE_FORMS) is taken out, no VA term is
+ *          left; otherwise POSITIVE.
+ *        - An advisory is linked to a positive remark that names its volcano.
+ *        - Advisory + linked remark → WARN VA_WARN.ADVISORY (D116).
+ *          Advisory, no linked remark → nothing (O-170, Exec-decided).
+ *          Positive remark not linked to an advisory (no page, NONE page, an
+ *          UNREADABLE page, or another volcano) → WARN VA_WARN.ROUTING (O-177).
+ *   § 4  RAIM (O-171, D115)
+ *        - Any PASSED form printed (plain or ETOPS ALTN) → no RAIM output for
+ *          the flight, even if another RAIM remark is printed too (Exec-decided).
+ *        - A RAIM remark = an ofpRemarks record of category raim, or a remark of
+ *          another category flagged raim: true (ofp-flightkeys v1.1.0, QA
+ *          F-01); the PASSED hide suppresses only this RAIM attention output,
+ *          never a remark, a field or another rule's result (the VA WARN).
+ *        - No PASSED form + any other RAIM remark (outage, unreadable, unknown
+ *          form) → a RAIM attention record per remark, text as printed. Never an
+ *          OFP Alerts line (O-171).
+ *   § 5  Volcanic FIR items (O-180): the FIR NOTAMs (ASHTAM included) and the FIR
+ *        hazards whose text carries a term of the same closed list are flagged,
+ *        "no ash cloud" items too; the display opens their groups by default.
+ *   § 6  The OFP Remarks group flag (O-179): a positive VA remark or a RAIM
+ *        attention record.
+ *
+ * NOT IN THIS MODULE — reading the page or the remarks (ofp-flightkeys), the
+ * display (the integration PR), the 1.10.0 open conditions of the OFP Remarks
+ * group (O-181: the display keeps them), the Dispatch contact (D131, O-173).
+ * NOT BUILT INTO index.html (D90): rules/advisory-rules-next until the
+ * integration PR.
+ *
+ * DUAL CONTEXT
+ *   Node / rules-loader: module.exports = the API object below.
+ *   Browser (a plain script): no `module` → the API object is published once as
+ *   the global AdvisoryRules. Every declaration stays in the factory scope. No
+ *   window, no DOM, no storage, no clock, no app state, no network.
+ *
+ * All times are UTC; the module reads no time.
+ * ─────────────────────────────────────────────────────────────────
+ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = api;
+  } else if (root) {
+    root.AdvisoryRules = api;
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+// § 1 · RULESET SCHEMA IDENTITY
+// ═══════════════════════════════════════════════════════════════
+
+var RULESET_TYPE    = 'advisory-rules';
+var RULESET_VERSION = '1.0.0';
+var SCHEMA_VERSION  = 1;
+var RULESET_SOURCE  = 'Exec answers O-169 … O-181 (22 Nov 2026), D115, D116; the OFP contract of ofp-flightkeys v1.1.0 (contract 2.5: volcanicAsh, ofpRemarks raim, firNotams, hazards) and of the locked NavBlue parser (no such fields)';
+
+// ═══════════════════════════════════════════════════════════════
+// § 2 · CLOSED LISTS AND CREW TEXTS
+// ═══════════════════════════════════════════════════════════════
+
+// The VA term list (O-177, O-180): one list for the remarks, the FIR NOTAMs and
+// the hazards. "VA" counts in capitals only (a word of its own); the other terms
+// in any case, as whole words. Adding a term later is safe; a term is never
+// taken out to quiet an item.
+var VA_TERMS = Object.freeze([
+  { term: 'VA',        re: /\bVA\b/ },
+  { term: 'VOLCANO',   re: /\bvolcano(?:es)?\b/i },
+  { term: 'VOLCANIC',  re: /\bvolcanic\b/i },
+  { term: 'ASH',       re: /\bash\b/i },
+  { term: 'ASHTAM',    re: /\bashtam\b/i },
+  { term: 'ERUPTION',  re: /\beruptions?\b/i },
+  { term: 'VAAC',      re: /\bvaac\b/i },
+]);
+// The closed negative list (O-177): a remark form that says the flight is NOT
+// affected. Only the form seen in the corpus (L14). Matched as whole words,
+// line breaks and runs of spaces read as one space, a full stop after it allowed.
+var VA_NEGATIVE_FORMS = Object.freeze([
+  'NO VA ACTIVITY AFFECTING FLIGHT',
+]);
+// O-171: the closed list of the RAIM PASSED forms (the two seen in both corpora).
+var RAIM_PASSED_FORMS = Object.freeze([
+  /^RAIM VALIDATION PASSED$/,
+  /^RAIM VALIDATION FOR ETOPS ALTN [A-Z]{4} PASSED$/,
+]);
+// O-178 (Exec, 22 Nov): the crew texts, exact (capitals, en dash, no full stop; D79). No
+// internal reference (D103) and no version number (D99).
+var VA_WARN = Object.freeze({
+  ADVISORY: 'VOLCANIC ASH ADVISORY FOR THIS FLIGHT – SEE OFP REMARKS AND THE VA PAGE ON THE OFP TAB',
+  ROUTING:  'VOLCANIC ASH ROUTING IN OFP REMARKS – CHECK ROUTE',
+});
+// The findings this module adds. Every entry: { level, field: 'volcanicAsh', code, message }.
+var FINDING_CODES = Object.freeze({
+  'VA-ADVISORY-REMARK': 'WARN',   // D116: an advisory with a linked OFP remark
+  'VA-REMARK-ROUTING':  'WARN',   // O-177: a positive VA remark with no linked advisory
+});
+
+// A text as one line: line breaks and runs of white space → one space; capitals.
+function _flat(s) { return String(s || '').replace(/\s+/g, ' ').trim().toUpperCase(); }
+function _escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// The VA terms a text carries, in list order (the case rule of each term applies to
+// the text as printed, line breaks read as spaces).
+function vaTerms(text) {
+  var t = String(text || '').replace(/\s+/g, ' ');
+  return VA_TERMS.filter(function (x) { return x.re.test(t); }).map(function (x) { return x.term; });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 3 · VOLCANIC ASH
+// ═══════════════════════════════════════════════════════════════
+
+// A VA remark → POSITIVE / NEGATIVE / null (no VA term).
+function remarkPolarity(text) {
+  if (!vaTerms(text).length) return null;
+  var t = ' ' + String(text || '').replace(/\s+/g, ' ').trim() + ' ';
+  VA_NEGATIVE_FORMS.forEach(function (f) {
+    t = t.replace(new RegExp('(^|[^A-Za-z0-9])' + _escRe(f).replace(/ /g, '\\s+') + '\\.?(?=[^A-Za-z0-9]|$)', 'g'), '$1 ');
+  });
+  return vaTerms(t).length ? 'POSITIVE' : 'NEGATIVE';
+}
+// Does a remark name the volcano? Whole words, any case, line breaks read as spaces.
+function namesVolcano(text, volcano) {
+  var v = _flat(volcano);
+  if (!v) return false;
+  return new RegExp('(^|[^A-Z0-9])' + _escRe(v) + '(?=[^A-Z0-9]|$)').test(_flat(text));
+}
+
+function _volcanicAsh(ofp, add) {
+  var page = ofp && ofp.volcanicAsh && typeof ofp.volcanicAsh === 'object' ? ofp.volcanicAsh : null;
+  var state = page ? page.state : null;
+  var remarks = [];
+  (Array.isArray(ofp && ofp.ofpRemarks) ? ofp.ofpRemarks : []).forEach(function (r, i) {
+    // QA F-02: every remark is read, whatever its category — RAIM records too (the O-171 hide is for RAIM
+    // output only, never for volcanic ash content)
+    if (!r || typeof r.text !== 'string') return;
+    var pol = remarkPolarity(r.text);
+    if (pol) remarks.push({ index: i, text: r.text, page: r.page, line: r.line, polarity: pol, terms: vaTerms(r.text), advisories: [] });
+  });
+  var advisories = (page && Array.isArray(page.advisories) ? page.advisories : []).map(function (a, k) {
+    return { index: k, volcano: a.volcano || null, vaac: a.vaac || null, number: a.number || null, remarks: [] };
+  });
+  // O-169: the link is by volcano name, from a POSITIVE remark, on an ADVISORY page only
+  // (an UNREADABLE page links nothing: its positive remarks are O-177 routing remarks).
+  if (state === 'ADVISORY') {
+    remarks.forEach(function (r) {
+      if (r.polarity !== 'POSITIVE') return;
+      advisories.forEach(function (a) {
+        if (a.volcano && namesVolcano(r.text, a.volcano)) { a.remarks.push(r.index); r.advisories.push(a.index); }
+      });
+    });
+  }
+  var noted = advisories.some(function (a) { return a.remarks.length > 0; });
+  var routing = remarks.some(function (r) { return r.polarity === 'POSITIVE' && !r.advisories.length; });
+  if (noted) add('WARN', 'VA-ADVISORY-REMARK', VA_WARN.ADVISORY);
+  if (routing) add('WARN', 'VA-REMARK-ROUTING', VA_WARN.ROUTING);
+  return {
+    state: state,                               // null (no page), NONE, ADVISORY, UNREADABLE
+    page: page ? page.page : null,
+    advisories: advisories,                     // with the indexes of their linked remarks
+    remarks: remarks,                           // every VA remark, POSITIVE or NEGATIVE
+    noted: noted,                               // D116: an advisory with a linked remark
+    routing: routing,                           // O-177: a positive remark with no linked advisory
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 4 · RAIM
+// ═══════════════════════════════════════════════════════════════
+
+function isRaimPassed(text) {
+  var t = String(text || '').trim();
+  return RAIM_PASSED_FORMS.some(function (re) { return re.test(t); });
+}
+
+function _raim(ofp) {
+  var records = [];
+  (Array.isArray(ofp && ofp.ofpRemarks) ? ofp.ofpRemarks : []).forEach(function (r, i) {
+    // a raim record, or a remark of another category flagged raim (QA F-01: it keeps its own category)
+    if (r && (r.category === 'raim' || r.raim === true) && typeof r.text === 'string') records.push({ index: i, text: r.text, page: r.page, line: r.line, passed: isRaimPassed(r.text) });
+  });
+  var passed = records.some(function (r) { return r.passed; });
+  return {
+    passed: passed,                             // a PASSED form printed → no RAIM output (O-171)
+    records: records,
+    attention: passed ? [] : records.map(function (r) { return { text: r.text, page: r.page, line: r.line }; }),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 5 · VOLCANIC FIR ITEMS (O-180)
+// ═══════════════════════════════════════════════════════════════
+
+// A SIGMET product of a hazard block starts at "<id> SIGMET <n> VALID …"; any product
+// (SIGMET, AIRMET "<id> WA <ddhhmm>", TWC) ends the one before it.
+var SIGMET_START  = /^\S+ SIGMET\b.*\bVALID\b/;
+var PRODUCT_START = /^(?:\S+ SIGMET\b.*\bVALID\b|TWC\b|\S+ WA \d{6}\b|\S+ AIRMET\b)/;
+function vaSigmetCount(text) {
+  var n = 0, cur = null;
+  var done = function () { if (cur !== null && vaTerms(cur).length) n++; };
+  String(text || '').split('\n').forEach(function (l) {
+    var t = l.trim();
+    if (PRODUCT_START.test(t)) { done(); cur = SIGMET_START.test(t) ? t : null; return; }
+    if (cur !== null) cur += '\n' + t;
+  });
+  done();
+  return n;
+}
+
+function _volcanicFir(ofp) {
+  var notams = [], hazards = [];
+  (Array.isArray(ofp && ofp.firNotams) ? ofp.firNotams : []).forEach(function (b, i) {
+    (b && Array.isArray(b.items) ? b.items : []).forEach(function (it, k) {
+      var terms = vaTerms(it && it.text);
+      if (terms.length) notams.push({ fir: b.code, name: b.name, block: i, item: k, id: it.id || null, origin: it.origin || null, terms: terms });
+    });
+  });
+  (Array.isArray(ofp && ofp.hazards) ? ofp.hazards : []).forEach(function (h, i) {
+    var terms = vaTerms(h && h.text);
+    if (terms.length) hazards.push({ fir: h.code, name: h.name, index: i, vaSigmets: vaSigmetCount(h.text), terms: terms });
+  });
+  var uniq = function (a) { return a.filter(function (x, k) { return a.indexOf(x) === k; }); };
+  return {
+    notams: notams,                             // flagged FIR NOTAM items (ASHTAM included)
+    hazards: hazards,                           // flagged hazard blocks
+    notamFirs: uniq(notams.map(function (x) { return x.fir; })),     // groups to open by default
+    hazardFirs: uniq(hazards.map(function (x) { return x.fir; })),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 6 · ENTRY POINT
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * evaluateAdvisories(ofp) → { volcanicAsh, raim, volcanicFir, openOfpRemarks, findings }
+ *
+ * ofp – the format parser's contract object (ofp-flightkeys v1.1.0, or the NavBlue
+ *       parser: its missing volcanicAsh / ofpRemarks / firNotams / hazards read as
+ *       empty, D118). Never changed.
+ * findings – the crew WARNs (OFP Alerts), { level, field: 'volcanicAsh', code, message };
+ *       at most one per code. RAIM adds none (O-171).
+ * openOfpRemarks – O-179: a positive VA remark or a RAIM attention record.
+ * null / not an object → null.
+ */
+function evaluateAdvisories(ofp) {
+  if (!ofp || typeof ofp !== 'object') return null;
+  var findings = [];
+  var add = function (level, code, message) { findings.push({ level: level, field: 'volcanicAsh', code: code, message: message }); };
+  var va = _volcanicAsh(ofp, add);
+  var raim = _raim(ofp);
+  var positive = va.remarks.some(function (r) { return r.polarity === 'POSITIVE'; });
+  return {
+    volcanicAsh: va,
+    raim: raim,
+    volcanicFir: _volcanicFir(ofp),
+    openOfpRemarks: positive || raim.attention.length > 0,
+    findings: findings,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// § 7 · SCHEMA VALIDATION
+// ═══════════════════════════════════════════════════════════════
+
+var REQUIRED_EXPORTS = {
+  RULESET_TYPE: 'string', RULESET_VERSION: 'string', SCHEMA_VERSION: 'number', RULESET_SOURCE: 'string',
+  evaluateAdvisories: 'function', validateSchema: 'function', FINDING_CODES: 'object', VA_TERMS: 'object',
+  VA_NEGATIVE_FORMS: 'object', RAIM_PASSED_FORMS: 'object', VA_WARN: 'object',
+};
+// No parser and no app logic belongs to this module.
+var FORBIDDEN_EXPORTS = ['parseFlightKeys', 'parseNavBlue', 'parseOFP', '_ofpRulesetParse', 'parseNatTrack'];
+
+function validateSchema(ruleset) {
+  var r = ruleset === undefined ? API : ruleset;
+  var errors = [];
+  if (!r || typeof r !== 'object') return { valid: false, errors: ['ruleset is not an object'] };
+  Object.keys(REQUIRED_EXPORTS).forEach(function (k) {
+    if (!(k in r)) errors.push('missing export: ' + k);
+    else if (typeof r[k] !== REQUIRED_EXPORTS[k] || r[k] === null) errors.push(k + ' must be a ' + REQUIRED_EXPORTS[k]);
+  });
+  FORBIDDEN_EXPORTS.forEach(function (k) { if (k in r) errors.push(k + ' must not be exported'); });
+  if (r.RULESET_TYPE !== 'advisory-rules') errors.push("RULESET_TYPE must be 'advisory-rules'");
+  if (typeof r.RULESET_VERSION === 'string' && !/^\d+\.\d+\.\d+$/.test(r.RULESET_VERSION)) errors.push('RULESET_VERSION is not semver');
+  var msgs = r.VA_WARN && typeof r.VA_WARN === 'object' ? Object.keys(r.VA_WARN).map(function (k) { return r.VA_WARN[k]; }) : [];
+  msgs.forEach(function (m) {
+    if (typeof m !== 'string' || m !== m.toUpperCase() || /\.$/.test(m) || m.indexOf('–') < 0) errors.push('VA_WARN text not in the alert style (capitals, en dash, no full stop): ' + m);
+    if (/\b[OD]-?\d|\bSME-|\bv?\d+\.\d+\.\d+\b/.test(m)) errors.push('VA_WARN text carries an internal reference or a version: ' + m);
+  });
+  if (r.FINDING_CODES && typeof r.FINDING_CODES === 'object') {
+    Object.keys(r.FINDING_CODES).forEach(function (k) { if (r.FINDING_CODES[k] !== 'WARN' && r.FINDING_CODES[k] !== 'INFO') errors.push('FINDING_CODES.' + k + ' must be WARN or INFO'); });
+  }
+  return { valid: errors.length === 0, errors: errors };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════
+
+var API = {
+  RULESET_TYPE: RULESET_TYPE, RULESET_VERSION: RULESET_VERSION, SCHEMA_VERSION: SCHEMA_VERSION, RULESET_SOURCE: RULESET_SOURCE,
+  validateSchema: validateSchema,
+  evaluateAdvisories: evaluateAdvisories,   // (ofp) → { volcanicAsh, raim, volcanicFir, openOfpRemarks, findings } | null
+  remarkPolarity: remarkPolarity,           // (text) → 'POSITIVE' | 'NEGATIVE' | null
+  namesVolcano: namesVolcano,               // (text, volcano) → boolean
+  isRaimPassed: isRaimPassed,               // (text) → boolean
+  vaTerms: vaTerms,                         // (text) → the VA terms it carries
+  vaSigmetCount: vaSigmetCount,             // (hazard text) → the number of SIGMETs with a VA term
+  FINDING_CODES: FINDING_CODES, VA_TERMS: VA_TERMS, VA_NEGATIVE_FORMS: VA_NEGATIVE_FORMS,
+  RAIM_PASSED_FORMS: RAIM_PASSED_FORMS, VA_WARN: VA_WARN,
 };
 return API;
 });
@@ -13424,6 +13901,13 @@ function _ofpParse(rawText, pages) {
   });
 }
 
+// ── Advisory rules (step 5f display; rules/advisory-rules, global AdvisoryRules; O-173 A) ──
+// The shared volcanic ash / RAIM / volcanic FIR rules, called on the format parser's result, after
+// it, for both formats (D88). The NavBlue result reads as empty: no finding, no flag (D118).
+function _ofpAdvisories(result) {
+  return (result && typeof result === 'object' && AdvisoryRules.evaluateAdvisories(result)) || null;
+}
+
 // ── Findings shown to the crew (O-76, O-87, O-88) ────────────────────
 // Every WARN; the NAT ruleset's INFOs (a finding with a NAT code, O-68);
 // no other INFO. WARNs first, then INFOs, each in parser order. The list
@@ -13482,7 +13966,8 @@ function _crewChips(n, crew, withSen) {
 }
 const _ofpPilotCrew = result => (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH');
 
-// D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none.
+// D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none. Step 5f display
+// (O-175, O-181): an internal flag only (the OFP Remarks group's open state), never shown to the crew.
 function _ofpDispatchContact(result) {
   const d = result.dispatchContact;
   return d && (d.label === 'REQUIRED' || d.label === 'IF QUESTIONS') ? { label: d.label } : null;
@@ -13532,17 +14017,53 @@ function _ofpRawViews(result) {
     const company = blk ? (blk.items || []).filter(i => i && i.origin === 'COMPANY' && i.text).map(i => String(i.text)) : [];
     return { code: String(b.code || ''), name: String(b.name || ''), raw: String(b.raw || ''), company };
   });
-  const haz = (Array.isArray(result.hazards) ? result.hazards : []).filter(z => z && !z.empty && z.text)
-    .map(z => ({ code: String(z.code || ''), name: String(z.name || ''), text: String(z.text) }));
+  // at: the block's index in hazards (the advisory rules' hazard index, O-180)
+  const haz = (Array.isArray(result.hazards) ? result.hazards : []).map((z, at) => ({ z, at })).filter(({ z }) => z && !z.empty && z.text)
+    .map(({ z, at }) => ({ code: String(z.code || ''), name: String(z.name || ''), text: String(z.text), at }));
   return { apt, fir, haz };
 }
 // What the screens need to draw the RAW groups when the views are not (yet) there: which airport has
 // which block (N = NOTAMs, W = weather), the FIR and hazard blocks by code and name. No printed text.
-function _ofpRawIndex(v) {
+// Step 5f display (O-180): open: true on a FIR NOTAMs / FIR Hazards group (companyOpen: true on the
+// Company NOTAMs group of a FIR, O-131) that holds an item the advisory rules flag as volcanic.
+function _ofpRawIndex(v, open) {
+  const o = open || _ofpVolcanicOpen(null);
   const apt = {};
   Object.keys(v.apt).forEach(icao => { apt[icao] = (v.apt[icao].notams.trim() ? 'N' : '') + (v.apt[icao].weather.trim() ? 'W' : ''); });
-  return { apt, fir: v.fir.map(b => ({ code: b.code, name: b.name, company: b.company.length })),
-           haz: v.haz.map(z => ({ code: z.code, name: z.name })) };
+  return { apt, fir: v.fir.map((b, k) => ({ code: b.code, name: b.name, company: b.company.length,
+             ...(o.fir.has(k + ' ' + b.code) ? { open: true } : {}),
+             ...(b.company.length && o.company.has(k + ' ' + b.code) ? { companyOpen: true } : {}) })),
+           haz: v.haz.map(z => ({ code: z.code, name: z.name, ...(o.haz.has(z.at) ? { open: true } : {}) })) };
+}
+// O-180: the printed blocks whose groups open by default — FIR NOTAM items the advisory rules flag (by
+// firNotams block and FIR code; firNotams and firRaw hold one record per printed block, contract 2.4;
+// a Company item opens the FIR's Company NOTAMs group, where it is shown, O-131) and flagged hazard blocks
+// (by their index in hazards). No advisory result → none.
+function _ofpVolcanicOpen(adv) {
+  const vf = adv && adv.volcanicFir ? adv.volcanicFir : {};
+  const notams = Array.isArray(vf.notams) ? vf.notams : [], hazards = Array.isArray(vf.hazards) ? vf.hazards : [];
+  return {
+    fir:     new Set(notams.filter(x => x.origin !== 'COMPANY').map(x => x.block + ' ' + x.fir)),
+    company: new Set(notams.filter(x => x.origin === 'COMPANY').map(x => x.block + ' ' + x.fir)),
+    haz:     new Set(hazards.map(x => x.index)),
+  };
+}
+
+// ── Step 5f display: the printed texts of the OFP Remarks group that are not saved (D107) ──
+// dispatch: every Contact Dispatch text as printed (O-175, O-183: dispatchContact.text, the Company NOTAM
+// line(s) first, then the OFP remark; none printed → null, no row). raim: the RAIM attention records
+// (O-171, D115: none when a PASSED form is printed), the remark as printed, except a remark the group
+// shows already (an O-127 record or a security message of the same text, QA F-01: it keeps its category).
+// Built at import, re-derived from the stored PDF when a flight is opened (_ofpRederive).
+function _ofpRemarkTexts(result, adv) {
+  const d = result.dispatchContact;
+  const dispatch = d && typeof d.text === 'string' && d.text.trim() ? d.text : null;
+  const shown = new Set((Array.isArray(result.ofpRemarks) ? result.ofpRemarks : [])
+    .filter(r => r && (_OFP_REMARKS_SHOWN.includes(r.category) || r.category === 'security') && r.text).map(r => String(r.text))
+    .concat((Array.isArray(result.securityMessages) ? result.securityMessages : []).map(m => String((m && m.text) || ''))));
+  const att = adv && adv.raim && Array.isArray(adv.raim.attention) ? adv.raim.attention : [];
+  const raim = att.map(a => String((a && a.text) || '')).filter(t => t && !shown.has(t));
+  return { dispatch, raim };
 }
 
 const _OFP_REMARKS_SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];   // O-127
@@ -13557,6 +14078,8 @@ function parseOFP() {
     throw err;
   }
   if (!result) return;
+  // Step 5f display (O-173 A): the advisory rules, after the format parser (both formats; NavBlue empty, D118).
+  const _adv = _ofpAdvisories(result);
   const _pilots = _ofpPilotCount(result);
 
   // Merge parsed airportData into global (preserves any user edits already present)
@@ -13657,9 +14180,12 @@ function parseOFP() {
       verbalCallsign: result.parsedVerbalCallsign,
     } : {}),
   });
-  // Parser findings (FlightKeys only; the NavBlue call returns none). Saved with S;
-  // a flight saved without them has no list (O-76).
-  if (Array.isArray(result.findings)) S.ofpFindings = result.findings;
+  // Parser findings (FlightKeys only; the NavBlue call returns none), then the advisory rules' WARNs
+  // (O-177 / O-178: on OFP Alerts as every other WARN, D92 / D125, texts as the module returns them;
+  // NavBlue: none). Saved with S; a flight saved without them has no list (O-76).
+  const _advFindings = _adv && Array.isArray(_adv.findings) ? _adv.findings : [];
+  if (Array.isArray(result.findings) || _advFindings.length)
+    S.ofpFindings = (Array.isArray(result.findings) ? result.findings : []).concat(_advFindings);
   // Step 5e-2 display PR 2 (FlightKeys only; the NavBlue call returns none of these, D47).
   if (Array.isArray(result.firRaw)) {
     S.ofpFormat = 'flightkeys';
@@ -13675,9 +14201,13 @@ function parseOFP() {
     // ADHOC penalty. Every other record without a NavBlue slot stays on the OFP tab.
     S.ofpRemarks = (result.ofpRemarks || []).filter(r => r && _OFP_REMARKS_SHOWN.includes(r.category) && r.text)
       .map(r => ({ category: String(r.category), text: String(r.text) }));
-    // O-107: the RAW views from the PDF just read; pasted text has no RAW (D95).
+    // Step 5f display: the Dispatch contact and RAIM texts (not saved, D107); O-179: the OFP Remarks group
+    // also opens on a positive VA remark or a RAIM attention record (a flag, saved; no text).
+    _ofpTexts = _ofpRemarkTexts(result, _adv);
+    if (_adv && _adv.openOfpRemarks === true) S.ofpRemarksOpen = true;
+    // O-107: the RAW views from the PDF just read; pasted text has no RAW (D95). O-180: volcanic groups open.
     _rawViews = pdfPages ? _ofpRawViews(result) : null;
-    if (_rawViews) S.rawIndex = _ofpRawIndex(_rawViews);
+    if (_rawViews) S.rawIndex = _ofpRawIndex(_rawViews, _ofpVolcanicOpen(_adv));
   }
   if (result.zfwIncrFactor != null)
     S.zfwIncrFactor = result.zfwIncrFactor;
@@ -13866,22 +14396,30 @@ function renderOfpAlerts() {
 }
 
 // ── OFP Remarks group (FlightKeys; O-152 / O-153: shown in NOTES, directly below DDG) ──
-// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (D72: REQUIRED /
-// IF QUESTIONS), the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept), then
-// the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed). None of these → no group.
-// O-164: the group starts open when it holds a Security message or a Dispatch contact labelled REQUIRED;
-// otherwise collapsed. The crew can collapse and expand it either way.
+// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (O-175, O-183: every
+// Contact Dispatch text as printed, line breaks kept; none printed → no row; the internal REQUIRED /
+// IF QUESTIONS flag is never shown), the OFP Remarks security message(s) (D45, O-110: as printed, line
+// breaks kept), then the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed), then the RAIM
+// attention records (O-171, D115: as printed). None of these → no group. The Dispatch contact and RAIM
+// texts are in _ofpTexts (never saved, D107).
+// O-164 / O-181: the group starts open when it holds a Security message or the Dispatch contact flag is
+// the short form (REQUIRED); O-179: also on a positive VA remark or a RAIM attention record
+// (S.ofpRemarksOpen); otherwise collapsed. The crew can collapse and expand it either way.
 function renderOfpRemarksGroup() {
   let rows = '';
-  if (S.dispatchContact && S.dispatchContact.label) {
-    rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(S.dispatchContact.label)}</span></div>`;
+  const _tx = _ofpTexts || {};
+  if (typeof _tx.dispatch === 'string' && _tx.dispatch) {
+    rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${_tx.dispatch.split('\n').map(esc).join('<br>')}</span></div>`;
   }
   (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
     if (m) rows += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
   });
   const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
-  const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _rawBody(r.text)).join('');
-  const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean));
+  const _raim = Array.isArray(_tx.raim) ? _tx.raim.filter(t => typeof t === 'string' && t) : [];
+  const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _rawBody(r.text)).join('')
+    + _raim.map(t => _rawBody(t)).join('');
+  const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean))
+    || S.ofpRemarksOpen === true;
   return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';
 }
 
@@ -14676,7 +15214,9 @@ function _natCardTrack() {
 // "FIR XXXX NOTAMs", its text as printed; the Company items FlightKeys keys to that FIR follow in their
 // own collapsed group "Company NOTAMs" directly after it (O-131), never inside it.
 // D76: one collapsed group per Hazard Briefing FIR block that prints a product,
-// never in weather or E-WINS. O-111: one "Other briefing airports" group for the briefing airports
+// never in weather or E-WINS. O-180 (step 5f display): a FIR NOTAMs, Company NOTAMs or FIR Hazards group
+// holding an item the advisory rules flag as volcanic starts open (S.rawIndex open / companyOpen).
+// O-111: one "Other briefing airports" group for the briefing airports
 // that have no card: RAW only, no evaluation. The text is in _rawViews (never saved, O-107).
 function renderEnrouteRaw() {
   const ix = S.rawIndex;
@@ -14686,13 +15226,13 @@ function renderEnrouteRaw() {
   let h = '';
   (ix.fir || []).forEach((b, k) => {
     const vb = v && Array.isArray(v.fir) ? v.fir[k] : null;
-    h += renderRawGroup(`FIR ${b.code || b.name} NOTAMs`, _rawBody(vb ? vb.raw : null));
+    h += renderRawGroup(`FIR ${b.code || b.name} NOTAMs`, _rawBody(vb ? vb.raw : null), b.open === true);
     // O-131: the Company items keyed to this FIR, their own collapsed group directly after it (D71).
-    if (b.company) h += renderRawGroup('Company NOTAMs', vb ? vb.company.map(t => _rawBody(t)).join('') : _rawBody(null));
+    if (b.company) h += renderRawGroup('Company NOTAMs', vb ? vb.company.map(t => _rawBody(t)).join('') : _rawBody(null), b.companyOpen === true);
   });
   (ix.haz || []).forEach((z, k) => {
     const vz = v && Array.isArray(v.haz) ? v.haz[k] : null;
-    h += renderRawGroup(`FIR ${z.code || z.name} Hazards`, _rawBody(vz ? vz.text : null));
+    h += renderRawGroup(`FIR ${z.code || z.name} Hazards`, _rawBody(vz ? vz.text : null), z.open === true);
   });
   const carded = new Set(getAllAirports().map(a => a.icao));
   const others = Object.keys(ix.apt || {}).filter(icao => !carded.has(icao));

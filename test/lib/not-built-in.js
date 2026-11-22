@@ -5,7 +5,7 @@
  * the key from this list. The manifest and build checks (TC-174-001 / 002, TC-175-001, TC-176-001,
  * TC-177-041) accept exactly these keys; any other *-next key still fails.
  *
- *   ofp-flightkeys-next   ofp-flightkeys v1.1.0 (step 5f module PR A; Exec answers O-169 … O-181)
- *   advisory-rules-next   advisory-rules v1.0.0 (step 5f module PR B; Exec answers O-169 … O-181, O-173)
+ * Step 5f display (integration PR): ofp-flightkeys v1.1.0 moved to ofp-flightkeys and advisory-rules
+ * v1.0.0 to advisory-rules, both built in. No *-next key is declared.
  */
-module.exports = { NOT_BUILT_IN: Object.freeze(['ofp-flightkeys-next', 'advisory-rules-next']) };
+module.exports = { NOT_BUILT_IN: Object.freeze([]) };

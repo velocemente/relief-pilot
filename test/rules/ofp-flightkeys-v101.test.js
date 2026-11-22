@@ -8,12 +8,13 @@
  * spaces and brackets the references leave behind are tidied. Level, field and code of every finding unchanged.
  * The references stay in the module's comments, the SPEC and these tests.
  *
- *   TC-175-001  identity: v1.0.1, contract 2.4; manifest key ofp-flightkeys (display PR 1, O-116; was
- *               ofp-flightkeys-next), file and SHA-256; v1.0.0 frozen in test/oracle (SHA-256 8a7d3e8f…); NavBlue,
- *               NAT, NOTAM and icao-fpl bytes unchanged; a changed byte is caught by the manifest check (negative)
- *   TC-175-002  built in (O-116): index.html carries v1.0.1 once and not v1.0.0; build/build.js has no -next
- *               entry; the build from src/ equals index.html; APP_VERSION, CACHE_NAME and manifest.json stay
- *               1.10.0 (release)
+ *   TC-175-001  identity: v1.0.1, contract 2.4; built in under ofp-flightkeys from display PR 1 (O-116) to the
+ *               step 5f display PR, which replaced it with v1.1.0: frozen in test/oracle (SHA-256 a307b185…),
+ *               out of rules/; v1.0.0 frozen in test/oracle (SHA-256 8a7d3e8f…); NavBlue, NAT, NOTAM and
+ *               icao-fpl bytes unchanged; a changed byte is caught by the manifest check (negative)
+ *   TC-175-002  replaced (step 5f display): index.html carries neither v1.0.1 nor v1.0.0 (v1.1.0 once);
+ *               build/build.js has no -next entry; the build from src/ equals index.html; APP_VERSION,
+ *               CACHE_NAME and manifest.json stay 1.10.0 (release)
  *   TC-175-003  validateSchema(): valid
  *   TC-175-004  every finding template, by level and field (static, all templates, fired or not): none in v1.0.1
  *               carries "(SME-", "(O-", "D-n", "CS-n", "§", a row or step reference or a version number (O-115);
@@ -29,10 +30,9 @@
  *   TC-175-011  pinned values on all 26 (fixtures expected/ofp-flightkeys-v1.0.1/messages.json): every changed
  *               text with its index, level and field, made with this module (SHA-256)
  *   TC-175-020  the 4 shown WARNs on OFP Alerts (the app's real import path, index.html with v1.0.1 in place of
- *               v1.0.0 in memory, as the integration PR will build it): NAT one-direction CREW ALERT (L08, L22),
- *               NZWN takeoff alternate (L21), ETAR curfew (L23) show the new text exactly, the old text nowhere;
- *               the list keeps its lines and order; NEGATIVE control: index.html with v1.0.0 put back (in memory)
- *               shows the v1.0.0 texts (O-116: the committed app carries v1.0.1)
+ *               v1.1.0 in memory): NAT one-direction CREW ALERT (L08, L22), NZWN takeoff alternate (L21), ETAR
+ *               curfew (L23) show the new text exactly, the old text nowhere; the list keeps its lines and order;
+ *               NEGATIVE control: index.html with v1.0.0 put back (in memory) shows the v1.0.0 texts
  *   TC-175-030  NavBlue identical, 30 of 30: _ofpRulesetParse with v1.0.1 swapped in = the committed golden
  *               snapshots; a changed snapshot value is caught (negative)
  *   TC-175-090  fixtures missing → the fixture tests FAIL (never skip)
@@ -57,9 +57,12 @@ const { checkRules } = require('../../build/check-rules');
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
-// Step 5e-2 display PR 1 (O-116): v1.0.1 moved to the key ofp-flightkeys and is built in; v1.0.0 left rules/
-// (frozen copy test/oracle/ofp-flightkeys-v1.0.0.js, SHA-256 8a7d3e8f…).
-const NEW_FILE = path.join(RULES, MANIFEST['ofp-flightkeys'].file);
+// Step 5e-2 display PR 1 (O-116): v1.0.1 moved to the key ofp-flightkeys and was built in; v1.0.0 left rules/
+// (frozen copy test/oracle/ofp-flightkeys-v1.0.0.js, SHA-256 8a7d3e8f…). Step 5f display: v1.1.0 replaced
+// v1.0.1, which left rules/ (frozen copy test/oracle/ofp-flightkeys-v1.0.1.js, SHA-256 a307b185…).
+const NEW_FILE = path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.1.js');
+const BUILT_FILE = path.join(RULES, MANIFEST['ofp-flightkeys'].file);   // v1.1.0, built in (step 5f display)
+const BUILT_SRC  = fs.readFileSync(BUILT_FILE, 'utf8');
 const OLD_FILE = path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.0.js');
 const NEW_SRC  = fs.readFileSync(NEW_FILE, 'utf8');
 const OLD_SRC  = fs.readFileSync(OLD_FILE, 'utf8');
@@ -143,17 +146,15 @@ const count = ts => ({ WARN: ts.filter(t => t.level === 'WARN').length, INFO: ts
 
 // ══ TC-175-001 … 005 module ══════════════════════════════════════════════════════════════════════
 
-test('TC-175-001 identity: v1.0.1 under ofp-flightkeys (O-116, was ofp-flightkeys-next); v1.0.0 frozen in test/oracle; other modules unchanged; a changed byte is caught', () => {
+test('TC-175-001 identity: v1.0.1 (built in at O-116, replaced by v1.1.0 at step 5f display) frozen in test/oracle; v1.0.0 frozen; other modules unchanged; a changed byte is caught', () => {
   assert.deepEqual([mod.RULESET_TYPE, mod.OFP_FORMAT, mod.RULESET_VERSION, mod.SCHEMA_VERSION, mod.CONTRACT_VERSION], ['ofp', 'flightkeys', '1.0.1', 2, '2.4']);
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
-  assert.deepEqual([e.version, e.file], ['1.0.1', 'ofp-flightkeys/ofp-flightkeys-v1.0.1.js']);
-  assert.equal(sha(fs.readFileSync(NEW_FILE)), e.sha256, 'the module file = the manifest SHA-256');
-  assert.equal(e.sha256, 'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d', 'the bytes of the module PR (#70), moved unchanged');
-  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.0.1.js'], 'one module file in rules/ofp-flightkeys');
-  // Step 5f: rules/ofp-flightkeys-next holds the next version only (v1.1.0, declared, not built in); v1.0.1 is not there
-  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys-next')), ['ofp-flightkeys-v1.1.0.js']);
-  assert.ok(NOT_BUILT_IN.includes('ofp-flightkeys-next'));
+  assert.deepEqual([e.version, e.file], ['1.1.0', 'ofp-flightkeys/ofp-flightkeys-v1.1.0.js'], 'step 5f display: v1.1.0 replaced v1.0.1');
+  assert.equal(sha(fs.readFileSync(NEW_FILE)), 'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d', 'test/oracle: the bytes of the module PR (#70), byte for byte');
+  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.0.js'], 'v1.0.1 is no longer in rules/ofp-flightkeys');
+  assert.ok(!fs.existsSync(path.join(RULES, 'ofp-flightkeys-next')), 'no rules/ofp-flightkeys-next');
+  assert.deepEqual(NOT_BUILT_IN, [], 'no *-next key declared (step 5f display)');
   // v1.0.0: out of rules/, frozen copy byte for byte
   assert.equal(sha(fs.readFileSync(OLD_FILE)), '8a7d3e8fbf02ebae421739dfd65f8598d47e4d016ae1e7a3a2a791389e548e40');
   assert.equal(v100.RULESET_VERSION, '1.0.0');
@@ -165,7 +166,7 @@ test('TC-175-001 identity: v1.0.1 under ofp-flightkeys (O-116, was ofp-flightkey
     'aircraft-profile': ['1.0.0',  '7ca993193303228d595454ac5bf24ee82eddb9ae1fecc56ad7176dad238a4be5'],
   };
   for (const [k, v] of Object.entries(pinned)) assert.deepEqual([MANIFEST[k].version, MANIFEST[k].sha256], v, k);
-  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', ...NOT_BUILT_IN]);
+  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', 'advisory-rules', ...NOT_BUILT_IN]);
   assert.equal(checkRules(ROOT).ok, true);
   // NEGATIVE: one changed byte in a copy of rules/ → the manifest check fails
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tc175-'));
@@ -178,8 +179,9 @@ test('TC-175-001 identity: v1.0.1 under ofp-flightkeys (O-116, was ofp-flightkey
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-175-002 built in (O-116, the integration PR): index.html carries v1.0.1 once, not v1.0.0; build = index.html; labels 1.10.0 (release)', () => {
-  assert.equal(HTML.split(NEW_SRC).length, 2, 'index.html carries v1.0.1 once, byte for byte');
+test('TC-175-002 replaced (step 5f display): index.html carries neither v1.0.1 nor v1.0.0 (v1.1.0 once); build = index.html; labels 1.10.0 (release)', () => {
+  assert.ok(!HTML.includes(NEW_SRC), 'v1.0.1 not in index.html');
+  assert.equal(HTML.split(BUILT_SRC).length, 2, 'index.html carries v1.1.0 once, byte for byte');
   assert.ok(!HTML.includes(OLD_SRC), 'v1.0.0 not in index.html');
   assert.ok(!HTML.includes("const RULESET_VERSION  = '1.0.0';\n"), 'no v1.0.0 version line');
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
@@ -294,7 +296,7 @@ fixtureTest('TC-175-010 all 26 vs v1.0.0: every other field byte-identical; find
 fixtureTest('TC-175-011 pinned values on all 26 (expected/ofp-flightkeys-v1.0.1/messages.json)', () => {
   const pin = JSON.parse(fs.readFileSync(path.join(FIX, EXPECTED_FILE), 'utf8'));
   assert.equal(pin.module.version, '1.0.1');
-  assert.equal(pin.module.sha256, MANIFEST['ofp-flightkeys'].sha256, 'the pinned values were made with this module');
+  assert.equal(pin.module.sha256, sha(fs.readFileSync(NEW_FILE)), 'the pinned values were made with this module');
   assert.deepEqual(Object.keys(pin.packages).sort(), fk().map(p => p.fx.id).sort());
   let total = 0;
   for (const p of fk()) {
@@ -308,11 +310,15 @@ fixtureTest('TC-175-011 pinned values on all 26 (expected/ofp-flightkeys-v1.0.1/
 });
 
 // The app's real import path (processPDF → parseOFP → S.ofpFindings → the Preflight card), with an index.html.
-// O-116: the committed index.html carries v1.0.1; HTML_V100 is it with v1.0.0 put back (in memory), the app before.
-const HTML_V101 = HTML;
+// Step 5f display: the committed index.html carries v1.1.0; HTML_V101 is it with v1.0.1 put back (in memory, the app
+// from O-116 to step 5f), HTML_V100 with v1.0.0 put back (the app before O-116).
+const HTML_V101 = (() => {
+  assert.equal(HTML.split(BUILT_SRC).length, 2);
+  return HTML.replace(BUILT_SRC, () => NEW_SRC);
+})();
 const HTML_V100 = (() => {
-  assert.equal(HTML.split(NEW_SRC).length, 2);
-  return HTML.replace(NEW_SRC, () => OLD_SRC);
+  assert.equal(HTML.split(BUILT_SRC).length, 2);
+  return HTML.replace(BUILT_SRC, () => OLD_SRC);
 })();
 const unEsc = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 async function alerts(fx, html) {
@@ -321,7 +327,7 @@ async function alerts(fx, html) {
   return { list: m ? m[1].split('<br>').map(unEsc) : [], stored: JSON.parse(JSON.stringify(imp.S.ofpFindings || [])) };
 }
 
-fixtureTest('TC-175-020 the 4 shown WARNs (NAT CREW ALERT x2, NZWN takeoff alternate, ETAR curfew) show the new text on OFP Alerts (committed app, O-116); with v1.0.0 put back the old text', async () => {
+fixtureTest('TC-175-020 the 4 shown WARNs (NAT CREW ALERT x2, NZWN takeoff alternate, ETAR curfew) show the new text on OFP Alerts (v1.0.1 put back); with v1.0.0 put back the old text', async () => {
   const fields = { L08: 'natTrack', L21: 'altData', L22: 'natTrack', L23: 'airportData.curfew' };
   for (const lbl of SHOWN_WARN) {
     const p = fk().find(x => x.lbl === lbl);
