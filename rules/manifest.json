@@ -33,5 +33,10 @@
     "version": "1.1.0",
     "file": "ofp-flightkeys-next/ofp-flightkeys-v1.1.0.js",
     "sha256": "652f4b88d1be64cd7f41b708797374e2cede2524bf2861dcb66eb4bef132908c"
+  },
+  "advisory-rules-next": {
+    "version": "1.0.0",
+    "file": "advisory-rules-next/advisory-rules-v1.0.0.js",
+    "sha256": "3181f423509d598180d8f676b83b40d1db8f1f3923c8a4826b0ce9c34d731e9a"
   }
 }

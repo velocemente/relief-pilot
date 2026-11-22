@@ -16,3 +16,4 @@ require('../rules/nat-rules.test.js');
 require('../rules/ofp-flightkeys-v100.test.js');
 require('../rules/ofp-flightkeys-v101.test.js');
 require('../rules/ofp-flightkeys-v110.test.js');
+require('../rules/advisory-rules.test.js');
