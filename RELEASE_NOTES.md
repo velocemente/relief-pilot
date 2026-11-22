@@ -1,3 +1,67 @@
+# PilotBrief 1.10.0 Release Notes
+
+## What's New
+
+FlightKeys packages are now read by the app. The NavBlue reader is unchanged, but the shared NOTAM rules, OFP Alerts, rest chips and the way flights are saved also apply to NavBlue flights.
+
+---
+
+## NOTAMs
+
+The NOTAM rules now run from the updated versions 1.13.0 and 1.14.0. What you will notice:
+
+- **FlightKeys NOTAMs are read as printed.** Each NOTAM is kept on its own ID; NOTAMs with different IDs are never merged. Times are read as UTC, on their actual date, against the airport's time window for its role in the flight.
+- **A NOTAM whose dates cannot be read is always shown.** It is marked "DATE NOT READABLE – CHECK NOTAM".
+- **Obstacle NOTAMs are shown only when they matter for the flight.** An obstacle NOTAM now shows when its text says it affects the heights or gradients of a runway, approach, SID or STAR, for example changed minima, a procedure not authorised, a changed glide path angle, a climb gradient or take-off minimums.
+- **An obstacle NOTAM that also changes something else is shown for that reason.** This covers a closed runway, taxiway, apron or stand, changed declared distances, a displaced threshold, a navaid or lighting out of service, a procedure withdrawn, introduced or amended, and amended low-visibility operations.
+- **Unclear cases are shown, on the safe side,** for example an obstacle notice near a runway that says obstacle clearance is not affected but not whether the take-off side is.
+- **These are now hidden:** an obstacle height near a runway that affects no procedure, obstacle-light outages, men or equipment near a runway with no height, and surface notices that say minima and procedures are unchanged.
+- **Every newly shown NOTAM that would have no row on the airport card gets one.** Take-off and climb effects go under SIDs; all others, arrival effects included, go under GENERAL.
+- **FlightKeys type headings are never part of a NOTAM's text.** They are kept, as printed, in the airport card's NOTAMS group and mark obstacle items; they do not decide the card group, because the cards keep the app's own NOTAM groups.
+
+---
+
+## FlightKeys
+
+- **The app recognises the format by itself.** You do not choose it.
+- **One format per flight.** A package that mixes FlightKeys and NavBlue pages is refused, with a message, and the app stays on the import screen.
+- **OFP Alerts.** Warnings found while reading the package are listed under OFP Alerts (see Display). The title is red until you tap the list, then turns normal. A new import starts red again. If the filed NAT track is not in the track message, the alert says to check the oceanic clearance.
+- **NAT levels are shown as posted.** A gapped list such as FL360 380 400 is shown in full; a list in steps of 10 is shown as a range such as FL340-400. This also applies to NavBlue flights.
+
+---
+
+## Display
+
+- **OFP Alerts.** On the Preflight card, OFP Alerts are in NOTES, below the airport status rows.
+- **OFP Remarks.** The Dispatch contact (REQUIRED or IF QUESTIONS, as printed) and any Security message are in the OFP Remarks group, below DDG in NOTES. The group is open when the Dispatch contact is REQUIRED or a security message is present; otherwise it is collapsed. Tap its title to open or close it. The group also holds the fuel (PCF and extra fuel), route and ADHOC penalty remarks.
+- **Airport cards.** Each card shows Weather, then NOTAMS, as printed in the briefing, both collapsed. Company Remarks is collapsed too: tap it to open. A departure CAT II/III restriction is inside Company Remarks. The chevron on the airport ID row opens or closes all groups of the card.
+- **NAT card.** It shows every direction the OFP publishes, each under its own TMI header, the direction of your flight first. If a direction has no tracks, the card says so; if its tracks cannot be read, it says "Tracks not readable – see OFP Alerts". A filed NAT track that is not in the track message is also warned about on the TMI row of the message it names.
+- **Operating date.** If the OFP has no readable flight date, the header shows "Operating date needed" and a pop-up opens, filled with today's UTC date. You enter the operating date; later times past 0000Z fall on the next day, and nothing is dated before the date you entered.
+- **Crew rest chips.** One chip per pilot, with the role printed on the OFP and no names. The pilot count (2, 3 or 4) comes from the OFP and can be changed.
+- **RAW views.** Hazards are shown RAW per FIR, collapsed. Airports in the briefing without a card are listed in one collapsed group; their NOTAMs are RAW only and are not checked against the flight's times.
+- **FIR and Company NOTAMs.** Each FIR block is its own group, "FIR XXXX NOTAMs". Company NOTAMs that belong to a FIR have their own "Company NOTAMs" group right after it.
+
+---
+
+## Saved Flights
+
+- **No crew names and no OFP text are saved with a flight.** Flights saved by earlier versions are cleaned the next time the app starts.
+- **RAW views and ETP times are rebuilt from the stored PDF** when you reopen a flight. If the PDF is missing, the RAW groups say "RAW not available – re-import the package".
+- **A save that fails now tells you.** The message is "Flight not saved – storage full".
+
+---
+
+## Known Limits
+
+- Volcanic ash advisories are not shown anywhere in the app yet - check the briefing package. RAIM outage remarks are shown on the OFP tab only.
+- Obstacle NOTAMs cited in the Takeoff and Landing Report are hidden like other obstacle NOTAMs when they affect no procedure - check the report's NOTAM list.
+- NOTAMs printed with the year after the time are flagged "DATE NOT READABLE – CHECK NOTAM" although they are valid.
+- Pasted FlightKeys text has no briefing NOTAMs or weather; a warning shows on the Preflight card.
+- If the stored PDF is missing, the OFP tab is empty after a reload.
+- En-route obstacle NOTAMs (MEA / MOCA) are treated inconsistently.
+
+---
+
 # PilotBrief 1.9.9-hf6 Release Notes
 
 ## What's Changed
