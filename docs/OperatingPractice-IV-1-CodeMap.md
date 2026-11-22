@@ -106,6 +106,7 @@ Same 26 parts. FlightKeys RAW views, hazards, FIR labels, FIR-keyed Company item
 | `src/ofp-parse.html` | `_ofpRemarkTexts` | the printed Dispatch contact text(s) (O-175, O-183) and the RAIM attention records (O-171, D115) of the OFP Remarks group — held in `_ofpTexts`, never saved (D107) |
 | `src/ofp-parse.html` | `_ofpVolcanicOpen`, `_ofpRawIndex`, `_ofpRawViews` | O-180: `open` / `companyOpen` flags on `S.rawIndex.fir[]`, `open` on `S.rawIndex.haz[]` (codes and flags only) |
 | `src/state.html` | `_ofpTexts`; `resetStateForNewFlight()` | the unsaved texts; `S.ofpRemarksOpen` cleared on a new flight |
-| `src/storage.html` | `_ofpRederive` | the texts re-derived from the stored PDF when a flight is opened |
-| `src/render-preflight.html` | `renderOfpRemarksGroup()` | the Dispatch contact row as printed (no REQUIRED / IF QUESTIONS, O-175); RAIM records after the O-127 records; open by O-181 or O-179 |
+| `src/storage.html` | `_ofpRederive`, `_rawMissing`, `_ofpTextsFlagged` | the texts re-derived from the stored PDF when a flight is opened; O-184: none to rebuild from (no stored PDF, pasted text) → `_ofpTexts = { missing: true }` when a flag is saved |
+| `src/ofp-parse.html` | `parseOFP()` | O-184: `S.dispatchPrinted`, `S.raimAttention` (flags only, set when true; no text, D107) |
+| `src/render-preflight.html` | `renderOfpRemarksGroup()` | the Dispatch contact row as printed (no REQUIRED / IF QUESTIONS, O-175); RAIM records after the O-127 records; open by O-181 or O-179; O-184: a flagged row that cannot be rebuilt shows the existing RAW-missing line in its place |
 | `src/render-enroute.html` | `renderEnrouteRaw()` | FIR NOTAMs / Company NOTAMs / FIR Hazards groups open by the O-180 flags |

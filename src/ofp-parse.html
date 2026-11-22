@@ -348,9 +348,12 @@ function parseOFP() {
     // ADHOC penalty. Every other record without a NavBlue slot stays on the OFP tab.
     S.ofpRemarks = (result.ofpRemarks || []).filter(r => r && _OFP_REMARKS_SHOWN.includes(r.category) && r.text)
       .map(r => ({ category: String(r.category), text: String(r.text) }));
-    // Step 5f display: the Dispatch contact and RAIM texts (not saved, D107); O-179: the OFP Remarks group
-    // also opens on a positive VA remark or a RAIM attention record (a flag, saved; no text).
+    // Step 5f display: the Dispatch contact and RAIM texts (not saved, D107); O-184: with the flight, flags
+    // only (a Dispatch contact printed, a RAIM attention record shown), set only when true. O-179: the OFP
+    // Remarks group also opens on a positive VA remark or a RAIM attention record (a flag, saved; no text).
     _ofpTexts = _ofpRemarkTexts(result, _adv);
+    if (_ofpTexts.dispatch) S.dispatchPrinted = true;
+    if (_ofpTexts.raim.length) S.raimAttention = true;
     if (_adv && _adv.openOfpRemarks === true) S.ofpRemarksOpen = true;
     // O-107: the RAW views from the PDF just read; pasted text has no RAW (D95). O-180: volcanic groups open.
     _rawViews = pdfPages ? _ofpRawViews(result) : null;

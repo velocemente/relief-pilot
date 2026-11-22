@@ -105,7 +105,8 @@ function renderOfpAlerts() {
 // IF QUESTIONS flag is never shown), the OFP Remarks security message(s) (D45, O-110: as printed, line
 // breaks kept), then the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed), then the RAIM
 // attention records (O-171, D115: as printed). None of these → no group. The Dispatch contact and RAIM
-// texts are in _ofpTexts (never saved, D107).
+// texts are in _ofpTexts (never saved, D107). O-184: where the flight's flag says one was there and it cannot
+// be rebuilt (no stored PDF, pasted text), the existing RAW-missing line takes its place; never silent.
 // O-164 / O-181: the group starts open when it holds a Security message or the Dispatch contact flag is
 // the short form (REQUIRED); O-179: also on a positive VA remark or a RAIM attention record
 // (S.ofpRemarksOpen); otherwise collapsed. The crew can collapse and expand it either way.
@@ -114,14 +115,17 @@ function renderOfpRemarksGroup() {
   const _tx = _ofpTexts || {};
   if (typeof _tx.dispatch === 'string' && _tx.dispatch) {
     rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${_tx.dispatch.split('\n').map(esc).join('<br>')}</span></div>`;
+  } else if (_ofpTexts && S.dispatchPrinted === true) {
+    rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(_RAW_MISSING)}</span></div>`;
   }
   (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
     if (m) rows += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
   });
   const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
   const _raim = Array.isArray(_tx.raim) ? _tx.raim.filter(t => typeof t === 'string' && t) : [];
+  const _raimGone = !_raim.length && !!_ofpTexts && S.raimAttention === true;   // O-184
   const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _rawBody(r.text)).join('')
-    + _raim.map(t => _rawBody(t)).join('');
+    + _raim.map(t => _rawBody(t)).join('') + (_raimGone ? _rawBody(_RAW_MISSING) : '');
   const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean))
     || S.ofpRemarksOpen === true;
   return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';

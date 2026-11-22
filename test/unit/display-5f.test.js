@@ -27,8 +27,14 @@
  *               IF QUESTIONS text on any screen; O-181 the open state on the internal flag as 1.10.0; SYNTHETIC
  *               none printed → no row
  *   TC-182-021  D107: the save holds no Dispatch contact or RAIM text (the 26 and synthetic); reopened with its
- *               stored PDF the row and the RAIM records are re-derived; without it, no row, nothing breaks; a
- *               failed save shows the toast; a flight saved under 1.10.0 opens with no error
+ *               stored PDF the row and the RAIM records are re-derived; without it, the RAW-missing line in the
+ *               row (O-184), nothing breaks; a failed save shows the toast; a flight saved under 1.10.0 opens
+ *               with no error
+ *   TC-182-022  O-184 (Exec, before QA): never silent. The save holds flags only (dispatchPrinted, raimAttention:
+ *               true or absent, no text). Flag set + no stored PDF (PDF missing, pasted text) → the existing
+ *               "RAW not available – re-import the package" line in the OFP Remarks group in place of the
+ *               Dispatch contact row / the RAIM record; NEGATIVE: flag not set → nothing; with the PDF → the
+ *               texts, no such line; a flight saved under 1.10.0 (no flags) opens with no error and no line
  *   TC-182-030  SYNTHETIC RAIM (O-171, D115): an attention record → the remark as printed in the OFP Remarks group,
  *               the group open (O-179), no OFP Alerts line; NEGATIVE: a PASSED form → nothing, the group by
  *               O-181 only; a flagged remark the group shows already is not shown twice
@@ -142,10 +148,12 @@ async function reopened(app, items, { pdf = true, saves } = {}) {
   b.sandbox.loadPdfJs = async () => {};
   run(b, `_pdfDb.get = () => Promise.resolve(${pdf ? 'new ArrayBuffer(8)' : 'null'})`);
   assert.doesNotThrow(() => b.loadFlight(b.getFlights()[0]));
-  await settle(() => run(b, '_rawViews !== null || !S.rawIndex') && (!pdf || run(b, 'pdfRawText.length > 0')));
+  await settle(() => run(b, '_rawViews !== null || !S.rawIndex') && (!pdf || run(b, 'pdfRawText.length > 0'))
+    && (pdf || run(b, '_ofpTexts !== null || !_ofpTextsFlagged()')));   // O-184: the PDF-missing path has run
   return b;
 }
 const savedJson = app => app.sandbox.localStorage.getItem('rp_flights') || '';
+const RAW_MISSING = 'RAW not available \u2013 re-import the package';   // the existing D107 / O-107 text (src/edit.html)
 
 const VAA = [{ nr: '2026/001', volcano: 'TESTVOLCANO', vaac: 'ANCHORAGE', volcanoNo: '300000' }];
 const vaa = () => [S5.vaPage(S5.vaAdvisory(VAA))];
@@ -300,7 +308,7 @@ fixtureTest('TC-182-020 O-175 / O-183: the Dispatch contact row as printed on al
   assert.equal(dispatchRow(rem.app.renderPreflightPhase()), S5.BOILER.join('\n'), 'the boilerplate remark, every line, as printed');
 });
 
-fixtureTest('TC-182-021 D107: no Dispatch contact or RAIM text in the save; re-derived from the stored PDF; none without it; failed save → toast; a 1.10.0 save opens', async () => {
+fixtureTest('TC-182-021 D107: no Dispatch contact or RAIM text in the save; re-derived from the stored PDF; the RAW-missing line without it (O-184); failed save → toast; a 1.10.0 save opens', async () => {
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), d = ref(fx).r.dispatchContact;
     const st = JSON.stringify(JSON.parse(savedJson(imp.app))[0].state);
@@ -308,14 +316,14 @@ fixtureTest('TC-182-021 D107: no Dispatch contact or RAIM text in the save; re-d
     assert.ok(!st.includes(J(d.text).slice(1, -1)), `${LBL[fx.id]}: the row text is not in the saved state`);
     assert.ok(!('dispatch' in JSON.parse(st)) && !/"_ofpTexts"/.test(st));
   }
-  // reopened with its stored PDF: re-derived; without it: no row, the rest as saved
+  // reopened with its stored PDF: re-derived; without it: the RAW-missing line in the row (O-184), the rest as saved
   const fx = fkByLbl('L03'), imp = await imported(fx);
   const a = await reopened(imp.app, readItems(fx));
   assert.equal(dispatchRow(a.renderPreflightPhase()), ref(fx).r.dispatchContact.text, 'with the PDF: the row re-derived');
   assert.equal(remarksGroup(a).hidden, false);
   assert.deepEqual(alertLines(a.renderPreflightPhase()).filter(l => /VOLCANIC/.test(l)), [ROUTING], 'the WARN is saved with the flight');
   const n = await reopened(imp.app, readItems(fx), { pdf: false });
-  assert.equal(dispatchRow(n.renderPreflightPhase()), null, 'without the PDF: no row (nothing to re-derive)');
+  assert.equal(dispatchRow(n.renderPreflightPhase()), RAW_MISSING, 'without the PDF: the RAW-missing line in its place (O-184)');
   assert.equal(remarksGroup(n).hidden, false, 'the open flag is saved');
   // a failed save shows the existing toast (O-107)
   const t = loadApp();
@@ -324,14 +332,86 @@ fixtureTest('TC-182-021 D107: no Dispatch contact or RAIM text in the save; re-d
   assert.deepEqual(plain(run(t, 'window.__toasts')), [['err', 'Flight not saved – storage full']]);
   // a flight saved under 1.10.0: its state as 1.10.0 wrote it (no flag, the label only, no open FIR flags)
   const old = JSON.parse(savedJson(imp.app));
-  delete old[0].state.ofpRemarksOpen;
+  delete old[0].state.ofpRemarksOpen; delete old[0].state.dispatchPrinted; delete old[0].state.raimAttention;
   old[0].state.ofpFindings = old[0].state.ofpFindings.filter(f => f.field !== 'volcanicAsh' || f.level !== 'WARN');
   old[0].state.rawIndex.fir.forEach(b => { delete b.open; delete b.companyOpen; });
   for (const pdf of [true, false]) {
     const o = await reopened(imp.app, readItems(fx), { pdf, saves: JSON.stringify(old) });
     assert.doesNotThrow(() => { o.renderPreflightPhase(); o.renderEnroutePhase(); run(o, 'renderDescentPhase()'); });
     assert.ok(!alertLines(o.renderPreflightPhase()).some(l => /VOLCANIC/.test(l)), '1.10.0 save: its own alerts');
+    assert.equal(dispatchRow(o.renderPreflightPhase()), pdf ? ref(fx).r.dispatchContact.text : null, `1.10.0 save, PDF ${pdf}: the row re-derived, or nothing (no flag)`);
   }
+});
+
+// The import screen's text box (#manualText) holds the pasted text (as TC-178 / TC-179).
+function pasted(text) {
+  const app = loadApp(), doc = app.sandbox.document;
+  app.sandbox.document = new Proxy(doc, { get: (t, p) => (p === 'getElementById' ? (id => (id === 'manualText' ? { value: text } : t.getElementById(id))) : t[p]) });
+  app.importManual();
+  return app;
+}
+
+fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF (or pasted text) → the RAW-missing line in place of the row; flag not set → nothing', async () => {
+  const MISS_PRE = `<pre class="notam-raw-text">${escH(RAW_MISSING)}</pre>`;
+  // the 26: dispatchPrinted on all (every package prints a Contact Dispatch text), raimAttention on none (PASSED)
+  for (const fx of fkFixtures()) {
+    const st = JSON.parse(savedJson((await imported(fx)).app))[0].state;
+    assert.deepEqual([st.dispatchPrinted, st.raimAttention], [true, undefined], LBL[fx.id]);
+  }
+  // fixture, flag set, stored PDF missing → the line in the Dispatch contact row (existing row, existing text)
+  const fx = fkByLbl('L05'), imp = await imported(fx);
+  const miss = await reopened(imp.app, readItems(fx), { pdf: false });
+  let h = miss.renderPreflightPhase();
+  assert.ok(h.includes(`<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${escH(RAW_MISSING)}</span></div>`), 'the line in the row');
+  assert.equal(h.split(escH(RAW_MISSING)).length - 1, 1, 'once (no RAIM flag on the 26)');
+  // NEGATIVE: with the PDF → the printed text, no line
+  const ok = await reopened(imp.app, readItems(fx));
+  assert.equal(dispatchRow(ok.renderPreflightPhase()), ref(fx).r.dispatchContact.text);
+  assert.ok(!ok.renderPreflightPhase().includes(escH(RAW_MISSING)));
+  // NEGATIVE: flag not set, PDF missing → nothing (no row, no line)
+  const noFlag = JSON.parse(savedJson(imp.app)); delete noFlag[0].state.dispatchPrinted;
+  const nf = await reopened(imp.app, readItems(fx), { pdf: false, saves: JSON.stringify(noFlag) });
+  assert.equal(dispatchRow(nf.renderPreflightPhase()), null);
+  assert.ok(!nf.renderPreflightPhase().includes(escH(RAW_MISSING)));
+  // SYNTHETIC: a RAIM attention record + a Dispatch remark, PDF missing → the line in both places, the group open
+  const a = await synth({ raim: OUTAGE });
+  const sa = JSON.parse(savedJson(a.app))[0].state;
+  assert.deepEqual([sa.dispatchPrinted, sa.raimAttention, sa.ofpRemarksOpen], [true, true, true]);
+  assert.ok(!JSON.stringify(sa).includes('PRN 12') && !JSON.stringify(sa).includes('Contact Dispatch with'), 'D107: flags, no text');
+  const am = await reopened(a.app, synthDoc({ raim: OUTAGE }), { pdf: false });
+  const g = remarksGroup(am);
+  assert.equal(dispatchRow(am.renderPreflightPhase()), RAW_MISSING, 'the Dispatch contact row');
+  assert.ok(g.body.includes(MISS_PRE) && !g.body.includes('PRN 12'), 'the RAIM record\'s place');
+  assert.equal(g.hidden, false, 'open (O-179, saved flag)');
+  // NEGATIVE: the RAIM flag not set → no line for it; with the PDF → the RAIM record, no line
+  const nr = JSON.parse(savedJson(a.app)); delete nr[0].state.raimAttention;
+  assert.ok(!remarksGroup(await reopened(a.app, synthDoc({ raim: OUTAGE }), { pdf: false, saves: JSON.stringify(nr) })).body.includes(MISS_PRE));
+  const ap = await reopened(a.app, synthDoc({ raim: OUTAGE }));
+  assert.ok(raws(remarksGroup(ap).body).includes(OUTAGE.join('\n')) && !remarksGroup(ap).body.includes(escH(RAW_MISSING)));
+  // pasted text (no PDF is stored): flags saved; reopened → the line in both places
+  const p = pasted(S5.input(S5.release({ raim: OUTAGE })).text);
+  const sp = JSON.parse(savedJson(p))[0].state;
+  assert.deepEqual([sp.dispatchPrinted, sp.raimAttention, 'rawIndex' in sp], [true, true, false], 'pasted: flags, no RAW index');
+  assert.ok(raws(remarksGroup(p).body).includes(OUTAGE.join('\n')), 'at import: the record as printed');
+  const pr = await reopened(p, synthDoc({}), { pdf: false });
+  assert.equal(dispatchRow(pr.renderPreflightPhase()), RAW_MISSING);
+  assert.ok(remarksGroup(pr).body.includes(MISS_PRE));
+  // NEGATIVE: nothing printed (no Contact Dispatch, PASSED) → no flag, no line, no group text
+  const z = await synth({ boiler: [] });
+  const sz = JSON.parse(savedJson(z.app))[0].state;
+  assert.deepEqual([sz.dispatchPrinted, sz.raimAttention], [undefined, undefined]);
+  const zr = await reopened(z.app, synthDoc({ boiler: [] }), { pdf: false });
+  assert.ok(!zr.renderPreflightPhase().includes(escH(RAW_MISSING)), 'no RAW-missing line on the Preflight card');
+  assert.equal(dispatchRow(zr.renderPreflightPhase()), null);
+  // a flight saved under 1.10.0 (no flags), PDF missing: opens, no line in the OFP Remarks group
+  const old = JSON.parse(savedJson(imp.app)); delete old[0].state.dispatchPrinted; delete old[0].state.ofpRemarksOpen;
+  const o = await reopened(imp.app, readItems(fx), { pdf: false, saves: JSON.stringify(old) });
+  assert.doesNotThrow(() => { o.renderPreflightPhase(); o.renderEnroutePhase(); run(o, 'renderDescentPhase()'); });
+  const og = remarksGroup(o);
+  assert.ok(!og || !og.body.includes(escH(RAW_MISSING)), '1.10.0 save: no RAW-missing line in OFP Remarks');
+  // NavBlue: no flag
+  const nb = await importFixture(nbFixtures()[0], FIX);
+  assert.ok(!('dispatchPrinted' in nb.S) && !('raimAttention' in nb.S));
 });
 
 // ══ TC-182-030 / 031 synthetic RAIM and volcanic ash ═════════════════════════════════════════════

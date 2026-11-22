@@ -161,17 +161,23 @@ function _ofpRederive(buf, seq) {
       if (S.rawIndex) {
         const r = _ofpParse(fullText, pages);
         _rawViews = r && Array.isArray(r.firRaw) ? _ofpRawViews(r) : { missing: true };
-        _ofpTexts = r && Array.isArray(r.firRaw) ? _ofpRemarkTexts(r, _ofpAdvisories(r)) : null;
-      }
+        _ofpTexts = r && Array.isArray(r.firRaw) ? _ofpRemarkTexts(r, _ofpAdvisories(r)) : { missing: true };
+      } else if (_ofpTextsFlagged()) _ofpTexts = { missing: true };   // O-184: nothing to rebuild them from
       _rerenderOpen();
     })
     .catch(() => _rawMissing(seq));
 }
-// The stored PDF is missing or cannot be read: a FlightKeys flight's RAW groups say so (O-107).
+// The stored PDF is missing or cannot be read: a FlightKeys flight's RAW groups say so (O-107); so do the
+// flagged Dispatch contact and RAIM rows of the OFP Remarks group (O-184; pasted text included).
 function _rawMissing(seq) {
   if (seq !== _loadSeq) return;
-  if (S.rawIndex) { _rawViews = { missing: true }; _rerenderOpen(); }
+  const flagged = _ofpTextsFlagged();
+  if (flagged) _ofpTexts = { missing: true };
+  if (S.rawIndex) _rawViews = { missing: true };
+  if (S.rawIndex || flagged) _rerenderOpen();
 }
+// O-184: the saved flags of the texts the OFP Remarks group shows but the save does not hold (D107).
+const _ofpTextsFlagged = () => S.dispatchPrinted === true || S.raimAttention === true;
 function _rerenderOpen() {
   renderNote();
   if (_activeFlightTab === 'airports') buildAirportCards();
