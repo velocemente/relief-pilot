@@ -17,7 +17,7 @@ The NOTAM rules now run from the updated versions 1.13.0 and 1.14.0. What you wi
 - **Unclear cases are shown, on the safe side,** for example an obstacle notice near a runway that says obstacle clearance is not affected but not whether the take-off side is.
 - **These are now hidden:** an obstacle height near a runway that affects no procedure, obstacle-light outages, men or equipment near a runway with no height, and surface notices that say minima and procedures are unchanged.
 - **Every newly shown NOTAM that would have no row on the airport card gets one.** Take-off and climb effects go under SIDs; all others, arrival effects included, go under GENERAL.
-- **FlightKeys type headings are never part of a NOTAM's text.** They are kept in the RAW view and mark obstacle items; they do not decide the card group, because the cards keep the app's own NOTAM groups.
+- **FlightKeys type headings are never part of a NOTAM's text.** They are kept, as printed, in the airport card's NOTAMS group and mark obstacle items; they do not decide the card group, because the cards keep the app's own NOTAM groups.
 
 ---
 
@@ -26,7 +26,7 @@ The NOTAM rules now run from the updated versions 1.13.0 and 1.14.0. What you wi
 - **The app recognises the format by itself.** You do not choose it.
 - **One format per flight.** A package that mixes FlightKeys and NavBlue pages is refused, with a message, and the app stays on the import screen.
 - **OFP Alerts.** Warnings found while reading the package are listed under OFP Alerts (see Display). The title is red until you tap the list, then turns normal. A new import starts red again. If the filed NAT track is not in the track message, the alert says to check the oceanic clearance.
-- **NAT levels are shown as posted.** A gapped list such as FL360 380 400 is shown in full; a list in steps of 10 is shown as a range such as FL340–400. This also applies to NavBlue flights.
+- **NAT levels are shown as posted.** A gapped list such as FL360 380 400 is shown in full; a list in steps of 10 is shown as a range such as FL340-400. This also applies to NavBlue flights.
 
 ---
 
