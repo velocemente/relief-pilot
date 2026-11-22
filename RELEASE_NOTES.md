@@ -33,7 +33,7 @@ The NOTAM rules now run from the updated versions 1.13.0 and 1.14.0. What you wi
 ## Display
 
 - **OFP Alerts.** On the Preflight card, OFP Alerts are in NOTES, below the airport status rows.
-- **OFP Remarks.** The Dispatch contact (REQUIRED or IF QUESTIONS, as printed) and any Security message are in the OFP Remarks group, below DDG in NOTES. The group is open when the Dispatch contact is REQUIRED or a security message is present; otherwise it is collapsed. Tap its title to open or close it. The group also holds the fuel (PCF and extra fuel), route and ADHOC penalty remarks.
+- **OFP Remarks.** The Dispatch contact and any Security message are in the OFP Remarks group, below DDG in NOTES. The group is open when the Dispatch contact is REQUIRED or a security message is present; otherwise it is collapsed. Tap its title to open or close it. The group also holds the fuel (PCF and extra fuel), route and ADHOC penalty remarks.
 - **Airport cards.** Each card shows Weather, then NOTAMS, as printed in the briefing, both collapsed. Company Remarks is collapsed too: tap it to open. A departure CAT II/III restriction is inside Company Remarks. The chevron on the airport ID row opens or closes all groups of the card.
 - **NAT card.** It shows every direction the OFP publishes, each under its own TMI header, the direction of your flight first. If a direction has no tracks, the card says so; if its tracks cannot be read, it says "Tracks not readable – see OFP Alerts". A filed NAT track that is not in the track message is also warned about on the TMI row of the message it names.
 - **Operating date.** If the OFP has no readable flight date, the header shows "Operating date needed" and a pop-up opens, filled with today's UTC date. You enter the operating date; later times past 0000Z fall on the next day, and nothing is dated before the date you entered.
@@ -59,6 +59,7 @@ The NOTAM rules now run from the updated versions 1.13.0 and 1.14.0. What you wi
 - Pasted FlightKeys text has no briefing NOTAMs or weather; a warning shows on the Preflight card.
 - If the stored PDF is missing, the OFP tab is empty after a reload.
 - En-route obstacle NOTAMs (MEA / MOCA) are treated inconsistently.
+- The Dispatch contact can show REQUIRED when the OFP only asks you to contact dispatch if you have questions - check the OFP remarks.
 
 ---
 
