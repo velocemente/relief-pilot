@@ -23,7 +23,7 @@ One top-level extension, after `dispatchContact` and before `sections` (`EXTENSI
 
 ## Unchanged fields, new rule
 
-`ofpRemarks[]` keeps its shape. Its category `raim` (O-172): a remark whose first line names RAIM; the two PASSED forms one line; any other RAIM remark with its continuation lines (D63/D63a end). On the 26 the records are byte-identical to contract 2.4.
+`ofpRemarks[]` keeps its shape, with one optional key. Its category `raim` (O-172; QA F-01): a remark whose first line names RAIM and that matches no other category; the two PASSED forms one line; any other RAIM remark with its continuation lines (D63/D63a end). A remark of another category whose first line names RAIM keeps its category (and the field it feeds) and carries **`raim: true`** — present only when true, never a replacement. On the 26 the records are byte-identical to contract 2.4 (no remark is flagged).
 
 `hasPerishables` (core field, FK-P: meaning unchanged): FlightKeys sets it only when the package prints YES — the NavBlue rule, or `PERISHABLES ONBOARD: YES`; `: NO` and the bare `PERISHABLES ONBOARD` line set nothing (O-129, O-182, Exec 22 Nov). On the 26: 7 packages true → false (L03, L08, L10, L12, L13, L16, L17).
 

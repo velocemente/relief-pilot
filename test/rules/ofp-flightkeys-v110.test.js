@@ -13,7 +13,7 @@
  *   TC-180-003  validateSchema(): valid; EXTENSION_FIELDS = v1.0.1's plus volcanicAsh before sections;
  *               NEGATIVE: the retired '5d' step and a 19-field list are refused
  *   TC-180-004  the code differs from v1.0.1 only where declared: every top-level declaration byte-identical
- *               (comments aside) except the 10 listed; 3 new; PATTERNS: v1.0.1's 146 keys unchanged but
+ *               (comments aside) except the 11 listed; 3 new; PATTERNS: v1.0.1's 146 keys unchanged but
  *               RMK_RAIM; 11 new keys listed (negative: an undeclared change is caught)
  *   TC-180-005  O-117 / D99 / D103: no finding template and no step text carries "(open item)", "brief",
  *               "read in 5d", an O-/D-/SME- reference or a version number; the deferred INFO reads
@@ -43,7 +43,9 @@
  *               FAILED / garbled forms are raim and take continuation; PASSED stays one line (= v1.0.1);
  *               PASSED + outage → two records; RAIM named mid-line in a new remark → raim; the word RAIM on a
  *               continuation line, in a station block, in a Company NOTAM → no raim record (negatives)
- *   TC-180-040  perishables synthetic (O-129, O-182): ": YES" / " YES" → true; ": NO" → false; bare → false
+ *   TC-180-031  F-01 synthetic: CAT II/III, security, PCF, extra fuel, route, slot, exemption remarks naming RAIM keep
+ *               their category and field (= v1.0.1), with and without PASSED; RAIM is an extra flag (raim: true)
+ *   TC-180-040  perishables synthetic (O-129, O-182, F-03): YES after any punctuation or spacing → true; ": NO" → false; bare → false
  *               (v1.0.1: true for both — negative controls); none → false; the NavBlue form still decides
  *   TC-180-050  Dispatch contact synthetic (O-175, O-183): "with questions" / "if you have any questions" /
  *               an extra Contact Dispatch remark / the words split over two lines / other case → the whole
@@ -172,7 +174,7 @@ function decls(src) {
   return out;
 }
 const CHANGED_DECLS = ['RULESET_VERSION', 'CONTRACT_VERSION', 'EXTENSION_FIELDS', 'DEFERRED_STEPS', 'PATTERNS',
-  '_emptyExtensions', 'parseFlightKeys', '_readRemarks', '_readCompany', 'validateSchema'];
+  '_emptyExtensions', 'parseFlightKeys', '_remarkStart', '_readRemarks', '_readCompany', 'validateSchema'];
 const NEW_DECLS = ['_readVolcanicAsh', '_readDispatchContact', 'DISPATCH_CONTACT_REMARK'];
 const NEW_PATTERNS = ['PERISHABLES_VALUE', 'RMK_RAIM_WORD', 'RMK_RAIM_PASSED', 'VA_NONE', 'VA_HEAD', 'VA_INTERSECTS',
   'VA_LIST_ROW', 'VA_ADVISORY', 'VA_VAAC', 'VA_VOLCANO', 'VA_NUMBER'];
@@ -458,14 +460,16 @@ test('TC-180-030 SYNTHETIC RAIM (O-172): continuation for a non-PASSED remark, i
   // RAIM named mid-line in the first line of a new remark → raim (after a blank line, and as a sub-heading)
   assert.deepEqual(raimOf({ remarks: [S5.BL, 'GPS RAIM OUTAGE KBBB 0300Z-0345Z', 'PRN 12'], raim: [] }), ['GPS RAIM OUTAGE KBBB 0300Z-0345Z\nPRN 12']);
   assert.deepEqual(raimOf({ remarks: [S5.BL, 'PREDICTED RAIM OUTAGES:', 'PRN 12 0300Z-0345Z'], raim: [] }), ['PREDICTED RAIM OUTAGES:\nPRN 12 0300Z-0345Z']);
-  // NEGATIVE: the word RAIM on a continuation line of another remark → that remark, no raim record
+  // NEGATIVE: the word RAIM on a continuation line of another remark → that remark, no raim record, no flag
   const cont = parse(SYN({ remarks: ['PCF 002000 FOR WX DEVIATIONS', 'NOT RAIM RELATED'], raim: [] }));
   assert.deepEqual(rec(cont, 'raim'), []);
+  assert.deepEqual(cont.ofpRemarks.filter(r => r.raim), []);
   assert.deepEqual(rec(cont, 'pcf').map(r => r.text), ['PCF 002000 FOR WX DEVIATIONS\nNOT RAIM RELATED']);
-  // NEGATIVE: RAIM named inside a station block stays the station restriction (an airport remark)
+  // NEGATIVE: RAIM named inside a station block stays the station restriction (an airport remark), flagged raim (QA F-01)
   const st = parse(SYN({ remarks: ['KBBB FLIGHT OPS RESTRICTIONS:', '- RNAV APPROACH NOT AUTH WHEN RAIM UNAVAILABLE'], raim: [] }));
   assert.deepEqual(rec(st, 'raim'), []);
   assert.ok(st.airportData.KBBB.remarks.some(r => /RAIM UNAVAILABLE/.test(r.text)));
+  assert.deepEqual(st.ofpRemarks.filter(r => r.raim).map(r => [r.category, r.text]), [['stationRestriction', '- RNAV APPROACH NOT AUTH WHEN RAIM UNAVAILABLE']]);
   // NEGATIVE: RAIM in NOTAM text (a Company NOTAM) never reaches the remarks reader
   const nt = parse(SYN({ raim: [] }, [S5.notamPage(['                              COMPANY NOTAMS', '                                    GENERAL',
     '               A0001/26        2026-Mar-01 00:00 - UFN', 'CREATED:2026-Feb-28 00:00       FL: SFC - UNL', 'SUBJECT: GPS', 'RAIM OUTAGE PREDICTED KZZZ 0300-0400Z'])]));
@@ -475,10 +479,62 @@ test('TC-180-030 SYNTHETIC RAIM (O-172): continuation for a non-PASSED remark, i
   assert.deepEqual(raimOf({ raim: [] }), []);
 });
 
+// QA F-01: a remark of another category that names RAIM keeps its category and its field; RAIM is an extra flag.
+const F01_CASES = [
+  ['catIiIii (restriction)', 'KBBB CAT II/III NOT AUTHORIZED RAIM', r => r.catIiIiiRestrictions],
+  // an authorisation line is anchored (CAT_AUTH): with RAIM on it, it is "not read" + WARN in both versions
+  ['catIiIii (authorisation, not read)', 'KBBB CAT II/III - RWY 09/27 RAIM CHECKED', r => [r.catIiIiiApproaches, r.findings.filter(f => f.field === 'catIiIiiApproaches').map(f => [f.level, f.message])]],
+  ['security', 'SECURITY LEVEL 2 RAIM', r => r.securityMessages],
+  ['pcf', 'PCF 002000 FOR RAIM OUTAGE', r => r.pcf],
+  ['extraFuel', 'EXTRA FUEL 1500 FOR RAIM', r => r.extraFuel],
+  ['route', 'ROUTE VIA AAAAA DUE RAIM', r => r.ofpRemarks.filter(x => x.category === 'route').map(x => x.text)],
+  ['slot', 'SLOT TIME 1830Z RAIM CHECKED', r => r.slotTime],
+  ['exemption', 'DOT EXEMPTION 1234 ALTN KCCC RAIM', r => r.dotExemption],
+  ['line starting RAIM, security', 'RAIM OUTAGE - SECURITY ALERT KBBB', r => r.securityMessages],
+];
+
+test('TC-180-031 SYNTHETIC QA F-01: CAT II/III, security, PCF, extra fuel, route, slot, exemption remarks naming RAIM keep their category and field, with and without PASSED; RAIM is an extra flag', () => {
+  const strip = recs => recs.map(x => { const o = Object.assign({}, x); delete o.raim; return o; });
+  for (const [what, line, field] of F01_CASES) {
+    for (const raim of [['RAIM VALIDATION PASSED'], []]) {
+      const o = { remarks: [S5.BL, line, S5.BL], raim };
+      const b = parse(SYN(o)), a = parse(SYN(o), v101);
+      const tag = `${what}, ${raim.length ? 'PASSED printed' : 'no PASSED'}`;
+      const r = b.ofpRemarks.find(x => x.text === line);
+      assert.ok(r, `${tag}: the remark is a record of its own`);
+      assert.notEqual(r.category, 'raim', `${tag}: not taken out of its category`);
+      assert.equal(r.category, a.ofpRemarks.find(x => x.text === line).category, `${tag}: the v1.0.1 category`);
+      assert.equal(r.raim, true, `${tag}: flagged raim`);
+      assert.equal(JSON.stringify(field(b)), JSON.stringify(field(a)), `${tag}: its field = v1.0.1's`);
+      assert.ok(JSON.stringify(field(b)) !== JSON.stringify(field(parse(SYN({ raim }))))
+        || what === 'slot' || what === 'exemption', `${tag}: the field is filled by the remark (positive)`);
+      assert.deepEqual(strip(b.ofpRemarks), a.ofpRemarks, `${tag}: ofpRemarks = v1.0.1's but the raim flag`);
+      // the PASSED line stays its own one-line raim record; nothing else is raim
+      assert.deepEqual(rec(b, 'raim').map(x => x.text), raim, `${tag}: raim records`);
+    }
+  }
+  // the flag is only present when true: a remark not naming RAIM has no raim key (the 26 unchanged, TC-180-010)
+  assert.ok(!('raim' in parse(SYN({ remarks: ['PCF 002000 FOR WX'] })).ofpRemarks.find(x => x.category === 'pcf')));
+  // a remark that matches no other category and names RAIM is a raim record (O-172), not flagged
+  const own = parse(SYN({ remarks: [S5.BL, 'GPS RAIM OUTAGE KBBB 0300Z-0345Z'], raim: [] }));
+  assert.deepEqual(rec(own, 'raim').map(x => [x.text, 'raim' in x]), [['GPS RAIM OUTAGE KBBB 0300Z-0345Z', false]]);
+  // the dispatcher line and the boilerplate are never flagged
+  assert.deepEqual(parse(SYN({ boiler: ['This OFP prepared with FlightKeys. RAIM', 'questions.'] })).ofpRemarks.filter(x => x.raim), []);
+});
+
 test('TC-180-040 SYNTHETIC perishables (O-129, O-182): YES → true; NO and bare → false (v1.0.1 true); none → false; NavBlue form decides', () => {
   const per = (rm, m) => parse(SYN({ remarks: rm }), m).hasPerishables;
   assert.equal(per(['PERISHABLES ONBOARD: YES']), true);
   assert.equal(per(['PERISHABLES ONBOARD YES']), true, '"perishables onboard YES"');
+  // QA F-03: YES after any punctuation or spacing → shown; NO in the same forms → not shown
+  for (const sep of [': ', '- ', ' ', ':', '-', ' - ', ' – ', ' = ', '=', ' / ', ' (', '.. ', ' : ']) {
+    assert.equal(per([`PERISHABLES ONBOARD${sep}YES`]), true, `"PERISHABLES ONBOARD${sep}YES" → shown`);
+    assert.equal(per([`PERISHABLES ONBOARD${sep}NO`]), false, `"PERISHABLES ONBOARD${sep}NO" → not shown`);
+  }
+  assert.equal(per(['PERISHABLES ONBOARD: YES.']), true);
+  assert.equal(per(['PERISHABLES ONBOARD - YES (2 PALLETS)']), true);
+  assert.equal(per(['PERISHABLES ONBOARD: YESTERDAY']), false, 'YES as a whole word only');
+  assert.equal(per(['PERISHABLES ONBOARD - NONE']), false);
   assert.equal(per(['PERISHABLES ON BOARD: YES']), true);
   assert.equal(per(['PERISHABLES ONBOARD: NO']), false);
   assert.equal(per(['PERISHABLES ONBOARD: NO'], v101), true, 'NEGATIVE control: v1.0.1 read ": NO" as perishables');

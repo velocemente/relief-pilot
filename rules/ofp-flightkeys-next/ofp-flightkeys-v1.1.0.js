@@ -12,9 +12,11 @@
  * engine does that): the Volcanic Ash Advisories page as the new top-level
  * extension volcanicAsh { page, state NONE | ADVISORY | UNREADABLE, text as
  * printed, advisories[] { volcano, vaac, number } } (contract 2.5, addendum 5;
- * O-169); a remark whose first line names RAIM is category raim, the two
- * PASSED forms stay one line and any other RAIM remark takes its continuation
- * lines up to the D63/D63a paragraph end (O-172); dispatchContact carries every
+ * O-169); a remark whose first line names RAIM and matches no other category
+ * is category raim — the two PASSED forms one line, any other with its
+ * continuation lines up to the D63/D63a paragraph end — and a remark of another
+ * category that names RAIM keeps it, flagged raim: true (O-172, QA F-01);
+ * dispatchContact carries every
  * Contact Dispatch text printed — the Company NOTAM line and the whole OFP
  * remark, every line (O-175, O-183; the label stays the internal short-form /
  * long-form flag); the deferred-field INFO and
@@ -330,9 +332,10 @@ const PATTERNS = {
   // also prints the bare line "PERISHABLES ONBOARD" (row 27)
   PERISHABLE:      /PERISHABLE[^\n]*O\/B[^\n]*YES|O\/B[^\n]*PERISHABLE[^\n]*YES|LIVE\s+ANIMALS\s*:\s*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
   PERISHABLES_ONBOARD: /^PERISHABLES?\s+ON\s*BOARD\b/,
-  // v1.1.0 (O-129, O-182): the printed value of that line. ": YES" / " YES" → perishables; ": NO", the bare
-  // line (7 of the 26 print it so, one item, nothing after it) or any other value → none (the NavBlue rule).
-  PERISHABLES_VALUE:   /^PERISHABLES?\s+ON\s*BOARD\s*:?\s*(YES|NO)\s*$/,
+  // v1.1.0 (O-129, O-182; QA F-03): the printed value of that line — YES or NO after any punctuation or
+  // spacing (": YES", "- YES", " YES", "=YES" …). YES → perishables; NO, the bare line (7 of the 26 print it
+  // so, one item, nothing after it) or any other value → none (the NavBlue rule).
+  PERISHABLES_VALUE:   /^PERISHABLES?\s+ON\s*BOARD[^A-Za-z0-9]*(YES|NO)\b/,
   TEMPERATURE_CONTROL: /TEMPERATURE\s+CONTROL[^\n]*YES|TEMPERATURE\s+REQUIREMENTS\s*:\s*YES/i,
   // Row 35: "Overflight/Landing Permits" … the nav-log header; groups "--- OVERFLIGHT PERMITS" etc.
   PERMITS_START:   /^Overflight\/Landing Permits?\s*$/,
@@ -352,9 +355,10 @@ const PATTERNS = {
   RMK_SECURITY:    /\bSECURITY\b/,
   RMK_SLOT:        /\bWHEELS\s+UP\b|\bSLOT\s+TIME\b/,
   RMK_EWINS:       /\bE-?WINS\b/i,
-  // v1.1.0 (O-172): a line that starts with RAIM starts a raim remark (was "RAIM VALIDATION" only); a new
-  // remark whose first line names RAIM anywhere is raim too (RMK_RAIM_WORD). The two PASSED forms (the
-  // only forms in both corpora, O-171) stay one line; any other raim remark takes its continuation lines.
+  // v1.1.0 (O-172; QA F-01): a remark whose first line names RAIM (RMK_RAIM at the start, RMK_RAIM_WORD
+  // anywhere) is a raim remark only when it matches no other category; otherwise it keeps its category
+  // and is flagged raim: true. The two PASSED forms (the only forms in both corpora, O-171) stay one line;
+  // any other raim remark takes its continuation lines.
   RMK_RAIM:        /^RAIM\b/,
   RMK_RAIM_WORD:   /\bRAIM\b/,
   RMK_RAIM_PASSED: /^RAIM VALIDATION (?:FOR ETOPS ALTN [A-Z]{4} )?PASSED\s*$/,
@@ -1377,7 +1381,6 @@ const _RMK_INHERIT = new Set(['boilerplate', 'pcf', 'extraFuel', 'ballast', 'mel
 function _remarkStart(t, first) {
   if (first && PATTERNS.RMK_DISPATCHER.test(t)) return 'dispatcher';
   if (PATTERNS.RMK_BOILERPLATE.test(t)) return 'boilerplate';
-  if (PATTERNS.RMK_RAIM.test(t)) return 'raim';
   if (PATTERNS.CAT_ANY.test(t)) return 'catIiIii';
   if (PATTERNS.RMK_STATION.test(t)) return 'stationRestriction';
   if (PATTERNS.RMK_FLEET_NOTE.test(t)) return 'fleetNote';
@@ -1394,6 +1397,9 @@ function _remarkStart(t, first) {
   if (PATTERNS.RMK_EXTRA.test(t)) return 'extraFuel';
   if (PATTERNS.RMK_BALLAST.test(t)) return 'ballast';
   if (PATTERNS.RMK_ROUTE.test(t)) return 'route';
+  // v1.1.0 (QA F-01): raim only when no other category matches; a remark of another category that names
+  // RAIM keeps its category and its field, and its record is flagged raim: true (_readRemarks).
+  if (PATTERNS.RMK_RAIM.test(t)) return 'raim';
   return null;
 }
 
@@ -1413,15 +1419,17 @@ function _readRemarks(ctx, from, to) {
     let c = _remarkStart(t, i === from);
     if (c === null && PATTERNS.RMK_DASHES.test(t) && i + 1 < to && PATTERNS.RMK_STATION.test(lines[i + 1].trim())) c = 'dashes';
     let cont = false, isSub = false;
-    if (mode === 'stationRestriction' && !(c && _RMK_HARD.has(c))) { c = 'stationRestriction'; cont = true; }
+    // a line starting with RAIM ends a station block whatever its category (as v1.0.1's RAIM VALIDATION line)
+    if (mode === 'stationRestriction' && !(c && _RMK_HARD.has(c)) && !PATTERNS.RMK_RAIM.test(t)) { c = 'stationRestriction'; cont = true; }
     else if (c === 'dashes') { c = 'stationRestriction'; station = { icao: null, heading: '', fleet: null, subHeading: null, subFleet: null, marker: null, cur: null }; }
     else if (c === null && PATTERNS.RMK_SUBHEAD.test(t)) { c = 'other'; isSub = true; }   // D63a: a sub-heading
     else if (c === null && mode && (mode !== 'boilerplate' || boilerOpen) && !blank && !afterSub) { c = mode; cont = true; }
     else if (c === null) c = 'other';
-    // v1.1.0 (O-172): a new remark whose first line names RAIM anywhere is category raim, a sub-heading
-    // too (it then opens the remark). A RAIM word on a continuation line, in a station block, the
-    // dispatcher line or the FlightKeys boilerplate starts nothing. NOTAM text never reaches this reader.
-    if (!cont && c !== 'stationRestriction' && c !== 'dispatcher' && c !== 'boilerplate' && PATTERNS.RMK_RAIM_WORD.test(t)) { c = 'raim'; isSub = false; }
+    // v1.1.0 (O-172; QA F-01): a new remark whose first line names RAIM anywhere and that matches NO other
+    // category is category raim, a sub-heading too (it then opens the remark). A remark of another category
+    // keeps it (and its field) and is flagged raim: true below. A RAIM word on a continuation line starts
+    // nothing. NOTAM text never reaches this reader.
+    if (!cont && c === 'other' && PATTERNS.RMK_RAIM_WORD.test(t)) { c = 'raim'; isSub = false; }
     if (c !== 'stationRestriction') {
       if (isSub) genSub = t.replace(/:\s*$/, '');
       else if (!cont && (blank || !afterSub)) genSub = null;
@@ -1476,6 +1484,9 @@ function _readRemarks(ctx, from, to) {
     }
     if (!joined) {
       const rec = { text: t, category: c, airport, subHeading: general ? genSub : subHeading, page: pos[i].page, line: pos[i].line };
+      // QA F-01: a remark of another category whose first line names RAIM — an additional RAIM flag, never
+      // a replacement (the key is present only when true). The dispatcher line and the boilerplate excepted.
+      if (c !== 'raim' && c !== 'dispatcher' && c !== 'boilerplate' && PATTERNS.RMK_RAIM_WORD.test(t)) rec.raim = true;
       ext.ofpRemarks.push(rec);
       if (station && station.cur && !station.cur.record) station.cur.record = rec;
       if (general) entry = null;
