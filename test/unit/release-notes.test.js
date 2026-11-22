@@ -3,7 +3,7 @@
  * TC-178-030 — step 5e-3 release: the 1.10.0 section of RELEASE_NOTES.md (newest first, on top) is crew language. No internal
  * reference (D-, O-, SME-, CS-, package or step numbers), no crew name or number. (Before the release these notes were a
  * draft file; the draft is gone and the tests read RELEASE_NOTES.md.)
- * TC-178-031: the sections and exactly six known limits as agreed; the section is the newest and the labels say 1.10.0.
+ * TC-178-031: the sections and exactly seven known limits as agreed; the section is the newest and the labels say 1.10.0.
  * TC-178-033: the notes carry no forward-looking promise (a Planned heading, "coming soon", "future release", "will be shown").
  * TC-178-034: the Exec's wording of the release (window, hidden obstacle height, type headings, unclear cases, display as built).
  */
@@ -29,7 +29,7 @@ test('TC-178-031 release notes: sections and known limits as agreed, no planned 
   for (const h of ['## What\'s New', '## NOTAMs', '## FlightKeys', '## Display', '## Saved Flights', '## Known Limits'])
     assert.ok(NOTES.includes(h), h);
   const limits = NOTES.split('## Known Limits')[1].split('\n').filter(l => l.startsWith('- '));
-  assert.equal(limits.length, 6);
+  assert.equal(limits.length, 7);
   assert.ok(!/^#+\s*planned\b/im.test(NOTES), 'no Planned heading (Exec)');
   assert.ok(!/coming soon|future release|will be shown/i.test(NOTES), 'no forward-looking promise (Exec)');
   assert.ok(/^# PilotBrief 1\.10\.0 Release Notes/.test(NOTES) && !/DRAFT/.test(NOTES), 'a release section, not a draft');
@@ -70,6 +70,8 @@ test('TC-178-034 release notes carry the Exec\'s wording; the superseded wording
   // Display, as built
   assert.ok(has('OFP Alerts are in NOTES, below the airport status rows'));
   assert.ok(has('in the OFP Remarks group, below DDG in NOTES'));
+  assert.ok(has('The Dispatch contact and any Security message') && !has('(REQUIRED or IF QUESTIONS, as printed)'));
+  assert.ok(has('The Dispatch contact can show REQUIRED when the OFP only asks you to contact dispatch if you have questions - check the OFP remarks.'));
   assert.ok(has('open when the Dispatch contact is REQUIRED or a security message is present'));
   assert.ok(has('Each card shows Weather, then NOTAMS, as printed in the briefing'));
   assert.ok(has('Company Remarks is collapsed too: tap it to open. A departure CAT II/III restriction is inside Company Remarks.'));
