@@ -7,14 +7,15 @@
  * and meanings, as the locked NavBlue parser (FK-P), plus the Appendix B
  * extensions and findings[].
  *
- * v1.1.1 (DEF-013 patch; Exec rulings R1–R5 and O-C, O-D, 23 Nov) changes only dispatchContact:
- * R1 only the OFP Remarks decide it — the cover-page notice and the Company NOTAM sentences ("Contact
- * Dispatch for a preflight briefing." / "…if you have any questions.") are ignored; R2 a sentence of
- * the OFP Remarks about contacting Dispatch is carried as printed (wrapped lines joined by one space,
- * the final full stop dropped, nothing else from the paragraph) as dispatchContact = { remark };
- * R3 no such sentence → dispatchContact null; R4 no REQUIRED / IF QUESTIONS classification (the label,
- * text and company fields are gone); R5 "Contact Dispatch" inside a NOTAM body is not a Dispatch
- * remark. Its INFO finding is reworded to match. Every other output is byte-identical to v1.1.0.
+ * v1.1.1 (DEF-013 patch; Exec rulings R1–R5, R2a–R2d, R4 as amended and O-C, O-D, 23 Nov) changes only
+ * dispatchContact: R1 only the OFP Remarks decide it — the cover-page notice and the Company NOTAM sentences
+ * ("Contact Dispatch for a preflight briefing." / "…if you have any questions.") are ignored; R2 the Dispatch
+ * sentence of the OFP Remarks is carried as printed (wrapped lines joined by one space, the final full stop
+ * dropped, nothing else from the paragraph); R2a it has a category — REQUIRED (an instruction to contact or call
+ * Dispatch) or SUGGESTION (contact only if there are questions); R2b both categories printed → only the REQUIRED
+ * sentence is kept; R2c several of one category → only the first printed; R3 no such sentence → null;
+ * R4 dispatchContact = { category, remark } (no label, text or company); R5 "Contact Dispatch" inside a NOTAM body
+ * is not a Dispatch remark. Its INFO finding is reworded to match. Every other output is byte-identical to v1.1.0.
  * Not built into index.html: rules/ofp-flightkeys-next until the integration PR (D90, D96).
  *
  * v1.1.0 (step 5f, module PR A; Exec answers O-169 … O-181, 22 Nov; D115,
@@ -2413,34 +2414,38 @@ function _readCompany(ctx) {
   add('INFO', 'companyNotams', `${recs.length} Company NOTAMs read (${n('HSCN')} High Severity, ${n('COMPANY')} Company), as printed`);
 }
 
-// DEF-013 (v1.1.1; Exec rulings R1–R5, 23 Nov): dispatchContact = { remark } — the sentence of the OFP
-// Remarks that is about contacting Dispatch, as printed, or null. Read from ext.ofpRemarks only (R1): the
-// cover-page notice and the Company NOTAM sentences are never read here, and a NOTAM body is not an OFP
-// remark (R5). No classification (R4): the module gives the printed sentence and nothing else.
-//   - a remark record is its lines joined by one space (wrapped lines, R2), cut into sentences at
+// DEF-013 (v1.1.1; Exec rulings R1–R5 and R2a–R2d, R4 as amended, 23 Nov): dispatchContact =
+// { category, remark } — the Dispatch sentence of the OFP Remarks, as printed, with its category, or null.
+// Read from ext.ofpRemarks only (R1): the cover-page notice and the Company NOTAM sentences are never read
+// here, and a NOTAM body is not an OFP remark (R5).
+//   - a remark record is its lines joined by one space (wrapped lines), cut into sentences at
 //     ". ", "! " or "? " followed by an upper-case letter (so "ext. 12" and "e.g. next" do not cut a sentence);
-//   - a sentence is a Dispatch sentence when it has the words "contact dispatch" (any case, R2);
-//   - the final full stop is dropped (R2); the case and every other character are kept;
-//   - several Dispatch sentences (one paragraph, or several records): each distinct one, in printed
-//     order, one per line (the same sentence printed again is carried once);
-//   - none → dispatchContact null, no row (R3).
-const DISPATCH_SENTENCE = /\bcontact\s+dispatch\b/i;
+//   - a sentence is a Dispatch sentence when it has the words "contact dispatch" or "call dispatch" (any case);
+//   - R2a category: SUGGESTION when the sentence is about questions ("… with questions", "… if you have any
+//     questions" — the word question or questions); every other Dispatch sentence is REQUIRED (an instruction
+//     to contact or call Dispatch, "Contact Dispatch before departure"; the module never reads a condition
+//     other than questions as a suggestion);
+//   - R2b both categories printed → only the first REQUIRED sentence is kept; R2c two or more of one category
+//     → only the first printed is kept; so one sentence is kept, never several (R2d);
+//   - R2d the kept sentence is as printed: the final full stop dropped, the case and every other character kept;
+//   - none → dispatchContact null, no row (R3). R4: { category, remark }, no other key.
+const DISPATCH_SENTENCE = /\b(?:contact|call)\s+dispatch\b/i;
+const DISPATCH_QUESTIONS = /\bquestions?\b/i;
 function _dispatchSentences(text) {
   return String(text).replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=[A-Z])/)
     .filter(t => DISPATCH_SENTENCE.test(t)).map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
 }
 function _readDispatchContact(ctx) {
   const { add, ext } = ctx;
-  const found = [], where = [];
+  const found = [];
   for (const r of ext.ofpRemarks) {
     for (const t of _dispatchSentences(r.text)) {
-      if (found.includes(t)) continue;
-      found.push(t);
-      where.push(`PDF p${r.page} line ${r.line}`);
+      found.push({ category: DISPATCH_QUESTIONS.test(t) ? 'SUGGESTION' : 'REQUIRED', remark: t, at: `PDF p${r.page} line ${r.line}` });
     }
   }
-  ext.dispatchContact = found.length ? { remark: found.join('\n') } : null;
-  if (ext.dispatchContact) add('INFO', 'dispatchContact', `Dispatch contact as printed in the OFP Remarks: ${found.length} sentence(s), ${where.join(', ')}`);
+  const kept = found.find(f => f.category === 'REQUIRED') || found[0] || null;   // R2b, R2c: the first REQUIRED, else the first
+  ext.dispatchContact = kept ? { category: kept.category, remark: kept.remark } : null;
+  if (kept) add('INFO', 'dispatchContact', `Dispatch contact as printed in the OFP Remarks: ${kept.category}, ${kept.at}; ${found.length} Dispatch sentence(s) read, 1 kept`);
   else add('INFO', 'dispatchContact', 'no sentence about contacting Dispatch in the OFP Remarks: dispatchContact null');
 }
 

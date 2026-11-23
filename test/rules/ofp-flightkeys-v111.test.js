@@ -1,28 +1,36 @@
 'use strict';
 /**
- * TC-183 — FlightKeys OFP parser v1.1.1 (DEF-013 module PR; Exec rulings R1–R5 and O-C, O-D of 23 Nov).
- * The Dispatch contact comes from the OFP Remarks only: dispatchContact = { remark } with the sentence about
- * contacting Dispatch as printed (wrapped lines joined, final full stop dropped, nothing else from the
- * paragraph), or null. Not built into index.html: rules/ofp-flightkeys-next until the integration PR (D90, D96).
+ * TC-183 — FlightKeys OFP parser v1.1.1 (DEF-013 module PR; Exec rulings R1–R5, O-C, O-D of 23 Nov, amended the same
+ * day by R2a–R2d and R4: the category). The Dispatch contact comes from the OFP Remarks only: dispatchContact =
+ * { category: 'REQUIRED' | 'SUGGESTION', remark } — ONE Dispatch sentence as printed (wrapped lines joined, final full stop
+ * dropped, nothing else from the paragraph) — or null. Not built into index.html: rules/ofp-flightkeys-next until the
+ * integration PR (D90, D96).
  *
  *   TC-183-001  identity: v1.1.1, contract 2.5, key ofp-flightkeys-next (file, SHA-256); v1.1.0 unchanged in
  *               rules/ofp-flightkeys (SHA-256); the other modules as pinned; a changed byte is caught (negative)
  *   TC-183-002  not built in: index.html carries v1.1.0 once and no byte of v1.1.1; build = index.html; labels 1.10.0
  *   TC-183-003  the code differs from v1.1.0 only where declared: every top-level declaration byte-identical
- *               (comments aside) except RULESET_VERSION and _readDispatchContact; 2 new, 2 removed; PATTERNS and
+ *               (comments aside) except RULESET_VERSION and _readDispatchContact; 3 new, 2 removed; PATTERNS and
  *               the schema lists identical; validateSchema() valid
  *   TC-183-010  all 26 vs v1.1.0: every field but dispatchContact and findings byte-identical (companyNotams, with the
  *               cover sentences as printed, included); findings = v1.1.0's with exactly one changed text per package
  *               (the dispatchContact INFO), same level, field, order, count
- *   TC-183-011  the 26: printed wording → row text: 18 "Contact Dispatch with questions", 5 "Contact Dispatch if you
- *               have any questions", 3 null (T1–T3), 0 other; L15 (GIANT 8752) and L08 (GIANT 8414) → "…with questions"
+ *   TC-183-011  the 26: printed wording → category and row text: 18 SUGGESTION "Contact Dispatch with questions", 5
+ *               SUGGESTION "Contact Dispatch if you have any questions", 3 null (T1–T3), 0 REQUIRED, 0 other; L15
+ *               (GIANT 8752) and L08 (GIANT 8414) → SUGGESTION "…with questions"
  *   TC-183-012  the cover-page / Company NOTAM sentences are printed on all 26 (22 short, 4 long) and decide nothing (R1)
- *   TC-183-020  SYNTHETIC R2: both printed forms; wrapped lines joined (also inside the words "Contact Dispatch");
- *               the sentence only, not the paragraph; final full stop dropped, other punctuation and case kept;
- *               a sentence inside a longer paragraph; two records; the same sentence twice is carried once
+ *   TC-183-020  SYNTHETIC R2 / R2d: the kept sentence as printed — wrapped lines joined (also inside the words "Contact
+ *               Dispatch"); the sentence only, not the paragraph; final full stop dropped, other punctuation and case kept
+ *   TC-183-021  SYNTHETIC R2a: REQUIRED ("Contact Dispatch", "Call Dispatch", "Contact Dispatch before departure", any case,
+ *               a condition other than questions) and SUGGESTION (with questions / if you have any questions) — positive
+ *               and negative for each
+ *   TC-183-022  SYNTHETIC R2b: both categories printed → only the REQUIRED sentence, in either printed order, in one
+ *               paragraph or in two records; negative: no SUGGESTION text in the output
+ *   TC-183-023  SYNTHETIC R2c: two or more of the same category → only the first printed (REQUIRED and SUGGESTION);
+ *               the same sentence printed again once; negative: the second is not carried, not even on another line
  *   TC-183-030  SYNTHETIC R1: Company NOTAM short / long sentence with no remark → null; with a remark → the remark only
  *   TC-183-040  SYNTHETIC R3: no sentence in the OFP Remarks → null (several negatives)
- *   TC-183-050  SYNTHETIC R4: exactly { remark }; no label / text / company; the same output whatever the cover prints
+ *   TC-183-050  SYNTHETIC R4: exactly { category, remark }; no label / text / company; the same output whatever the cover prints
  *   TC-183-060  SYNTHETIC R5: "Contact Dispatch" inside a NOTAM body (Company NOTAM) is not a Dispatch remark → null;
  *               with a remark the remark only
  *   TC-183-070  NEGATIVE controls: v1.1.0 on the same SYNTHETIC inputs gives the label REQUIRED / IF QUESTIONS from the
@@ -67,6 +75,7 @@ const parse    = (inp, m = mod) => m.parseFlightKeys(inp, OPTS);
 const infos    = (r, f) => r.findings.filter(x => x.level === 'INFO' && x.field === f);
 
 const W1 = 'Contact Dispatch with questions', W2 = 'Contact Dispatch if you have any questions';
+const SUG = remark => ({ category: 'SUGGESTION', remark }), REQ = remark => ({ category: 'REQUIRED', remark });
 const SHORT = 'Contact Dispatch for a preflight briefing.', LONG = 'Contact Dispatch for a preflight briefing if you have any questions.';
 const LEAD = 'This OFP prepared with FlightKeys. Review Operations Bulletin';
 
@@ -134,7 +143,7 @@ function decls(src) {
 
 test('TC-183-003 the code differs from v1.1.0 only in the declared declarations; PATTERNS and schema lists identical; an undeclared change is caught', () => {
   const a = decls(OLD_SRC), b = decls(NEW_SRC);
-  assert.deepEqual(Object.keys(b).filter(k => !(k in a)).sort(), ['DISPATCH_SENTENCE', '_dispatchSentences'], 'new declarations');
+  assert.deepEqual(Object.keys(b).filter(k => !(k in a)).sort(), ['DISPATCH_QUESTIONS', 'DISPATCH_SENTENCE', '_dispatchSentences'], 'new declarations');
   assert.deepEqual(Object.keys(a).filter(k => !(k in b)).sort(), ['DISPATCH_CONTACT', 'DISPATCH_CONTACT_REMARK'], 'removed declarations (the cover-line labels, R1 / R4)');
   assert.deepEqual(Object.keys(a).filter(k => k in b && a[k] !== b[k]).sort(), ['RULESET_VERSION', '_readDispatchContact'], 'changed declarations (comments aside)');
   assert.equal(j(Object.entries(mod.PATTERNS).map(([k, v]) => [k, String(v)])), j(Object.entries(v110.PATTERNS).map(([k, v]) => [k, String(v)])), 'PATTERNS identical');
@@ -180,14 +189,15 @@ fixtureTest('TC-183-010 all 26 vs v1.1.0: every field but dispatchContact and fi
 const TABLE = { W1: ['L01', 'L03', 'L04', 'L05', 'L06', 'L07', 'L08', 'L09', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15', 'L16', 'L17', 'L18', 'L19'],
   W2: ['L02', 'L20', 'L21', 'L22', 'L23'], NONE: ['T1', 'T2', 'T3'] };
 
-fixtureTest('TC-183-011 the 26: printed wording → row text: 18 "with questions", 5 "if you have any questions", 3 none, 0 other; L15 and L08 → "with questions"', () => {
+fixtureTest('TC-183-011 the 26: printed wording → category and row text: 23 SUGGESTION (18 "with questions", 5 "if you have any questions"), 3 none, 0 REQUIRED; L15 and L08 → SUGGESTION "with questions"', () => {
   const got = { W1: [], W2: [], NONE: [] };
   for (const { lbl, b, text } of fk()) {
     const d = b.dispatchContact;
     // the printed wording: the OFP Remarks paragraph, wrapped (the fixture text is the extractor's)
     const printed = text.replace(/\s+/g, ' ');
     if (d === null) { got.NONE.push(lbl); continue; }
-    assert.deepEqual(Object.keys(d), ['remark'], `${lbl}: exactly { remark }`);
+    assert.deepEqual(Object.keys(d), ['category', 'remark'], `${lbl}: exactly { category, remark }`);
+    assert.equal(d.category, 'SUGGESTION', `${lbl}: category (0 REQUIRED on the 26)`);
     assert.ok(printed.includes(d.remark + '.'), `${lbl}: the row text is printed, followed by its full stop`);
     assert.equal(d.remark.includes('\n'), false, `${lbl}: one sentence`);
     if (d.remark === W1) got.W1.push(lbl); else if (d.remark === W2) got.W2.push(lbl); else assert.fail(`${lbl}: other wording: ${d.remark}`);
@@ -196,14 +206,14 @@ fixtureTest('TC-183-011 the 26: printed wording → row text: 18 "with questions
   }
   assert.deepEqual(got, TABLE);
   const by = Object.fromEntries(fk().map(p => [p.lbl, p.b.dispatchContact]));
-  assert.deepEqual(by.L15, { remark: W1 }, 'GIANT 8752');
-  assert.deepEqual(by.L08, { remark: W1 }, 'GIANT 8414');
+  assert.deepEqual(by.L15, SUG(W1), 'GIANT 8752');
+  assert.deepEqual(by.L08, SUG(W1), 'GIANT 8414');
   assert.ok(/GTI8752/.test(fk().find(p => p.lbl === 'L15').text) && /GTI8414/.test(fk().find(p => p.lbl === 'L08').text), 'L15 is 8752, L08 is 8414');
   // the INFO names the OFP Remarks and the position, or says none
   for (const { lbl, b } of fk()) {
     const f = infos(b, 'dispatchContact');
     assert.equal(f.length, 1, lbl);
-    if (b.dispatchContact) assert.match(f[0].message, /^Dispatch contact as printed in the OFP Remarks: 1 sentence\(s\), PDF p\d+ line \d+$/, lbl);
+    if (b.dispatchContact) assert.match(f[0].message, /^Dispatch contact as printed in the OFP Remarks: SUGGESTION, PDF p\d+ line \d+; 1 Dispatch sentence\(s\) read, 1 kept$/, lbl);
     else assert.equal(f[0].message, 'no sentence about contacting Dispatch in the OFP Remarks: dispatchContact null', lbl);
   }
 });
@@ -231,32 +241,100 @@ const dc = (o, extra) => parse(SYN(o, extra)).dispatchContact;
 const para = (...ls) => ls;
 const co = (...ls) => S5.notamPage(['                              COMPANY NOTAMS', '                                    GENERAL',
   '               P0110/26        2026-Mar-01 00:00 - UFN', 'CREATED:2026-Feb-28 00:00       FL: SFC - UNL', 'SUBJECT: TEST BRIEFING', 'TEXT OF THE ITEM.', ...ls]);
+const only = (...remarks) => dc({ boiler: [], remarks });                  // OFP Remarks that are exactly these lines (one record)
+const recs = (...rs) => dc({ boiler: [], remarks: rs.flatMap((r, i) => (i ? [S5.BL, r] : [r])) });   // one record per entry
 
-test('TC-183-020 SYNTHETIC R2: the sentence as printed — both forms, wrapped lines joined, the sentence only, final full stop dropped', () => {
+test('TC-183-020 SYNTHETIC R2 / R2d: the kept sentence as printed — wrapped lines joined, the sentence only, final full stop dropped', () => {
   // the two printed forms (the default boilerplate is the W1 form)
-  assert.deepEqual(dc({}), { remark: W1 });
-  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch if you have', 'any questions.') }), { remark: W2 });
+  assert.deepEqual(dc({}), SUG(W1));
+  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch if you have', 'any questions.') }), SUG(W2));
   // wrapped lines joined: the words themselves split over two lines
-  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact', 'Dispatch with questions.') }), { remark: W1 });
-  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch', 'if you have any', 'questions.') }), { remark: W2 });
+  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact', 'Dispatch with questions.') }), SUG(W1));
+  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch', 'if you have any', 'questions.') }), SUG(W2));
+  assert.deepEqual(only('Contact', 'Dispatch before', 'departure.'), REQ('Contact Dispatch before departure'), 'a REQUIRED sentence wrapped over three lines');
   // nothing else from the paragraph: not the lead sentences, nor a sentence after it
-  const mid = dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch with', 'questions. Departure gate may change.') });
-  assert.deepEqual(mid, { remark: W1 });
+  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch with', 'questions. Departure gate may change.') }), SUG(W1));
   // the final full stop dropped; other punctuation and the case kept
-  assert.deepEqual(dc({ boiler: [], remarks: ['CONTACT DISPATCH BEFORE DEPARTURE.'] }), { remark: 'CONTACT DISPATCH BEFORE DEPARTURE' });
-  assert.deepEqual(dc({ boiler: [], remarks: ['Contact Dispatch (ext. 12) before departure!'] }), { remark: 'Contact Dispatch (ext. 12) before departure!' });
-  assert.deepEqual(dc({ boiler: [], remarks: ['Contact Dispatch with questions'] }), { remark: 'Contact Dispatch with questions' }, 'no final stop printed: unchanged');
-  assert.deepEqual(dc({ boiler: [], remarks: ['contact dispatch before departure'] }), { remark: 'contact dispatch before departure' });
-  // the sentence printed in the OFP Remarks, whatever its wording, is carried as printed (the cover sentence in the Remarks is a sentence about contacting Dispatch)
-  assert.deepEqual(dc({ boiler: [], remarks: [SHORT] }), { remark: SHORT.slice(0, -1) });
-  // two records, two sentences: each, in printed order, one per line; the same sentence printed again once
-  assert.deepEqual(dc({ remarks: [S5.BL, 'CONTACT DISPATCH PRIOR TO DEPARTURE FOR', 'UPDATED SLOT INFORMATION.'] }),
-    { remark: `${W1}\nCONTACT DISPATCH PRIOR TO DEPARTURE FOR UPDATED SLOT INFORMATION` });
-  assert.deepEqual(dc({ remarks: [S5.BL, 'Contact Dispatch with questions.'] }), { remark: W1 }, 'the same sentence twice: once');
-  // the INFO finding names the position
+  assert.deepEqual(only('CONTACT DISPATCH BEFORE DEPARTURE.'), REQ('CONTACT DISPATCH BEFORE DEPARTURE'));
+  assert.deepEqual(only('Contact Dispatch (ext. 12) before departure!'), REQ('Contact Dispatch (ext. 12) before departure!'));
+  assert.deepEqual(only('Contact Dispatch with questions'), SUG(W1), 'no final stop printed: unchanged');
+  assert.deepEqual(only('contact dispatch before departure'), REQ('contact dispatch before departure'));
+  // the cover sentence printed in the OFP Remarks is a REQUIRED Dispatch sentence, as printed
+  assert.deepEqual(only(SHORT), REQ(SHORT.slice(0, -1)));
+  // the INFO finding: category, position, how many read and kept
   const f = infos(parse(SYN({ remarks: [S5.BL, 'CONTACT DISPATCH PRIOR TO DEPARTURE.'] })), 'dispatchContact');
   assert.equal(f.length, 1);
-  assert.match(f[0].message, /^Dispatch contact as printed in the OFP Remarks: 2 sentence\(s\), PDF p\d+ line \d+, PDF p\d+ line \d+$/);
+  assert.match(f[0].message, /^Dispatch contact as printed in the OFP Remarks: REQUIRED, PDF p\d+ line \d+; 2 Dispatch sentence\(s\) read, 1 kept$/);
+});
+
+test('TC-183-021 SYNTHETIC R2a: REQUIRED = an instruction to contact or call Dispatch; SUGGESTION = contact only if there are questions', () => {
+  // REQUIRED (positive)
+  for (const t of ['Contact Dispatch.', 'Call Dispatch.', 'Contact Dispatch before departure.', 'CALL DISPATCH BEFORE ENGINE START.', 'contact dispatch',
+    'Contact Dispatch for a preflight briefing.', 'Contact Dispatch if the TAF does not cover ETA.']) {
+    assert.deepEqual(only(t), REQ(t.replace(/\.$/, '')), `REQUIRED: ${t}`);
+  }
+  // SUGGESTION (positive)
+  for (const t of ['Contact Dispatch with questions.', 'Contact Dispatch if you have any questions.', 'Call Dispatch if you have a question.',
+    'CONTACT DISPATCH WITH ANY QUESTIONS.', 'Contact Dispatch for a preflight briefing if you have any questions.']) {
+    assert.deepEqual(only(t), SUG(t.replace(/\.$/, '')), `SUGGESTION: ${t}`);
+  }
+  // NEGATIVES: a REQUIRED sentence is never a SUGGESTION and the other way round; the word alone is not a category
+  assert.notEqual(only('Contact Dispatch before departure.').category, 'SUGGESTION');
+  assert.notEqual(only('Contact Dispatch with questions.').category, 'REQUIRED');
+  assert.notEqual(only('Call Dispatch.').category, 'SUGGESTION');
+  // "question" in another sentence of the paragraph does not make a REQUIRED sentence a SUGGESTION
+  assert.deepEqual(only('Contact Dispatch before departure. Crew questions go to the chief pilot.'), REQ('Contact Dispatch before departure'));
+  assert.deepEqual(only('Any questions? Contact Dispatch before departure.'), REQ('Contact Dispatch before departure'));
+  // the category does not depend on the cover / Company sentence (R1)
+  assert.deepEqual(dc({ boiler: [], remarks: ['Contact Dispatch before departure.'] }, [co(SHORT)]), REQ('Contact Dispatch before departure'));
+  assert.deepEqual(dc({}, [co(SHORT)]), SUG(W1));
+  // not a Dispatch sentence: no category, no row (negatives; "call" or "contact" alone, Dispatcher)
+  assert.equal(only('CALL THE DISPATCHER FOR DETAILS.'), null);
+  assert.equal(only('Call ground control.'), null);
+  assert.equal(only('Contact the chief pilot with questions.'), null);
+});
+
+test('TC-183-022 SYNTHETIC R2b: both categories printed → only the REQUIRED sentence is kept', () => {
+  // one paragraph: SUGGESTION first, REQUIRED second (and the other way round)
+  assert.deepEqual(only('Contact Dispatch with questions. Contact Dispatch before departure.'), REQ('Contact Dispatch before departure'));
+  assert.deepEqual(only('Contact Dispatch before departure. Contact Dispatch with questions.'), REQ('Contact Dispatch before departure'));
+  // wrapped lines, one paragraph
+  assert.deepEqual(only('Contact Dispatch if you have', 'any questions. Call', 'Dispatch before departure.'), REQ('Call Dispatch before departure'));
+  // two records (the FlightKeys boilerplate and a remark of its own), either order
+  assert.deepEqual(dc({ remarks: [S5.BL, 'CONTACT DISPATCH PRIOR TO DEPARTURE FOR', 'UPDATED SLOT INFORMATION.'] }), REQ('CONTACT DISPATCH PRIOR TO DEPARTURE FOR UPDATED SLOT INFORMATION'));
+  assert.deepEqual(recs('Contact Dispatch before departure.', 'Contact Dispatch with questions.'), REQ('Contact Dispatch before departure'));
+  assert.deepEqual(recs('Contact Dispatch with questions.', 'Contact Dispatch before departure.'), REQ('Contact Dispatch before departure'));
+  // NEGATIVE: the SUGGESTION text is nowhere in the output (not carried, not on another line, no second key)
+  for (const d of [only('Contact Dispatch with questions. Contact Dispatch before departure.'), recs('Contact Dispatch with questions.', 'Call Dispatch.')]) {
+    assert.deepEqual(Object.keys(d), ['category', 'remark']);
+    assert.ok(!/questions/i.test(d.remark) && !d.remark.includes('\n'), 'one REQUIRED sentence only');
+  }
+  // the INFO says how many were read and that one was kept
+  assert.match(infos(parse(SYN({ boiler: [], remarks: ['Contact Dispatch with questions. Contact Dispatch before departure.'] })), 'dispatchContact')[0].message, /REQUIRED, PDF p\d+ line \d+; 2 Dispatch sentence\(s\) read, 1 kept$/);
+  // control: SUGGESTION alone stays SUGGESTION (nothing REQUIRED to prefer)
+  assert.deepEqual(only('Contact Dispatch with questions.'), SUG(W1));
+});
+
+test('TC-183-023 SYNTHETIC R2c: two or more of the same category → only the first printed is kept', () => {
+  // REQUIRED x2, x3 (one paragraph, two records, wrapped)
+  assert.deepEqual(only('Contact Dispatch before departure. Call Dispatch on arrival.'), REQ('Contact Dispatch before departure'));
+  assert.deepEqual(only('Call Dispatch on arrival. Contact Dispatch before departure.'), REQ('Call Dispatch on arrival'));
+  assert.deepEqual(only('Contact Dispatch. Call Dispatch. Contact Dispatch again.'), REQ('Contact Dispatch'));
+  assert.deepEqual(recs('Call Dispatch on arrival.', 'Contact Dispatch before departure.'), REQ('Call Dispatch on arrival'));
+  assert.deepEqual(only('Contact Dispatch', 'before departure. Call Dispatch', 'on arrival.'), REQ('Contact Dispatch before departure'));
+  // SUGGESTION x2: the first printed — the two printed wordings, in both orders
+  assert.deepEqual(only('Contact Dispatch with questions. Contact Dispatch if you have any questions.'), SUG(W1));
+  assert.deepEqual(only('Contact Dispatch if you have any questions. Contact Dispatch with questions.'), SUG(W2));
+  assert.deepEqual(recs('Contact Dispatch if you have any questions.', 'Contact Dispatch with questions.'), SUG(W2));
+  // the same sentence printed twice: once
+  assert.deepEqual(recs('Contact Dispatch with questions.', 'Contact Dispatch with questions.'), SUG(W1));
+  // R2b with repeats: the first REQUIRED wins over later REQUIRED and over every SUGGESTION
+  assert.deepEqual(only('Contact Dispatch with questions. Call Dispatch on arrival. Contact Dispatch before departure. Contact Dispatch if you have any questions.'), REQ('Call Dispatch on arrival'));
+  // NEGATIVE: the second sentence is not carried, not even on another line
+  const d = only('Contact Dispatch before departure. Call Dispatch on arrival.');
+  assert.ok(!/arrival/.test(d.remark) && !d.remark.includes('\n'));
+  assert.deepEqual(Object.keys(d), ['category', 'remark']);
+  assert.match(infos(parse(SYN({ boiler: [], remarks: ['Contact Dispatch before departure. Call Dispatch on arrival.'] })), 'dispatchContact')[0].message, /2 Dispatch sentence\(s\) read, 1 kept$/);
 });
 
 test('TC-183-030 SYNTHETIC R1: the Company NOTAM / cover sentences are ignored — alone they give null; with a remark, the remark only', () => {
@@ -264,10 +342,11 @@ test('TC-183-030 SYNTHETIC R1: the Company NOTAM / cover sentences are ignored �
   assert.equal(dc({ boiler: [] }, [co(SHORT)]), null);
   assert.equal(dc({ boiler: [] }, [co(LONG)]), null);
   assert.equal(dc({ boiler: [] }, [co(SHORT, LONG)]), null);
-  // with a remark: the remark; the cover sentence neither replaces it nor is added
-  assert.deepEqual(dc({}, [co(SHORT)]), { remark: W1 });
-  assert.deepEqual(dc({}, [co(LONG)]), { remark: W1 }, 'a long cover sentence does not turn W1 into anything');
-  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch if you have', 'any questions.') }, [co(SHORT)]), { remark: W2 }, 'the L02 case: short cover, W2 remark');
+  // with a remark: the remark; the cover sentence neither replaces it, nor changes its category, nor is added
+  assert.deepEqual(dc({}, [co(SHORT)]), SUG(W1));
+  assert.deepEqual(dc({}, [co(LONG)]), SUG(W1), 'a long cover sentence does not change W1');
+  assert.deepEqual(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch if you have', 'any questions.') }, [co(SHORT)]), SUG(W2), 'the L02 case: short cover, W2 remark');
+  assert.deepEqual(dc({ boiler: [], remarks: ['Contact Dispatch before departure.'] }, [co(SHORT, LONG)]), REQ('Contact Dispatch before departure'));
   // the Company NOTAMs themselves are still read, untouched
   const r = parse(SYN({ boiler: [] }, [co(SHORT)]));
   assert.ok(r.companyNotams.some(n => n.text.includes(SHORT)), 'companyNotams carries the cover sentence as printed');
@@ -276,39 +355,42 @@ test('TC-183-030 SYNTHETIC R1: the Company NOTAM / cover sentences are ignored �
 test('TC-183-040 SYNTHETIC R3: no sentence about contacting Dispatch in the OFP Remarks → null (no row)', () => {
   assert.equal(dc({ boiler: [] }), null);
   assert.equal(dc({ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes.') }), null);
-  assert.equal(dc({ boiler: [], remarks: ['DISPATCH CONTACTED CREW'] }), null, 'the word Dispatch alone');
-  assert.equal(dc({ boiler: [], remarks: ['CONTACT THE DISPATCHER FOR DETAILS'] }), null, 'Dispatcher is not Dispatch');
-  assert.equal(dc({ boiler: [], remarks: ['COORDINATE ANY EARLY ARRIVAL WITH DISPATCH.'] }), null, 'Dispatch without "contact"');
-  assert.equal(dc({ boiler: [], remarks: ['Dispatch contact number is on the release.'] }), null, 'the words not adjacent in that order');
+  assert.equal(only('DISPATCH CONTACTED CREW'), null, 'the word Dispatch alone');
+  assert.equal(only('CONTACT THE DISPATCHER FOR DETAILS'), null, 'Dispatcher is not Dispatch');
+  assert.equal(only('COORDINATE ANY EARLY ARRIVAL WITH DISPATCH.'), null, 'Dispatch without "contact" or "call"');
+  assert.equal(only('Dispatch contact number is on the release.'), null, 'the words not adjacent in that order');
   // positive control: the same package with the sentence printed gives a row
-  assert.notEqual(dc({ boiler: [], remarks: ['Contact Dispatch with questions.'] }), null);
+  assert.notEqual(only('Contact Dispatch with questions.'), null);
   // the finding says so
   assert.deepEqual(infos(parse(SYN({ boiler: [] })), 'dispatchContact').map(f => f.message), ['no sentence about contacting Dispatch in the OFP Remarks: dispatchContact null']);
 });
 
-test('TC-183-050 SYNTHETIC R4: exactly { remark }; no label, text or company; the same whatever the cover prints', () => {
-  for (const [o, extra] of [[{}, undefined], [{}, [co(SHORT)]], [{}, [co(LONG)]], [{ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch if you have', 'any questions.') }, [co(SHORT, LONG)]]]) {
+test('TC-183-050 SYNTHETIC R4: exactly { category, remark }; no label, text or company; the same whatever the cover prints', () => {
+  for (const [o, extra] of [[{}, undefined], [{}, [co(SHORT)]], [{}, [co(LONG)]], [{ boiler: para(LEAD, 'for FlightKeys OFP and procedure changes. Contact Dispatch if you have', 'any questions.') }, [co(SHORT, LONG)]],
+    [{ boiler: [], remarks: ['Call Dispatch before departure.'] }, [co(SHORT)]]]) {
     const d = dc(o, extra);
-    assert.deepEqual(Object.keys(d), ['remark']);
-    assert.ok(!/REQUIRED|IF QUESTIONS/.test(j(d)), 'no classification word');
+    assert.deepEqual(Object.keys(d), ['category', 'remark']);
+    assert.ok(['REQUIRED', 'SUGGESTION'].includes(d.category));
+    assert.equal(typeof d.remark, 'string');
     assert.equal('label' in d || 'text' in d || 'company' in d, false);
+    assert.ok(!/IF QUESTIONS/.test(j(d)), 'no v1.1.0 label word');
   }
   // identical with and without a cover sentence
   assert.equal(j(dc({})), j(dc({}, [co(SHORT)])));
   assert.equal(j(dc({})), j(dc({}, [co(LONG)])));
-  // NEGATIVE: v1.1.0's shape had them
+  // NEGATIVE: v1.1.0's shape had label, text, company
   assert.deepEqual(Object.keys(parse(SYN({}, [co(SHORT)]), v110).dispatchContact), ['label', 'text', 'company', 'remark']);
 });
 
 test('TC-183-060 SYNTHETIC R5: "Contact Dispatch" inside a NOTAM body is not a Dispatch remark', () => {
-  const body = ['IF LATT MESSAGE IS NOT RECEIVED, CONTACT DISPATCH.', 'CONTACT DISPATCH IF TAF DOES NOT COVER ETA.'];
+  const body = ['IF LATT MESSAGE IS NOT RECEIVED, CONTACT DISPATCH.', 'CONTACT DISPATCH IF TAF DOES NOT COVER ETA.', 'CALL DISPATCH.'];
   assert.equal(dc({ boiler: [] }, [co(...body)]), null, 'only in a Company NOTAM body → null');
-  assert.deepEqual(dc({}, [co(...body)]), { remark: W1 }, 'with the OFP remark: the remark only');
+  assert.deepEqual(dc({}, [co(...body)]), SUG(W1), 'with the OFP remark: the remark only (a NOTAM REQUIRED-looking sentence does not outrank it)');
   // the NOTAM text stays in companyNotams as printed
   const r = parse(SYN({ boiler: [] }, [co(...body)]));
   assert.ok(r.companyNotams.some(n => n.text.includes('IF LATT MESSAGE IS NOT RECEIVED, CONTACT DISPATCH.')), 'the NOTAM text is untouched');
   // the same words as an OFP remark ARE a Dispatch remark (positive control)
-  assert.deepEqual(dc({ boiler: [], remarks: ['IF LATT MESSAGE IS NOT RECEIVED, CONTACT DISPATCH.'] }), { remark: 'IF LATT MESSAGE IS NOT RECEIVED, CONTACT DISPATCH' });
+  assert.deepEqual(only('IF LATT MESSAGE IS NOT RECEIVED, CONTACT DISPATCH.'), REQ('IF LATT MESSAGE IS NOT RECEIVED, CONTACT DISPATCH'));
 });
 
 test('TC-183-070 SYNTHETIC NEGATIVE controls: v1.1.0 on the same inputs labels from the cover sentence (the defect); v1.1.1 does not', () => {
@@ -316,7 +398,7 @@ test('TC-183-070 SYNTHETIC NEGATIVE controls: v1.1.0 on the same inputs labels f
   assert.equal(a.label, 'REQUIRED', 'v1.1.0: W1 remark + short cover sentence → REQUIRED');
   assert.equal(parse(SYN({}, [co(LONG)]), v110).dispatchContact.label, 'IF QUESTIONS');
   assert.equal(parse(SYN({ boiler: [] }, [co(SHORT)]), v110).dispatchContact.label, 'REQUIRED', 'v1.1.0: the cover sentence alone made a row (T1–T3)');
-  assert.deepEqual(dc({}, [co(SHORT)]), { remark: W1 });
+  assert.deepEqual(dc({}, [co(SHORT)]), SUG(W1), 'v1.1.1: SUGGESTION, from the remark');
   assert.equal(dc({ boiler: [] }, [co(SHORT)]), null);
 });
 
