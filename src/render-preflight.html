@@ -115,7 +115,7 @@ function renderOfpRemarksGroup() {
   const _tx = _ofpTexts || {};
   if (typeof _tx.dispatch === 'string' && _tx.dispatch) {
     rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${_tx.dispatch.split('\n').map(esc).join('<br>')}</span></div>`;
-  } else if (_ofpTexts && S.dispatchPrinted === true) {
+  } else if (_ofpTexts && _dispatchFlagged()) {   // O-184; QA F-01: a 1.10.0 save's label counts, never shown
     rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(_RAW_MISSING)}</span></div>`;
   }
   (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {

@@ -177,7 +177,10 @@ function _rawMissing(seq) {
   if (S.rawIndex || flagged) _rerenderOpen();
 }
 // O-184: the saved flags of the texts the OFP Remarks group shows but the save does not hold (D107).
-const _ofpTextsFlagged = () => S.dispatchPrinted === true || S.raimAttention === true;
+// QA F-01: a flight saved under 1.10.0 has no dispatchPrinted but its Dispatch contact label (REQUIRED /
+// IF QUESTIONS, a flag, no text): that label counts as "a Dispatch contact printed". It is never shown (O-175).
+const _dispatchFlagged = () => S.dispatchPrinted === true || !!(S.dispatchContact && S.dispatchContact.label);
+const _ofpTextsFlagged = () => _dispatchFlagged() || S.raimAttention === true;
 function _rerenderOpen() {
   renderNote();
   if (_activeFlightTab === 'airports') buildAirportCards();

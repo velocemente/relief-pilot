@@ -34,7 +34,12 @@
  *               true or absent, no text). Flag set + no stored PDF (PDF missing, pasted text) → the existing
  *               "RAW not available – re-import the package" line in the OFP Remarks group in place of the
  *               Dispatch contact row / the RAIM record; NEGATIVE: flag not set → nothing; with the PDF → the
- *               texts, no such line; a flight saved under 1.10.0 (no flags) opens with no error and no line
+ *               texts, no such line; a save with neither flag nor label opens with no error and no line
+ *   TC-182-023  QA F-01 (fix round 1): a flight saved under 1.10.0 carries the Dispatch contact label (REQUIRED /
+ *               IF QUESTIONS) and no O-184 flag: the label counts as "a Dispatch contact printed". Reopened with
+ *               no stored PDF (PDF missing, pasted text) → the OFP Remarks group is shown with the RAW-missing line
+ *               in place of the row (L01: the row is its only content), never the label text (O-175); with the
+ *               PDF → the printed text; NEGATIVE: no label and no flag → nothing
  *   TC-182-030  SYNTHETIC RAIM (O-171, D115): an attention record → the remark as printed in the OFP Remarks group,
  *               the group open (O-179), no OFP Alerts line; NEGATIVE: a PASSED form → nothing, the group by
  *               O-181 only; a flagged remark the group shows already is not shown twice
@@ -154,6 +159,18 @@ async function reopened(app, items, { pdf = true, saves } = {}) {
 }
 const savedJson = app => app.sandbox.localStorage.getItem('rp_flights') || '';
 const RAW_MISSING = 'RAW not available \u2013 re-import the package';   // the existing D107 / O-107 text (src/edit.html)
+// A save as 1.10.0 wrote it (QA F-01): the Dispatch contact label kept, none of the step 5f keys or flags, no VA WARN.
+function as110(json) {
+  const f = JSON.parse(json);
+  for (const e of f) {
+    const st = e.state;
+    delete st.ofpRemarksOpen; delete st.dispatchPrinted; delete st.raimAttention;
+    if (Array.isArray(st.ofpFindings)) st.ofpFindings = st.ofpFindings.filter(x => !(x.field === 'volcanicAsh' && x.level === 'WARN'));
+    if (st.rawIndex) { (st.rawIndex.fir || []).forEach(b => { delete b.open; delete b.companyOpen; }); (st.rawIndex.haz || []).forEach(z => delete z.open); }
+  }
+  return JSON.stringify(f);
+}
+const LABEL_SHOWN = h => />\s*(REQUIRED|IF QUESTIONS)\s*</.test(h) || h.includes('IF QUESTIONS');
 
 const VAA = [{ nr: '2026/001', volcano: 'TESTVOLCANO', vaac: 'ANCHORAGE', volcanoNo: '300000' }];
 const vaa = () => [S5.vaPage(S5.vaAdvisory(VAA))];
@@ -339,7 +356,8 @@ fixtureTest('TC-182-021 D107: no Dispatch contact or RAIM text in the save; re-d
     const o = await reopened(imp.app, readItems(fx), { pdf, saves: JSON.stringify(old) });
     assert.doesNotThrow(() => { o.renderPreflightPhase(); o.renderEnroutePhase(); run(o, 'renderDescentPhase()'); });
     assert.ok(!alertLines(o.renderPreflightPhase()).some(l => /VOLCANIC/.test(l)), '1.10.0 save: its own alerts');
-    assert.equal(dispatchRow(o.renderPreflightPhase()), pdf ? ref(fx).r.dispatchContact.text : null, `1.10.0 save, PDF ${pdf}: the row re-derived, or nothing (no flag)`);
+    assert.equal(dispatchRow(o.renderPreflightPhase()), pdf ? ref(fx).r.dispatchContact.text : RAW_MISSING, `1.10.0 save, PDF ${pdf}: the row re-derived, or the RAW-missing line (QA F-01: its label is the flag)`);
+    assert.ok(!LABEL_SHOWN(o.renderPreflightPhase()), 'never the label (O-175)');
   }
 });
 
@@ -368,8 +386,8 @@ fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF 
   const ok = await reopened(imp.app, readItems(fx));
   assert.equal(dispatchRow(ok.renderPreflightPhase()), ref(fx).r.dispatchContact.text);
   assert.ok(!ok.renderPreflightPhase().includes(escH(RAW_MISSING)));
-  // NEGATIVE: flag not set, PDF missing → nothing (no row, no line)
-  const noFlag = JSON.parse(savedJson(imp.app)); delete noFlag[0].state.dispatchPrinted;
+  // NEGATIVE: no flag and no label (QA F-01: the label counts as the flag), PDF missing → nothing (no row, no line)
+  const noFlag = JSON.parse(savedJson(imp.app)); delete noFlag[0].state.dispatchPrinted; noFlag[0].state.dispatchContact = null;
   const nf = await reopened(imp.app, readItems(fx), { pdf: false, saves: JSON.stringify(noFlag) });
   assert.equal(dispatchRow(nf.renderPreflightPhase()), null);
   assert.ok(!nf.renderPreflightPhase().includes(escH(RAW_MISSING)));
@@ -403,15 +421,55 @@ fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF 
   const zr = await reopened(z.app, synthDoc({ boiler: [] }), { pdf: false });
   assert.ok(!zr.renderPreflightPhase().includes(escH(RAW_MISSING)), 'no RAW-missing line on the Preflight card');
   assert.equal(dispatchRow(zr.renderPreflightPhase()), null);
-  // a flight saved under 1.10.0 (no flags), PDF missing: opens, no line in the OFP Remarks group
-  const old = JSON.parse(savedJson(imp.app)); delete old[0].state.dispatchPrinted; delete old[0].state.ofpRemarksOpen;
+  // a save with neither flag nor label (TC-182-023 has the 1.10.0 label case), PDF missing: opens, no line in the group
+  const old = JSON.parse(savedJson(imp.app)); delete old[0].state.dispatchPrinted; delete old[0].state.ofpRemarksOpen; old[0].state.dispatchContact = null;
   const o = await reopened(imp.app, readItems(fx), { pdf: false, saves: JSON.stringify(old) });
   assert.doesNotThrow(() => { o.renderPreflightPhase(); o.renderEnroutePhase(); run(o, 'renderDescentPhase()'); });
   const og = remarksGroup(o);
-  assert.ok(!og || !og.body.includes(escH(RAW_MISSING)), '1.10.0 save: no RAW-missing line in OFP Remarks');
+  assert.ok(!og || !og.body.includes(escH(RAW_MISSING)), 'no flag, no label: no RAW-missing line in OFP Remarks');
   // NavBlue: no flag
   const nb = await importFixture(nbFixtures()[0], FIX);
   assert.ok(!('dispatchPrinted' in nb.S) && !('raimAttention' in nb.S));
+});
+
+fixtureTest('TC-182-023 QA F-01: a 1.10.0 save (label, no flag) reopened with no stored PDF shows the OFP Remarks group with the RAW-missing line, never the label; no label + no flag → nothing', async () => {
+  const ROW_MISS = `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${escH(RAW_MISSING)}</span></div>`;
+  const labels = {};
+  for (const lbl of ['L01', 'L05', 'L20', 'T1']) {
+    const fx = fkByLbl(lbl), imp = await imported(fx);
+    const saves = as110(savedJson(imp.app)), st = JSON.parse(saves)[0].state;
+    assert.ok(st.dispatchContact && st.dispatchContact.label && !('dispatchPrinted' in st), `${lbl}: the 1.10.0 shape (label, no flag)`);
+    labels[lbl] = st.dispatchContact.label;
+    // no stored PDF → the group is shown, the line in place of the row, once; never the label
+    const o = await reopened(imp.app, readItems(fx), { pdf: false, saves });
+    const h = o.renderPreflightPhase(), g = remarksGroup(o);
+    assert.ok(g, `${lbl}: the OFP Remarks group is shown`);
+    assert.ok(g.body.includes(ROW_MISS), `${lbl}: the RAW-missing line in the Dispatch contact row`);
+    assert.equal(h.split(escH(RAW_MISSING)).length - 1, 1, `${lbl}: once`);
+    assert.ok(!LABEL_SHOWN(h), `${lbl}: NEGATIVE: the label is never shown (O-175)`);
+    if (lbl === 'L01') assert.deepEqual(raws(g.body), [], 'L01: the line is the group\'s only content and the group still renders');
+    // with the PDF → the printed text, no line
+    const p = await reopened(imp.app, readItems(fx), { saves });
+    assert.equal(dispatchRow(p.renderPreflightPhase()), ref(fx).r.dispatchContact.text, `${lbl}: with the PDF, the printed text`);
+    assert.ok(!p.renderPreflightPhase().includes(escH(RAW_MISSING)) && !LABEL_SHOWN(p.renderPreflightPhase()));
+    // NEGATIVE: no label and no flag, no PDF → nothing (L01: no group at all)
+    const none = JSON.parse(saves); none[0].state.dispatchContact = null;
+    const n = await reopened(imp.app, readItems(fx), { pdf: false, saves: JSON.stringify(none) });
+    assert.equal(dispatchRow(n.renderPreflightPhase()), null, `${lbl}: no label, no flag → no row`);
+    assert.ok(!n.renderPreflightPhase().includes(escH(RAW_MISSING)), `${lbl}: no line`);
+    if (lbl === 'L01') assert.equal(remarksGroup(n), null, 'L01: nothing to show → no group');
+  }
+  assert.deepEqual(labels, { L01: 'REQUIRED', L05: 'REQUIRED', L20: 'IF QUESTIONS', T1: 'REQUIRED' }, 'both label forms covered');
+  // pasted text saved under 1.10.0 (no PDF is ever stored): the label counts the same way
+  const p = pasted(S5.input(S5.release({})).text);
+  const ps = JSON.parse(as110(savedJson(p))); ps[0].state.dispatchContact = { label: 'IF QUESTIONS' };
+  const pr = await reopened(p, synthDoc({}), { pdf: false, saves: JSON.stringify(ps) });
+  assert.ok(remarksGroup(pr).body.includes(ROW_MISS), 'pasted 1.10.0 save: the line');
+  assert.ok(!LABEL_SHOWN(pr.renderPreflightPhase()), 'never the label');
+  // the open state stays O-181: a REQUIRED label opens the group, IF QUESTIONS alone does not
+  const l01 = await imported(fkByLbl('L01'));
+  assert.equal(remarksGroup(await reopened(l01.app, readItems(fkByLbl('L01')), { pdf: false, saves: as110(savedJson(l01.app)) })).hidden, false, 'REQUIRED: open');
+  assert.equal(remarksGroup(pr).hidden, true, 'IF QUESTIONS alone: collapsed');
 });
 
 // ══ TC-182-030 / 031 synthetic RAIM and volcanic ash ═════════════════════════════════════════════
