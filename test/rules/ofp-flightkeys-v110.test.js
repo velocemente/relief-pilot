@@ -115,9 +115,10 @@ test('TC-180-001 identity: v1.1.0, contract 2.5, under ofp-flightkeys (was ofp-f
   assert.equal(sha(fs.readFileSync(NEW_FILE)), e.sha256, 'the module file = the manifest SHA-256');
   assert.equal(e.sha256, 'd2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9', 'the bytes of the module PR (#77) = the Drive master, moved unchanged');
   assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.0.js'], 'one module file in rules/ofp-flightkeys (v1.0.1 out)');
-  assert.ok(!fs.existsSync(path.join(RULES, 'ofp-flightkeys-next')), 'no rules/ofp-flightkeys-next');
-  assert.deepEqual(NOT_BUILT_IN, [], 'step 5f display: no *-next key declared (D96)');
-  assert.ok(Object.keys(MANIFEST).every(k => !/-next$/.test(k)), 'no *-next key');
+  // DEF-013 module PR: v1.1.1 waits under ofp-flightkeys-next (declared); v1.1.0 here is unchanged
+  assert.deepEqual(NOT_BUILT_IN, ['ofp-flightkeys-next'], 'the one declared *-next key (D96): ofp-flightkeys v1.1.1');
+  assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), NOT_BUILT_IN, 'no *-next key but the declared one');
+  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys-next')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.1.js']);
   // v1.0.1: out of rules/, its frozen copy byte for byte
   assert.equal(sha(fs.readFileSync(OLD_FILE)), 'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d', 'test/oracle/ofp-flightkeys-v1.0.1.js = the v1.0.1 bytes');
   assert.equal(v101.RULESET_VERSION, '1.0.1');

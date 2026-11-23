@@ -627,8 +627,9 @@ test('TC-182-060 labels stay 1.10.0 (D91); no *-next key; rules/ holds only the 
   assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
   assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
   assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
-  assert.deepEqual(NOT_BUILT_IN, []);
-  assert.ok(Object.keys(MANIFEST).every(k => !/-next$/.test(k)) && fs.readdirSync(RULES).every(d => !/-next$/.test(d)), 'no *-next key or folder (D96)');
+  assert.deepEqual(NOT_BUILT_IN, ['ofp-flightkeys-next'], 'DEF-013 module PR: the one declared *-next key (D96)');
+  assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), NOT_BUILT_IN, 'no *-next key but the declared one');
+  assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)), NOT_BUILT_IN, 'no *-next folder but the declared one');
   const js = d => fs.readdirSync(path.join(RULES, d)).filter(f => f.endsWith('.js'));
   assert.deepEqual(js('ofp-flightkeys'), ['ofp-flightkeys-v1.1.0.js'], 'the v1.0.1 copy is out of rules/');
   assert.deepEqual(js('advisory-rules'), ['advisory-rules-v1.0.0.js']);

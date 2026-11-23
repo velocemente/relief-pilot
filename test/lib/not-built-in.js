@@ -6,6 +6,8 @@
  * TC-177-041) accept exactly these keys; any other *-next key still fails.
  *
  * Step 5f display (integration PR): ofp-flightkeys v1.1.0 moved to ofp-flightkeys and advisory-rules
- * v1.0.0 to advisory-rules, both built in. No *-next key is declared.
+ * v1.0.0 to advisory-rules, both built in.
+ * DEF-013 module PR: ofp-flightkeys v1.1.1 (Dispatch contact from the OFP Remarks only) waits under
+ * ofp-flightkeys-next until its integration PR.
  */
-module.exports = { NOT_BUILT_IN: Object.freeze([]) };
+module.exports = { NOT_BUILT_IN: Object.freeze(['ofp-flightkeys-next']) };

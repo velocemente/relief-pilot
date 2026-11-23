@@ -90,8 +90,8 @@ test('TC-181-001 identity: v1.0.0 under advisory-rules (was advisory-rules-next)
   assert.equal(e.sha256, '8373fb54866a19fbedd7f0547d237046987146e24f9e821cb03863a7f523ebff', 'the bytes of the module PR (#78) = the Drive master, moved unchanged');
   assert.deepEqual(fs.readdirSync(path.join(RULES, 'advisory-rules')).filter(f => f.endsWith('.js')), ['advisory-rules-v1.0.0.js']);
   assert.ok(!fs.existsSync(path.join(RULES, 'advisory-rules-next')), 'no rules/advisory-rules-next');
-  assert.deepEqual(NOT_BUILT_IN, [], 'step 5f display: no *-next key declared (D96)');
-  assert.deepEqual(Object.keys(MANIFEST).slice(-2), ['nat-rules', 'advisory-rules']);
+  assert.deepEqual(NOT_BUILT_IN, ['ofp-flightkeys-next'], 'DEF-013 module PR: the one declared *-next key (D96)');
+  assert.deepEqual(Object.keys(MANIFEST).filter(k => !/-next$/.test(k)).slice(-2), ['nat-rules', 'advisory-rules']);
   const pinned = {
     'ofp-flightkeys':   ['1.1.0',  'd2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9'],
     'ofp-navblue':      ['2.0.1',  'f7dd7b28f2c61555a1cdfd9a21d601bd6c10ddc0af3d3df890d53541079c6025'],
@@ -101,7 +101,7 @@ test('TC-181-001 identity: v1.0.0 under advisory-rules (was advisory-rules-next)
     'aircraft-profile': ['1.0.0',  '7ca993193303228d595454ac5bf24ee82eddb9ae1fecc56ad7176dad238a4be5'],
   };
   for (const [k, v] of Object.entries(pinned)) assert.deepEqual([MANIFEST[k].version, MANIFEST[k].sha256], v, k);
-  assert.ok(Object.keys(MANIFEST).every(k => !/-next$/.test(k)), 'no *-next key');
+  assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), NOT_BUILT_IN, 'no *-next key but the declared one');
   assert.equal(checkRules(ROOT).ok, true);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tc181-'));
   try {

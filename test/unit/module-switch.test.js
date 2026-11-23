@@ -162,7 +162,7 @@ const manifestProblems = man => Object.entries(man).flatMap(([k, e]) => [
 test('TC-174-002 rules/manifest.json: no *-next key; v1.13.0 and the NAT v1.1.0 parser are out; frozen copies in test/oracle (O-79)', () => {
   // Step 5f (D90, D96): the declared *-next keys of test/lib/not-built-in.js follow the built-in ones; any other fails
   assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', 'advisory-rules', ...NOT_BUILT_IN]);
-  assert.deepEqual(NOT_BUILT_IN, [], 'step 5f display: no *-next key declared');
+  assert.deepEqual(NOT_BUILT_IN, ['ofp-flightkeys-next'], 'DEF-013 module PR: the one declared *-next key (D96)');
   assert.deepEqual(manifestProblems(MANIFEST), NOT_BUILT_IN.map(k => `${k}: a *-next key`), 'no *-next key but the declared ones (D96)');
   assert.deepEqual(Object.values(MANIFEST).slice(0, 7).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.1.0', '1.2.0', '1.0.0']);
   assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)).sort(), NOT_BUILT_IN.slice().sort(), 'no *-next folder but the declared ones');
