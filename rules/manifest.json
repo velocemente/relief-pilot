@@ -20,23 +20,18 @@
     "sha256": "d7b432506f32a3675ce3ffa68a07b7e194ed523c9e8dcbd3177f78da36d49ad2"
   },
   "ofp-flightkeys": {
-    "version": "1.0.1",
-    "file": "ofp-flightkeys/ofp-flightkeys-v1.0.1.js",
-    "sha256": "a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d"
+    "version": "1.1.0",
+    "file": "ofp-flightkeys/ofp-flightkeys-v1.1.0.js",
+    "sha256": "d2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9"
   },
   "nat-rules": {
     "version": "1.2.0",
     "file": "nat-rules/nat-rules-v1.2.0.js",
     "sha256": "a0ed2a31a344680424e96fd31d3046ac8cd65244e58cebd553fe5021fa2ca80d"
   },
-  "ofp-flightkeys-next": {
-    "version": "1.1.0",
-    "file": "ofp-flightkeys-next/ofp-flightkeys-v1.1.0.js",
-    "sha256": "d2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9"
-  },
-  "advisory-rules-next": {
+  "advisory-rules": {
     "version": "1.0.0",
-    "file": "advisory-rules-next/advisory-rules-v1.0.0.js",
+    "file": "advisory-rules/advisory-rules-v1.0.0.js",
     "sha256": "8373fb54866a19fbedd7f0547d237046987146e24f9e821cb03863a7f523ebff"
   }
 }

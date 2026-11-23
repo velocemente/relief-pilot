@@ -146,7 +146,8 @@ function loadFlight(entry) {
 
 // O-107 / O-118: the opened flight's OFP text and RAW views, read again from its stored PDF exactly as
 // processPDF() reads it (_pdfReadText) and, for a FlightKeys flight (S.rawIndex), parsed again for the
-// RAW views only: nothing else in S or airportData is changed. The screens are redrawn when done.
+// RAW views and (step 5f display, D107) the OFP Remarks group's Dispatch contact and RAIM texts only:
+// nothing else in S or airportData is changed. The screens are redrawn when done.
 let _loadSeq = 0;
 function _ofpRederive(buf, seq) {
   return loadPdfJs()
@@ -160,16 +161,26 @@ function _ofpRederive(buf, seq) {
       if (S.rawIndex) {
         const r = _ofpParse(fullText, pages);
         _rawViews = r && Array.isArray(r.firRaw) ? _ofpRawViews(r) : { missing: true };
-      }
+        _ofpTexts = r && Array.isArray(r.firRaw) ? _ofpRemarkTexts(r, _ofpAdvisories(r)) : { missing: true };
+      } else if (_ofpTextsFlagged()) _ofpTexts = { missing: true };   // O-184: nothing to rebuild them from
       _rerenderOpen();
     })
     .catch(() => _rawMissing(seq));
 }
-// The stored PDF is missing or cannot be read: a FlightKeys flight's RAW groups say so (O-107).
+// The stored PDF is missing or cannot be read: a FlightKeys flight's RAW groups say so (O-107); so do the
+// flagged Dispatch contact and RAIM rows of the OFP Remarks group (O-184; pasted text included).
 function _rawMissing(seq) {
   if (seq !== _loadSeq) return;
-  if (S.rawIndex) { _rawViews = { missing: true }; _rerenderOpen(); }
+  const flagged = _ofpTextsFlagged();
+  if (flagged) _ofpTexts = { missing: true };
+  if (S.rawIndex) _rawViews = { missing: true };
+  if (S.rawIndex || flagged) _rerenderOpen();
 }
+// O-184: the saved flags of the texts the OFP Remarks group shows but the save does not hold (D107).
+// QA F-01: a flight saved under 1.10.0 has no dispatchPrinted but its Dispatch contact label (REQUIRED /
+// IF QUESTIONS, a flag, no text): that label counts as "a Dispatch contact printed". It is never shown (O-175).
+const _dispatchFlagged = () => S.dispatchPrinted === true || !!(S.dispatchContact && S.dispatchContact.label);
+const _ofpTextsFlagged = () => _dispatchFlagged() || S.raimAttention === true;
 function _rerenderOpen() {
   renderNote();
   if (_activeFlightTab === 'airports') buildAirportCards();

@@ -36,7 +36,8 @@
  *   TC-174-022  the gate bites: on scratch copies of index.html that break the path, TC-174-020 fails
  *   TC-174-030  findings list (O-76, O-87, O-88): WARNs first, message only, NAT INFOs only, esc();
  *               NavBlue: no list; a saved flight without findings reads safely
- *   TC-174-031  the findings shown on the 26, by package and code (7 WARN, 4 INFO); every INFO code listed
+ *   TC-174-031  the findings shown on the 26, by package and code (8 WARN — step 5f display: L03 VA routing —,
+ *               4 INFO); every INFO code listed
  *   TC-174-032  O-89: the list title "OFP Alerts" is red (the existing .nt-red) until the crew selects it, then
  *               the normal title colour; the selection is stored with the flight; a new import starts red; a
  *               flight saved before O-89 (no state) reads safely (red); no list → no title
@@ -115,8 +116,10 @@ const HTML_NOTAM13 = (() => {
 
 // Step 5e-2 display PR 1 (O-116): the FlightKeys parser v1.0.1 moved from ofp-flightkeys-next to ofp-flightkeys and
 // is built in; the declared exception of the module PR is gone. Every manifest module is built in; no *-next key.
+// Step 5f display: ofp-flightkeys v1.1.0 and advisory-rules v1.0.0 moved to their own keys, built in; advisory-rules
+// sits between the two format parsers (ofp-navblue stays just above src/ofp-parse.html, D47 / D118).
 const RULE_ORDER = [['aircraft-profile', 'notam.html'], ['notam-rules', 'notam.html'], ['nat-rules', 'nat.html'],
-  ['icao-fpl', 'ofp-parse.html'], ['ofp-flightkeys', 'ofp-parse.html'], ['ofp-navblue', 'ofp-parse.html']];
+  ['icao-fpl', 'ofp-parse.html'], ['ofp-flightkeys', 'ofp-parse.html'], ['advisory-rules', 'ofp-parse.html'], ['ofp-navblue', 'ofp-parse.html']];
 // Problems with a module list: each rule once, in the order above, before the fragment that uses it.
 function orderProblems(mods) {
   const p = [];
@@ -136,10 +139,11 @@ function orderProblems(mods) {
 test('TC-174-001 build order: every rule module once, in order, before its user; each built into index.html once, byte for byte', () => {
   assert.deepEqual(orderProblems(MODULES), []);
   assert.deepEqual(MODULES.filter(m => typeof m !== 'string').map(m => m.rule), RULE_ORDER.map(([k]) => k));
-  assert.equal(MODULES.length, 26);
+  assert.equal(MODULES.length, 27);
   for (const k of Object.keys(MANIFEST).filter(k => !NOT_BUILT_IN.includes(k))) assert.equal(HTML.split(ruleSrc(k)).length, 2, `${k}: in index.html once, byte for byte`);
   for (const k of NOT_BUILT_IN) assert.ok(!HTML.includes(ruleSrc(k)), `${k}: not in index.html until its integration PR (D90)`);
-  assert.equal(MANIFEST['ofp-flightkeys'].version, '1.0.1', 'O-116: the FlightKeys parser built in is v1.0.1');
+  assert.equal(MANIFEST['ofp-flightkeys'].version, '1.1.0', 'step 5f display: the FlightKeys parser built in is v1.1.0');
+  assert.equal(MANIFEST['advisory-rules'].version, '1.0.0', 'step 5f display: advisory-rules v1.0.0 built in');
   assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html = node build/build.js output');
   // NEGATIVE: a module twice, a module after its user, two modules swapped
   const dup = [...MODULES]; dup.splice(dup.indexOf('pdf.html'), 0, { rule: 'icao-fpl' });
@@ -157,9 +161,10 @@ const manifestProblems = man => Object.entries(man).flatMap(([k, e]) => [
 
 test('TC-174-002 rules/manifest.json: no *-next key; v1.13.0 and the NAT v1.1.0 parser are out; frozen copies in test/oracle (O-79)', () => {
   // Step 5f (D90, D96): the declared *-next keys of test/lib/not-built-in.js follow the built-in ones; any other fails
-  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', ...NOT_BUILT_IN]);
+  assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', 'advisory-rules', ...NOT_BUILT_IN]);
+  assert.deepEqual(NOT_BUILT_IN, [], 'step 5f display: no *-next key declared');
   assert.deepEqual(manifestProblems(MANIFEST), NOT_BUILT_IN.map(k => `${k}: a *-next key`), 'no *-next key but the declared ones (D96)');
-  assert.deepEqual(Object.values(MANIFEST).slice(0, 6).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.0.1', '1.2.0']);
+  assert.deepEqual(Object.values(MANIFEST).slice(0, 7).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.1.0', '1.2.0', '1.0.0']);
   assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)).sort(), NOT_BUILT_IN.slice().sort(), 'no *-next folder but the declared ones');
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.13.0.js')), 'v1.13.0 is out of rules/');
   assert.equal(sha(NOTAM13), 'e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b', 'test/oracle: NOTAM v1.13.0 byte for byte');
@@ -528,7 +533,7 @@ test('TC-174-022 the gate bites: scratch copies of index.html that break the pat
   const breaks = [
     ['router never calls the FlightKeys parser', "if (_ofpDetectFormat(rawText) !== 'flightkeys') return _ofpRulesetParse(rawText);", 'return _ofpRulesetParse(rawText);'],
     ['NAT parser not passed', 'parseNatTrack:   window.parseNatTrack,  // NatRules.parseNatTrack (D77, O-68)', ''],
-    ['findings not stored', 'if (Array.isArray(result.findings)) S.ofpFindings = result.findings;', ''],
+    ['findings not stored', 'S.ofpFindings = (Array.isArray(result.findings) ? result.findings : []).concat(_advFindings);', '{}'],
     ['WARNs not shown', "return list.filter(f => ok(f) && f.level === 'WARN')", "return list.filter(f => ok(f) && f.level === 'NONE')"],
     ['list not drawn', 'h += _findings.map(f => esc(f.message)).join(\'<br>\');', ''],
   ];
@@ -581,7 +586,7 @@ test('TC-174-030 findings list: WARNs first, message only, NAT INFOs only, escap
   assert.ok(!app.renderPreflightPhase().includes('OFP Alerts'));
 });
 
-fixtureTest('TC-174-031 findings shown on the 26 by package and code: 7 WARN, 4 INFO (NAT-RANDOM-ROUTE); NavBlue: none', async () => {
+fixtureTest('TC-174-031 findings shown on the 26 by package and code: 8 WARN (step 5f display: the L03 VA routing WARN), 4 INFO (NAT-RANDOM-ROUTE); NavBlue: none', async () => {
   const lbl = labels();
   const shown = [], infoCodes = {};
   for (const fx of fkFixtures()) {
@@ -591,6 +596,7 @@ fixtureTest('TC-174-031 findings shown on the 26 by package and code: 7 WARN, 4 
   }
   assert.deepEqual(shown, [
     'T1 WARN permits', 'T1 WARN permits',
+    'L03 WARN VA-REMARK-ROUTING',   // step 5f display (O-177 / O-178): the advisory rules' WARN, as every other WARN
     'L08 WARN natTrack', 'L08 INFO NAT-RANDOM-ROUTE',
     'L12 INFO NAT-RANDOM-ROUTE',
     'L21 WARN altData',

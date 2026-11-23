@@ -48,6 +48,13 @@ function _ofpParse(rawText, pages) {
   });
 }
 
+// ── Advisory rules (step 5f display; rules/advisory-rules, global AdvisoryRules; O-173 A) ──
+// The shared volcanic ash / RAIM / volcanic FIR rules, called on the format parser's result, after
+// it, for both formats (D88). The NavBlue result reads as empty: no finding, no flag (D118).
+function _ofpAdvisories(result) {
+  return (result && typeof result === 'object' && AdvisoryRules.evaluateAdvisories(result)) || null;
+}
+
 // ── Findings shown to the crew (O-76, O-87, O-88) ────────────────────
 // Every WARN; the NAT ruleset's INFOs (a finding with a NAT code, O-68);
 // no other INFO. WARNs first, then INFOs, each in parser order. The list
@@ -106,7 +113,8 @@ function _crewChips(n, crew, withSen) {
 }
 const _ofpPilotCrew = result => (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH');
 
-// D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none.
+// D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none. Step 5f display
+// (O-175, O-181): an internal flag only (the OFP Remarks group's open state), never shown to the crew.
 function _ofpDispatchContact(result) {
   const d = result.dispatchContact;
   return d && (d.label === 'REQUIRED' || d.label === 'IF QUESTIONS') ? { label: d.label } : null;
@@ -156,17 +164,53 @@ function _ofpRawViews(result) {
     const company = blk ? (blk.items || []).filter(i => i && i.origin === 'COMPANY' && i.text).map(i => String(i.text)) : [];
     return { code: String(b.code || ''), name: String(b.name || ''), raw: String(b.raw || ''), company };
   });
-  const haz = (Array.isArray(result.hazards) ? result.hazards : []).filter(z => z && !z.empty && z.text)
-    .map(z => ({ code: String(z.code || ''), name: String(z.name || ''), text: String(z.text) }));
+  // at: the block's index in hazards (the advisory rules' hazard index, O-180)
+  const haz = (Array.isArray(result.hazards) ? result.hazards : []).map((z, at) => ({ z, at })).filter(({ z }) => z && !z.empty && z.text)
+    .map(({ z, at }) => ({ code: String(z.code || ''), name: String(z.name || ''), text: String(z.text), at }));
   return { apt, fir, haz };
 }
 // What the screens need to draw the RAW groups when the views are not (yet) there: which airport has
 // which block (N = NOTAMs, W = weather), the FIR and hazard blocks by code and name. No printed text.
-function _ofpRawIndex(v) {
+// Step 5f display (O-180): open: true on a FIR NOTAMs / FIR Hazards group (companyOpen: true on the
+// Company NOTAMs group of a FIR, O-131) that holds an item the advisory rules flag as volcanic.
+function _ofpRawIndex(v, open) {
+  const o = open || _ofpVolcanicOpen(null);
   const apt = {};
   Object.keys(v.apt).forEach(icao => { apt[icao] = (v.apt[icao].notams.trim() ? 'N' : '') + (v.apt[icao].weather.trim() ? 'W' : ''); });
-  return { apt, fir: v.fir.map(b => ({ code: b.code, name: b.name, company: b.company.length })),
-           haz: v.haz.map(z => ({ code: z.code, name: z.name })) };
+  return { apt, fir: v.fir.map((b, k) => ({ code: b.code, name: b.name, company: b.company.length,
+             ...(o.fir.has(k + ' ' + b.code) ? { open: true } : {}),
+             ...(b.company.length && o.company.has(k + ' ' + b.code) ? { companyOpen: true } : {}) })),
+           haz: v.haz.map(z => ({ code: z.code, name: z.name, ...(o.haz.has(z.at) ? { open: true } : {}) })) };
+}
+// O-180: the printed blocks whose groups open by default — FIR NOTAM items the advisory rules flag (by
+// firNotams block and FIR code; firNotams and firRaw hold one record per printed block, contract 2.4;
+// a Company item opens the FIR's Company NOTAMs group, where it is shown, O-131) and flagged hazard blocks
+// (by their index in hazards). No advisory result → none.
+function _ofpVolcanicOpen(adv) {
+  const vf = adv && adv.volcanicFir ? adv.volcanicFir : {};
+  const notams = Array.isArray(vf.notams) ? vf.notams : [], hazards = Array.isArray(vf.hazards) ? vf.hazards : [];
+  return {
+    fir:     new Set(notams.filter(x => x.origin !== 'COMPANY').map(x => x.block + ' ' + x.fir)),
+    company: new Set(notams.filter(x => x.origin === 'COMPANY').map(x => x.block + ' ' + x.fir)),
+    haz:     new Set(hazards.map(x => x.index)),
+  };
+}
+
+// ── Step 5f display: the printed texts of the OFP Remarks group that are not saved (D107) ──
+// dispatch: every Contact Dispatch text as printed (O-175, O-183: dispatchContact.text, the Company NOTAM
+// line(s) first, then the OFP remark; none printed → null, no row). raim: the RAIM attention records
+// (O-171, D115: none when a PASSED form is printed), the remark as printed, except a remark the group
+// shows already (an O-127 record or a security message of the same text, QA F-01: it keeps its category).
+// Built at import, re-derived from the stored PDF when a flight is opened (_ofpRederive).
+function _ofpRemarkTexts(result, adv) {
+  const d = result.dispatchContact;
+  const dispatch = d && typeof d.text === 'string' && d.text.trim() ? d.text : null;
+  const shown = new Set((Array.isArray(result.ofpRemarks) ? result.ofpRemarks : [])
+    .filter(r => r && (_OFP_REMARKS_SHOWN.includes(r.category) || r.category === 'security') && r.text).map(r => String(r.text))
+    .concat((Array.isArray(result.securityMessages) ? result.securityMessages : []).map(m => String((m && m.text) || ''))));
+  const att = adv && adv.raim && Array.isArray(adv.raim.attention) ? adv.raim.attention : [];
+  const raim = att.map(a => String((a && a.text) || '')).filter(t => t && !shown.has(t));
+  return { dispatch, raim };
 }
 
 const _OFP_REMARKS_SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];   // O-127
@@ -181,6 +225,8 @@ function parseOFP() {
     throw err;
   }
   if (!result) return;
+  // Step 5f display (O-173 A): the advisory rules, after the format parser (both formats; NavBlue empty, D118).
+  const _adv = _ofpAdvisories(result);
   const _pilots = _ofpPilotCount(result);
 
   // Merge parsed airportData into global (preserves any user edits already present)
@@ -281,9 +327,12 @@ function parseOFP() {
       verbalCallsign: result.parsedVerbalCallsign,
     } : {}),
   });
-  // Parser findings (FlightKeys only; the NavBlue call returns none). Saved with S;
-  // a flight saved without them has no list (O-76).
-  if (Array.isArray(result.findings)) S.ofpFindings = result.findings;
+  // Parser findings (FlightKeys only; the NavBlue call returns none), then the advisory rules' WARNs
+  // (O-177 / O-178: on OFP Alerts as every other WARN, D92 / D125, texts as the module returns them;
+  // NavBlue: none). Saved with S; a flight saved without them has no list (O-76).
+  const _advFindings = _adv && Array.isArray(_adv.findings) ? _adv.findings : [];
+  if (Array.isArray(result.findings) || _advFindings.length)
+    S.ofpFindings = (Array.isArray(result.findings) ? result.findings : []).concat(_advFindings);
   // Step 5e-2 display PR 2 (FlightKeys only; the NavBlue call returns none of these, D47).
   if (Array.isArray(result.firRaw)) {
     S.ofpFormat = 'flightkeys';
@@ -299,9 +348,16 @@ function parseOFP() {
     // ADHOC penalty. Every other record without a NavBlue slot stays on the OFP tab.
     S.ofpRemarks = (result.ofpRemarks || []).filter(r => r && _OFP_REMARKS_SHOWN.includes(r.category) && r.text)
       .map(r => ({ category: String(r.category), text: String(r.text) }));
-    // O-107: the RAW views from the PDF just read; pasted text has no RAW (D95).
+    // Step 5f display: the Dispatch contact and RAIM texts (not saved, D107); O-184: with the flight, flags
+    // only (a Dispatch contact printed, a RAIM attention record shown), set only when true. O-179: the OFP
+    // Remarks group also opens on a positive VA remark or a RAIM attention record (a flag, saved; no text).
+    _ofpTexts = _ofpRemarkTexts(result, _adv);
+    if (_ofpTexts.dispatch) S.dispatchPrinted = true;
+    if (_ofpTexts.raim.length) S.raimAttention = true;
+    if (_adv && _adv.openOfpRemarks === true) S.ofpRemarksOpen = true;
+    // O-107: the RAW views from the PDF just read; pasted text has no RAW (D95). O-180: volcanic groups open.
     _rawViews = pdfPages ? _ofpRawViews(result) : null;
-    if (_rawViews) S.rawIndex = _ofpRawIndex(_rawViews);
+    if (_rawViews) S.rawIndex = _ofpRawIndex(_rawViews, _ofpVolcanicOpen(_adv));
   }
   if (result.zfwIncrFactor != null)
     S.zfwIncrFactor = result.zfwIncrFactor;

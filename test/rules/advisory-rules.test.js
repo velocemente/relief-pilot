@@ -1,13 +1,15 @@
 'use strict';
 /**
- * TC-181 — advisory-rules v1.0.0 (rules/advisory-rules-next; step 5f module PR B, Exec answers O-169 … O-181 of
- * 22 Nov, D115, D116, D88, D90, D96, D99, D103, D118): the shared volcanic ash and RAIM rules, NOT built into the
- * app (D90). Read on the contract of ofp-flightkeys v1.1.0 (ofp-flightkeys-next, module PR A).
+ * TC-181 — advisory-rules v1.0.0 (step 5f module PR B, Exec answers O-169 … O-181 of 22 Nov, D115, D116, D88,
+ * D90, D96, D99, D103, D118): the shared volcanic ash and RAIM rules. Step 5f display (the integration PR): moved
+ * from rules/advisory-rules-next to rules/advisory-rules (bytes unchanged) and built in; read on the contract of
+ * ofp-flightkeys v1.1.0 (moved to ofp-flightkeys, built in). The display is TC-182.
  *
- *   TC-181-001  identity: v1.0.0, key advisory-rules-next (file, SHA-256), declared not built in; the other
- *               modules' bytes unchanged; a changed byte is caught (negative)
- *   TC-181-002  not built in (D90): index.html carries no byte-run of it; build = index.html; no -next module
- *               built; labels 1.10.0; the module reads no window, DOM, storage, clock or network (static)
+ *   TC-181-001  identity: v1.0.0, key advisory-rules (file, SHA-256; was advisory-rules-next), no *-next key
+ *               declared; the other modules' bytes as pinned; a changed byte is caught (negative)
+ *   TC-181-002  built in (step 5f display): index.html carries it once, byte for byte, before src/ofp-parse.html;
+ *               build = index.html; no -next module built; labels 1.10.0; the module reads no window, DOM,
+ *               storage, clock or network (static)
  *   TC-181-003  validateSchema(): valid; NEGATIVE: a sentence-case text, an internal reference, a version in a
  *               text, a forbidden export, a wrong type are refused
  *   TC-181-004  O-178 crew texts, byte for byte (capitals, U+2013 en dash, no full stop)
@@ -57,10 +59,10 @@ const S5 = require('../lib/fk-synth');
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
-const FILE     = path.join(RULES, MANIFEST['advisory-rules-next'].file);
+const FILE     = path.join(RULES, MANIFEST['advisory-rules'].file);
 const SRC      = fs.readFileSync(FILE, 'utf8');
 const adv      = require(FILE);
-const fk       = require(path.join(RULES, MANIFEST['ofp-flightkeys-next'].file));   // v1.1.0 (module PR A)
+const fk       = require(path.join(RULES, MANIFEST['ofp-flightkeys'].file));   // v1.1.0 (module PR A; built in, step 5f display)
 const OPTS     = {
   icaoFpl:         require(path.join(RULES, MANIFEST['icao-fpl'].file)),
   aircraftProfile: require(path.join(RULES, MANIFEST['aircraft-profile'].file)),
@@ -80,16 +82,18 @@ const vaa = (list = ONE, o) => [S5.vaPage(S5.vaAdvisory(list, o))];
 
 // ══ TC-181-001 … 005 module ══════════════════════════════════════════════════════════════════════
 
-test('TC-181-001 identity: v1.0.0 under advisory-rules-next, declared not built in; other modules unchanged; a changed byte is caught', () => {
+test('TC-181-001 identity: v1.0.0 under advisory-rules (was advisory-rules-next); no *-next key; other modules as pinned; a changed byte is caught', () => {
   assert.deepEqual([adv.RULESET_TYPE, adv.RULESET_VERSION, adv.SCHEMA_VERSION], ['advisory-rules', '1.0.0', 1]);
-  const e = MANIFEST['advisory-rules-next'];
-  assert.deepEqual([e.version, e.file], ['1.0.0', 'advisory-rules-next/advisory-rules-v1.0.0.js']);
+  const e = MANIFEST['advisory-rules'];
+  assert.deepEqual([e.version, e.file], ['1.0.0', 'advisory-rules/advisory-rules-v1.0.0.js']);
   assert.equal(sha(fs.readFileSync(FILE)), e.sha256);
-  assert.deepEqual(fs.readdirSync(path.join(RULES, 'advisory-rules-next')), ['advisory-rules-v1.0.0.js']);
-  assert.ok(NOT_BUILT_IN.includes('advisory-rules-next'));
-  assert.deepEqual(Object.keys(MANIFEST).slice(-2), ['ofp-flightkeys-next', 'advisory-rules-next']);
+  assert.equal(e.sha256, '8373fb54866a19fbedd7f0547d237046987146e24f9e821cb03863a7f523ebff', 'the bytes of the module PR (#78) = the Drive master, moved unchanged');
+  assert.deepEqual(fs.readdirSync(path.join(RULES, 'advisory-rules')).filter(f => f.endsWith('.js')), ['advisory-rules-v1.0.0.js']);
+  assert.ok(!fs.existsSync(path.join(RULES, 'advisory-rules-next')), 'no rules/advisory-rules-next');
+  assert.deepEqual(NOT_BUILT_IN, [], 'step 5f display: no *-next key declared (D96)');
+  assert.deepEqual(Object.keys(MANIFEST).slice(-2), ['nat-rules', 'advisory-rules']);
   const pinned = {
-    'ofp-flightkeys':   ['1.0.1',  'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d'],
+    'ofp-flightkeys':   ['1.1.0',  'd2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9'],
     'ofp-navblue':      ['2.0.1',  'f7dd7b28f2c61555a1cdfd9a21d601bd6c10ddc0af3d3df890d53541079c6025'],
     'nat-rules':        ['1.2.0',  'a0ed2a31a344680424e96fd31d3046ac8cd65244e58cebd553fe5021fa2ca80d'],
     'notam-rules':      ['1.14.0', '139ce1691574a440a2c371296aea82985bfe26904d77114fa81969c8e86621cb'],
@@ -97,7 +101,7 @@ test('TC-181-001 identity: v1.0.0 under advisory-rules-next, declared not built 
     'aircraft-profile': ['1.0.0',  '7ca993193303228d595454ac5bf24ee82eddb9ae1fecc56ad7176dad238a4be5'],
   };
   for (const [k, v] of Object.entries(pinned)) assert.deepEqual([MANIFEST[k].version, MANIFEST[k].sha256], v, k);
-  assert.equal(MANIFEST['ofp-flightkeys-next'].version, '1.1.0');
+  assert.ok(Object.keys(MANIFEST).every(k => !/-next$/.test(k)), 'no *-next key');
   assert.equal(checkRules(ROOT).ok, true);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tc181-'));
   try {
@@ -105,13 +109,15 @@ test('TC-181-001 identity: v1.0.0 under advisory-rules-next, declared not built 
     fs.appendFileSync(path.join(tmp, 'rules', e.file), ' ');
     const c = checkRules(tmp);
     assert.equal(c.ok, false);
-    assert.ok(c.errors.some(x => /advisory-rules-next.*does not match the manifest/.test(x)), c.errors.join('; '));
+    assert.ok(c.errors.some(x => /advisory-rules.*does not match the manifest/.test(x)), c.errors.join('; '));
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-181-002 not built in (D90): not in index.html; build = index.html; labels 1.10.0; no window, DOM, storage, clock or network', () => {
-  assert.ok(!HTML.includes(SRC.slice(0, 400)) && !HTML.includes('AdvisoryRules') && !HTML.includes('evaluateAdvisories'), 'not in index.html');
-  assert.equal(MODULES.filter(m => m && /advisory-rules/.test(m.rule)).length, 0, 'build/build.js does not build it');
+test('TC-181-002 built in (step 5f display): in index.html once, before src/ofp-parse.html; build = index.html; labels 1.10.0; no window, DOM, storage, clock or network', () => {
+  assert.equal(HTML.split(SRC).length, 2, 'index.html carries it once, byte for byte');
+  assert.deepEqual(MODULES.filter(m => m && /advisory-rules/.test(m.rule)).map(m => m.rule), ['advisory-rules'], 'build/build.js builds it once, under its own key');
+  assert.ok(MODULES.findIndex(m => m && m.rule === 'advisory-rules') < MODULES.indexOf('ofp-parse.html'), 'before its user (parseOFP)');
+  assert.equal(MODULES.filter(m => m && /-next$/.test(m.rule)).length, 0, 'no -next module built');
   assert.equal(sha(assemble(ROOT)), sha(fs.readFileSync(path.join(ROOT, 'index.html'))));
   assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
   const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
@@ -236,8 +242,8 @@ fixtureTest('TC-181-011 the 26: 24 volcanic FIR items in 10 packages; L06 "no as
 
 fixtureTest('TC-181-015 pinned results on all 26 (expected/advisory-rules-v1.0.0/results.json), made with this module and ofp-flightkeys v1.1.0', () => {
   const pin = JSON.parse(fs.readFileSync(path.join(FIX, EXPECTED_FILE), 'utf8'));
-  assert.deepEqual(pin.module, { version: '1.0.0', sha256: MANIFEST['advisory-rules-next'].sha256 });
-  assert.deepEqual(pin.parser, { version: '1.1.0', sha256: MANIFEST['ofp-flightkeys-next'].sha256 });
+  assert.deepEqual(pin.module, { version: '1.0.0', sha256: MANIFEST['advisory-rules'].sha256 });
+  assert.deepEqual(pin.parser, { version: '1.1.0', sha256: MANIFEST['ofp-flightkeys'].sha256 });
   assert.deepEqual(Object.keys(pin.packages).sort(), pk().map(p => p.fx.id).sort());
   for (const p of pk()) {
     assert.equal(pin.packages[p.fx.id].label, p.lbl);

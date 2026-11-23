@@ -418,6 +418,11 @@ let pdfArrayBuffer = null;   // ArrayBuffer of original PDF — slice a fresh Ui
 // open flight. Never saved: built at import, re-derived from the stored PDF when a flight is opened.
 // null = none (NavBlue, pasted text, not yet re-derived); { missing: true } = the stored PDF is missing.
 let _rawViews     = null;
+// Step 5f display (D107): the open flight's printed Dispatch contact and RAIM attention texts (OFP Remarks
+// group), { dispatch, raim[] } (_ofpRemarkTexts). Never saved: built at import, re-derived from the stored
+// PDF when a flight is opened. null = none (NavBlue, not yet re-derived); { missing: true } = they cannot
+// be rebuilt (no stored PDF, pasted text: O-184).
+let _ofpTexts     = null;
 let _pdfDocProxy  = null;    // active PDFDocumentProxy — nulled before each new load (M3)
 
 // Recalculate DEST ETA and all alt ETAs from current outZ
@@ -464,11 +469,14 @@ function resetStateForNewFlight() {
   delete S.ofpAlertsSeen; // O-89: the OFP Alerts title selected by the crew; a new import starts red
   // Step 5e-2 display PR 2 (FlightKeys only; set by parseOFP() only when the parser returns them).
   delete S.ofpFormat; delete S.rawIndex; delete S.securityMessages; delete S.permits; delete S.catIiIiiRestrictions; delete S.ofpRemarks;
+  delete S.ofpRemarksOpen;   // step 5f display (O-179): set by parseOFP() only when true
+  delete S.dispatchPrinted; delete S.raimAttention;   // O-184: the flags of the unsaved texts, set only when true
   airportData = {};
   pdfRawText = '';
   pdfPages = null;
   pdfArrayBuffer = null;
   _rawViews = null;
+  _ofpTexts = null;
   _pdfDocProxy = null;
   _fcirActive = false;
   window._flightDateISO = '';

@@ -34,7 +34,10 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  // Step 5e-2 display PR 1 (TC-176): the NAT card object, the D67b rows, the date pop-up,
                  // the rest chips and their handlers, the Enroute card.
                  '_natCardTrack', '_d67bRows', '_d67bRuleText', 'openEdit', '_d57Read', 'renderNote',
-                 'renderInflightRestModule', 'toggleCrewMember', 'addManualCrew', 'addBulkCrew', 'renderEnroutePhase'];
+                 'renderInflightRestModule', 'toggleCrewMember', 'addManualCrew', 'addBulkCrew', 'renderEnroutePhase',
+                 // Step 5f display (TC-182): the advisory rules call, the OFP Remarks group texts (not saved, D107;
+                 // read / set with _getOfpTexts / _setOfpTexts), the Enroute RAW groups (O-180), the saved-flight reload.
+                 '_ofpAdvisories', '_ofpRemarkTexts', 'renderOfpRemarksGroup', 'renderEnrouteRaw', '_ofpRederive'];
 // The NOTAM functions the standalone module (rules/notam-rules) provides. index.html builds the
 // module in (global NotamRules) and binds only evalNotams and _splitNotams as app names; for a
 // name the app does not bind, the harness reads the module's export from the same script.
@@ -187,7 +190,7 @@ function loadApp({ html, storageData, domModel } = {}) {
   const fromModule = n => NOTAM_MODULE_FNS.includes(n)
     ? `(typeof NotamRules !== 'undefined' && typeof NotamRules.${n} === 'function') ? NotamRules.${n} : undefined`
     : 'undefined';
-  const exportLine = `\n;globalThis.__pb = { ${EXPOSED.map(n => `${n}: typeof ${n} === 'function' ? ${n} : ${fromModule(n)}`).join(', ')}, S: (typeof S !== 'undefined' ? S : undefined), _navStack: (typeof _navStack !== 'undefined' ? _navStack : undefined), _getActiveFlightTab: function() { return typeof _activeFlightTab !== 'undefined' ? _activeFlightTab : undefined; } };\n`;
+  const exportLine = `\n;globalThis.__pb = { ${EXPOSED.map(n => `${n}: typeof ${n} === 'function' ? ${n} : ${fromModule(n)}`).join(', ')}, S: (typeof S !== 'undefined' ? S : undefined), _navStack: (typeof _navStack !== 'undefined' ? _navStack : undefined), _getActiveFlightTab: function() { return typeof _activeFlightTab !== 'undefined' ? _activeFlightTab : undefined; }, _getOfpTexts: function() { return typeof _ofpTexts !== 'undefined' ? _ofpTexts : undefined; }, _setOfpTexts: function(v) { if (typeof _ofpTexts !== 'undefined') _ofpTexts = v; } };\n`;
   new vm.Script(scripts[mainIdx] + exportLine, { filename: 'index.html:main-inline-script' })
     .runInContext(sandbox);
 

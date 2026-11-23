@@ -41,8 +41,9 @@
  *               never carried over
  *   TC-176-050  D89 / O-108: a mixed package is refused with the named error; the crew stays on the import
  *               screen, nothing saved; NEGATIVE a FlightKeys package goes to the flight screen
- *   TC-176-060  D72 dispatchContact: 26 FK (REQUIRED 22, IF QUESTIONS 4) on the Departure subcard, row label
- *               "Dispatch contact" (O-123); NavBlue none
+ *   TC-176-060  D72 dispatchContact: 26 FK (internal flag REQUIRED 22, IF QUESTIONS 4), row label "Dispatch
+ *               contact" (O-123) in the OFP Remarks group (O-152); step 5f display (O-175): the row shows every
+ *               Contact Dispatch text as printed, never the flag; NavBlue none
  *   TC-176-070  D67b / O-105 rows on the app path, per card and group: FK 5 + NavBlue 11 departure, 21 + 37
  *               destination / alternate; KMIA A3054/26, KSFO A5323/26; every row by NOTAM ID against change
  *               list v1.2; card colour and issues unchanged
@@ -105,12 +106,14 @@ function itemsDoc(lines) {
 
 // ══ TC-176-001 O-116 ════════════════════════════════════════════════════════════
 
-test('TC-176-001 O-116: ofp-flightkeys v1.0.1 built in once, v1.0.0 not; no *-next key or folder; a *-next key is refused', () => {
-  const v101 = fs.readFileSync(path.join(RULES, MANIFEST['ofp-flightkeys'].file), 'utf8');
+test('TC-176-001 O-116: ofp-flightkeys built in once (step 5f display: v1.1.0), v1.0.0 and v1.0.1 not; no *-next key or folder; a *-next key is refused', () => {
+  const built = fs.readFileSync(path.join(RULES, MANIFEST['ofp-flightkeys'].file), 'utf8');
   const v100 = fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.0.js'), 'utf8');
-  assert.equal(MANIFEST['ofp-flightkeys'].version, '1.0.1');
-  assert.equal(HTML.split(v101).length, 2, 'v1.0.1 once, byte for byte');
+  const v101 = fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.1.js'), 'utf8');
+  assert.equal(MANIFEST['ofp-flightkeys'].version, '1.1.0');
+  assert.equal(HTML.split(built).length, 2, 'v1.1.0 once, byte for byte');
   assert.ok(!HTML.includes(v100), 'v1.0.0 not in index.html');
+  assert.ok(!HTML.includes(v101), 'v1.0.1 not in index.html (step 5f display)');
   // Step 5f (D90, D96): only the declared *-next keys of test/lib/not-built-in.js, none built in
   assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), NOT_BUILT_IN, 'no *-next key but the declared ones (D96)');
   assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)).sort(), NOT_BUILT_IN.slice().sort(), 'no *-next folder but the declared ones');
@@ -588,15 +591,20 @@ fixtureTest('TC-176-051 D89 NEGATIVE: a FlightKeys and a NavBlue package open th
 
 // ══ TC-176-060 dispatchContact ═════════════════════════════════════════════════
 
-fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group below DDG (O-152; REQUIRED 22, IF QUESTIONS 4); NavBlue none; escaped', async () => {
+fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group below DDG (O-152; flag REQUIRED 22, IF QUESTIONS 4; O-175 the printed texts); NavBlue none; escaped', async () => {
   const n = { REQUIRED: 0, 'IF QUESTIONS': 0 };
+  const escH = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   for (const fx of fkFixtures()) {
     const imp = await imported(fx);
     const lbl = imp.S.dispatchContact.label;
     n[lbl]++;
     const h = imp.app.renderPreflightPhase();
     const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
-    const row = `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${lbl}</span></div>`;
+    // Step 5f display (O-175): the row shows the printed Contact Dispatch text(s), never the internal flag
+    const txt = imp.app._getOfpTexts().dispatch;
+    assert.ok(typeof txt === 'string' && /contact dispatch/i.test(txt), `${fx.id}: a printed Contact Dispatch text`);
+    const row = `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${txt.split('\n').map(escH).join('<br>')}</span></div>`;
+    assert.ok(!/>\s*(REQUIRED|IF QUESTIONS)\s*</.test(h), `${fx.id}: NEGATIVE: the flag is not shown (O-175, QA F-05)`);
     // O-152: the row moved from the Departure subcard into the OFP Remarks group (O-153: directly below DDG)
     assert.ok(!dep.includes('Dispatch contact'), `${fx.id}: NEGATIVE: no longer on the Departure subcard`);
     const grp = h.indexOf('<span class="notam-group-label">OFP Remarks</span>');
@@ -609,8 +617,10 @@ fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group belo
     assert.ok(!/<span class="data-label">Dispatch contact<\/span>/.test(imp.app.renderPreflightPhase()), `${fx.id}: no row`);
   }
   const app = loadApp();
-  app.S.dispatchContact = { label: '<b>' };
-  assert.ok(app.renderPreflightPhase().includes('<span class="data-value">&lt;b&gt;</span>'), 'esc()');
+  app._setOfpTexts({ dispatch: '<b>\n&', raim: [] });
+  assert.ok(app.renderPreflightPhase().includes('<span class="data-value">&lt;b&gt;<br>&amp;</span>'), 'esc() on every line');
+  app._setOfpTexts(null); app.S.dispatchContact = { label: '<b>' };
+  assert.ok(!app.renderPreflightPhase().includes('Dispatch contact'), 'NEGATIVE: the flag alone shows no row (O-175, O-183)');
 });
 
 // ══ TC-176-070 / 071 D67b rows ═════════════════════════════════════════════════

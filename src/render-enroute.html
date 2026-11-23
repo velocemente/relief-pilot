@@ -305,7 +305,9 @@ function _natCardTrack() {
 // "FIR XXXX NOTAMs", its text as printed; the Company items FlightKeys keys to that FIR follow in their
 // own collapsed group "Company NOTAMs" directly after it (O-131), never inside it.
 // D76: one collapsed group per Hazard Briefing FIR block that prints a product,
-// never in weather or E-WINS. O-111: one "Other briefing airports" group for the briefing airports
+// never in weather or E-WINS. O-180 (step 5f display): a FIR NOTAMs, Company NOTAMs or FIR Hazards group
+// holding an item the advisory rules flag as volcanic starts open (S.rawIndex open / companyOpen).
+// O-111: one "Other briefing airports" group for the briefing airports
 // that have no card: RAW only, no evaluation. The text is in _rawViews (never saved, O-107).
 function renderEnrouteRaw() {
   const ix = S.rawIndex;
@@ -315,13 +317,13 @@ function renderEnrouteRaw() {
   let h = '';
   (ix.fir || []).forEach((b, k) => {
     const vb = v && Array.isArray(v.fir) ? v.fir[k] : null;
-    h += renderRawGroup(`FIR ${b.code || b.name} NOTAMs`, _rawBody(vb ? vb.raw : null));
+    h += renderRawGroup(`FIR ${b.code || b.name} NOTAMs`, _rawBody(vb ? vb.raw : null), b.open === true);
     // O-131: the Company items keyed to this FIR, their own collapsed group directly after it (D71).
-    if (b.company) h += renderRawGroup('Company NOTAMs', vb ? vb.company.map(t => _rawBody(t)).join('') : _rawBody(null));
+    if (b.company) h += renderRawGroup('Company NOTAMs', vb ? vb.company.map(t => _rawBody(t)).join('') : _rawBody(null), b.companyOpen === true);
   });
   (ix.haz || []).forEach((z, k) => {
     const vz = v && Array.isArray(v.haz) ? v.haz[k] : null;
-    h += renderRawGroup(`FIR ${z.code || z.name} Hazards`, _rawBody(vz ? vz.text : null));
+    h += renderRawGroup(`FIR ${z.code || z.name} Hazards`, _rawBody(vz ? vz.text : null), z.open === true);
   });
   const carded = new Set(getAllAirports().map(a => a.icao));
   const others = Object.keys(ix.apt || {}).filter(icao => !carded.has(icao));

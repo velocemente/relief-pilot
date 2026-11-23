@@ -9,13 +9,15 @@
  *               card's evaluated rows are unchanged, a NavBlue card has no RAW group
  *   TC-177-002  D65 RAW weather TAF -> METAR -> ATIS as printed; NEGATIVE the evaluated weather keeps the reader's
  *               order (METAR first, TAF last) and is not the RAW text
- *   TC-177-003  O-104 / O-112 / D64 per-FIR groups: 221 "FIR XXXX NOTAMs" groups (2 blocks line by line),
+ *   TC-177-003  O-104 / O-112 / D64 per-FIR groups: 221 "FIR XXXX NOTAMs" groups (2 blocks line by line; step 5f
+ *               display, O-180: collapsed unless the advisory rules flag a volcanic item in it),
  *               collapsed; the parser's combined "FIR Company NOTAMs" group is never shown with them; NEGATIVE
  *               NavBlue and pasted FlightKeys text keep the combined group
  *   TC-177-004  D71 / O-40 / O-131 FIR-keyed Company items: 3, each in its own collapsed "Company NOTAMs" group
  *               directly after its FIR group, never inside it; NEGATIVE no Company group for any other block, and no
  *               Company item is in an airport card
- *   TC-177-005  D76 hazards: 155 "FIR XXXX Hazards" groups (the blocks that print a product), collapsed, text as
+ *   TC-177-005  D76 hazards: 155 "FIR XXXX Hazards" groups (the blocks that print a product), collapsed (step 5f
+ *               display, O-180: open when flagged volcanic, L15 WAAF), text as
  *               printed; NEGATIVE the 66 empty blocks have no group; hazard text is never in weather, E-WINS,
  *               remarks weather or an airport's RAW weather
  *   TC-177-006  O-111 "Other briefing airports": one group, 167 airports with no card, 19 with NOTAM text, RAW
@@ -36,7 +38,8 @@
  *   TC-177-024  O-110 MEL / DDG notes: 24 notes, 23 shown (one is under a 25-series item, hidden by the DDG list
  *               as before); the 2 wrapped notes keep their break; NEGATIVE NavBlue items have no notes
  *   TC-177-025  display rules: FA / MX lines and "*" never on the rest chips; TANKER Company item on the
- *               destination card only; perishables banner on the 7 PERISHABLES ONBOARD packages only
+ *               destination card only; perishables banner only when YES is printed (step 5f display, O-182: none on
+ *               the 26; the 7 bare PERISHABLES ONBOARD packages show none)
  *   TC-177-026  remarks weather feeds D-EVAL (synthetic below-minima TAF turns the card red); both weather sources
  *               expandable; NEGATIVE E-WINS stays controlling (L15 PWAK), a report adds no duplicate row; on the
  *               26 no card status changes
@@ -92,6 +95,10 @@ function pasteInto(app, text) {
 const J = JSON.stringify;
 // The parser's own output for an imported package (the same call the app makes).
 const parsed = imp => imp.app._ofpParse(imp.rawText, peek(imp.app, 'pdfPages'));
+// Step 5f display (O-180): the volcanic FIR items and hazard blocks, by the advisory-rules module loaded in Node
+// (the bytes built into the app), on the app's parse; their groups start open, every other one collapsed.
+const ADV = require(path.join(ROOT, 'rules', JSON.parse(fs.readFileSync(path.join(ROOT, 'rules', 'manifest.json'), 'utf8'))['advisory-rules'].file));
+const volcanic = r => ADV.evaluateAdvisories(JSON.parse(JSON.stringify(r))).volcanicFir;
 
 // Rendered HTML helpers: group labels, and each group's body; the text of every .notam-raw-text block, decoded.
 const unesc = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
@@ -196,8 +203,9 @@ fixtureTest('TC-177-003 O-104/O-112/D64: 221 per-FIR groups as printed (2 blocks
     const imp = await imported(fx), r = parsed(imp);
     const g = groups(enrRaw(imp.app)).filter(x => /^FIR \S+ NOTAMs$/.test(x.label));
     assert.deepEqual(g.map(x => x.label), plain(r.firRaw.map(b => `FIR ${b.code} NOTAMs`)), fx.id);
+    const vf = volcanic(r), open = new Set(vf.notams.filter(v => v.origin !== 'COMPANY').map(v => v.block));
     g.forEach((x, k) => {
-      assert.ok(x.hidden, 'collapsed');
+      assert.equal(x.hidden, !open.has(k), `${fx.id} ${r.firRaw[k].code}: collapsed, open when it holds a volcanic item (O-180)`);
       assert.equal(raws(x.body)[0], r.firRaw[k].raw, `${fx.id} ${r.firRaw[k].code}`);
       if (lineChecked < 2 && r.firRaw[k].raw.split('\n').length >= 15) {
         assert.deepEqual(raws(x.body)[0].split('\n'), r.firRaw[k].raw.split('\n'), 'line by line');
@@ -212,6 +220,8 @@ fixtureTest('TC-177-003 O-104/O-112/D64: 221 per-FIR groups as printed (2 blocks
   }
   assert.equal(n, 221);
   assert.equal(lineChecked, 2);
+  assert.equal((await Promise.all(fkFixtures().map(imported))).reduce((a, imp) => a + groups(enrRaw(imp.app)).filter(x => /^FIR \S+ NOTAMs$/.test(x.label) && !x.hidden).length, 0), 12,
+    'O-180: 12 FIR groups open on the 10 packages (PAZA on L02, L03, L09, L14, L16, L18, L19, L20; L06 LIRR, LIBB; L15 WAAF, WIIF)');
   // NEGATIVE: NavBlue (no RAW) keeps its combined group; the 30 print none, so synthetic FIR text; pasted
   // FlightKeys text (D95) too
   for (const fx of nbFixtures()) assert.equal(enrRaw((await imported(fx)).app), '', fx.id);
@@ -266,8 +276,9 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
     // O-152: the group also holds the Dispatch contact row, which every FlightKeys package has: one group on all 26,
     // its printed records (raw blocks) are the same as before
     assert.equal(g.length, 1, `${fx.id}: one group (the Dispatch contact row is always in it)`);
-    // O-164: open with a Security message or a REQUIRED Dispatch contact, otherwise collapsed
-    assert.equal(g[0].hidden, !((imp.S.securityMessages || []).some(Boolean) || imp.S.dispatchContact.label === 'REQUIRED'), `${fx.id}: open / collapsed by O-164`);
+    // O-164 / O-181: open with a Security message or a REQUIRED Dispatch contact; O-179 (step 5f): or a positive VA
+    // remark / a RAIM attention record; otherwise collapsed
+    assert.equal(g[0].hidden, !((imp.S.securityMessages || []).some(Boolean) || imp.S.dispatchContact.label === 'REQUIRED' || ADV.evaluateAdvisories(plain(r)).openOfpRemarks), `${fx.id}: open / collapsed by O-164, O-179`);
     assert.deepEqual(raws(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
     r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => { hidden[x.category] = (hidden[x.category] || 0) + 1; });
     if (!want.length) continue;
@@ -290,6 +301,8 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
   run(imp.app, 'delete S.ofpRemarks');
   assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'O-152: the Dispatch contact row alone keeps the group');
   run(imp.app, 'delete S.dispatchContact; delete S.securityMessages');
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'step 5f (O-175): the printed Dispatch contact text alone keeps the group');
+  imp.app._setOfpTexts(null);
   assert.ok(!labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'nothing to show: no group');
 });
 
@@ -301,7 +314,8 @@ fixtureTest('TC-177-005 D76: 155 hazard groups by FIR, collapsed, as printed; em
     const shown = r.hazards.filter(z => !z.empty);
     empty += r.hazards.length - shown.length;
     assert.deepEqual(g.map(x => x.label), plain(shown.map(z => `FIR ${z.code} Hazards`)), fx.id);
-    g.forEach((x, k) => { assert.ok(x.hidden); assert.deepEqual(raws(x.body), [shown[k].text]); });
+    const hz = new Set(volcanic(r).hazards.map(v => v.index));
+    g.forEach((x, k) => { assert.equal(x.hidden, !hz.has(r.hazards.indexOf(shown[k])), `${fx.id}: collapsed, open when flagged volcanic (O-180)`); assert.deepEqual(raws(x.body), [shown[k].text]); });
     n += g.length;
     // NEGATIVE: no hazard product line reaches airport weather, E-WINS, remarks weather or an airport's RAW weather
     const hazLines = new Set(shown.flatMap(z => z.text.split('\n')).map(l => l.trim()).filter(l => /^(TWC FPG|TWC SIGMET|AIRMET|SIGMET|CONVECTIVE SIGMET)\b/.test(l)));
@@ -556,11 +570,12 @@ fixtureTest('TC-177-025 display rules: no FA/MX, no "*" on the chips; TANKER on 
     assert.equal(chips.length, r.operatingPilots, fx.id);
     assert.ok(chips.every(c => !['FA', 'MX', 'LM', 'PU'].includes(c.role) && !c.isSen), `${fx.id}: no FA/MX line, no senior mark`);
     assert.ok(!/[*\u2605]/.test(imp.app.renderInflightRestModule()), `${fx.id}: "*" never shown`);
-    // perishables: the banner on the packages whose Remarks print PERISHABLES ONBOARD, only those
-    const per = r.ofpRemarks.some(x => x.category === 'perishables');
-    assert.equal(run(imp.app, 'renderNotesSection()').includes('PERISHABLES — SEE SP'), per, fx.id);
+    // perishables (step 5f display, O-182): the banner only when the package prints YES (the parser's hasPerishables);
+    // the 7 packages printing PERISHABLES ONBOARD bare show none
+    assert.equal(run(imp.app, 'renderNotesSection()').includes('PERISHABLES — SEE SP'), r.hasPerishables === true, fx.id);
+    if (r.ofpRemarks.some(x => x.category === 'perishables')) assert.ok(!run(imp.app, 'renderNotesSection()').includes('PERISHABLES — SEE SP'), `${fx.id}: bare PERISHABLES ONBOARD, no banner (O-182)`);
   }
-  assert.equal((await Promise.all(fkFixtures().map(imported))).filter(i => i.S.hasPerishables).length, 7);
+  assert.equal((await Promise.all(fkFixtures().map(imported))).filter(i => i.S.hasPerishables).length, 0);
   // TANKER: MKJP-KMIA carries the Company item MKJP-TANKER; MKJP is the departure → not on its card
   const fx = fkBy(/MKJP-KMIA/), imp = await imported(fx);
   assert.ok(imp.airportData.MKJP.opsNotes.body.includes('SUBJECT: MKJP-TANKER'));
@@ -783,6 +798,8 @@ test('TC-177-041 labels are 1.10.0 (release); no rule module or module text chan
   const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'rules', 'manifest.json'), 'utf8'));
   // Step 5f: the declared *-next keys (not built in, D90) are not this PR's modules
   assert.deepEqual(Object.fromEntries(Object.entries(man).filter(([k]) => !NOT_BUILT_IN.includes(k)).map(([k, v]) => [k, v.version])),
-    { 'notam-rules': '1.14.0', 'ofp-navblue': '2.0.1', 'aircraft-profile': '1.0.0', 'icao-fpl': '1.0.0', 'ofp-flightkeys': '1.0.1', 'nat-rules': '1.2.0' });
-  assert.equal(man['ofp-flightkeys'].sha256, 'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d');
+    { 'notam-rules': '1.14.0', 'ofp-navblue': '2.0.1', 'aircraft-profile': '1.0.0', 'icao-fpl': '1.0.0', 'ofp-flightkeys': '1.1.0', 'nat-rules': '1.2.0', 'advisory-rules': '1.0.0' });
+  // step 5f display: the module PR bytes, moved unchanged
+  assert.equal(man['ofp-flightkeys'].sha256, 'd2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9');
+  assert.equal(man['advisory-rules'].sha256, '8373fb54866a19fbedd7f0547d237046987146e24f9e821cb03863a7f523ebff');
 });

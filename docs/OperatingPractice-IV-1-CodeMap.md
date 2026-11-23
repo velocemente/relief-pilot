@@ -95,3 +95,18 @@ Same 26 parts. FlightKeys RAW views, hazards, FIR labels, FIR-keyed Company item
 | `src/render-enroute.html` | `renderEnrouteRaw()`; `renderEnroutePhase()` Route NOTAMs | "FIR XXXX NOTAMs", then its own "Company NOTAMs" group (O-131), "FIR XXXX Hazards", "Other briefing airports" |
 | `src/render-preflight.html` | `renderPreflightPhase()` Departure subcard | D45 Security row; O-127 "OFP Remarks" group |
 | `src/render-descent.html` | `_ddgNotesHtml`; `renderNotesSection()`, `renderDescentPhase()`, `renderDescentAirportSummary()` | MEL / DDG notes; permits with ADC; CAT II/III restriction rows |
+
+## Step 5f display (the integration PR)
+
+27 parts (18,865 lines). `rules/ofp-flightkeys` **v1.1.0** (contract 2.5; ~8823–11889) replaces v1.0.1 (frozen in `test/oracle`); `rules/advisory-rules` **v1.0.0** (~11890–12219, global `AdvisoryRules`) is built in between the two format parsers, so `rules/ofp-navblue` (~12220) stays just above `src/ofp-parse.html` (~13854, D47 / D118). No `*-next` key. The new code lives here:
+
+| Part | Function | What |
+|---|---|---|
+| `src/ofp-parse.html` | `_ofpAdvisories`; `parseOFP()` | the advisory rules on the format parser's result, after it (O-173 A); their WARNs after the parser's findings on OFP Alerts (O-177 / O-178, D92 / D125); `S.ofpRemarksOpen` (O-179, a flag) |
+| `src/ofp-parse.html` | `_ofpRemarkTexts` | the printed Dispatch contact text(s) (O-175, O-183) and the RAIM attention records (O-171, D115) of the OFP Remarks group — held in `_ofpTexts`, never saved (D107) |
+| `src/ofp-parse.html` | `_ofpVolcanicOpen`, `_ofpRawIndex`, `_ofpRawViews` | O-180: `open` / `companyOpen` flags on `S.rawIndex.fir[]`, `open` on `S.rawIndex.haz[]` (codes and flags only) |
+| `src/state.html` | `_ofpTexts`; `resetStateForNewFlight()` | the unsaved texts; `S.ofpRemarksOpen` cleared on a new flight |
+| `src/storage.html` | `_ofpRederive`, `_rawMissing`, `_ofpTextsFlagged` | the texts re-derived from the stored PDF when a flight is opened; O-184: none to rebuild from (no stored PDF, pasted text) → `_ofpTexts = { missing: true }` when a flag is saved |
+| `src/ofp-parse.html` | `parseOFP()` | O-184: `S.dispatchPrinted`, `S.raimAttention` (flags only, set when true; no text, D107) |
+| `src/render-preflight.html` | `renderOfpRemarksGroup()` | the Dispatch contact row as printed (no REQUIRED / IF QUESTIONS, O-175); RAIM records after the O-127 records; open by O-181 or O-179; O-184: a flagged row that cannot be rebuilt shows the existing RAW-missing line in its place |
+| `src/render-enroute.html` | `renderEnrouteRaw()` | FIR NOTAMs / Company NOTAMs / FIR Hazards groups open by the O-180 flags |
