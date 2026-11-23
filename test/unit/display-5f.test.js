@@ -326,7 +326,7 @@ fixtureTest('TC-182-020 O-175 / O-183: the Dispatch contact row as printed on al
   assert.equal(dispatchRow(none.app.renderPreflightPhase()), null, 'no Contact Dispatch printed → no row');
   const rem = await synth({});
   assert.equal(rem.S.dispatchContact, null, 'no Company line: no label');
-  assert.equal(dispatchRow(rem.app.renderPreflightPhase()), null, 'DEF-013: the boilerplate remark alone → no row; its text is not shown');
+  assert.equal(dispatchRow(rem.app.renderPreflightPhase()), 'Review OFP', 'Exec ruling: a Contact Dispatch remark printed, no label → "Review OFP"; its text is not shown');
   assert.ok(!rem.app.renderPreflightPhase().includes(escH(S5.BOILER[0])), 'NEGATIVE: the boilerplate line is nowhere on the card');
 });
 
@@ -404,7 +404,7 @@ fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF 
   assert.ok(!JSON.stringify(sa).includes('PRN 12') && !JSON.stringify(sa).includes('Contact Dispatch with'), 'D107: flags, no text');
   const am = await reopened(a.app, synthDoc({ raim: OUTAGE }), { pdf: false });
   const g = remarksGroup(am);
-  assert.equal(dispatchRow(am.renderPreflightPhase()), null, 'no Company line, no label: no Dispatch contact row (DEF-013)');
+  assert.equal(dispatchRow(am.renderPreflightPhase()), 'Review OFP', 'no label, the remark flagged as printed (PDF missing): "Review OFP"');
   assert.ok(g.body.includes(MISS_PRE) && !g.body.includes('PRN 12'), 'the RAIM record\'s place');
   assert.equal(g.hidden, false, 'open (O-179, saved flag)');
   // NEGATIVE: the RAIM flag not set → no line for it; with the PDF → the RAIM record, no line
@@ -418,7 +418,7 @@ fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF 
   assert.deepEqual([sp.dispatchPrinted, sp.raimAttention, 'rawIndex' in sp], [true, true, false], 'pasted: flags, no RAW index');
   assert.ok(raws(remarksGroup(p).body).includes(OUTAGE.join('\n')), 'at import: the record as printed');
   const pr = await reopened(p, synthDoc({}), { pdf: false });
-  assert.equal(dispatchRow(pr.renderPreflightPhase()), null);
+  assert.equal(dispatchRow(pr.renderPreflightPhase()), 'Review OFP');
   assert.ok(remarksGroup(pr).body.includes(MISS_PRE));
   // NEGATIVE: nothing printed (no Contact Dispatch, PASSED) → no flag, no line, no group text
   const z = await synth({ boiler: [] });
@@ -483,7 +483,7 @@ test('TC-182-030 SYNTHETIC RAIM (O-171, D115): attention record in the OFP Remar
   // an outage, no PASSED form: the remark as printed, in the group, which opens (O-179); no OFP Alerts line
   const a = await synth({ raim: OUTAGE });
   assert.equal(a.S.dispatchContact, null, 'no Company line: no short-form flag, O-181 does not open the group');
-  assert.equal(dispatchRow(a.app.renderPreflightPhase()), null, 'DEF-013: no label, so no Dispatch contact row; the printed remark is not shown');
+  assert.equal(dispatchRow(a.app.renderPreflightPhase()), 'Review OFP', 'no label, a remark printed: "Review OFP"; the printed remark is not shown');
   assert.ok(!a.app.renderPreflightPhase().includes(escH(S5.BOILER[0])), 'NEGATIVE: the Contact Dispatch remark text is nowhere on the card');
   let g = remarksGroup(a.app);
   assert.ok(raws(g.body).includes(OUTAGE.join('\n')), 'the RAIM remark as printed, line breaks kept');
@@ -497,11 +497,12 @@ test('TC-182-030 SYNTHETIC RAIM (O-171, D115): attention record in the OFP Remar
   // NEGATIVE: PASSED + outage → no RAIM output; the group by O-181 only (collapsed here)
   const p = await synth({ raim: ['RAIM VALIDATION PASSED', ...OUTAGE] });
   g = remarksGroup(p.app);
-  assert.equal(g, null, 'PASSED printed → no RAIM record shown; nothing else for the group (no label, no security, no advisory flag): no group');
+  assert.ok(!raws(g.body).some(t => /RAIM/.test(t)), 'PASSED printed → no RAIM record shown');
+  assert.equal(g.hidden, true, 'collapsed (no security, no short form, no advisory flag)');
   assert.equal(p.S.ofpRemarksOpen, undefined);
   // NEGATIVE: the PASSED form alone → nothing
   const q = await synth({});
-  assert.equal(remarksGroup(q.app), null, 'the PASSED form alone: no RAIM record, no group');
+  assert.ok(!raws(remarksGroup(q.app).body).some(t => /RAIM/.test(t)) && remarksGroup(q.app).hidden);
   // a flagged remark the group shows already (an extra-fuel record, a security message naming RAIM; QA F-01: they keep
   // their category) is not shown twice; its RAIM attention still opens the group (O-179)
   for (const [line, cat] of [['EXTRA FUEL 001500 FOR GPS RAIM OUTAGE AT KBBB', 'extraFuel'], ['SECURITY LEVEL 2 RAIM', 'security']]) {
@@ -529,7 +530,7 @@ test('TC-182-031 SYNTHETIC volcanic ash (O-170, O-177, O-178, O-179): the WARNs 
   h = b.app.renderPreflightPhase();
   assert.ok(!alertLines(h).some(l => /VOLCANIC/.test(l)), 'NEGATIVE: no VA line (O-170, Exec-decided hide)');
   assert.equal(b.S.ofpRemarksOpen, undefined);
-  assert.equal(remarksGroup(b.app), null, 'no group (nothing for it to show, DEF-013)');
+  assert.equal(remarksGroup(b.app).hidden, true);
   // positive remark, no advisory (no VA page) → the routing WARN
   const c = await synth({ remarks: [S5.BL, POS, S5.BL] });
   assert.deepEqual(alertLines(c.app.renderPreflightPhase()).filter(l => /VOLCANIC/.test(l)), [ROUTING]);

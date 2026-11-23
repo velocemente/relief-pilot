@@ -148,7 +148,7 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   assert.ok(!h.includes('OFP Remarks') && !h.includes('Dispatch contact'), 'nothing to show: no group');
   // DEF-013: a value that is not a label shows no row, and the printed text is never shown; DEF-014: a remark is escaped, line by line
   dispatch(app, { label: '<b>' }, '<b>\nLINE 2');
-  assert.ok(!app.renderPreflightPhase().includes('Dispatch contact') && !app.renderPreflightPhase().includes('LINE 2'), 'NEGATIVE: no row, no printed text');
+  assert.ok(app.renderPreflightPhase().includes(ROW_D('Review OFP')) && !app.renderPreflightPhase().includes('LINE 2') && !app.renderPreflightPhase().includes('<b>'), 'not a label: "Review OFP", no printed text');
   dispatch(app, null); app.S.ofpRemarks = [{ text: '<b>\nLINE 2' }];
   assert.ok(app.renderPreflightPhase().includes(REMARK('&lt;b&gt;<br>LINE 2')), 'esc() on every line of a remark');
   app.S.ofpRemarks = [];
@@ -539,5 +539,31 @@ fixtureTest('DEF-013 / DEF-014: the OFP Remarks group on the 26 FlightKeys packa
     const h = (await imported(fx)).app.renderPreflightPhase();
     assert.equal(h.split('class="notes-section-title"').length - 1, 1, `${fx.id}: one NOTES heading`);
     assert.ok(!h.includes('OFP Remarks') && !h.includes('notam-item-label'), `${fx.id}: NavBlue has no OFP Remarks group`);
+  }
+});
+
+// ══ Exec ruling before merge: a Contact Dispatch remark printed but no label → "Review OFP" ════════════════
+test('Review OFP (synthetic): a printed Contact Dispatch remark with no label shows the row "Dispatch contact | Review OFP"; NEGATIVE: nothing printed → no row; a label wins', () => {
+  const app = loadApp();
+  const row = () => { const m = app.renderPreflightPhase().match(/<span class="data-label">Dispatch contact<\/span><span class="data-value">([^<]*)<\/span>/); return m ? m[1] : null; };
+  // POSITIVE: the remark text is printed (held in memory), no label → the safe-side row; the group exists, closed (the open state is unchanged)
+  dispatch(app, null); app._setOfpTexts({ dispatch: 'SYNTHETIC CONTACT DISPATCH LINE', raim: [] });
+  assert.equal(row(), 'Review OFP');
+  assert.ok(app.renderPreflightPhase().includes(GROUP_HDR) && app.renderPreflightPhase().includes('<div class="notam-group-body" hidden>'), 'the group, collapsed');
+  assert.ok(!app.renderPreflightPhase().includes('SYNTHETIC CONTACT DISPATCH LINE'), 'the printed text is not shown');
+  // POSITIVE: a reopened flight whose remark cannot be rebuilt (no stored PDF) but whose flag says it was printed
+  app._setOfpTexts(null); app.S.dispatchPrinted = true;
+  assert.equal(row(), 'Review OFP', 'the saved flag counts as printed');
+  // NEGATIVE: nothing printed (no text, no flag, no label) → no row, no group
+  app.S.dispatchPrinted = undefined; dispatch(app, null);
+  assert.equal(row(), null);
+  assert.ok(!app.renderPreflightPhase().includes('OFP Remarks'));
+  // NEGATIVE: an empty or blank printed text is not a remark → no row
+  for (const t of ['', '  \n ']) { app._setOfpTexts({ dispatch: t, raim: [] }); assert.equal(row(), null, JSON.stringify(t)); }
+  // NEGATIVE: a label wins over "Review OFP", and REQUIRED still opens the group
+  for (const [l, open] of [['REQUIRED', true], ['IF QUESTIONS', false]]) {
+    dispatch(app, { label: l }); app._setOfpTexts({ dispatch: 'SYNTHETIC CONTACT DISPATCH LINE', raim: [] });
+    assert.equal(row(), l, 'the label, not "Review OFP"');
+    assert.equal(app.renderPreflightPhase().includes('<div class="notam-group-body" hidden>'), !open, `${l}: open state as before`);
   }
 });

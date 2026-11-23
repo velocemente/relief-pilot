@@ -303,8 +303,10 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
   run(imp.app, 'delete S.ofpRemarks');
   assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'O-152: the Dispatch contact row alone keeps the group');
   run(imp.app, 'delete S.dispatchContact; delete S.securityMessages');
-  assert.ok(!labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'DEF-013: the printed Dispatch contact text alone shows nothing: no group');
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'Exec ruling: the printed Dispatch contact text alone (no label) keeps the group, with "Review OFP"');
   imp.app._setOfpTexts(null);
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'the saved flag alone (text not rebuilt) still says "Review OFP"');
+  run(imp.app, 'delete S.dispatchPrinted');
   assert.ok(!labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'nothing to show: no group');
 });
 
@@ -697,7 +699,7 @@ fixtureTest('TC-177-031 O-118: navlog after reload — an ETP time read from the
 fixtureTest('TC-177-032 O-113: an old save loads safely (missing fields not shown); the save is smaller than before', async () => {
   const fx = fkBy(/LLBG-OMDW/), imp = await imported(fx);
   const st = plain(imp.S);
-  for (const k of ['ofpFormat', 'rawIndex', 'securityMessages', 'permits', 'catIiIiiRestrictions', 'ofpRemarks', 'dispatchContact']) delete st[k];   // O-152: the Dispatch contact row is in the OFP Remarks group now
+  for (const k of ['ofpFormat', 'rawIndex', 'securityMessages', 'permits', 'catIiIiiRestrictions', 'ofpRemarks', 'dispatchContact', 'dispatchPrinted']) delete st[k];   // an old save has no 5f flag   // O-152: the Dispatch contact row is in the OFP Remarks group now
   const apt = plain(imp.airportData);
   Object.values(apt).forEach(a => { delete a.remarks; delete a.remarksWeather; });
   const app = loadApp({ storageData: { rp_flights: [{ id: 'f_old', fltNum: st.fltNum, date: st.date, at: '2026-11-01T00:00:00.000Z', state: st, aptData: apt }] } });

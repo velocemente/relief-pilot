@@ -170,7 +170,7 @@ fixtureTest('TC-176-010 data path, 26 FlightKeys + 30 NavBlue: copied fields = t
 // A flight as main (before this PR) saved it: no new fields, the OFP's crew records (synthetic names).
 function oldSave(imp) {
   const st = plain(imp.S);
-  for (const k of ['operatingPilots', 'dispatchContact', 'natMessages', 'dateEnteredByCrew']) delete st[k];
+  for (const k of ['operatingPilots', 'dispatchContact', 'natMessages', 'dateEnteredByCrew', 'dispatchPrinted']) delete st[k];   // an old save has no 5f flag
   st.crewMembers = [
     { role: 'CA', empNum: '000001', lastName: 'SYNTHETICA', initial: 'A', displayName: 'SYNTHETICA A', active: true, isSen: false },
     { role: 'FO', empNum: '000002', lastName: 'SYNTHETICB', initial: 'B', displayName: 'SYNTHETICB B', active: false, isSen: true },
@@ -618,7 +618,7 @@ fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group belo
   }
   const app = loadApp();
   app._setOfpTexts({ dispatch: '<b>\n&', raim: [] });
-  assert.ok(!app.renderPreflightPhase().includes('Dispatch contact') && !app.renderPreflightPhase().includes('&lt;b&gt;'), 'NEGATIVE: the printed text alone shows no row (DEF-013)');
+  assert.ok(app.renderPreflightPhase().includes('<span class="data-value">Review OFP</span>') && !app.renderPreflightPhase().includes('&lt;b&gt;'), 'POSITIVE: a remark printed, no label → "Review OFP"; the text is not shown');
   app._setOfpTexts(null); app.S.dispatchContact = { label: '<b>' };
   assert.ok(!app.renderPreflightPhase().includes('Dispatch contact') && !app.renderPreflightPhase().includes('<b>'), 'NEGATIVE: a value that is not a label shows no row');
   app.S.dispatchContact = { label: 'IF QUESTIONS' };
