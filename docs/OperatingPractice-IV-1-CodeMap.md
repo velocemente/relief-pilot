@@ -110,3 +110,14 @@ Same 26 parts. FlightKeys RAW views, hazards, FIR labels, FIR-keyed Company item
 | `src/ofp-parse.html` | `parseOFP()` | O-184: `S.dispatchPrinted`, `S.raimAttention` (flags only, set when true; no text, D107) |
 | `src/render-preflight.html` | `renderOfpRemarksGroup()` | the Dispatch contact row as printed (no REQUIRED / IF QUESTIONS, O-175); RAIM records after the O-127 records; open by O-181 or O-179; O-184: a flagged row that cannot be rebuilt shows the existing RAW-missing line in its place |
 | `src/render-enroute.html` | `renderEnrouteRaw()` | FIR NOTAMs / Company NOTAMs / FIR Hazards groups open by the O-180 flags |
+
+## DEF-013 integration (Dispatch contact, ofp-flightkeys v1.1.1)
+
+`rules/ofp-flightkeys` **v1.1.1** (contract 2.5) replaces v1.1.0 (frozen in `test/oracle/ofp-flightkeys-v1.1.0.js`); the `ofp-flightkeys-next` key and folder are gone. Same 27 parts and build order. The module gives `dispatchContact = { category: 'REQUIRED' | 'SUGGESTION', remark }` or `null`; the app no longer reads `.label` / `.text`. Where it lives:
+
+| Part | Function | What |
+|---|---|---|
+| `src/ofp-parse.html` | `_ofpDispatchContact` | `S.dispatchContact = { category }` or `null` (the category only is saved) |
+| `src/ofp-parse.html` | `_ofpRemarkTexts` | `{ dispatch, dispatchCategory, raim }`: the remark exactly as the module gives it, held in `_ofpTexts`, never saved (D107) |
+| `src/render-preflight.html` | `renderOfpRemarksGroup()` | the row "Dispatch contact \| remark" (no `dispatchContact` → no row); "Review OFP Remarks" when the stored PDF cannot be read and a Dispatch contact was flagged; the group opens on category REQUIRED (D123) or a Security message, SUGGESTION does not |
+| `src/storage.html` | `_dispatchFlagged`, `_ofpRederive` | a save of 1.10.0 (`{ label }`, old shape) counts as flagged and is re-read from its stored PDF on open; the old shape is never read |

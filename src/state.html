@@ -344,7 +344,7 @@ const S = {
   blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
   crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
   // Step 5e-2 display PR 1: operatingPilots (D62: the pilot count, no names), dispatchContact
-  // ({label} REQUIRED / IF QUESTIONS, D72), natMessages ([{tmi, direction, selected, track}],
+  // ({category} REQUIRED / SUGGESTION, DEF-013; a save of 1.10.0 holds {label}), natMessages ([{tmi, direction, selected, track}],
   // D85: parsed tracks, no message text), dateEnteredByCrew (D57). A flight saved before has
   // none of them: that item is not shown (O-113).
   operatingPilots:null, dispatchContact:null, natMessages:[], dateEnteredByCrew:false,

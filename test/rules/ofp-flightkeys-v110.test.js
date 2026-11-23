@@ -5,12 +5,15 @@
  * Extraction only (D88): the advisory-rules engine (module PR B) decides what the crew is told. Step 5f display
  * (the integration PR): moved from rules/ofp-flightkeys-next to rules/ofp-flightkeys (bytes unchanged) and built
  * in; v1.0.1 left rules/ (frozen copy test/oracle/ofp-flightkeys-v1.0.1.js). The display is TC-182.
+ * DEF-013 integration: v1.1.1 replaced v1.1.0, which left rules/ (frozen copy test/oracle/ofp-flightkeys-v1.1.0.js,
+ * SHA-256 d2e1d7a1…); the tests below pin v1.1.0's behaviour on that frozen copy.
  *
- *   TC-180-001  identity: v1.1.0, contract 2.5, key ofp-flightkeys (file, SHA-256; was ofp-flightkeys-next);
- *               v1.0.1 out of rules/, frozen in test/oracle byte for byte (SHA-256 a307b185…); no *-next key;
- *               the other modules' bytes as pinned; a changed byte is caught (negative)
- *   TC-180-002  built in (step 5f display): index.html carries v1.1.0 once and no byte-run of v1.0.1; no -next
- *               module in build/build.js; build = index.html; labels 1.10.0 unchanged (rule 9)
+ *   TC-180-001  identity: v1.1.0, contract 2.5, frozen in test/oracle byte for byte (SHA-256 d2e1d7a1…; built in under
+ *               ofp-flightkeys from step 5f display to the DEF-013 integration, which replaced it with v1.1.1); v1.0.1
+ *               frozen too (SHA-256 a307b185…); no *-next key; the other modules' bytes as pinned; a changed
+ *               byte is caught (negative)
+ *   TC-180-002  replaced (DEF-013 integration): index.html carries v1.1.1 once and no byte-run of v1.1.0 or v1.0.1;
+ *               no -next module in build/build.js; build = index.html; labels 1.10.0 unchanged (rule 9)
  *   TC-180-003  validateSchema(): valid; EXTENSION_FIELDS = v1.0.1's plus volcanicAsh before sections;
  *               NEGATIVE: the retired '5d' step and a 19-field list are refused
  *   TC-180-004  the code differs from v1.0.1 only where declared: every top-level declaration byte-identical
@@ -83,11 +86,14 @@ const S5 = require('../lib/fk-synth');
 const ROOT     = path.resolve(__dirname, '..', '..');
 const RULES    = path.join(ROOT, 'rules');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), 'utf8'));
-const NEW_FILE = path.join(RULES, MANIFEST['ofp-flightkeys'].file);
+// DEF-013 integration: v1.1.1 replaced v1.1.0 under the key ofp-flightkeys; v1.1.0 is frozen in test/oracle.
+const NEW_FILE = path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.1.0.js');
+const BUILT_FILE = path.join(RULES, MANIFEST['ofp-flightkeys'].file);   // v1.1.1, built in
+const BUILT_SRC  = fs.readFileSync(BUILT_FILE, 'utf8');
 const OLD_FILE = path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.0.1.js');
 const NEW_SRC  = fs.readFileSync(NEW_FILE, 'utf8');
 const OLD_SRC  = fs.readFileSync(OLD_FILE, 'utf8');
-const mod      = require(NEW_FILE);    // v1.1.0
+const mod      = require(NEW_FILE);    // v1.1.0, frozen (built in from step 5f display to the DEF-013 integration)
 const v101     = require(OLD_FILE);    // v1.0.1, frozen (built in until step 5f display)
 const OPTS     = {
   icaoFpl:         require(path.join(RULES, MANIFEST['icao-fpl'].file)),
@@ -107,18 +113,17 @@ const warnsOf  = r => r.findings.filter(x => x.level === 'WARN');
 
 // ══ TC-180-001 … 005 module ══════════════════════════════════════════════════════════════════════
 
-test('TC-180-001 identity: v1.1.0, contract 2.5, under ofp-flightkeys (was ofp-flightkeys-next); v1.0.1 frozen in test/oracle; others as pinned; a changed byte is caught', () => {
+test('TC-180-001 identity: v1.1.0, contract 2.5, frozen in test/oracle (replaced by v1.1.1 under ofp-flightkeys); v1.0.1 frozen; others as pinned; a changed byte is caught', () => {
   assert.deepEqual([mod.RULESET_TYPE, mod.OFP_FORMAT, mod.RULESET_VERSION, mod.SCHEMA_VERSION, mod.CONTRACT_VERSION], ['ofp', 'flightkeys', '1.1.0', 2, '2.5']);
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
-  assert.deepEqual([e.version, e.file], ['1.1.0', 'ofp-flightkeys/ofp-flightkeys-v1.1.0.js']);
-  assert.equal(sha(fs.readFileSync(NEW_FILE)), e.sha256, 'the module file = the manifest SHA-256');
-  assert.equal(e.sha256, 'd2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9', 'the bytes of the module PR (#77) = the Drive master, moved unchanged');
-  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.0.js'], 'one module file in rules/ofp-flightkeys (v1.0.1 out)');
-  // DEF-013 module PR: v1.1.1 waits under ofp-flightkeys-next (declared); v1.1.0 here is unchanged
-  assert.deepEqual(NOT_BUILT_IN, ['ofp-flightkeys-next'], 'the one declared *-next key (D96): ofp-flightkeys v1.1.1');
-  assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), NOT_BUILT_IN, 'no *-next key but the declared one');
-  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys-next')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.1.js']);
+  assert.equal(sha(fs.readFileSync(NEW_FILE)), 'd2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9', 'test/oracle/ofp-flightkeys-v1.1.0.js = the v1.1.0 bytes of the module PR (#77) = the Drive master');
+  assert.deepEqual([e.version, e.file], ['1.1.1', 'ofp-flightkeys/ofp-flightkeys-v1.1.1.js'], 'DEF-013 integration: v1.1.1 replaced v1.1.0 under ofp-flightkeys');
+  assert.equal(sha(fs.readFileSync(BUILT_FILE)), e.sha256, 'the module file = the manifest SHA-256');
+  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.1.js'], 'one module file in rules/ofp-flightkeys (v1.1.0 and v1.0.1 out)');
+  assert.deepEqual(NOT_BUILT_IN, [], 'no *-next key declared (DEF-013 integration)');
+  assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), [], 'no *-next key');
+  assert.ok(!fs.existsSync(path.join(RULES, 'ofp-flightkeys-next')), 'no rules/ofp-flightkeys-next');
   // v1.0.1: out of rules/, its frozen copy byte for byte
   assert.equal(sha(fs.readFileSync(OLD_FILE)), 'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d', 'test/oracle/ofp-flightkeys-v1.0.1.js = the v1.0.1 bytes');
   assert.equal(v101.RULESET_VERSION, '1.0.1');
@@ -142,8 +147,10 @@ test('TC-180-001 identity: v1.1.0, contract 2.5, under ofp-flightkeys (was ofp-f
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-180-002 built in (step 5f display): index.html carries v1.1.0 once, no v1.0.1; build = index.html; labels 1.10.0', () => {
-  assert.equal(HTML.split(NEW_SRC).length, 2, 'index.html carries v1.1.0 once, byte for byte');
+test('TC-180-002 replaced (DEF-013 integration): index.html carries v1.1.1 once, no v1.1.0, no v1.0.1; build = index.html; labels 1.10.0', () => {
+  assert.equal(HTML.split(BUILT_SRC).length, 2, 'index.html carries v1.1.1 once, byte for byte');
+  assert.ok(!HTML.includes(NEW_SRC), 'v1.1.0 not in index.html');
+  assert.ok(!HTML.includes("const RULESET_VERSION  = '1.1.0';"), 'no v1.1.0 version line');
   assert.ok(!HTML.includes(OLD_SRC.slice(0, 600)), 'v1.0.1 header not in index.html');
   assert.ok(!HTML.includes("const RULESET_VERSION  = '1.0.1';"), 'v1.0.1 not in index.html');
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
@@ -378,7 +385,7 @@ fixtureTest('TC-180-014 perishables on the 26 (O-129, O-176 f, O-182): 7 print P
 fixtureTest('TC-180-015 pinned values on all 26 (expected/ofp-flightkeys-v1.1.0/changes.json), made with this module', () => {
   const pin = JSON.parse(fs.readFileSync(path.join(FIX, EXPECTED_FILE), 'utf8'));
   assert.equal(pin.module.version, '1.1.0');
-  assert.equal(pin.module.sha256, MANIFEST['ofp-flightkeys'].sha256, 'the pinned values were made with this module');
+  assert.equal(pin.module.sha256, sha(fs.readFileSync(NEW_FILE)), 'the pinned values were made with this module (v1.1.0, frozen in test/oracle)');
   assert.deepEqual(Object.keys(pin.packages).sort(), fk().map(p => p.fx.id).sort());
   const minus = (x, y) => { const left = y.map(j); return x.map((f, i) => [i, f]).filter(([, f]) => { const k = left.indexOf(j(f)); if (k < 0) return true; left.splice(k, 1); return false; }).map(([i, f]) => [i, f.level, f.field, f.message]); };
   for (const p of fk()) {
@@ -593,17 +600,22 @@ test('TC-180-050 SYNTHETIC Dispatch contact (O-175): every variant as printed, e
 
 // ══ TC-180-060 / 061 / 090 the app ═══════════════════════════════════════════════════════════════
 
-// Step 5f display: the committed app carries v1.1.0; HTML_V101 is it with v1.0.1 put back (in memory).
-const HTML_V110 = HTML;
+// DEF-013 integration: the committed app carries v1.1.1; HTML_V110 is it with v1.1.0 put back (in memory, the app
+// from step 5f display to now), HTML_V101 with v1.0.1 put back. Both keep the committed app code of src/, which reads
+// category / remark (a v1.1.0 or v1.0.1 dispatchContact has neither: no Dispatch contact row, S.dispatchContact null).
+const HTML_V110 = (() => {
+  assert.equal(HTML.split(BUILT_SRC).length, 2);
+  return HTML.replace(BUILT_SRC, () => NEW_SRC);
+})();
 const HTML_V101 = (() => {
-  assert.equal(HTML.split(NEW_SRC).length, 2);
-  return HTML.replace(NEW_SRC, () => OLD_SRC);
+  assert.equal(HTML.split(BUILT_SRC).length, 2);
+  return HTML.replace(BUILT_SRC, () => OLD_SRC);
 })();
 
-fixtureTest('TC-180-060 NavBlue identical, 30 of 30: _ofpRulesetParse of the committed app (v1.1.0) = the golden snapshots; a changed value is caught', () => {
+fixtureTest('TC-180-060 NavBlue identical, 30 of 30: _ofpRulesetParse of the committed app (v1.1.1) = the golden snapshots; a changed value is caught', () => {
   const nb = readManifest(FIX).fixtures.filter(f => f.format !== 'flightkeys');
   assert.equal(nb.length, 30);
-  const app = loadApp({ html: HTML_V110 });
+  const app = loadApp({ html: HTML });
   let first = null;
   for (const fx of nb) {
     const raw = fs.readFileSync(path.join(FIX, fx.files.text), 'utf8');
@@ -619,7 +631,7 @@ fixtureTest('TC-180-060 NavBlue identical, 30 of 30: _ofpRulesetParse of the com
   assert.ok(diff(bad, first.snap).length > 0, 'NEGATIVE: a changed value is caught');
 });
 
-fixtureTest('TC-180-061 the committed app (v1.1.0) against v1.0.1 put back, all 26: cards and stored flight equal but the findings, hasPerishables on the 7 bare packages (O-182) and the Dispatch contact row (O-175)', async () => {
+fixtureTest('TC-180-061 the app with v1.1.0 put back against v1.0.1 put back (in memory), all 26: cards and stored flight equal but the findings, hasPerishables on the 7 bare packages (O-182) and the Dispatch contact row (O-175)', async () => {
   const strip = s => { const o = JSON.parse(JSON.stringify(s)); delete o.ofpFindings; return o; };
   // O-175: v1.0.1 carried the Company line only; the row's text is checked in TC-182
   const noDispatch = h => h.replace(/<div class="data-row"><span class="data-label">Dispatch contact<\/span><span class="data-value">[\s\S]*?<\/span><\/div>/g, '');

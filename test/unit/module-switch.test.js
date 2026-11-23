@@ -11,7 +11,8 @@
  *   TC-174-002  rules/manifest.json has no *-next key; v1.13.0 and the v1.1.0 NAT parser are out (O-79).
  *               Step 5e-2 display PR 1 (O-116): the declared exception ofp-flightkeys-next is removed; v1.0.1 is
  *               ofp-flightkeys, built in; any *-next key fails (D96). Step 5f (D90): the declared keys of
- *               test/lib/not-built-in.js (ofp-flightkeys-next v1.1.0), not built in, are the only exception
+ *               test/lib/not-built-in.js (ofp-flightkeys-next v1.1.0), not built in, are the only exception.
+ *               DEF-013 integration: v1.1.1 is ofp-flightkeys, built in; no *-next key is declared
  *   TC-174-003  NAT v1.2.0 built in (D77): window.parseNatTrack = NatRules.parseNatTrack; the renderer is
  *               v1.1.0 + the five declared D85 / O-122 / F-2 / F-3 edits (step 5e-2 display PR 1) + the O-159 edit (step 5e-3) and draws the same card for a
  *               NavBlue object
@@ -142,7 +143,7 @@ test('TC-174-001 build order: every rule module once, in order, before its user;
   assert.equal(MODULES.length, 27);
   for (const k of Object.keys(MANIFEST).filter(k => !NOT_BUILT_IN.includes(k))) assert.equal(HTML.split(ruleSrc(k)).length, 2, `${k}: in index.html once, byte for byte`);
   for (const k of NOT_BUILT_IN) assert.ok(!HTML.includes(ruleSrc(k)), `${k}: not in index.html until its integration PR (D90)`);
-  assert.equal(MANIFEST['ofp-flightkeys'].version, '1.1.0', 'step 5f display: the FlightKeys parser built in is v1.1.0');
+  assert.equal(MANIFEST['ofp-flightkeys'].version, '1.1.1', 'DEF-013 integration: the FlightKeys parser built in is v1.1.1 (v1.1.0 at step 5f display)');
   assert.equal(MANIFEST['advisory-rules'].version, '1.0.0', 'step 5f display: advisory-rules v1.0.0 built in');
   assert.ok(assemble(ROOT).equals(fs.readFileSync(path.join(ROOT, 'index.html'))), 'index.html = node build/build.js output');
   // NEGATIVE: a module twice, a module after its user, two modules swapped
@@ -162,9 +163,9 @@ const manifestProblems = man => Object.entries(man).flatMap(([k, e]) => [
 test('TC-174-002 rules/manifest.json: no *-next key; v1.13.0 and the NAT v1.1.0 parser are out; frozen copies in test/oracle (O-79)', () => {
   // Step 5f (D90, D96): the declared *-next keys of test/lib/not-built-in.js follow the built-in ones; any other fails
   assert.deepEqual(Object.keys(MANIFEST), ['notam-rules', 'ofp-navblue', 'aircraft-profile', 'icao-fpl', 'ofp-flightkeys', 'nat-rules', 'advisory-rules', ...NOT_BUILT_IN]);
-  assert.deepEqual(NOT_BUILT_IN, ['ofp-flightkeys-next'], 'DEF-013 module PR: the one declared *-next key (D96)');
+  assert.deepEqual(NOT_BUILT_IN, [], 'DEF-013 integration: ofp-flightkeys v1.1.1 moved to ofp-flightkeys, no *-next key declared (D96)');
   assert.deepEqual(manifestProblems(MANIFEST), NOT_BUILT_IN.map(k => `${k}: a *-next key`), 'no *-next key but the declared ones (D96)');
-  assert.deepEqual(Object.values(MANIFEST).slice(0, 7).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.1.0', '1.2.0', '1.0.0']);
+  assert.deepEqual(Object.values(MANIFEST).slice(0, 7).map(e => e.version), ['1.14.0', '2.0.1', '1.0.0', '1.0.0', '1.1.1', '1.2.0', '1.0.0']);
   assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)).sort(), NOT_BUILT_IN.slice().sort(), 'no *-next folder but the declared ones');
   assert.ok(!fs.existsSync(path.join(RULES, 'notam-rules', 'notam-rules-v1.13.0.js')), 'v1.13.0 is out of rules/');
   assert.equal(sha(NOTAM13), 'e640b45ce9ecb75675222106b954ef241cf9d7c21fc96e1072b02f0265a6a90b', 'test/oracle: NOTAM v1.13.0 byte for byte');

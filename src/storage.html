@@ -177,9 +177,9 @@ function _rawMissing(seq) {
   if (S.rawIndex || flagged) _rerenderOpen();
 }
 // O-184: the saved flags of the texts the OFP Remarks group shows but the save does not hold (D107).
-// QA F-01: a flight saved under 1.10.0 has no dispatchPrinted but its Dispatch contact label (REQUIRED /
-// IF QUESTIONS, a flag, no text): that label counts as "a Dispatch contact printed". It is never shown (O-175).
-const _dispatchFlagged = () => S.dispatchPrinted === true || !!(S.dispatchContact && S.dispatchContact.label);
+// QA F-01 / DEF-013: a flight saved under 1.10.0 has no dispatchPrinted but its saved dispatchContact (old shape,
+// no text): that counts as "a Dispatch contact printed". The shape of the saved object is not read.
+const _dispatchFlagged = () => S.dispatchPrinted === true || !!S.dispatchContact;
 const _ofpTextsFlagged = () => _dispatchFlagged() || S.raimAttention === true;
 function _rerenderOpen() {
   renderNote();
