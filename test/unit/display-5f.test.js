@@ -99,7 +99,9 @@ const J      = JSON.stringify;
 const run    = (app, expr) => vm.runInContext(expr, app.sandbox);
 const unesc  = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 const escH   = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-const raws   = h => [...h.matchAll(/<pre class="notam-raw-text">([\s\S]*?)<\/pre>/g)].map(m => unesc(m[1]));
+// DEF-014: the OFP Remarks group's records are standard remark items (.notam-item-label, line breaks as <br>); the RAW groups stay <pre>.
+const raws   = h => [...h.matchAll(/<pre class="notam-raw-text">([\s\S]*?)<\/pre>/g)].map(m => unesc(m[1]))
+  .concat([...h.matchAll(/<span class="notam-item-label">([\s\S]*?)<\/span>/g)].map(m => unesc(m[1].replace(/<br>/g, '\n'))));
 // [label, hidden, body] per group drawn by renderRawGroup (header, then one body).
 function groups(h) {
   const re = /<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup\(this\)"><span class="notam-group-label">([^<]*)<\/span>[\s\S]*?<\/div><div class="notam-group-body"( hidden)?>/g;
@@ -170,6 +172,7 @@ function as110(json) {
   }
   return JSON.stringify(f);
 }
+// DEF-013: the Dispatch contact row's value is the label (REQUIRED / IF QUESTIONS); the printed text is never shown.
 const LABEL_SHOWN = h => />\s*(REQUIRED|IF QUESTIONS)\s*</.test(h) || h.includes('IF QUESTIONS');
 
 const VAA = [{ nr: '2026/001', volcano: 'TESTVOLCANO', vaac: 'ANCHORAGE', volcanoNo: '300000' }];
@@ -304,14 +307,14 @@ fixtureTest('TC-182-020 O-175 / O-183: the Dispatch contact row as printed on al
   for (const fx of fkFixtures()) {
     const lbl = LBL[fx.id], imp = await imported(fx), d = ref(fx).r.dispatchContact;
     const h = imp.app.renderPreflightPhase();
-    assert.equal(dispatchRow(h), d.text, `${lbl}: every Contact Dispatch text, as printed`);
+    assert.equal(dispatchRow(h), d.label, `${lbl}: DEF-013: the row's value is the label`);
+    assert.ok(d.text && !h.includes(escH(d.text.split('\n')[0])), `${lbl}: NEGATIVE: the printed Contact Dispatch text is not shown`);
     assert.equal(d.text, [d.company, d.remark].filter(Boolean).join('\n'), `${lbl}: the Company line first, then the remark`);
     if (/^T/.test(lbl)) assert.deepEqual([d.text, d.remark], [d.company, null], `${lbl}: the Company NOTAM line only`);
     forms[d.remark ? 'both' : 'company']++;
-    // no internal label on any screen (O-175, QA F-05)
-    for (const screen of [h, imp.app.renderEnroutePhase(), run(imp.app, 'renderDescentPhase()')]) {
-      assert.ok(!/>\s*(REQUIRED|IF QUESTIONS)\s*</.test(screen), `${lbl}: NEGATIVE: no REQUIRED / IF QUESTIONS element`);
-      assert.ok(!screen.includes('IF QUESTIONS'), `${lbl}: NEGATIVE: no IF QUESTIONS text`);
+    // DEF-013: the label only in the Dispatch contact row of the Preflight card, on no other screen
+    for (const screen of [imp.app.renderEnroutePhase(), run(imp.app, 'renderDescentPhase()')]) {
+      assert.ok(!LABEL_SHOWN(screen), `${lbl}: NEGATIVE: no REQUIRED / IF QUESTIONS on the other phases`);
     }
     // O-181: the open state from the internal flag (and security), as 1.10.0, where no advisory flag is set
     if (!imp.S.ofpRemarksOpen) assert.equal(remarksGroup(imp.app).hidden, !(imp.S.dispatchContact.label === 'REQUIRED' || (imp.S.securityMessages || []).some(Boolean)), lbl);
@@ -322,7 +325,9 @@ fixtureTest('TC-182-020 O-175 / O-183: the Dispatch contact row as printed on al
   assert.equal(none.S.dispatchContact, null);
   assert.equal(dispatchRow(none.app.renderPreflightPhase()), null, 'no Contact Dispatch printed → no row');
   const rem = await synth({});
-  assert.equal(dispatchRow(rem.app.renderPreflightPhase()), S5.BOILER.join('\n'), 'the boilerplate remark, every line, as printed');
+  assert.equal(rem.S.dispatchContact, null, 'no Company line: no label');
+  assert.equal(dispatchRow(rem.app.renderPreflightPhase()), null, 'DEF-013: the boilerplate remark alone → no row; its text is not shown');
+  assert.ok(!rem.app.renderPreflightPhase().includes(escH(S5.BOILER[0])), 'NEGATIVE: the boilerplate line is nowhere on the card');
 });
 
 fixtureTest('TC-182-021 D107: no Dispatch contact or RAIM text in the save; re-derived from the stored PDF; the RAW-missing line without it (O-184); failed save → toast; a 1.10.0 save opens', async () => {
@@ -336,11 +341,12 @@ fixtureTest('TC-182-021 D107: no Dispatch contact or RAIM text in the save; re-d
   // reopened with its stored PDF: re-derived; without it: the RAW-missing line in the row (O-184), the rest as saved
   const fx = fkByLbl('L03'), imp = await imported(fx);
   const a = await reopened(imp.app, readItems(fx));
-  assert.equal(dispatchRow(a.renderPreflightPhase()), ref(fx).r.dispatchContact.text, 'with the PDF: the row re-derived');
+  assert.equal(dispatchRow(a.renderPreflightPhase()), ref(fx).r.dispatchContact.label, 'with the PDF: the label row');
   assert.equal(remarksGroup(a).hidden, false);
   assert.deepEqual(alertLines(a.renderPreflightPhase()).filter(l => /VOLCANIC/.test(l)), [ROUTING], 'the WARN is saved with the flight');
   const n = await reopened(imp.app, readItems(fx), { pdf: false });
-  assert.equal(dispatchRow(n.renderPreflightPhase()), RAW_MISSING, 'without the PDF: the RAW-missing line in its place (O-184)');
+  assert.equal(dispatchRow(n.renderPreflightPhase()), ref(fx).r.dispatchContact.label, 'without the PDF: the same label row (DEF-013: saved with the flight, no RAW line)');
+  assert.ok(!n.renderPreflightPhase().includes(escH(RAW_MISSING)), 'NEGATIVE: no RAW-missing line for the Dispatch contact');
   assert.equal(remarksGroup(n).hidden, false, 'the open flag is saved');
   // a failed save shows the existing toast (O-107)
   const t = loadApp();
@@ -356,8 +362,8 @@ fixtureTest('TC-182-021 D107: no Dispatch contact or RAIM text in the save; re-d
     const o = await reopened(imp.app, readItems(fx), { pdf, saves: JSON.stringify(old) });
     assert.doesNotThrow(() => { o.renderPreflightPhase(); o.renderEnroutePhase(); run(o, 'renderDescentPhase()'); });
     assert.ok(!alertLines(o.renderPreflightPhase()).some(l => /VOLCANIC/.test(l)), '1.10.0 save: its own alerts');
-    assert.equal(dispatchRow(o.renderPreflightPhase()), pdf ? ref(fx).r.dispatchContact.text : RAW_MISSING, `1.10.0 save, PDF ${pdf}: the row re-derived, or the RAW-missing line (QA F-01: its label is the flag)`);
-    assert.ok(!LABEL_SHOWN(o.renderPreflightPhase()), 'never the label (O-175)');
+    assert.equal(dispatchRow(o.renderPreflightPhase()), ref(fx).r.dispatchContact.label, `1.10.0 save, PDF ${pdf}: the label row (DEF-013)`);
+    assert.ok(!o.renderPreflightPhase().includes(escH(RAW_MISSING)), 'NEGATIVE: no RAW-missing line for the Dispatch contact');
   }
 });
 
@@ -370,21 +376,21 @@ function pasted(text) {
 }
 
 fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF (or pasted text) → the RAW-missing line in place of the row; flag not set → nothing', async () => {
-  const MISS_PRE = `<pre class="notam-raw-text">${escH(RAW_MISSING)}</pre>`;
+  const MISS_PRE = `<span class="notam-item-label">${escH(RAW_MISSING)}</span>`;   // DEF-014: a standard remark item
   // the 26: dispatchPrinted on all (every package prints a Contact Dispatch text), raimAttention on none (PASSED)
   for (const fx of fkFixtures()) {
     const st = JSON.parse(savedJson((await imported(fx)).app))[0].state;
     assert.deepEqual([st.dispatchPrinted, st.raimAttention], [true, undefined], LBL[fx.id]);
   }
-  // fixture, flag set, stored PDF missing → the line in the Dispatch contact row (existing row, existing text)
+  // fixture, flag set, stored PDF missing → DEF-013: the label row as with the PDF (the label is saved), no RAW line
   const fx = fkByLbl('L05'), imp = await imported(fx);
   const miss = await reopened(imp.app, readItems(fx), { pdf: false });
   let h = miss.renderPreflightPhase();
-  assert.ok(h.includes(`<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${escH(RAW_MISSING)}</span></div>`), 'the line in the row');
-  assert.equal(h.split(escH(RAW_MISSING)).length - 1, 1, 'once (no RAIM flag on the 26)');
-  // NEGATIVE: with the PDF → the printed text, no line
+  assert.equal(dispatchRow(h), ref(fx).r.dispatchContact.label, 'DEF-013: the label row, no line');
+  assert.ok(!h.includes(escH(RAW_MISSING)), 'no RAW-missing line (the 26 have no RAIM flag)');
+  // NEGATIVE: with the PDF → the same label row, no line
   const ok = await reopened(imp.app, readItems(fx));
-  assert.equal(dispatchRow(ok.renderPreflightPhase()), ref(fx).r.dispatchContact.text);
+  assert.equal(dispatchRow(ok.renderPreflightPhase()), ref(fx).r.dispatchContact.label);
   assert.ok(!ok.renderPreflightPhase().includes(escH(RAW_MISSING)));
   // NEGATIVE: no flag and no label (QA F-01: the label counts as the flag), PDF missing → nothing (no row, no line)
   const noFlag = JSON.parse(savedJson(imp.app)); delete noFlag[0].state.dispatchPrinted; noFlag[0].state.dispatchContact = null;
@@ -398,12 +404,12 @@ fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF 
   assert.ok(!JSON.stringify(sa).includes('PRN 12') && !JSON.stringify(sa).includes('Contact Dispatch with'), 'D107: flags, no text');
   const am = await reopened(a.app, synthDoc({ raim: OUTAGE }), { pdf: false });
   const g = remarksGroup(am);
-  assert.equal(dispatchRow(am.renderPreflightPhase()), RAW_MISSING, 'the Dispatch contact row');
+  assert.equal(dispatchRow(am.renderPreflightPhase()), null, 'no Company line, no label: no Dispatch contact row (DEF-013)');
   assert.ok(g.body.includes(MISS_PRE) && !g.body.includes('PRN 12'), 'the RAIM record\'s place');
   assert.equal(g.hidden, false, 'open (O-179, saved flag)');
   // NEGATIVE: the RAIM flag not set → no line for it; with the PDF → the RAIM record, no line
   const nr = JSON.parse(savedJson(a.app)); delete nr[0].state.raimAttention;
-  assert.ok(!remarksGroup(await reopened(a.app, synthDoc({ raim: OUTAGE }), { pdf: false, saves: JSON.stringify(nr) })).body.includes(MISS_PRE));
+  assert.ok(!(remarksGroup(await reopened(a.app, synthDoc({ raim: OUTAGE }), { pdf: false, saves: JSON.stringify(nr) })) || { body: '' }).body.includes(MISS_PRE));
   const ap = await reopened(a.app, synthDoc({ raim: OUTAGE }));
   assert.ok(raws(remarksGroup(ap).body).includes(OUTAGE.join('\n')) && !remarksGroup(ap).body.includes(escH(RAW_MISSING)));
   // pasted text (no PDF is stored): flags saved; reopened → the line in both places
@@ -412,7 +418,7 @@ fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF 
   assert.deepEqual([sp.dispatchPrinted, sp.raimAttention, 'rawIndex' in sp], [true, true, false], 'pasted: flags, no RAW index');
   assert.ok(raws(remarksGroup(p).body).includes(OUTAGE.join('\n')), 'at import: the record as printed');
   const pr = await reopened(p, synthDoc({}), { pdf: false });
-  assert.equal(dispatchRow(pr.renderPreflightPhase()), RAW_MISSING);
+  assert.equal(dispatchRow(pr.renderPreflightPhase()), null);
   assert.ok(remarksGroup(pr).body.includes(MISS_PRE));
   // NEGATIVE: nothing printed (no Contact Dispatch, PASSED) → no flag, no line, no group text
   const z = await synth({ boiler: [] });
@@ -432,26 +438,25 @@ fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF 
   assert.ok(!('dispatchPrinted' in nb.S) && !('raimAttention' in nb.S));
 });
 
-fixtureTest('TC-182-023 QA F-01: a 1.10.0 save (label, no flag) reopened with no stored PDF shows the OFP Remarks group with the RAW-missing line, never the label; no label + no flag → nothing', async () => {
-  const ROW_MISS = `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${escH(RAW_MISSING)}</span></div>`;
+fixtureTest('TC-182-023 QA F-01 / DEF-013: a 1.10.0 save (label, no flag) reopened with or without the stored PDF shows the OFP Remarks group with the label row, never a RAW-missing line; no label → nothing', async () => {
+  const ROW = l => `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${l}</span></div>`;
   const labels = {};
   for (const lbl of ['L01', 'L05', 'L20', 'T1']) {
     const fx = fkByLbl(lbl), imp = await imported(fx);
     const saves = as110(savedJson(imp.app)), st = JSON.parse(saves)[0].state;
     assert.ok(st.dispatchContact && st.dispatchContact.label && !('dispatchPrinted' in st), `${lbl}: the 1.10.0 shape (label, no flag)`);
     labels[lbl] = st.dispatchContact.label;
-    // no stored PDF → the group is shown, the line in place of the row, once; never the label
+    // no stored PDF → the group is shown with the label row (the label is saved), no RAW-missing line
     const o = await reopened(imp.app, readItems(fx), { pdf: false, saves });
     const h = o.renderPreflightPhase(), g = remarksGroup(o);
     assert.ok(g, `${lbl}: the OFP Remarks group is shown`);
-    assert.ok(g.body.includes(ROW_MISS), `${lbl}: the RAW-missing line in the Dispatch contact row`);
-    assert.equal(h.split(escH(RAW_MISSING)).length - 1, 1, `${lbl}: once`);
-    assert.ok(!LABEL_SHOWN(h), `${lbl}: NEGATIVE: the label is never shown (O-175)`);
-    if (lbl === 'L01') assert.deepEqual(raws(g.body), [], 'L01: the line is the group\'s only content and the group still renders');
-    // with the PDF → the printed text, no line
+    assert.ok(g.body.includes(ROW(st.dispatchContact.label)), `${lbl}: the label in the Dispatch contact row`);
+    assert.ok(!h.includes(escH(RAW_MISSING)), `${lbl}: NEGATIVE: no RAW-missing line`);
+    if (lbl === 'L01') assert.deepEqual(raws(g.body), [], 'L01: the row is the group\'s only content and the group still renders');
+    // with the PDF → the same label row, no line
     const p = await reopened(imp.app, readItems(fx), { saves });
-    assert.equal(dispatchRow(p.renderPreflightPhase()), ref(fx).r.dispatchContact.text, `${lbl}: with the PDF, the printed text`);
-    assert.ok(!p.renderPreflightPhase().includes(escH(RAW_MISSING)) && !LABEL_SHOWN(p.renderPreflightPhase()));
+    assert.equal(dispatchRow(p.renderPreflightPhase()), ref(fx).r.dispatchContact.label, `${lbl}: with the PDF, the label`);
+    assert.ok(!p.renderPreflightPhase().includes(escH(RAW_MISSING)));
     // NEGATIVE: no label and no flag, no PDF → nothing (L01: no group at all)
     const none = JSON.parse(saves); none[0].state.dispatchContact = null;
     const n = await reopened(imp.app, readItems(fx), { pdf: false, saves: JSON.stringify(none) });
@@ -464,8 +469,8 @@ fixtureTest('TC-182-023 QA F-01: a 1.10.0 save (label, no flag) reopened with no
   const p = pasted(S5.input(S5.release({})).text);
   const ps = JSON.parse(as110(savedJson(p))); ps[0].state.dispatchContact = { label: 'IF QUESTIONS' };
   const pr = await reopened(p, synthDoc({}), { pdf: false, saves: JSON.stringify(ps) });
-  assert.ok(remarksGroup(pr).body.includes(ROW_MISS), 'pasted 1.10.0 save: the line');
-  assert.ok(!LABEL_SHOWN(pr.renderPreflightPhase()), 'never the label');
+  assert.ok(remarksGroup(pr).body.includes(ROW('IF QUESTIONS')), 'pasted 1.10.0 save: the label row');
+  assert.ok(!pr.renderPreflightPhase().includes(escH(RAW_MISSING)), 'no RAW-missing line');
   // the open state stays O-181: a REQUIRED label opens the group, IF QUESTIONS alone does not
   const l01 = await imported(fkByLbl('L01'));
   assert.equal(remarksGroup(await reopened(l01.app, readItems(fkByLbl('L01')), { pdf: false, saves: as110(savedJson(l01.app)) })).hidden, false, 'REQUIRED: open');
@@ -478,7 +483,8 @@ test('TC-182-030 SYNTHETIC RAIM (O-171, D115): attention record in the OFP Remar
   // an outage, no PASSED form: the remark as printed, in the group, which opens (O-179); no OFP Alerts line
   const a = await synth({ raim: OUTAGE });
   assert.equal(a.S.dispatchContact, null, 'no Company line: no short-form flag, O-181 does not open the group');
-  assert.equal(dispatchRow(a.app.renderPreflightPhase()), S5.BOILER.join('\n'), 'the printed Contact Dispatch remark is the row');
+  assert.equal(dispatchRow(a.app.renderPreflightPhase()), null, 'DEF-013: no label, so no Dispatch contact row; the printed remark is not shown');
+  assert.ok(!a.app.renderPreflightPhase().includes(escH(S5.BOILER[0])), 'NEGATIVE: the Contact Dispatch remark text is nowhere on the card');
   let g = remarksGroup(a.app);
   assert.ok(raws(g.body).includes(OUTAGE.join('\n')), 'the RAIM remark as printed, line breaks kept');
   assert.equal(g.hidden, false, 'the group open (O-179)');
@@ -491,12 +497,11 @@ test('TC-182-030 SYNTHETIC RAIM (O-171, D115): attention record in the OFP Remar
   // NEGATIVE: PASSED + outage → no RAIM output; the group by O-181 only (collapsed here)
   const p = await synth({ raim: ['RAIM VALIDATION PASSED', ...OUTAGE] });
   g = remarksGroup(p.app);
-  assert.ok(!raws(g.body).some(t => /RAIM/.test(t)), 'PASSED printed → no RAIM record shown');
-  assert.equal(g.hidden, true, 'collapsed (no security, no short form, no advisory flag)');
+  assert.equal(g, null, 'PASSED printed → no RAIM record shown; nothing else for the group (no label, no security, no advisory flag): no group');
   assert.equal(p.S.ofpRemarksOpen, undefined);
   // NEGATIVE: the PASSED form alone → nothing
   const q = await synth({});
-  assert.ok(!raws(remarksGroup(q.app).body).some(t => /RAIM/.test(t)) && remarksGroup(q.app).hidden);
+  assert.equal(remarksGroup(q.app), null, 'the PASSED form alone: no RAIM record, no group');
   // a flagged remark the group shows already (an extra-fuel record, a security message naming RAIM; QA F-01: they keep
   // their category) is not shown twice; its RAIM attention still opens the group (O-179)
   for (const [line, cat] of [['EXTRA FUEL 001500 FOR GPS RAIM OUTAGE AT KBBB', 'extraFuel'], ['SECURITY LEVEL 2 RAIM', 'security']]) {
@@ -524,7 +529,7 @@ test('TC-182-031 SYNTHETIC volcanic ash (O-170, O-177, O-178, O-179): the WARNs 
   h = b.app.renderPreflightPhase();
   assert.ok(!alertLines(h).some(l => /VOLCANIC/.test(l)), 'NEGATIVE: no VA line (O-170, Exec-decided hide)');
   assert.equal(b.S.ofpRemarksOpen, undefined);
-  assert.equal(remarksGroup(b.app).hidden, true);
+  assert.equal(remarksGroup(b.app), null, 'no group (nothing for it to show, DEF-013)');
   // positive remark, no advisory (no VA page) → the routing WARN
   const c = await synth({ remarks: [S5.BL, POS, S5.BL] });
   assert.deepEqual(alertLines(c.app.renderPreflightPhase()).filter(l => /VOLCANIC/.test(l)), [ROUTING]);
