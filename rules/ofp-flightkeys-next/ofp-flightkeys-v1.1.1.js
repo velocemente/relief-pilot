@@ -2422,12 +2422,26 @@ function _readCompany(ctx) {
 //   - a remark record is its lines joined by one space (wrapped lines), cut into sentences at
 //     ". ", "! " or "? " followed by an upper-case letter (so "ext. 12" and "e.g. next" do not cut a sentence);
 //   - a sentence is a Dispatch sentence when it has the words "contact dispatch" or "call dispatch" (any case);
-//   - R2e a sentence telling the crew NOT to contact or call Dispatch ("Do not contact Dispatch", "Don't call
-//     Dispatch", "No need to contact Dispatch", "Contact Dispatch is not required", "Dispatch contact not
-//     required") is not a Dispatch remark: it is ignored — no category, no row, and it counts for neither R2b nor
-//     R2c. The negation must stand directly before "contact / call Dispatch" (or "not required / necessary /
-//     needed" directly after it), so "Do not hesitate to contact Dispatch" or "If you do not have the release,
-//     contact Dispatch" are still Dispatch sentences;
+//     "contact or call Dispatch" / "call or contact Dispatch" are one instruction;
+//   - R2e a sentence telling the crew NOT to contact or call Dispatch is not a Dispatch remark: it is ignored — no
+//     category, no row, and it counts for neither R2b nor R2c ("Do not contact Dispatch", "Do not contact or call
+//     Dispatch", "Crews are not to contact Dispatch", "Do not attempt to contact Dispatch", "No need to contact
+//     Dispatch", "Never call Dispatch", "Contact Dispatch is not required", "Dispatch contact not required").
+//     _dispatchIsNegative() reads the words before the instruction (the prefix), whatever words sit between the
+//     negation and "Dispatch":
+//       1. the prefix ENDS in a negation followed only by filler words (to, attempt, try, need, have, be, required,
+//          allowed, …): "do not", "are not to", "do not attempt to", "no need to", "never";
+//       2. or the sentence BEGINS with an imperative negation (do not / don't / never / must not / should not,
+//          with or without "please"), with any words after it: "Do not, under any circumstances, call Dispatch";
+//       3. or a negation stands in the last clause of the prefix (the words after the last comma, semicolon,
+//          colon or dash), with no condition word (if, when, unless, once, in case, whether, until, after,
+//          before, because, since, while, where, as soon as) before it;
+//       4. or "not required / necessary / needed" follows the instruction, or the sentence reads
+//          "Dispatch contact [is] not / no longer required / necessary / needed".
+//     A negation that belongs to a CONDITION is not the instruction's: "If LATT message is not received, contact
+//     Dispatch", "Contact Dispatch if the TAF does not cover ETA" and "If no release is received, call Dispatch"
+//     are REQUIRED Dispatch sentences. So are the idioms "Do not hesitate / forget / fail / neglect / delay …
+//     to contact Dispatch" (a double negative: contact Dispatch);
 //   - R2a category: SUGGESTION when the sentence is about questions ("… with questions", "… if you have any
 //     questions" — the word question or questions); every other Dispatch sentence is REQUIRED (an instruction
 //     to contact or call Dispatch, "Contact Dispatch before departure"; the module never reads a condition
@@ -2438,17 +2452,39 @@ function _readCompany(ctx) {
 //   - none → dispatchContact null, no row (R3). R4: { category, remark }, no other key.
 const DISPATCH_SENTENCE = /\b(?:contact|call)\s+dispatch\b/i;
 const DISPATCH_QUESTIONS = /\bquestions?\b/i;
-const DISPATCH_NEGATIVE = Object.freeze([
-  // a negation directly before the verb: do not / don't / must not / never / need not / no need to / not required to …
-  /\b(?:(?:do|does|did|must|should|shall|will|can|could|may|need)\s*(?:not|n['’]t)|won['’]?t|can['’]?t|cannot|never|no\s+need\s+to|(?:do|does)\s*(?:not|n['’]t)\s+(?:need|have)\s+to|not\s+(?:necessary|required|needed)\s+to|no\s+requirement\s+to|unnecessary\s+to)\s+(?:please\s+)?(?:contact|call)\s+dispatch\b/i,
-  // "Contact Dispatch is not required / necessary / needed"
+// the instruction: "contact Dispatch", "call Dispatch", "contact or call Dispatch", "call and contact Dispatch"
+const DISPATCH_INSTRUCTION = /\b(?:contact|call)(?:\s*(?:,|\/|\bor\b|\band\b)\s*(?:to\s+)?(?:contact|call))*\s+dispatch\b/i;
+// 1. a negation token, then only filler words, at the end of the prefix
+const DISPATCH_NEG_TOKEN  = String.raw`\bnot\b|\b[a-z]+n['’]t\b|\bcannot\b|\bnever\b|\bno\s+need\b|\bno\s+requirement\b|\bno\s+obligation\b|\bno\s+longer\b|\bunnecessary\b`;
+const DISPATCH_NEG_FILLER = String.raw`to|attempt|attempts|attempting|try|trying|need|needed|have|has|be|being|required|necessary|allowed|permitted|supposed|expected|obliged|asked|advised|instructed|ever|longer|please|also|then|further|again|really|actually|just|simply|any|unnecessarily`;
+const DISPATCH_NEG_STRICT = new RegExp(`(?:${DISPATCH_NEG_TOKEN})(?:\\s+(?:${DISPATCH_NEG_FILLER}))*\\s*$`, 'i');
+// 2. the sentence begins with an imperative negation
+const DISPATCH_NEG_START = /^\s*(?:please\s+)?(?:do\s*not|don['’]t|never|must\s*not|mustn['’]t|should\s*not|shouldn['’]t)\b/i;
+// 3. a negation anywhere in the last clause of the prefix, not after a condition word
+const DISPATCH_NEG_LOOSE = /\bnot\b|n['’]t\b|\bnever\b|\bcannot\b|\bno\s+(?:need|requirement|obligation)\b/i;
+const DISPATCH_CONDITION = /\b(?:if|when|whenever|unless|once|in\s+case|whether|until|after|before|because|since|while|where|as\s+soon\s+as)\b/i;
+// "do not hesitate / forget / fail / neglect / delay to contact Dispatch": a double negative, contact Dispatch
+const DISPATCH_NEG_IDIOM = /\b(?:hesitate|hesitating|forget|fail|neglect|delay)\b/i;
+// 4. after the instruction, or without it
+const DISPATCH_NEG_AFTER = Object.freeze([
   /\b(?:contact|call)\s+dispatch\b[^.!?]*?\b(?:(?:is|are)\s+)?not\s+(?:required|necessary|needed)\b/i,
-  // "Dispatch contact not required", "Dispatch contact is no longer necessary"
   /\bdispatch\s+contact\s+(?:(?:is|are)\s+)?(?:not|no\s+longer)\s+(?:required|necessary|needed)\b/i,
 ]);
+function _dispatchIsNegative(t) {
+  if (DISPATCH_NEG_AFTER.some(re => re.test(t))) return true;
+  const m = DISPATCH_INSTRUCTION.exec(t);
+  if (!m) return false;
+  const prefix = t.slice(0, m.index);
+  if (DISPATCH_NEG_IDIOM.test(prefix)) return false;
+  if (DISPATCH_NEG_STRICT.test(prefix)) return true;
+  if (DISPATCH_NEG_START.test(prefix)) return true;
+  const last = prefix.split(/[,;:]|\s[-–—]\s/).pop();
+  const n = last.search(DISPATCH_NEG_LOOSE);
+  return n >= 0 && !DISPATCH_CONDITION.test(last.slice(0, n));
+}
 function _dispatchSentences(text) {
   return String(text).replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=[A-Z])/)
-    .filter(t => DISPATCH_SENTENCE.test(t) || DISPATCH_NEGATIVE.some(re => re.test(t))).map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
+    .filter(t => DISPATCH_SENTENCE.test(t) || DISPATCH_NEG_AFTER.some(re => re.test(t))).map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
 }
 function _readDispatchContact(ctx) {
   const { add, ext } = ctx;
@@ -2456,7 +2492,7 @@ function _readDispatchContact(ctx) {
   let ignored = 0;
   for (const r of ext.ofpRemarks) {
     for (const t of _dispatchSentences(r.text)) {
-      if (DISPATCH_NEGATIVE.some(re => re.test(t))) { ignored++; continue; }    // R2e: not a Dispatch remark
+      if (_dispatchIsNegative(t)) { ignored++; continue; }    // R2e: not a Dispatch remark
       found.push({ category: DISPATCH_QUESTIONS.test(t) ? 'SUGGESTION' : 'REQUIRED', remark: t, at: `PDF p${r.page} line ${r.line}` });
     }
   }
