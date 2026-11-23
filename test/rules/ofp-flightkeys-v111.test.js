@@ -1,7 +1,7 @@
 'use strict';
 /**
  * TC-183 — FlightKeys OFP parser v1.1.1 (DEF-013 module PR; Exec rulings R1–R5, O-C, O-D of 23 Nov, amended the same
- * day by R2a–R2d and R4: the category). The Dispatch contact comes from the OFP Remarks only: dispatchContact =
+ * day by R2a–R2e and R4: the category, and the negative sentence ignored). The Dispatch contact comes from the OFP Remarks only: dispatchContact =
  * { category: 'REQUIRED' | 'SUGGESTION', remark } — ONE Dispatch sentence as printed (wrapped lines joined, final full stop
  * dropped, nothing else from the paragraph) — or null. Not built into index.html: rules/ofp-flightkeys-next until the
  * integration PR (D90, D96).
@@ -28,6 +28,10 @@
  *               paragraph or in two records; negative: no SUGGESTION text in the output
  *   TC-183-023  SYNTHETIC R2c: two or more of the same category → only the first printed (REQUIRED and SUGGESTION);
  *               the same sentence printed again once; negative: the second is not carried, not even on another line
+ *   TC-183-024  SYNTHETIC R2e: a sentence telling the crew NOT to contact or call Dispatch is ignored — alone → null;
+ *               negative + REQUIRED → REQUIRED; negative + SUGGESTION → SUGGESTION; both categories + negative →
+ *               REQUIRED; a negative counts for neither R2b nor R2c; negatives that are NOT negatives ("Do not hesitate
+ *               to contact Dispatch", "If you do not have the release, contact Dispatch") stay Dispatch sentences
  *   TC-183-030  SYNTHETIC R1: Company NOTAM short / long sentence with no remark → null; with a remark → the remark only
  *   TC-183-040  SYNTHETIC R3: no sentence in the OFP Remarks → null (several negatives)
  *   TC-183-050  SYNTHETIC R4: exactly { category, remark }; no label / text / company; the same output whatever the cover prints
@@ -143,7 +147,7 @@ function decls(src) {
 
 test('TC-183-003 the code differs from v1.1.0 only in the declared declarations; PATTERNS and schema lists identical; an undeclared change is caught', () => {
   const a = decls(OLD_SRC), b = decls(NEW_SRC);
-  assert.deepEqual(Object.keys(b).filter(k => !(k in a)).sort(), ['DISPATCH_QUESTIONS', 'DISPATCH_SENTENCE', '_dispatchSentences'], 'new declarations');
+  assert.deepEqual(Object.keys(b).filter(k => !(k in a)).sort(), ['DISPATCH_NEGATIVE', 'DISPATCH_QUESTIONS', 'DISPATCH_SENTENCE', '_dispatchSentences'], 'new declarations');
   assert.deepEqual(Object.keys(a).filter(k => !(k in b)).sort(), ['DISPATCH_CONTACT', 'DISPATCH_CONTACT_REMARK'], 'removed declarations (the cover-line labels, R1 / R4)');
   assert.deepEqual(Object.keys(a).filter(k => k in b && a[k] !== b[k]).sort(), ['RULESET_VERSION', '_readDispatchContact'], 'changed declarations (comments aside)');
   assert.equal(j(Object.entries(mod.PATTERNS).map(([k, v]) => [k, String(v)])), j(Object.entries(v110.PATTERNS).map(([k, v]) => [k, String(v)])), 'PATTERNS identical');
@@ -335,6 +339,59 @@ test('TC-183-023 SYNTHETIC R2c: two or more of the same category → only the fi
   assert.ok(!/arrival/.test(d.remark) && !d.remark.includes('\n'));
   assert.deepEqual(Object.keys(d), ['category', 'remark']);
   assert.match(infos(parse(SYN({ boiler: [], remarks: ['Contact Dispatch before departure. Call Dispatch on arrival.'] })), 'dispatchContact')[0].message, /2 Dispatch sentence\(s\) read, 1 kept$/);
+});
+
+test('TC-183-024 SYNTHETIC R2e: a sentence telling the crew NOT to contact or call Dispatch is ignored — no category, no row, not counted for R2b or R2c', () => {
+  const NEGS = ['Do not contact Dispatch.', 'DO NOT CALL DISPATCH.', "Don't contact Dispatch.", 'Don’t call Dispatch.', 'Please do not contact Dispatch.',
+    'Do not contact Dispatch before departure.', 'You must not contact Dispatch.', 'Never contact Dispatch.', 'No need to contact Dispatch.', 'No need to call Dispatch.',
+    'You do not need to contact Dispatch.', 'It is not necessary to contact Dispatch.', 'Contact Dispatch is not required.', 'Contact Dispatch not required.',
+    'Dispatch contact not required.', 'Dispatch contact is no longer necessary.', 'Dispatch contact is not required.'];
+  // each negative alone: no category, no row (null)
+  for (const t of NEGS) assert.equal(only(t), null, `negative alone: ${t}`);
+  assert.equal(only('Do not', 'contact Dispatch.'), null, 'wrapped negative');
+  assert.equal(only('No need to contact', 'Dispatch.'), null, 'wrapped negative, words split');
+  // negative + REQUIRED: the REQUIRED sentence, either order, one paragraph or two records, whatever the negative
+  for (const n of NEGS) {
+    assert.deepEqual(only(`${n} Contact Dispatch before departure.`), REQ('Contact Dispatch before departure'), `neg + REQUIRED: ${n}`);
+    assert.deepEqual(only(`Contact Dispatch before departure. ${n}`), REQ('Contact Dispatch before departure'), `REQUIRED + neg: ${n}`);
+  }
+  assert.deepEqual(recs('Do not contact Dispatch.', 'Call Dispatch before departure.'), REQ('Call Dispatch before departure'));
+  assert.deepEqual(recs('Call Dispatch before departure.', 'No need to call Dispatch.'), REQ('Call Dispatch before departure'));
+  // negative + SUGGESTION: the SUGGESTION sentence (the negative neither wins nor removes it)
+  for (const n of NEGS) {
+    assert.deepEqual(only(`${n} Contact Dispatch with questions.`), SUG(W1), `neg + SUGGESTION: ${n}`);
+    assert.deepEqual(only(`Contact Dispatch if you have any questions. ${n}`), SUG(W2), `SUGGESTION + neg: ${n}`);
+  }
+  assert.deepEqual(recs('Do not contact Dispatch.', 'Contact Dispatch with questions.'), SUG(W1));
+  // negative + both categories: R2b unchanged (the REQUIRED sentence)
+  assert.deepEqual(only('Contact Dispatch with questions. Do not contact Dispatch. Call Dispatch before departure.'), REQ('Call Dispatch before departure'));
+  assert.deepEqual(only('Do not call Dispatch. Contact Dispatch with questions. Contact Dispatch before departure.'), REQ('Contact Dispatch before departure'));
+  // R2c unchanged: a negative between two sentences of one category neither counts nor changes "the first printed"
+  assert.deepEqual(only('Call Dispatch on arrival. Do not contact Dispatch. Contact Dispatch before departure.'), REQ('Call Dispatch on arrival'));
+  assert.deepEqual(only('Do not contact Dispatch. Call Dispatch on arrival. Contact Dispatch before departure.'), REQ('Call Dispatch on arrival'));
+  assert.deepEqual(only('Contact Dispatch with questions. No need to call Dispatch. Contact Dispatch if you have any questions.'), SUG(W1));
+  // a negative never becomes the kept sentence and is never carried, not even on another line
+  const d = only('Do not contact Dispatch. Contact Dispatch before departure. No need to call Dispatch.');
+  assert.deepEqual(Object.keys(d), ['category', 'remark']);
+  assert.ok(!/not|no need/i.test(d.remark) && !d.remark.includes('\n'));
+  // the boilerplate paragraph with a negative remark of its own: the boilerplate sentence
+  assert.deepEqual(dc({ remarks: [S5.BL, 'Do not contact Dispatch.'] }), SUG(W1));
+  // NEGATIVE controls: sentences with "not" that are NOT a negative instruction stay Dispatch sentences
+  assert.deepEqual(only('Do not hesitate to contact Dispatch.'), REQ('Do not hesitate to contact Dispatch'));
+  assert.deepEqual(only('Do not forget to call Dispatch.'), REQ('Do not forget to call Dispatch'));
+  assert.deepEqual(only('If you do not have the release, contact Dispatch.'), REQ('If you do not have the release, contact Dispatch'));
+  assert.deepEqual(only('Contact Dispatch if you do not understand.'), REQ('Contact Dispatch if you do not understand'));
+  assert.deepEqual(only('Contact Dispatch if you do not have any questions.'), SUG('Contact Dispatch if you do not have any questions'));
+  assert.deepEqual(only('Not all stations answer. Contact Dispatch before departure.'), REQ('Contact Dispatch before departure'));
+  // not a Dispatch remark at all, with or without a negative: no row
+  assert.equal(only('Do not contact the chief pilot.'), null);
+  // the INFO finding: the ignored negatives are counted, not read
+  assert.match(infos(parse(SYN({ boiler: [], remarks: ['Do not contact Dispatch. Contact Dispatch before departure.'] })), 'dispatchContact')[0].message,
+    /^Dispatch contact as printed in the OFP Remarks: REQUIRED, PDF p\d+ line \d+; 1 Dispatch sentence\(s\) read, 1 kept \(1 negative sentence\(s\) ignored\)$/);
+  assert.deepEqual(infos(parse(SYN({ boiler: [], remarks: ['Do not contact Dispatch.'] })), 'dispatchContact').map(f => f.message),
+    ['no sentence about contacting Dispatch in the OFP Remarks (1 negative sentence(s) ignored): dispatchContact null']);
+  // NEGATIVE control: with no negative the INFO has no such suffix
+  assert.ok(!/negative/.test(infos(parse(SYN({ boiler: [], remarks: ['Contact Dispatch before departure.'] })), 'dispatchContact')[0].message));
 });
 
 test('TC-183-030 SYNTHETIC R1: the Company NOTAM / cover sentences are ignored — alone they give null; with a remark, the remark only', () => {
