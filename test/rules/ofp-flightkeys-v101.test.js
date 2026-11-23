@@ -153,8 +153,7 @@ test('TC-175-001 identity: v1.0.1 (built in at O-116, replaced by v1.1.0 at step
   assert.deepEqual([e.version, e.file], ['1.1.0', 'ofp-flightkeys/ofp-flightkeys-v1.1.0.js'], 'step 5f display: v1.1.0 replaced v1.0.1');
   assert.equal(sha(fs.readFileSync(NEW_FILE)), 'a307b18558a43da53c2e8bf2648a2c921facc699610951fde77bd24cc607750d', 'test/oracle: the bytes of the module PR (#70), byte for byte');
   assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.0.js'], 'v1.0.1 is no longer in rules/ofp-flightkeys');
-  assert.ok(!fs.existsSync(path.join(RULES, 'ofp-flightkeys-next')), 'no rules/ofp-flightkeys-next');
-  assert.deepEqual(NOT_BUILT_IN, [], 'no *-next key declared (step 5f display)');
+  assert.deepEqual(NOT_BUILT_IN, ['ofp-flightkeys-next'], 'DEF-013 module PR: the one declared *-next key (D96)');
   // v1.0.0: out of rules/, frozen copy byte for byte
   assert.equal(sha(fs.readFileSync(OLD_FILE)), '8a7d3e8fbf02ebae421739dfd65f8598d47e4d016ae1e7a3a2a791389e548e40');
   assert.equal(v100.RULESET_VERSION, '1.0.0');
