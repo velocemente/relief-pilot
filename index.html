@@ -14409,24 +14409,33 @@ function renderOfpAlerts() {
   return h;
 }
 
+// One remark as the standard remark item: the text as printed, its line breaks kept (esc() on every line).
+function _remarkItem(text) {
+  return `<div class="notam-item"><div class="notam-item-hdr"><span class="notam-dot y"></span>`
+    + `<span class="notam-item-label">${String(text).split('\n').map(esc).join('<br>')}</span></div></div>`;
+}
 // ── OFP Remarks group (FlightKeys; O-152 / O-153: shown in NOTES, directly below DDG) ──
-// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (O-175, O-183: every
-// Contact Dispatch text as printed, line breaks kept; none printed → no row; the internal REQUIRED /
-// IF QUESTIONS flag is never shown), the OFP Remarks security message(s) (D45, O-110: as printed, line
-// breaks kept), then the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed), then the RAIM
-// attention records (O-171, D115: as printed). None of these → no group. The Dispatch contact and RAIM
-// texts are in _ofpTexts (never saved, D107). O-184: where the flight's flag says one was there and it cannot
-// be rebuilt (no stored PDF, pasted text), the existing RAW-missing line takes its place; never silent.
+// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (DEF-013: one short
+// label/value row, the value the dispatchContact label, REQUIRED / IF QUESTIONS; a remark printed but no label →
+// "Review OFP"; nothing printed → no row; the printed Contact Dispatch text is not shown), the OFP Remarks security
+// message(s) (D45, O-110: as printed, line breaks kept), then the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed), then the RAIM
+// attention records (O-171, D115: as printed). None of these → no group. DEF-014: each record is one
+// standard remark item (the existing .notam-item, as the airport card's remarks), not a RAW block. The RAIM
+// texts are in _ofpTexts (never saved, D107). O-184: where the flight's flag says a RAIM record was there and
+// it cannot be rebuilt (no stored PDF, pasted text), the existing RAW-missing line takes its place; never silent.
 // O-164 / O-181: the group starts open when it holds a Security message or the Dispatch contact flag is
 // the short form (REQUIRED); O-179: also on a positive VA remark or a RAIM attention record
 // (S.ofpRemarksOpen); otherwise collapsed. The crew can collapse and expand it either way.
 function renderOfpRemarksGroup() {
   let rows = '';
   const _tx = _ofpTexts || {};
-  if (typeof _tx.dispatch === 'string' && _tx.dispatch) {
-    rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${_tx.dispatch.split('\n').map(esc).join('<br>')}</span></div>`;
-  } else if (_ofpTexts && _dispatchFlagged()) {   // O-184; QA F-01: a 1.10.0 save's label counts, never shown
-    rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(_RAW_MISSING)}</span></div>`;
+  const _dispLabel = S.dispatchContact && (S.dispatchContact.label === 'REQUIRED' || S.dispatchContact.label === 'IF QUESTIONS')
+    ? S.dispatchContact.label : '';
+  // Exec ruling (before merge): a Contact Dispatch remark printed (its text now, or its saved flag) but no label → "Review OFP".
+  const _dispRemarkPrinted = (typeof _tx.dispatch === 'string' && !!_tx.dispatch.trim()) || S.dispatchPrinted === true;
+  const _dispValue = _dispLabel || (_dispRemarkPrinted ? 'Review OFP' : '');
+  if (_dispValue) {
+    rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(_dispValue)}</span></div>`;
   }
   (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
     if (m) rows += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
@@ -14434,8 +14443,8 @@ function renderOfpRemarksGroup() {
   const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
   const _raim = Array.isArray(_tx.raim) ? _tx.raim.filter(t => typeof t === 'string' && t) : [];
   const _raimGone = !_raim.length && !!_ofpTexts && S.raimAttention === true;   // O-184
-  const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _rawBody(r.text)).join('')
-    + _raim.map(t => _rawBody(t)).join('') + (_raimGone ? _rawBody(_RAW_MISSING) : '');
+  const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _remarkItem(r.text)).join('')
+    + _raim.map(t => _remarkItem(t)).join('') + (_raimGone ? _remarkItem(_RAW_MISSING) : '');
   const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean))
     || S.ofpRemarksOpen === true;
   return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';

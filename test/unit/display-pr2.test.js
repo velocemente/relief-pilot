@@ -104,6 +104,8 @@ const volcanic = r => ADV.evaluateAdvisories(JSON.parse(JSON.stringify(r))).volc
 const unesc = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const labels = h => [...h.matchAll(/<span class="notam-group-label">([^<]*)<\/span>/g)].map(m => unesc(m[1]));
 const raws = h => [...h.matchAll(/<pre class="notam-raw-text">([\s\S]*?)<\/pre>/g)].map(m => unesc(m[1]));
+// DEF-014: the OFP Remarks group's records are standard remark items (.notam-item-label), line breaks as <br>.
+const remItems = h => [...h.matchAll(/<span class="notam-item-label">([\s\S]*?)<\/span>/g)].map(m => unesc(m[1].replace(/<br>/g, '\n')));
 // [label, bodyHtml] per RAW group (renderRawGroup: header, then one hidden body).
 function groups(h) {
   const out = [];
@@ -274,22 +276,22 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
     const g = groups(h).filter(x => x.label === 'OFP Remarks');
     const want = r.ofpRemarks.filter(x => SHOWN.includes(x.category));
     // O-152: the group also holds the Dispatch contact row, which every FlightKeys package has: one group on all 26,
-    // its printed records (raw blocks) are the same as before
+    // its printed records (DEF-014: standard remark items) are the same text as before
     assert.equal(g.length, 1, `${fx.id}: one group (the Dispatch contact row is always in it)`);
     // O-164 / O-181: open with a Security message or a REQUIRED Dispatch contact; O-179 (step 5f): or a positive VA
     // remark / a RAIM attention record; otherwise collapsed
     assert.equal(g[0].hidden, !((imp.S.securityMessages || []).some(Boolean) || imp.S.dispatchContact.label === 'REQUIRED' || ADV.evaluateAdvisories(plain(r)).openOfpRemarks), `${fx.id}: open / collapsed by O-164, O-179`);
-    assert.deepEqual(raws(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
+    assert.deepEqual(remItems(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
     r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => { hidden[x.category] = (hidden[x.category] || 0) + 1; });
     if (!want.length) continue;
     pk++;
     want.forEach(x => { per[x.category] = (per[x.category] || 0) + 1; });
     // NEGATIVE: no other record of the package is in the group (the slotted ones and those left on the OFP tab)
     r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => {
-      if (!want.some(w => w.text === x.text)) assert.ok(!raws(g[0].body).includes(x.text), `${fx.id}: a ${x.category} record`);
+      if (!want.some(w => w.text === x.text)) assert.ok(!remItems(g[0].body).includes(x.text), `${fx.id}: a ${x.category} record`);
     });
     // a wrapped record keeps its printed line breaks
-    want.filter(x => x.text.includes('\n')).forEach(x => assert.ok(raws(g[0].body).includes(x.text)));
+    want.filter(x => x.text.includes('\n')).forEach(x => assert.ok(remItems(g[0].body).includes(x.text)));
   }
   assert.deepEqual(per, { pcf: 17, extraFuel: 3, route: 5, adhocPenalty: 6 });
   assert.equal(Object.values(hidden).reduce((a, b) => a + b, 0), 292 - 31, 'every other record stays out');
@@ -301,8 +303,10 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
   run(imp.app, 'delete S.ofpRemarks');
   assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'O-152: the Dispatch contact row alone keeps the group');
   run(imp.app, 'delete S.dispatchContact; delete S.securityMessages');
-  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'step 5f (O-175): the printed Dispatch contact text alone keeps the group');
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'Exec ruling: the printed Dispatch contact text alone (no label) keeps the group, with "Review OFP"');
   imp.app._setOfpTexts(null);
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'the saved flag alone (text not rebuilt) still says "Review OFP"');
+  run(imp.app, 'delete S.dispatchPrinted');
   assert.ok(!labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'nothing to show: no group');
 });
 
@@ -695,7 +699,7 @@ fixtureTest('TC-177-031 O-118: navlog after reload — an ETP time read from the
 fixtureTest('TC-177-032 O-113: an old save loads safely (missing fields not shown); the save is smaller than before', async () => {
   const fx = fkBy(/LLBG-OMDW/), imp = await imported(fx);
   const st = plain(imp.S);
-  for (const k of ['ofpFormat', 'rawIndex', 'securityMessages', 'permits', 'catIiIiiRestrictions', 'ofpRemarks', 'dispatchContact']) delete st[k];   // O-152: the Dispatch contact row is in the OFP Remarks group now
+  for (const k of ['ofpFormat', 'rawIndex', 'securityMessages', 'permits', 'catIiIiiRestrictions', 'ofpRemarks', 'dispatchContact', 'dispatchPrinted']) delete st[k];   // an old save has no 5f flag   // O-152: the Dispatch contact row is in the OFP Remarks group now
   const apt = plain(imp.airportData);
   Object.values(apt).forEach(a => { delete a.remarks; delete a.remarksWeather; });
   const app = loadApp({ storageData: { rp_flights: [{ id: 'f_old', fltNum: st.fltNum, date: st.date, at: '2026-11-01T00:00:00.000Z', state: st, aptData: apt }] } });

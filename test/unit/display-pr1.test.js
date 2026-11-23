@@ -170,7 +170,7 @@ fixtureTest('TC-176-010 data path, 26 FlightKeys + 30 NavBlue: copied fields = t
 // A flight as main (before this PR) saved it: no new fields, the OFP's crew records (synthetic names).
 function oldSave(imp) {
   const st = plain(imp.S);
-  for (const k of ['operatingPilots', 'dispatchContact', 'natMessages', 'dateEnteredByCrew']) delete st[k];
+  for (const k of ['operatingPilots', 'dispatchContact', 'natMessages', 'dateEnteredByCrew', 'dispatchPrinted']) delete st[k];   // an old save has no 5f flag
   st.crewMembers = [
     { role: 'CA', empNum: '000001', lastName: 'SYNTHETICA', initial: 'A', displayName: 'SYNTHETICA A', active: true, isSen: false },
     { role: 'FO', empNum: '000002', lastName: 'SYNTHETICB', initial: 'B', displayName: 'SYNTHETICB B', active: false, isSen: true },
@@ -591,7 +591,7 @@ fixtureTest('TC-176-051 D89 NEGATIVE: a FlightKeys and a NavBlue package open th
 
 // ══ TC-176-060 dispatchContact ═════════════════════════════════════════════════
 
-fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group below DDG (O-152; flag REQUIRED 22, IF QUESTIONS 4; O-175 the printed texts); NavBlue none; escaped', async () => {
+fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group below DDG (O-152; flag REQUIRED 22, IF QUESTIONS 4; DEF-013: the label as one short row); NavBlue none; escaped', async () => {
   const n = { REQUIRED: 0, 'IF QUESTIONS': 0 };
   const escH = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   for (const fx of fkFixtures()) {
@@ -600,11 +600,11 @@ fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group belo
     n[lbl]++;
     const h = imp.app.renderPreflightPhase();
     const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
-    // Step 5f display (O-175): the row shows the printed Contact Dispatch text(s), never the internal flag
+    // DEF-013: one short row, its value the dispatchContact label; the printed Contact Dispatch text is not shown
     const txt = imp.app._getOfpTexts().dispatch;
-    assert.ok(typeof txt === 'string' && /contact dispatch/i.test(txt), `${fx.id}: a printed Contact Dispatch text`);
-    const row = `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${txt.split('\n').map(escH).join('<br>')}</span></div>`;
-    assert.ok(!/>\s*(REQUIRED|IF QUESTIONS)\s*</.test(h), `${fx.id}: NEGATIVE: the flag is not shown (O-175, QA F-05)`);
+    assert.ok(typeof txt === 'string' && /contact dispatch/i.test(txt), `${fx.id}: a printed Contact Dispatch text exists`);
+    const row = `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${escH(lbl)}</span></div>`;
+    assert.ok(!h.includes(escH(txt.split('\n')[0])), `${fx.id}: NEGATIVE: the printed text is not shown`);
     // O-152: the row moved from the Departure subcard into the OFP Remarks group (O-153: directly below DDG)
     assert.ok(!dep.includes('Dispatch contact'), `${fx.id}: NEGATIVE: no longer on the Departure subcard`);
     const grp = h.indexOf('<span class="notam-group-label">OFP Remarks</span>');
@@ -618,9 +618,11 @@ fixtureTest('TC-176-060 D72 dispatchContact: 26 FK in the OFP Remarks group belo
   }
   const app = loadApp();
   app._setOfpTexts({ dispatch: '<b>\n&', raim: [] });
-  assert.ok(app.renderPreflightPhase().includes('<span class="data-value">&lt;b&gt;<br>&amp;</span>'), 'esc() on every line');
+  assert.ok(app.renderPreflightPhase().includes('<span class="data-value">Review OFP</span>') && !app.renderPreflightPhase().includes('&lt;b&gt;'), 'POSITIVE: a remark printed, no label → "Review OFP"; the text is not shown');
   app._setOfpTexts(null); app.S.dispatchContact = { label: '<b>' };
-  assert.ok(!app.renderPreflightPhase().includes('Dispatch contact'), 'NEGATIVE: the flag alone shows no row (O-175, O-183)');
+  assert.ok(!app.renderPreflightPhase().includes('Dispatch contact') && !app.renderPreflightPhase().includes('<b>'), 'NEGATIVE: a value that is not a label shows no row');
+  app.S.dispatchContact = { label: 'IF QUESTIONS' };
+  assert.ok(app.renderPreflightPhase().includes('<span class="data-value">IF QUESTIONS</span>'), 'POSITIVE: the label, one short row');
 });
 
 // ══ TC-176-070 / 071 D67b rows ═════════════════════════════════════════════════
