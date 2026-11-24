@@ -109,7 +109,7 @@ function _remarkText(text) {
 // label/value row, the value the Dispatch remark exactly as the parser gives it (_ofpTexts.dispatch); no dispatchContact
 // → no row; a flight whose stored PDF is missing, the remark not at hand → "Review OFP Remarks"), then the O-127 records
 // (PCF, extra fuel, route, ADHOC penalty: as printed), the RAIM attention records (O-171, D115: as printed), then, last,
-// the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept; Exec O-185 option b). None of these → no
+// the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept; Exec DEF-014 option b). None of these → no
 // group. DEF-014 (Exec rulings): each record and each Security message is NOTES text (span.notes-sub-body; Security under a span.notes-sub-header), as the permit lines;
 // no status ball, no monospace. The spans are inline, so a body that follows a body gets a <br> first. The RAIM
 // texts are in _ofpTexts (never saved, D107). O-184: where the flight's flag says a RAIM record was there and
@@ -136,7 +136,7 @@ function renderOfpRemarksGroup() {
   _ofpRem.forEach(r => _addBody(_remarkText(r.text)));
   _raim.forEach(t => _addBody(_remarkText(t)));
   if (_raimGone) _addBody(_remarkText(_RAW_MISSING));
-  // Exec ruling (O-185, option b): the Security message(s) are the LAST items of the group, after every entry. The header is a block, so it starts its own line.
+  // Exec ruling (DEF-014, option b): the Security message(s) are the LAST items of the group, after every entry. The header is a block, so it starts its own line.
   (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
     if (m) { body += `<span class="notes-sub-header">Security</span>`; _afterBody = false; _addBody(_remarkText(m)); }
   });
