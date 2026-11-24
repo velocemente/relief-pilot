@@ -127,7 +127,7 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   const g = h.slice(h.indexOf(GROUP_HDR));
   // content unchanged: the two row markups as before, then the printed records; the group is open (O-164: Security + REQUIRED)
   const body = g.slice(g.indexOf('<div class="notam-group-body"'), g.indexOf('<span class="notes-sub-header">Notes</span>'));
-  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D(DTXT) + '</div>' + REMARK('SYNTHETIC PCF REMARK') + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2')), 'Dispatch, the records, then Security last (O-185 option b; line breaks kept, escaped)');
+  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D(DTXT) + '</div>' + REMARK('SYNTHETIC PCF REMARK') + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2')), 'Dispatch, the records, then Security last (DEF-014 option b; line breaks kept, escaped)');
   // DEF-014 (Exec rulings): NOTES text, no status ball, no monospace row; NEGATIVE: not the rejected remark item nor a data row
   assert.ok(!/notam-dot|notam-item/.test(body), 'no status ball, no remark item');
   assert.ok(!/data-value">SYNTHETIC SECURITY/.test(body) && !h.includes('data-label">Security<'), 'the Security message is not a data row');

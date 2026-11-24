@@ -1292,6 +1292,7 @@ body {
 .notam-dot.r { background: var(--sys-red); }
 .notam-dot.y { background: var(--sys-yellow); }
 .notam-dot.g { background: var(--sys-green); }
+.notam-dot.b { background: var(--tint); }
 .notam-chev {
   width: 9px; height: 14px; flex-shrink: 0; color: var(--label3);
   transition: transform 0.18s var(--spring);
@@ -17024,6 +17025,60 @@ function _opsNoteBody(icao, body) {
   return out.join('\n');
 }
 
+// DEF-017 (Exec R2): a Company NOTAM whose SUBJECT is "<ICAO>-ETOPS" and whose body starts with
+// "ETOPS ALTERNATE INFORMATION" or "ETOPS AIRPORT INFORMATION" is shown as this one line (the closing
+// "CHECK OPSPEC B342" line is not required). Its full text stays in the NOTAMs / RAW views.
+const _SUITABLE_APT_LINE = 'Suitable Airport - Refer to Company NOTAMS';
+const _ETOPS_HEADING_RE = /^ETOPS (?:ALTERNATE|AIRPORT) INFORMATION/;
+// DEF-017 (Exec R5): a remark that states an approach restriction or authorization keeps today's display
+// (yellow ball, its text, its place); R3 does not apply to it. Recognised by these words in the remark or
+// line (the CAT II/III restriction rows are recognised by their source, S.catIiIiiRestrictions).
+const _APPROACH_REMARK_RE = /\b(?:APPROACH(?:ES)?|APCH|CAT\s?(?:I{1,3}|2|3)|ILS|RNAV|RNP|LPV|GLS|CIRCLING|MINIMA|AUTOLAND)\b/i;
+
+// The Company Remarks body lines as display entries. One entry = one printed remark line (DEF-017):
+//   { kind: 'etops' }                    R2: the Suitable Airport line.
+//   { kind: 'dash', parts: [lines] }     a "- " comment, with the lines that continue it (joined by the caller).
+//   { kind: 'plain', parts: [line] }     any other line, as printed.
+// A "- " line absorbs the plain lines after it, up to the next "- " line, SUBJECT: line, bar line (only * - _ =)
+// or numbered line (1. 1- 1)). Plain lines are never joined: the stored text keeps no layout to tell a wrapped
+// line from a line the author ended.
+function _opsNoteEntries(icao, body) {
+  const lines = (body || '').split('\n').map(l => l.trim()).filter(l => l && !/^[-\s]*$/.test(l));
+  const startsNew = l => /^(?:SUBJECT:|- |\d+[.)-]\s)/.test(l) || /^[*\-_=\s]+$/.test(l);
+  const out = [];
+  for (let i = 0; i < lines.length;) {
+    const l = lines[i];
+    const m = l.match(/^SUBJECT:\s*([A-Z0-9]{4})-ETOPS\s*$/);
+    if (m && m[1] === String(icao).toUpperCase() && _ETOPS_HEADING_RE.test(lines[i + 1] || '')) {
+      let j = i + 1;
+      while (j < lines.length && !/^SUBJECT:/.test(lines[j])) j++;
+      out.push({ kind: 'etops' });
+      i = j;
+    } else if (/^- /.test(l)) {
+      const parts = [l];
+      let j = i + 1;
+      while (j < lines.length && !startsNew(lines[j])) parts.push(lines[j++]);
+      out.push({ kind: 'dash', parts });
+      i = j;
+    } else {
+      out.push({ kind: 'plain', parts: [l] });
+      i++;
+    }
+  }
+  return out;
+}
+
+// One Company Remarks row. dot: 'b' blue (R3), 'y' today's yellow (R5, CAT II/III), '' none (a "- " comment).
+function _opsNoteRow(dot, innerHtml) {
+  return `
+      <div class="notam-item">
+        <div class="notam-item-hdr">${dot ? `
+          <span class="notam-dot ${dot}"></span>` : ''}
+          <span class="notam-item-label">${innerHtml}</span>
+        </div>
+      </div>`;
+}
+
 function renderAptOpsNotes(icao) {
   const data = airportData[icao] || {};
   const note = data.opsNotes;
@@ -17033,38 +17088,31 @@ function renderAptOpsNotes(icao) {
   let subHd = '';
   (Array.isArray(data.remarks) ? data.remarks : []).forEach(r => {
     if (!r || !r.text) return;
-    if (r.subHeading && r.subHeading !== subHd) remarkRows.push(r.subHeading);
+    if (r.subHeading && r.subHeading !== subHd) remarkRows.push({ text: r.subHeading });
     subHd = r.subHeading || '';
-    remarkRows.push(r.text);
+    remarkRows.push({ text: r.text });
   });
   // O-110 (FlightKeys): a CAT II/III restriction the OFP Remarks print for this airport, as printed; the
-  // Descent summary shows it too, but lists no departure airport.
+  // Descent summary shows it too, but lists no departure airport. DEF-017 R5: it keeps its display.
   (Array.isArray(S.catIiIiiRestrictions) ? S.catIiIiiRestrictions : [])
-    .forEach(c => { if (c && c.airport === icao && c.text) remarkRows.push(c.text); });
+    .forEach(c => { if (c && c.airport === icao && c.text) remarkRows.push({ text: c.text, approach: true }); });
   if (!note && !remarkRows.length) return '';
+
+  const entries = note ? _opsNoteEntries(icao, _opsNoteBody(icao, note.body)) : [];
   
-  // Parse body into lines, skip empty and punctuation-only lines
-  const lines = (note ? _opsNoteBody(icao, note.body) : '')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l && !/^[-\s]*$/.test(l));
-  
-  const bodyRows = remarkRows
-    .map(text => `
-      <div class="notam-item">
-        <div class="notam-item-hdr">
-          <span class="notam-dot y"></span>
-          <span class="notam-item-label">${text.split('\n').map(esc).join('<br>')}</span>
-        </div>
-      </div>`)
-    .join('') + lines
-    .map(line => `
-      <div class="notam-item">
-        <div class="notam-item-hdr">
-          <span class="notam-dot y"></span>
-          <span class="notam-item-label">${esc(line)}</span>
-        </div>
-      </div>`)
+  // DEF-017 (Exec R3): each remark has a blue ball; a "- " comment keeps its "-" and has no ball. R5 (approach
+  // restriction / authorization): today's markup, a yellow ball, whatever the text starts with.
+  const rowHtml = (text, approach) => {
+    const html = text.split('\n').map(esc).join('<br>');
+    if (approach || _APPROACH_REMARK_RE.test(text)) return _opsNoteRow('y', html);
+    return _opsNoteRow(/^- /.test(text) ? '' : 'b', html);
+  };
+  const bodyRows = remarkRows.map(r => rowHtml(r.text, r.approach === true)).join('') + entries
+    .map(e => {
+      if (e.kind === 'etops') return _opsNoteRow('b', esc(_SUITABLE_APT_LINE));
+      if (_APPROACH_REMARK_RE.test(e.parts.join(' '))) return e.parts.map(l => _opsNoteRow('y', esc(l))).join('');
+      return _opsNoteRow(e.kind === 'dash' ? '' : 'b', esc(e.parts.join(' ')));
+    })
     .join('');
   
   // O-155: collapsed by default, expanded by the crew: the Runway / General NOTAM group pattern
@@ -17072,15 +17120,16 @@ function renderAptOpsNotes(icao) {
   const CHEV = `<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>`;
   const bodyHtml = bodyRows ? `<div class="notam-group-body" hidden>${bodyRows}</div>` : '';
   
+  // DEF-017 (Exec R1): the subsection status is blue (the app's --tint), on the ball and the label.
   return `
     <div class="apt-ops-note"
          style="border-top:0.5px solid var(--sep)">
       <div class="notam-group-hdr"
            onclick="toggleNotamGroup(this)"
            role="button">
-        <span class="notam-dot y"></span>
+        <span class="notam-dot b"></span>
         <span class="notam-group-label"
-              style="color:var(--sys-yellow)">
+              style="color:var(--tint)">
           Company Remarks
         </span>
         ${CHEV}

@@ -626,7 +626,7 @@ fixtureTest('TC-182-050 D118: the NavBlue screens (30 packages, 406 screens, raw
     const got = { pre: sha(app.renderPreflightPhase()), enr: sha(app.renderEnroutePhase()), des: sha(run(app, 'renderDescentPhase()')), notes: sha(run(app, 'renderNotesSection()')) };
     for (const a of app.getAllAirports()) {
       got['card:' + a.icao] = sha(run(app, `(function(){const d=airportData[${J(a.icao)}]||{notams:'',weather:''};const a=getAllAirports().find(x=>x.icao===${J(a.icao)});return renderAptIssues(evalAirport(a.icao,a.eta,d.notams,d.weather,a.wxWindow,a.role,S.acftType))})()`)
-        + '\u0000' + run(app, `renderAptOpsNotes(${J(a.icao)})`) + '\u0000' + run(app, `renderAptRaw(${J(a.icao)})`));
+        + '\u0000' + '\u0000' + run(app, `renderAptRaw(${J(a.icao)})`));   // DEF-017: Company Remarks left out (TC-186-*)
       run(app, `S.descentAirport=${J(a.icao)}`);
       got['desc:' + a.icao] = sha(run(app, 'renderDescentAirportSummary()'));
     }
