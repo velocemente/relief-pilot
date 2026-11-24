@@ -104,8 +104,12 @@ const volcanic = r => ADV.evaluateAdvisories(JSON.parse(JSON.stringify(r))).volc
 const unesc = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const labels = h => [...h.matchAll(/<span class="notam-group-label">([^<]*)<\/span>/g)].map(m => unesc(m[1]));
 const raws = h => [...h.matchAll(/<pre class="notam-raw-text">([\s\S]*?)<\/pre>/g)].map(m => unesc(m[1]));
-// DEF-014: the OFP Remarks group's records are standard remark items (.notam-item-label), line breaks as <br>.
-const remItems = h => [...h.matchAll(/<span class="notam-item-label">([\s\S]*?)<\/span>/g)].map(m => unesc(m[1].replace(/<br>/g, '\n')));
+// DEF-014 (Exec rulings): the OFP Remarks group's records and Security messages are NOTES text (span.notes-sub-body, line
+// breaks as <br>, a Security body under its span.notes-sub-header); a body after a body is separated by <br>.
+const notesBodies = h => [...h.matchAll(/(?:<span class="notes-sub-header">([^<]*)<\/span>)?<span class="notes-sub-body">([\s\S]*?)<\/span>/g)]
+  .map(m => ({ head: m[1] || '', text: unesc(m[2].replace(/<br>/g, '\n')) }));   // a body under another subsection's header (OVERFLIGHTS) is not the group's
+const remItems = h => notesBodies(h).filter(b => !b.head).map(b => b.text);
+const secItems = h => notesBodies(h).filter(b => b.head === 'Security').map(b => b.text);
 // [label, bodyHtml] per RAW group (renderRawGroup: header, then one hidden body).
 function groups(h) {
   const out = [];
@@ -472,7 +476,9 @@ fixtureTest('TC-177-021 D45: the security message on the Preflight card (1 packa
   for (const fx of [...fkFixtures(), ...nbFixtures()]) {
     const imp = await imported(fx);
     const h = imp.app.renderPreflightPhase();
-    const rows = [...h.matchAll(/<span class="data-label">Security<\/span><span class="data-value">([\s\S]*?)<\/span>/g)].map(m => unesc(m[1].replace(/<br>/g, '\n')));
+    const rows = secItems(h);
+    // DEF-014: NOTES text, never a monospace data row nor a status ball
+    assert.ok(!/data-label">Security</.test(h) && !/notam-dot[^>]*><\/span><span class="notam-item-label">[^<]*SECURITY/i.test(h), `${fx.id}: not a data row`);
     const want = fx.format === 'flightkeys' ? plain(parsed(imp).securityMessages.map(m => m.text)) : [];
     assert.deepEqual(rows, want, fx.id);
     n += rows.length;

@@ -14409,18 +14409,19 @@ function renderOfpAlerts() {
   return h;
 }
 
-// One remark as the standard remark item: the text as printed, its line breaks kept (esc() on every line).
-function _remarkItem(text) {
-  return `<div class="notam-item"><div class="notam-item-hdr"><span class="notam-dot y"></span>`
-    + `<span class="notam-item-label">${String(text).split('\n').map(esc).join('<br>')}</span></div></div>`;
+// One remark as NOTES text (DEF-014, Exec ruling): span.notes-sub-body as the permit lines use it, no status ball; the
+// text as printed, its line breaks kept (esc() on every line).
+function _remarkText(text) {
+  return `<span class="notes-sub-body">${String(text).split('\n').map(esc).join('<br>')}</span>`;
 }
 // ── OFP Remarks group (FlightKeys; O-152 / O-153: shown in NOTES, directly below DDG) ──
 // One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (DEF-013: one short
 // label/value row, the value the dispatchContact label, REQUIRED / IF QUESTIONS; a remark printed but no label →
 // "Review OFP"; nothing printed → no row; the printed Contact Dispatch text is not shown), the OFP Remarks security
 // message(s) (D45, O-110: as printed, line breaks kept), then the O-127 records (PCF, extra fuel, route, ADHOC penalty: as printed), then the RAIM
-// attention records (O-171, D115: as printed). None of these → no group. DEF-014: each record is one
-// standard remark item (the existing .notam-item, as the airport card's remarks), not a RAW block. The RAIM
+// attention records (O-171, D115: as printed). None of these → no group. DEF-014 (Exec rulings): each record and each
+// Security message is NOTES text (span.notes-sub-body; Security under a span.notes-sub-header), as the permit lines;
+// no status ball, no monospace. The spans are inline, so a body that follows a body gets a <br> first. The RAIM
 // texts are in _ofpTexts (never saved, D107). O-184: where the flight's flag says a RAIM record was there and
 // it cannot be rebuilt (no stored PDF, pasted text), the existing RAW-missing line takes its place; never silent.
 // O-164 / O-181: the group starts open when it holds a Security message or the Dispatch contact flag is
@@ -14437,14 +14438,18 @@ function renderOfpRemarksGroup() {
   if (_dispValue) {
     rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(_dispValue)}</span></div>`;
   }
-  (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
-    if (m) rows += `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${String(m).split('\n').map(esc).join('<br>')}</span></div>`;
-  });
   const _ofpRem = Array.isArray(S.ofpRemarks) ? S.ofpRemarks.filter(r => r && r.text) : [];
   const _raim = Array.isArray(_tx.raim) ? _tx.raim.filter(t => typeof t === 'string' && t) : [];
   const _raimGone = !_raim.length && !!_ofpTexts && S.raimAttention === true;   // O-184
-  const body = (rows ? `<div class="data-table data-table-lg">${rows}</div>` : '') + _ofpRem.map(r => _remarkItem(r.text)).join('')
-    + _raim.map(t => _remarkItem(t)).join('') + (_raimGone ? _remarkItem(_RAW_MISSING) : '');
+  let body = rows ? `<div class="data-table data-table-lg">${rows}</div>` : '';
+  let _afterBody = false;   // the last thing added ends in an inline .notes-sub-body
+  const _addBody = html => { body += (_afterBody ? '<br>' : '') + html; _afterBody = true; };
+  (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
+    if (m) { body += `<span class="notes-sub-header">Security</span>`; _afterBody = false; _addBody(_remarkText(m)); }
+  });
+  _ofpRem.forEach(r => _addBody(_remarkText(r.text)));
+  _raim.forEach(t => _addBody(_remarkText(t)));
+  if (_raimGone) _addBody(_remarkText(_RAW_MISSING));
   const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean))
     || S.ofpRemarksOpen === true;
   return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';

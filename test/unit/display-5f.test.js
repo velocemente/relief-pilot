@@ -99,9 +99,10 @@ const J      = JSON.stringify;
 const run    = (app, expr) => vm.runInContext(expr, app.sandbox);
 const unesc  = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 const escH   = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-// DEF-014: the OFP Remarks group's records are standard remark items (.notam-item-label, line breaks as <br>); the RAW groups stay <pre>.
+// DEF-014 (Exec rulings): the OFP Remarks group's records are NOTES text (span.notes-sub-body, line breaks as <br>); the RAW groups
+// stay <pre>. A body under a span.notes-sub-header (Security, OVERFLIGHTS) is not a record.
 const raws   = h => [...h.matchAll(/<pre class="notam-raw-text">([\s\S]*?)<\/pre>/g)].map(m => unesc(m[1]))
-  .concat([...h.matchAll(/<span class="notam-item-label">([\s\S]*?)<\/span>/g)].map(m => unesc(m[1].replace(/<br>/g, '\n'))));
+  .concat([...h.matchAll(/(<span class="notes-sub-header">[^<]*<\/span>)?<span class="notes-sub-body">([\s\S]*?)<\/span>/g)].filter(m => !m[1]).map(m => unesc(m[2].replace(/<br>/g, '\n'))));
 // [label, hidden, body] per group drawn by renderRawGroup (header, then one body).
 function groups(h) {
   const re = /<div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup\(this\)"><span class="notam-group-label">([^<]*)<\/span>[\s\S]*?<\/div><div class="notam-group-body"( hidden)?>/g;
@@ -376,7 +377,7 @@ function pasted(text) {
 }
 
 fixtureTest('TC-182-022 O-184: flags only in the save; flag set + no stored PDF (or pasted text) → the RAW-missing line in place of the row; flag not set → nothing', async () => {
-  const MISS_PRE = `<span class="notam-item-label">${escH(RAW_MISSING)}</span>`;   // DEF-014: a standard remark item
+  const MISS_PRE = `<span class="notes-sub-body">${escH(RAW_MISSING)}</span>`;   // DEF-014: NOTES text
   // the 26: dispatchPrinted on all (every package prints a Contact Dispatch text), raimAttention on none (PASSED)
   for (const fx of fkFixtures()) {
     const st = JSON.parse(savedJson((await imported(fx)).app))[0].state;
