@@ -126,7 +126,7 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   const g = h.slice(h.indexOf(GROUP_HDR));
   // content unchanged: the two row markups as before, then the printed records; the group is open (O-164: Security + REQUIRED)
   const body = g.slice(g.indexOf('<div class="notam-group-body"'), g.indexOf('<span class="notes-sub-header">Notes</span>'));
-  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D('REQUIRED') + '</div>' + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2') + '<br>' + REMARK('SYNTHETIC PCF REMARK')), 'Dispatch, Security (line breaks kept, escaped), then the records');
+  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D('REQUIRED') + '</div>' + REMARK('SYNTHETIC PCF REMARK') + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2')), 'Dispatch, the records, then Security last (O-185 option b; line breaks kept, escaped)');
   // DEF-014 (Exec rulings): NOTES text, no status ball, no monospace row; NEGATIVE: not the rejected remark item nor a data row
   assert.ok(!/notam-dot|notam-item/.test(body), 'no status ball, no remark item');
   assert.ok(!/data-value">SYNTHETIC/.test(body) && !h.includes('data-label">Security<'), 'the Security message is not a data row');
@@ -134,7 +134,8 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   app.S.securityMessages = ['SYNTHETIC SEC A', 'SYNTHETIC SEC B'];
   app.S.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC R1' }, { category: 'extraFuel', text: 'SYNTHETIC R2\nSYNTHETIC R2 LINE 2' }];
   const _b = app.renderPreflightPhase();
-  assert.ok(_b.includes(ROW_D('REQUIRED') + '</div>' + ROW_S('SYNTHETIC SEC A') + ROW_S('SYNTHETIC SEC B') + '<br>' + REMARK('SYNTHETIC R1') + '<br>' + REMARK('SYNTHETIC R2<br>SYNTHETIC R2 LINE 2')), 'order kept; every entry on its own line');
+  assert.ok(_b.includes(ROW_D('REQUIRED') + '</div>' + REMARK('SYNTHETIC R1') + '<br>' + REMARK('SYNTHETIC R2<br>SYNTHETIC R2 LINE 2') + ROW_S('SYNTHETIC SEC A') + ROW_S('SYNTHETIC SEC B')), 'order kept; every entry on its own line; Security last');
+  assert.ok(_b.indexOf('SYNTHETIC R2 LINE 2') < _b.indexOf('notes-sub-header">Security<'), 'NEGATIVE: no Security message before an entry');
   app.S.securityMessages = ['SYNTHETIC SECURITY LINE 1\nSYNTHETIC <LINE> 2'];
   app.S.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC PCF REMARK' }];
   // NEGATIVE: nothing of it on the Departure subcard any more
