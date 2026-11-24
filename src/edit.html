@@ -464,10 +464,20 @@ function _opsNoteBody(icao, body) {
 // "CHECK OPSPEC B342" line is not required). Its full text stays in the NOTAMs / RAW views.
 const _SUITABLE_APT_LINE = 'Suitable Airport - Refer to Company NOTAMS';
 const _ETOPS_HEADING_RE = /^ETOPS (?:ALTERNATE|AIRPORT) INFORMATION/;
-// DEF-017 (Exec R5): a remark that states an approach restriction or authorization keeps today's display
-// (yellow ball, its text, its place); R3 does not apply to it. Recognised by these words in the remark or
-// line (the CAT II/III restriction rows are recognised by their source, S.catIiIiiRestrictions).
+// DEF-017 (Exec R5, widened): a remark or line that restricts or authorizes an approach, or a runway procedure
+// (take-off, landing, arrival or departure use of a runway), keeps today's display (yellow ball, its text, its
+// place); R3 does not apply to it. Recognised by these words in the remark or line:
+//   an approach word (APPROACH(ES), APCH, CAT I/II/III, ILS, RNAV, RNP, LPV, GLS, CIRCLING, MINIMA, AUTOLAND), or
+//   a runway word (RWY, RWYS, RUNWAY, RWY28) together with a restriction / authorization word (NOT PERMITTED /
+//   APPROVED / AUTHORIZED / AVAILABLE / ALLOWED, PROHIBITED, CLOSED, CLSD, CLOSURE, AUTHORIZED, APPROVED,
+//   PERMITTED, REQUIRED, RESTRICTION, RESTRICTED, UNAVAILABLE).
+// The CAT II/III restriction rows are recognised by their source, S.catIiIiiRestrictions. A plain line that follows
+// a recognised plain line which does not end the sentence (. ! ? :) keeps the alert ball too (a restriction printed
+// on two lines); the lines are not joined.
 const _APPROACH_REMARK_RE = /\b(?:APPROACH(?:ES)?|APCH|CAT\s?(?:I{1,3}|2|3)|ILS|RNAV|RNP|LPV|GLS|CIRCLING|MINIMA|AUTOLAND)\b/i;
+const _RUNWAY_WORD_RE = /\b(?:RWYS?|RUNWAYS?)\b|\bRWY\d/i;
+const _RUNWAY_RESTRICT_RE = /\bNOT\s+(?:PERMITTED|APPROVED|AUTHORI[ZS]ED|AVAILABLE|ALLOWED)\b|\b(?:PROHIBITED|CLOSED|CLSD|CLOSURES?|AUTHORI[ZS]ED|APPROVED|PERMITTED|REQUIRED|RESTRICTIONS?|RESTRICTED|UNAVAILABLE)\b/i;
+const _isAlertRemark = text => _APPROACH_REMARK_RE.test(text) || (_RUNWAY_WORD_RE.test(text) && _RUNWAY_RESTRICT_RE.test(text));
 
 // The Company Remarks body lines as display entries. One entry = one printed remark line (DEF-017):
 //   { kind: 'etops' }                    R2: the Suitable Airport line.
@@ -538,14 +548,18 @@ function renderAptOpsNotes(icao) {
   // restriction / authorization): today's markup, a yellow ball, whatever the text starts with.
   const rowHtml = (text, approach) => {
     const html = text.split('\n').map(esc).join('<br>');
-    if (approach || _APPROACH_REMARK_RE.test(text)) return _opsNoteRow('y', html);
+    if (approach || _isAlertRemark(text)) return _opsNoteRow('y', html);
     return _opsNoteRow(/^- /.test(text) ? '' : 'b', html);
   };
+  let carry = false;   // the previous plain line is a recognised line that does not end its sentence
   const bodyRows = remarkRows.map(r => rowHtml(r.text, r.approach === true)).join('') + entries
     .map(e => {
-      if (e.kind === 'etops') return _opsNoteRow('b', esc(_SUITABLE_APT_LINE));
-      if (_APPROACH_REMARK_RE.test(e.parts.join(' '))) return e.parts.map(l => _opsNoteRow('y', esc(l))).join('');
-      return _opsNoteRow(e.kind === 'dash' ? '' : 'b', esc(e.parts.join(' ')));
+      if (e.kind === 'etops') { carry = false; return _opsNoteRow('b', esc(_SUITABLE_APT_LINE)); }
+      const text = e.parts.join(' ');
+      const alert = _isAlertRemark(text) || (carry && e.kind === 'plain' && !/^(?:SUBJECT:|[*\-_=\s]+$)/.test(text));
+      carry = alert && e.kind === 'plain' && !/[.!?:]$/.test(text) && !/^(?:SUBJECT:|[*\-_=\s]+$)/.test(text);
+      if (alert) return e.parts.map(l => _opsNoteRow('y', esc(l))).join('');
+      return _opsNoteRow(e.kind === 'dash' ? '' : 'b', esc(text));
     })
     .join('');
   

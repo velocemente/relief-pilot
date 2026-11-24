@@ -13,8 +13,10 @@
  *   TC-186-030  R3  every other remark has a blue ball; a "- " comment keeps its "-" and has no ball (opsNotes lines and
  *                   remark rows); a "- " line absorbs the plain lines that continue it, up to the next "- ", SUBJECT:,
  *                   bar or numbered line; NEGATIVE: plain lines are never joined, no yellow ball, escaped
- *   TC-186-040  R5  an approach restriction / authorization keeps today's markup (yellow ball, its text, not joined);
- *                   NEGATIVE: the words MINIMUM, VOR are not approach words
+ *   TC-186-040  R5  an approach restriction / authorization, or a runway restriction / authorization (take-off, landing,
+ *                   arrival, departure use of a runway), keeps today's markup (yellow ball, its text, not joined);
+ *                   NEGATIVE: the words MINIMUM, VOR are not approach words; a runway named without a restriction,
+ *                   a restriction naming no runway, stay blue
  *   TC-186-050  all 56 fixtures: every screen except the Company Remarks subsection is as main (hashes in
  *                   data/*-screens.json); ETOPS items, R5 rows, headers counted by airport
  *
@@ -156,6 +158,27 @@ test('TC-186-040 R5: an approach restriction / authorization keeps today\'s disp
   }
 });
 
+test('TC-186-040 R5 (runway): a restriction / authorization of the take-off, landing, arrival or departure use of a runway keeps today\'s display', () => {
+  const runway = ['NIGHT TAKE-OFF NOT PERMITTED ON RWY 99', 'NIGHT LANDING NOT PERMITTED ON RWYS 98 AND 97', 'RWY 96L NOT APPROVED', 'RWY96 NOT AVAILABLE FOR TAKEOFF',
+    'RUNWAY 95 CLOSED EVERY MON', 'RWY 94 CLSD', 'RWY 93 PROHIBITED FOR LANDING', 'RWY 92 AUTHORIZED FOR DEPARTURE ONLY', 'DUTY PILOT BRIEFING REQUIRED FOR DEPARTURE FROM RWY 91', 'RUNWAY 90 RESTRICTION: NO LANDING'];
+  for (const t of runway) {
+    const h = card(t, [{ text: '- ' + t }, { text: t }]);
+    assert.ok(h.includes(MAIN_ROW(t)) && h.includes(MAIN_ROW('- ' + t)), `as main: ${t}`);
+    assert.ok(!/notam-dot b"><\/span>\s*<span class="notam-item-label"/.test(h.split('<div class="notam-group-body"')[1]), `none blue: ${t}`);
+    assert.deepEqual(rows(card('- ' + t)).map(r => r.dot), ['y'], 'a "- " line keeps its ball');
+  }
+  // a restriction printed on two lines: both lines keep the ball, they are not joined; a SUBJECT line or a bar is not carried
+  assert.deepEqual(rows(card('RWY 30 IS NOT AVAILABLE FOR TAKEOFF UNLESS\nAUTHORIZED BY SYNTHETIC AUTHORITY.\nSYNTHETIC NEXT SENTENCE')), [
+    { dot: 'y', text: 'RWY 30 IS NOT AVAILABLE FOR TAKEOFF UNLESS' }, { dot: 'y', text: 'AUTHORIZED BY SYNTHETIC AUTHORITY.' }, { dot: 'b', text: 'SYNTHETIC NEXT SENTENCE' }]);
+  assert.deepEqual(rows(card('RWY 30 NOT AVAILABLE\nSUBJECT: XXXX-NEXT\n****')).map(r => r.dot), ['y', 'b', 'b'], 'not carried into a SUBJECT line or a bar');
+  assert.deepEqual(rows(card('RWY 30 NOT AVAILABLE FOR TAKEOFF.\nSYNTHETIC OTHER LINE')).map(r => r.dot), ['y', 'b'], 'a sentence that ended: the next line is blue');
+  // NEGATIVE: a runway named without a restriction, a restriction naming no runway
+  for (const t of ['IF ASSIGNED RWY 18L, PLEASE UTILIZE SYNTHETIC FOR DATA', 'PGUA RWY 06R NOTAM', 'IF PERFORMANCE ALLOWS, CONSIDER RWY 08R/26L HOWEVER,', 'DEP: NO REQUIREMENT TO REDUCE PAYLOAD TO FORCE SHORT RWY',
+    'NOT PERMITTED TO PARK AT THE SYNTHETIC GATE', 'TWY K CLOSED', 'TAKEOFF AND LANDING IS NOT ALLOWED BETWEEN 17:00 AND 07:00 UTC']) {
+    assert.deepEqual(rows(card(t)), [{ dot: 'b', text: t }], t);
+  }
+});
+
 // ══ TC-186-050 the 56 fixtures ═════════════════════════════════════════════════════
 fixtureTest('TC-186-050 every screen except the Company Remarks subsection is as main (all 56 fixtures); R2 / R5 / header counts', async () => {
   const PIN = Object.assign({},
@@ -194,7 +217,9 @@ fixtureTest('TC-186-050 every screen except the Company Remarks subsection is as
   assert.equal(etopsLines, 17, 'the 17 ETOPS items that sit on an airport card (14 with and 3 without the CHECK OPSPEC line) are one line each');
   assert.equal(etopsItems, 17, 'every "<ICAO>-ETOPS" item on a card is one of them');
   assert.deepEqual(noCard.sort(), ['CYXY', 'PAJN', 'RJBB'], 'the other 3 of the 20 ETOPS items are for airports with no card: shown nowhere, as on main');
-  assert.deepEqual(yellow.sort(), ['KCVG', 'NFFN', 'PAFA'], 'R5: the CAT II/III row, the circling authorization, the RNAV-only line — nothing else keeps a yellow ball');
+  const tally = {}; yellow.forEach(i => { tally[i] = (tally[i] || 0) + 1; });
+  assert.deepEqual(tally, { KCVG: 1, KWRI: 3, LEZG: 3, LLBG: 4, NFFN: 3, PAFA: 1, ZHCC: 5 },
+    'R5, rows by airport: the CAT II/III row; the runway restriction of KWRI (3 lines); LEZG (2 remark rows + 1 line); LLBG (2 lines, 2 packages); NFFN (take-off, landing, circling); the RNAV-only line; the ZHCC runway closures (5 lines) — nothing else keeps a yellow ball');
   // NEGATIVE: a changed screen is caught
   const fx = fkFixtures()[0], { app } = await importFixture(fx, FIX);
   run(app, 'S.stabTrim = "1.5/2.5"');
