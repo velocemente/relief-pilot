@@ -7257,7 +7257,8 @@ function switchFlightTab(tab, render = true) {
 // added so far do not reach far enough, so the browser would stop the scroll short.
 function _ofpPillScrollTop(scrollTop, containerTop, targetTop, barH, maxScroll, complete) {
   if (typeof targetTop !== 'number' || !isFinite(targetTop)) return null;
-  const top = Math.max(0, scrollTop + (targetTop - containerTop) - (barH > 0 ? barH : 0));
+  // Whole px, rounded down: the page top ends on or just below the pill row, never under it.
+  const top = Math.max(0, Math.floor(scrollTop + (targetTop - containerTop) - (barH > 0 ? barH : 0)));
   if (top > maxScroll && !complete) return null;
   return top;
 }

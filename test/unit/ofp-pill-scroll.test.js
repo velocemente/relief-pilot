@@ -63,3 +63,9 @@ test('positive: a position the viewer can reach is used even while pages are sti
 test('positive: once every page is added the scroll end is the limit, so the scroll goes ahead', () => {
   assert.equal(f(0, CT, CT + 3000 + BAR, BAR, 2962, true), 3000);
 });
+
+test('positive: a fractional position is rounded down, so the page is never under the pill row', () => {
+  // Page top 500.6 px below the viewer top, pill row 47: ideal 453.6, taken as 453 (page 0.6 px below the row).
+  assert.equal(f(0, CT, CT + 500.6, BAR, MAX, true), 453);
+  assert.equal(f(1000.4, CT, CT + 500.6 - 1000.4, BAR, MAX, true), 453);
+});
