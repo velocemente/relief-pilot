@@ -8,7 +8,7 @@
  *   TC-181-001  identity: v1.0.0, key advisory-rules (file, SHA-256; was advisory-rules-next), no *-next key
  *               declared; the other modules' bytes as pinned; a changed byte is caught (negative)
  *   TC-181-002  built in (step 5f display): index.html carries it once, byte for byte, before src/ofp-parse.html;
- *               build = index.html; no -next module built; labels 1.10.0; the module reads no window, DOM,
+ *               build = index.html; no -next module built; labels 1.11.0; the module reads no window, DOM,
  *               storage, clock or network (static)
  *   TC-181-003  validateSchema(): valid; NEGATIVE: a sentence-case text, an internal reference, a version in a
  *               text, a forbidden export, a wrong type are refused
@@ -114,13 +114,13 @@ test('TC-181-001 identity: v1.0.0 under advisory-rules (was advisory-rules-next)
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-181-002 built in (step 5f display): in index.html once, before src/ofp-parse.html; build = index.html; labels 1.10.0; no window, DOM, storage, clock or network', () => {
+test('TC-181-002 built in (step 5f display): in index.html once, before src/ofp-parse.html; build = index.html; labels 1.11.0; no window, DOM, storage, clock or network', () => {
   assert.equal(HTML.split(SRC).length, 2, 'index.html carries it once, byte for byte');
   assert.deepEqual(MODULES.filter(m => m && /advisory-rules/.test(m.rule)).map(m => m.rule), ['advisory-rules'], 'build/build.js builds it once, under its own key');
   assert.ok(MODULES.findIndex(m => m && m.rule === 'advisory-rules') < MODULES.indexOf('ofp-parse.html'), 'before its user (parseOFP)');
   assert.equal(MODULES.filter(m => m && /-next$/.test(m.rule)).length, 0, 'no -next module built');
   assert.equal(sha(assemble(ROOT)), sha(fs.readFileSync(path.join(ROOT, 'index.html'))));
-  assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
+  assert.match(HTML, /const APP_VERSION = '1\.11\.0';/);
   const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
   for (const re of [/\bwindow\b/, /\bdocument\b/, /localStorage|sessionStorage|indexedDB/, /\bDate\b/, /\bfetch\b|XMLHttpRequest|WebSocket/, /\brequire\(/])
     assert.doesNotMatch(code, re, `the module code has no ${re}`);

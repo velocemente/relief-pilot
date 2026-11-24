@@ -10,7 +10,7 @@
  *   TC-183-001  identity: v1.1.1, contract 2.5, key ofp-flightkeys (file, SHA-256; was ofp-flightkeys-next); v1.1.0
  *               frozen in test/oracle (SHA-256); no *-next key; the other modules as pinned; a changed byte is
  *               caught (negative)
- *   TC-183-002  built in: index.html carries v1.1.1 once and no byte-run of v1.1.0; build = index.html; labels 1.10.0
+ *   TC-183-002  built in: index.html carries v1.1.1 once and no byte-run of v1.1.0; build = index.html; labels 1.11.0
  *   TC-183-003  the code differs from v1.1.0 only where declared: every top-level declaration byte-identical
  *               (comments aside) except RULESET_VERSION and _readDispatchContact; 3 new, 2 removed; PATTERNS and
  *               the schema lists identical; validateSchema() valid
@@ -129,7 +129,7 @@ test('TC-183-001 identity: v1.1.1, contract 2.5, under ofp-flightkeys (was ofp-f
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-183-002 built in (DEF-013 integration): index.html carries v1.1.1 once and no byte-run of v1.1.0; build = index.html; labels 1.10.0', () => {
+test('TC-183-002 built in (DEF-013 integration): index.html carries v1.1.1 once and no byte-run of v1.1.0; build = index.html; labels 1.11.0', () => {
   assert.equal(HTML.split(NEW_SRC).length, 2, 'index.html carries v1.1.1 once, byte for byte');
   assert.ok(!HTML.includes(OLD_SRC), 'v1.1.0 is not in index.html');
   assert.ok(!HTML.includes("const RULESET_VERSION  = '1.1.0';"), 'no v1.1.0 version line');
@@ -137,9 +137,9 @@ test('TC-183-002 built in (DEF-013 integration): index.html carries v1.1.1 once 
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
   assert.equal(MODULES.filter(m => m && /-next$/.test(m.rule)).length, 0, 'build/build.js builds no -next module');
   assert.equal(sha(assemble(ROOT)), sha(fs.readFileSync(path.join(ROOT, 'index.html'))), 'the build from src/ and rules/ = the committed index.html');
-  assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
+  assert.match(HTML, /const APP_VERSION = '1\.11\.0';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.11\.0';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.11.0');
 });
 
 // Top-level declarations ("function x" / "const X" at column 0) → { name: code without comment lines }.

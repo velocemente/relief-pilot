@@ -1,3 +1,35 @@
+# PilotBrief 1.11.0 Release Notes
+
+## What's New
+
+Changes you will see on FlightKeys flights, unless a line says otherwise.
+
+- **Dispatch contact.** The Dispatch contact row shows the sentence the OFP prints. If the OFP prints none, there is no row. A sentence that tells you not to contact Dispatch gives no row.
+- **Volcanic ash in OFP Alerts.** When an OFP remark mentions volcanic ash and no matching advisory is printed, OFP Alerts shows "VOLCANIC ASH ROUTING IN OFP REMARKS – CHECK ROUTE". When the OFP prints a matching advisory, OFP Alerts shows "VOLCANIC ASH ADVISORY FOR THIS FLIGHT – SEE OFP REMARKS AND THE VA PAGE ON THE OFP TAB" instead.
+- **RAIM.** A RAIM warning is shown in OFP Remarks as printed. It is not shown when the OFP prints "RAIM validation passed", for the flight or for an ETOPS alternate.
+- **OFP Remarks opens by itself** for a security message, an instruction to contact Dispatch, a volcanic ash remark or a RAIM warning. Tap its title to close it.
+- **En-route FIR groups.** A FIR group that holds a volcanic ash item is open when you reach it. Tap its title to close it.
+- **Perishables.** The perishables banner shows only when the OFP prints YES.
+- **OFP Remarks text.** The OFP Remarks entries and the security message read as plain notes text. The security message is last.
+- **Company Remarks on airport cards (NavBlue flights too).** The Company Remarks title and the dot of each remark are blue. A Company NOTAM about an ETOPS alternate shows one line: "Suitable Airport - Refer to Company NOTAMS". A remark that restricts or authorises an approach or a runway procedure keeps its yellow dot.
+- **Saved flights.** Flights saved in 1.10.0 open as before, except for the OFP Remarks group of a FlightKeys flight: it now shows the Dispatch contact sentence and any RAIM warning as printed, read again from the stored PDF. If the PDF cannot be read, a flight saved with a Dispatch contact shows "Review OFP Remarks" in the Dispatch contact row. Such a flight does not get the new volcanic ash alert or the open FIR groups until you import the package again.
+
+---
+
+## Known Limits
+
+- A suggestion to contact Dispatch (for example "with questions") leaves the OFP Remarks group closed; open it to see the row.
+- A North Atlantic advisory can show on a flight that isn't on a track.
+- ETOPS alternate details (hours, contacts, fire category) are not shown in the app; refer to the Company NOTAMs in the package. NavBlue airport cards do not show the Suitable Airport line.
+- Some curfew and take-off or landing prohibition remarks in Company Remarks show blue instead of the alert colour. Read every Company Remarks line.
+- Obstacle NOTAMs cited in the Takeoff and Landing Report are hidden like other obstacle NOTAMs when they affect no procedure - check the report's NOTAM list.
+- NOTAMs printed with the year after the time are flagged "DATE NOT READABLE – CHECK NOTAM" although they are valid.
+- Pasted FlightKeys text has no briefing NOTAMs or weather; a warning shows on the Preflight card.
+- If the stored PDF is missing, the OFP tab is empty after a reload.
+- En-route obstacle NOTAMs (MEA / MOCA) are treated inconsistently.
+
+---
+
 # PilotBrief 1.10.0 Release Notes
 
 ## What's New

@@ -13,7 +13,7 @@
  *               frozen too (SHA-256 a307b185…); no *-next key; the other modules' bytes as pinned; a changed
  *               byte is caught (negative)
  *   TC-180-002  replaced (DEF-013 integration): index.html carries v1.1.1 once and no byte-run of v1.1.0 or v1.0.1;
- *               no -next module in build/build.js; build = index.html; labels 1.10.0 unchanged (rule 9)
+ *               no -next module in build/build.js; build = index.html; labels 1.11.0 (release)
  *   TC-180-003  validateSchema(): valid; EXTENSION_FIELDS = v1.0.1's plus volcanicAsh before sections;
  *               NEGATIVE: the retired '5d' step and a 19-field list are refused
  *   TC-180-004  the code differs from v1.0.1 only where declared: every top-level declaration byte-identical
@@ -147,7 +147,7 @@ test('TC-180-001 identity: v1.1.0, contract 2.5, frozen in test/oracle (replaced
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('TC-180-002 replaced (DEF-013 integration): index.html carries v1.1.1 once, no v1.1.0, no v1.0.1; build = index.html; labels 1.10.0', () => {
+test('TC-180-002 replaced (DEF-013 integration): index.html carries v1.1.1 once, no v1.1.0, no v1.0.1; build = index.html; labels 1.11.0', () => {
   assert.equal(HTML.split(BUILT_SRC).length, 2, 'index.html carries v1.1.1 once, byte for byte');
   assert.ok(!HTML.includes(NEW_SRC), 'v1.1.0 not in index.html');
   assert.ok(!HTML.includes("const RULESET_VERSION  = '1.1.0';"), 'no v1.1.0 version line');
@@ -156,9 +156,9 @@ test('TC-180-002 replaced (DEF-013 integration): index.html carries v1.1.1 once,
   assert.equal(MODULES.filter(m => m && m.rule === 'ofp-flightkeys').length, 1);
   assert.equal(MODULES.filter(m => m && /-next$/.test(m.rule)).length, 0, 'build/build.js builds no -next module');
   assert.equal(sha(assemble(ROOT)), sha(fs.readFileSync(path.join(ROOT, 'index.html'))), 'the build from src/ and rules/ = the committed index.html');
-  assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
+  assert.match(HTML, /const APP_VERSION = '1\.11\.0';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.11\.0';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.11.0');
 });
 
 test('TC-180-003 validateSchema(): valid; volcanicAsh before sections; the retired 5d step and a 19-field list are refused', () => {

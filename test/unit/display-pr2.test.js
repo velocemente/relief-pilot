@@ -53,7 +53,7 @@
  *   TC-177-033  O-107 (PR 1) failed-save toast still works
  *   TC-177-034  esc() on every RAW and remark text (synthetic markup in every new view)
  *   TC-177-040  NavBlue screens (30) byte-identical to main (hashes in test/unit/data); OFP Alerts unchanged (D92)
- *   TC-177-041  release labels are 1.10.0 (release); no rule module changed
+ *   TC-177-041  release labels are 1.11.0 (release); no rule module changed
  *
  * Synthetic data is labelled "synthetic". Fixture tests assert counts, codes, ICAOs and labels only; no crew
  * name, employee number or fixture text is printed or asserted. All times are UTC.
@@ -789,11 +789,11 @@ fixtureTest('TC-177-040 NavBlue screens (30) byte-identical to main; OFP Alerts 
   }
 });
 
-test('TC-177-041 labels are 1.10.0 (release); no rule module or module text changed by this PR', () => {
+test('TC-177-041 labels are 1.11.0 (release); no rule module or module text changed by this PR', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  assert.match(html, /const APP_VERSION\s*=\s*'1\.10\.0'/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0'/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
+  assert.match(html, /const APP_VERSION\s*=\s*'1\.11\.0'/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.11\.0'/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.11.0');
   const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'rules', 'manifest.json'), 'utf8'));
   // Step 5f: the declared *-next keys (not built in, D90) are not this PR's modules
   assert.deepEqual(Object.fromEntries(Object.entries(man).filter(([k]) => !NOT_BUILT_IN.includes(k)).map(([k, v]) => [k, v.version])),
