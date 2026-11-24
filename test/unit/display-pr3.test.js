@@ -105,13 +105,13 @@ function parseDom(html) {
 
 // ══ TC-179-010 O-152 / O-153 ═══════════════════════════════════════════════════════
 const ROW_D = l => `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${l}</span></div>`;
-const ROW_S = t => `<div class="data-row"><span class="data-label">Security</span><span class="data-value">${t}</span></div>`;
+const ROW_S = t => `<span class="notes-sub-header">Security</span><span class="notes-sub-body">${t}</span>`;   // DEF-014: NOTES text
 const GROUP_HDR = '<div class="notam-groups"><div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)"><span class="notam-group-label">OFP Remarks</span>';
 // DEF-013 (Exec rulings): the row's value is the remark exactly as the parser gives it (synthetic here); the saved category
 // (REQUIRED / SUGGESTION) only decides the open state.
 const DTXT = 'SYNTHETIC CONTACT DISPATCH LINE';
 const escH = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-const REMARK = t => `<div class="notam-item"><div class="notam-item-hdr"><span class="notam-dot y"></span><span class="notam-item-label">${t}</span></div></div>`;   // DEF-014
+const REMARK = t => `<span class="notes-sub-body">${t}</span>`;   // DEF-014: NOTES text
 const dispatch = (app, dc, text = DTXT) => { app.S.dispatchContact = dc; app._setOfpTexts(dc ? { dispatch: text, dispatchCategory: dc.category, raim: [] } : null); };
 
 test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows are in the OFP Remarks group, directly below DDG; content unchanged; none on the Departure subcard', () => {
@@ -127,10 +127,31 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   const g = h.slice(h.indexOf(GROUP_HDR));
   // content unchanged: the two row markups as before, then the printed records; the group is open (O-164: Security + REQUIRED)
   const body = g.slice(g.indexOf('<div class="notam-group-body"'), g.indexOf('<span class="notes-sub-header">Notes</span>'));
-  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D(DTXT) + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2') + '</div>' + REMARK('SYNTHETIC PCF REMARK')), 'Dispatch, Security (line breaks kept, escaped), then the records');
+  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D(DTXT) + '</div>' + REMARK('SYNTHETIC PCF REMARK') + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2')), 'Dispatch, the records, then Security last (O-185 option b; line breaks kept, escaped)');
+  // DEF-014 (Exec rulings): NOTES text, no status ball, no monospace row; NEGATIVE: not the rejected remark item nor a data row
+  assert.ok(!/notam-dot|notam-item/.test(body), 'no status ball, no remark item');
+  assert.ok(!/data-value">SYNTHETIC SECURITY/.test(body) && !h.includes('data-label">Security<'), 'the Security message is not a data row');
+  // the inline bodies never run together: a body that follows a body is separated by <br>; a header starts its own line
+  app.S.securityMessages = ['SYNTHETIC SEC A', 'SYNTHETIC SEC B'];
+  app.S.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC R1' }, { category: 'extraFuel', text: 'SYNTHETIC R2\nSYNTHETIC R2 LINE 2' }];
+  const _b = app.renderPreflightPhase();
+  assert.ok(_b.includes(ROW_D(DTXT) + '</div>' + REMARK('SYNTHETIC R1') + '<br>' + REMARK('SYNTHETIC R2<br>SYNTHETIC R2 LINE 2') + ROW_S('SYNTHETIC SEC A') + ROW_S('SYNTHETIC SEC B')), 'order kept; every entry on its own line; Security last');
+  assert.ok(_b.indexOf('SYNTHETIC R2 LINE 2') < _b.indexOf('notes-sub-header">Security<'), 'NEGATIVE: no Security message before an entry');
+  // "last" covers the RAIM record and the RAW-missing line too
+  app._setOfpTexts({ dispatch: DTXT, raim: ['SYNTHETIC RAIM RECORD'] });
+  const _r = app.renderPreflightPhase();
+  assert.ok(_r.includes(REMARK('SYNTHETIC RAIM RECORD') + ROW_S('SYNTHETIC SEC A')), 'RAIM record, then Security');
+  assert.ok(_r.indexOf('SYNTHETIC RAIM RECORD') < _r.indexOf('notes-sub-header">Security<'), 'NEGATIVE: Security not before the RAIM record');
+  app._setOfpTexts({ dispatch: DTXT, raim: [] });
+  app.S.raimAttention = true;
+  const _m = app.renderPreflightPhase();
+  assert.ok(_m.includes(REMARK('RAW not available \u2013 re-import the package') + ROW_S('SYNTHETIC SEC A')), 'RAW-missing line, then Security');
+  app.S.raimAttention = false;
+  app.S.securityMessages = ['SYNTHETIC SECURITY LINE 1\nSYNTHETIC <LINE> 2'];
+  app.S.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC PCF REMARK' }];
   // NEGATIVE: nothing of it on the Departure subcard any more
   const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
-  assert.ok(!dep.includes('Dispatch contact') && !dep.includes('data-label">Security<') && !dep.includes('OFP Remarks'), 'not on the Departure subcard');
+  assert.ok(!dep.includes('Dispatch contact') && !dep.includes('notes-sub-header">Security<') && !dep.includes('OFP Remarks'), 'not on the Departure subcard');
   assert.equal(h.split('data-label">Dispatch contact<').length - 1, 1, 'shown once');
   // with DDG items the group still follows the DDG list directly
   app.S.ddgItems = [{ code: '21-31-01', desc: 'SYNTHETIC ITEM', tlr: '' }];
@@ -143,7 +164,7 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   dispatch(app, null); app.S.securityMessages = ['', null, 'ONLY SECURITY']; app.S.ofpRemarks = [{ text: '' }];
   h = app.renderPreflightPhase();
   assert.ok(h.includes(GROUP_HDR) && h.includes(ROW_S('ONLY SECURITY')) && !h.includes('Dispatch contact'), 'the Security row alone; empty entries are skipped');
-  assert.equal(h.split('data-label">Security<').length - 1, 1);
+  assert.equal(h.split('notes-sub-header">Security<').length - 1, 1);
   app.S.securityMessages = []; app.S.ofpRemarks = [];
   h = app.renderPreflightPhase();
   assert.ok(!h.includes('OFP Remarks') && !h.includes('Dispatch contact'), 'nothing to show: no group');
@@ -168,12 +189,12 @@ fixtureTest('TC-179-011 O-152 / O-153: the 26 FlightKeys packages: the Dispatch 
     assert.equal(at >= 0, !!rem || sec.length > 0 || (imp.S.ofpRemarks || []).length > 0, `${fx.id}: the group is there when it has something to show`);
     if (at < 0) { assert.ok(!h.includes('Dispatch contact'), `${fx.id}: no row, no group`); noGroup++; continue; }
     assert.ok(at > h.indexOf('>DDG</span>'), `${fx.id}: the group is below DDG`);
-    const end = h.indexOf('<span class="notes-sub-header">', at);
-    const g = h.slice(at, end < 0 ? h.length : end);
+    const end = h.indexOf('</div></div></div>', at);   // the group's own end: body, group, groups
+    const g = h.slice(at, end < 0 ? h.length : end + 6);
     if (rem) assert.ok(g.includes(ROW_D(escH(rem))), `${fx.id}: Dispatch contact in the group (DEF-013: the remark as given, one row)`);
     else assert.ok(!g.includes('Dispatch contact'), `${fx.id}: NEGATIVE: no remark, no row`);
-    assert.equal(g.split('data-label">Security<').length - 1, sec.length, `${fx.id}: every Security message in the group`);
-    assert.equal(h.split('data-label">Security<').length - 1, sec.length, `${fx.id}: none elsewhere on the card`);
+    assert.equal(g.split('notes-sub-header">Security<').length - 1, sec.length, `${fx.id}: every Security message in the group`);
+    assert.equal(h.split('notes-sub-header">Security<').length - 1, sec.length, `${fx.id}: none elsewhere on the card`);
     if (sec.length) withSecurity++;
     // O-164 / D123: open when a Security message or the category REQUIRED (SUGGESTION does not open it); O-179 (step 5f): or the advisory flag; else collapsed
     const open = sec.length > 0 || (!!imp.S.dispatchContact && imp.S.dispatchContact.category === 'REQUIRED') || imp.S.ofpRemarksOpen === true;
@@ -181,7 +202,7 @@ fixtureTest('TC-179-011 O-152 / O-153: the 26 FlightKeys packages: the Dispatch 
     assert.equal(g.includes('<svg class="notam-chev open"'), open, `${fx.id}: the chevron follows`);
     openN += open ? 1 : 0;
     const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
-    assert.ok(!dep.includes('Dispatch contact') && !dep.includes('data-label">Security<'), `${fx.id}: not on the Departure subcard`);
+    assert.ok(!dep.includes('Dispatch contact') && !dep.includes('notes-sub-header">Security<'), `${fx.id}: not on the Departure subcard`);
   }
   console.log(`TC-179-011: ${fkFixtures().length} FlightKeys packages, ${withSecurity} with a Security message, ${openN} open, ${fkFixtures().length - openN - noGroup} collapsed, ${noGroup} without a group`);
   assert.equal(noGroup, 1, 'DEF-013: one package has nothing to show: no group');
@@ -226,7 +247,7 @@ test('TC-179-012 O-164 / D123 (synthetic): the OFP Remarks group opens by defaul
   const app2 = loadApp({ storageData: { rp_flights: [old] } });
   assert.doesNotThrow(() => app2.loadFlight(app2.getFlights()[0]));
   let h = app2.renderPreflightPhase();
-  assert.ok(!h.includes('OFP Remarks') && !h.includes('Dispatch contact') && !h.includes('data-label">Security<'), 'an old save: no group');
+  assert.ok(!h.includes('OFP Remarks') && !h.includes('Dispatch contact') && !h.includes('notes-sub-header">Security<'), 'an old save: no group');
   const old2 = plain(old); old2.state.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC REMARK' }];
   const app3 = loadApp({ storageData: { rp_flights: [old2] } });
   app3.loadFlight(app3.getFlights()[0]);
@@ -235,7 +256,7 @@ test('TC-179-012 O-164 / D123 (synthetic): the OFP Remarks group opens by defaul
   const old3 = plain(old); old3.state.securityMessages = ['SYNTHETIC SECURITY'];
   const app4 = loadApp({ storageData: { rp_flights: [old3] } });
   app4.loadFlight(app4.getFlights()[0]);
-  assert.ok(app4.renderPreflightPhase().includes('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_S('SYNTHETIC SECURITY')), 'a save with a Security message: open');
+  assert.ok(app4.renderPreflightPhase().includes('<div class="notam-group-body">' + ROW_S('SYNTHETIC SECURITY')), 'a save with a Security message: open');
 });
 
 // ══ TC-179-020 O-154 ═══════════════════════════════════════════════════════════════
@@ -532,7 +553,7 @@ fixtureTest('DEF-013 / DEF-014: the OFP Remarks group on the 26 FlightKeys packa
     const imp = await imported(fx), h = imp.app.renderPreflightPhase();
     const at = h.indexOf(GROUP_HDR), end = h.indexOf('<span class="notes-sub-header">', at);
     if (at < 0) { assert.ok(!imp.app._getOfpTexts().dispatch, `${fx.id}: no group only without a remark`); continue; }
-    const g = h.slice(at, end < 0 ? h.length : end);
+    const g = h.slice(at, end < 0 ? h.length : end + 6);
     assert.ok(!g.includes('<pre') && !g.includes('notam-raw-text'), `${fx.id}: DEF-014: no RAW block in the group`);
     const rows = g.match(/<span class="data-label">Dispatch contact<\/span><span class="data-value">([^<]*)<\/span>/g) || [];
     const rem = imp.app._getOfpTexts().dispatch;
