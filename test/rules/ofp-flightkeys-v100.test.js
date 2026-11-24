@@ -208,9 +208,9 @@ test('TC-164-001 identity: v1.0.0, contract 2.4; manifest entry and SHA-256; v0.
   assert.deepEqual([mod.RULESET_TYPE, mod.OFP_FORMAT, mod.RULESET_VERSION, mod.SCHEMA_VERSION, mod.CONTRACT_VERSION], ['ofp', 'flightkeys', '1.0.0', 2, '2.4']);
   const e = MANIFEST['ofp-flightkeys'];
   assert.deepEqual(Object.keys(e), ['version', 'file', 'sha256']);
-  assert.deepEqual([e.version, e.file], ['1.1.0', 'ofp-flightkeys/ofp-flightkeys-v1.1.0.js'], 'O-116: v1.0.1 replaced v1.0.0; step 5f display: v1.1.0 replaced v1.0.1');
+  assert.deepEqual([e.version, e.file], ['1.1.1', 'ofp-flightkeys/ofp-flightkeys-v1.1.1.js'], 'O-116: v1.0.1 replaced v1.0.0; step 5f display: v1.1.0 replaced v1.0.1; DEF-013 integration: v1.1.1 replaced v1.1.0');
   assert.equal(sha(fs.readFileSync(MOD_FILE)), V100_SHA, 'test/oracle/ofp-flightkeys-v1.0.0.js is v1.0.0, byte for byte');
-  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.0.js'], 'one module file; v0.4.0, v1.0.0 and v1.0.1 are no longer in rules/');
+  assert.deepEqual(fs.readdirSync(path.join(RULES, 'ofp-flightkeys')).filter(f => f.endsWith('.js')), ['ofp-flightkeys-v1.1.1.js'], 'one module file; v0.4.0, v1.0.0, v1.0.1 and v1.1.0 are no longer in rules/');
   assert.equal(sha(fs.readFileSync(ORACLE)), V04_SHA, 'test/oracle/ofp-flightkeys-v0.4.0.js is the v0.4.0 master, byte for byte');
   assert.equal(v04.RULESET_VERSION, '0.4.0');
   assert.match(MOD_SRC.slice(0, 2000), /v1\.0\.0[\s\S]*NOT built into index\.html[\s\S]*switch PR/, 'the header says not built in until the switch PR');

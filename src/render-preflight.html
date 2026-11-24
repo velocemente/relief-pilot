@@ -105,26 +105,25 @@ function _remarkText(text) {
   return `<span class="notes-sub-body">${String(text).split('\n').map(esc).join('<br>')}</span>`;
 }
 // ── OFP Remarks group (FlightKeys; O-152 / O-153: shown in NOTES, directly below DDG) ──
-// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (DEF-013: one short
-// label/value row, the value the dispatchContact label, REQUIRED / IF QUESTIONS; a remark printed but no label →
-// "Review OFP"; nothing printed → no row; the printed Contact Dispatch text is not shown), the O-127 records (PCF, extra fuel,
-// route, ADHOC penalty: as printed), the RAIM attention records (O-171, D115: as printed), then, last, the OFP Remarks
-// security message(s) (D45, O-110: as printed, line breaks kept; Exec O-185 option b). None of these → no group. DEF-014 (Exec rulings): each record and each
-// Security message is NOTES text (span.notes-sub-body; Security under a span.notes-sub-header), as the permit lines;
+// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (DEF-013, Exec rulings: one
+// label/value row, the value the Dispatch remark exactly as the parser gives it (_ofpTexts.dispatch); no dispatchContact
+// → no row; a flight whose stored PDF is missing, the remark not at hand → "Review OFP Remarks"), then the O-127 records
+// (PCF, extra fuel, route, ADHOC penalty: as printed), the RAIM attention records (O-171, D115: as printed), then, last,
+// the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept; Exec DEF-014 option b). None of these → no
+// group. DEF-014 (Exec rulings): each record and each Security message is NOTES text (span.notes-sub-body; Security under a span.notes-sub-header), as the permit lines;
 // no status ball, no monospace. The spans are inline, so a body that follows a body gets a <br> first. The RAIM
 // texts are in _ofpTexts (never saved, D107). O-184: where the flight's flag says a RAIM record was there and
 // it cannot be rebuilt (no stored PDF, pasted text), the existing RAW-missing line takes its place; never silent.
-// O-164 / O-181: the group starts open when it holds a Security message or the Dispatch contact flag is
-// the short form (REQUIRED); O-179: also on a positive VA remark or a RAIM attention record
+// O-164 / D123: the group starts open when it holds a Security message or the Dispatch contact category is
+// REQUIRED (SUGGESTION does not open it); O-179: also on a positive VA remark or a RAIM attention record
 // (S.ofpRemarksOpen); otherwise collapsed. The crew can collapse and expand it either way.
 function renderOfpRemarksGroup() {
   let rows = '';
   const _tx = _ofpTexts || {};
-  const _dispLabel = S.dispatchContact && (S.dispatchContact.label === 'REQUIRED' || S.dispatchContact.label === 'IF QUESTIONS')
-    ? S.dispatchContact.label : '';
-  // Exec ruling (before merge): a Contact Dispatch remark printed (its text now, or its saved flag) but no label → "Review OFP".
-  const _dispRemarkPrinted = (typeof _tx.dispatch === 'string' && !!_tx.dispatch.trim()) || S.dispatchPrinted === true;
-  const _dispValue = _dispLabel || (_dispRemarkPrinted ? 'Review OFP' : '');
+  // DEF-013: the remark exactly as the parser gives it; null → no row. The remark is re-read from the stored PDF
+  // (D107, not saved): until then no row; a flagged flight whose PDF cannot be read says "Review OFP Remarks".
+  const _dispText = typeof _tx.dispatch === 'string' && _tx.dispatch.trim() ? _tx.dispatch : '';
+  const _dispValue = _dispText || (_tx.missing === true && _dispatchFlagged() ? 'Review OFP Remarks' : '');
   if (_dispValue) {
     rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(_dispValue)}</span></div>`;
   }
@@ -137,11 +136,14 @@ function renderOfpRemarksGroup() {
   _ofpRem.forEach(r => _addBody(_remarkText(r.text)));
   _raim.forEach(t => _addBody(_remarkText(t)));
   if (_raimGone) _addBody(_remarkText(_RAW_MISSING));
-  // Exec ruling (O-185, option b): the Security message(s) are the LAST items of the group, after every entry. The header is a block, so it starts its own line.
+  // Exec ruling (DEF-014, option b): the Security message(s) are the LAST items of the group, after every entry. The header is a block, so it starts its own line.
   (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
     if (m) { body += `<span class="notes-sub-header">Security</span>`; _afterBody = false; _addBody(_remarkText(m)); }
   });
-  const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean))
+  // The category: the one just read (_tx.dispatchCategory), else the saved one; a flight saved under 1.10.0 has none
+  // saved, so its group is not opened by the Dispatch contact until its PDF is read again.
+  const _dispCategory = _tx.dispatchCategory || (S.dispatchContact && S.dispatchContact.category) || '';
+  const open = _dispCategory === 'REQUIRED' || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean))
     || S.ofpRemarksOpen === true;
   return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';
 }

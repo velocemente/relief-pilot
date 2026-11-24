@@ -7421,7 +7421,7 @@ const S = {
   blockFuel:'', minfFuel:'', fresFuel:'', ballastFuel:null,
   crewMembers:[], crewVerified:false, tocOffsetMins:null, taxiMins:null, tocZOverride:null, crewRestBuffer:60, restGapMins:0, restSchedView:'halves', restCardCollapsed:false,
   // Step 5e-2 display PR 1: operatingPilots (D62: the pilot count, no names), dispatchContact
-  // ({label} REQUIRED / IF QUESTIONS, D72), natMessages ([{tmi, direction, selected, track}],
+  // ({category} REQUIRED / SUGGESTION, DEF-013; a save of 1.10.0 holds {label}), natMessages ([{tmi, direction, selected, track}],
   // D85: parsed tracks, no message text), dateEnteredByCrew (D57). A flight saved before has
   // none of them: that item is not shown (O-113).
   operatingPilots:null, dispatchContact:null, natMessages:[], dateEnteredByCrew:false,
@@ -8089,9 +8089,9 @@ function _rawMissing(seq) {
   if (S.rawIndex || flagged) _rerenderOpen();
 }
 // O-184: the saved flags of the texts the OFP Remarks group shows but the save does not hold (D107).
-// QA F-01: a flight saved under 1.10.0 has no dispatchPrinted but its Dispatch contact label (REQUIRED /
-// IF QUESTIONS, a flag, no text): that label counts as "a Dispatch contact printed". It is never shown (O-175).
-const _dispatchFlagged = () => S.dispatchPrinted === true || !!(S.dispatchContact && S.dispatchContact.label);
+// QA F-01 / DEF-013: a flight saved under 1.10.0 has no dispatchPrinted but its saved dispatchContact (old shape,
+// no text): that counts as "a Dispatch contact printed". The shape of the saved object is not read.
+const _dispatchFlagged = () => S.dispatchPrinted === true || !!S.dispatchContact;
 const _ofpTextsFlagged = () => _dispatchFlagged() || S.raimAttention === true;
 function _rerenderOpen() {
   renderNote();
@@ -8832,13 +8832,25 @@ const API = {
 return API;
 });
 /**
- * ofp-flightkeys.js — FlightKeys OFP Parser  (v1.1.0, contract v2.5)
+ * ofp-flightkeys.js — FlightKeys OFP Parser  (v1.1.1, contract v2.5)
  * ─────────────────────────────────────────────────────────────────
  * Standalone module (ADR-005 §2.1–2.4): the FlightKeys OFP parser. It reads
  * an Atlas Air / Polar Air Cargo package in the FlightKeys format and returns
  * the briefing contract — the same 57 core fields, with the same names, types
  * and meanings, as the locked NavBlue parser (FK-P), plus the Appendix B
  * extensions and findings[].
+ *
+ * v1.1.1 (DEF-013 patch; Exec rulings R1–R5, R2a–R2e, R4 as amended and O-C, O-D, 23 Nov) changes only
+ * dispatchContact: R1 only the OFP Remarks decide it — the cover-page notice and the Company NOTAM sentences
+ * ("Contact Dispatch for a preflight briefing." / "…if you have any questions.") are ignored; R2 the Dispatch
+ * sentence of the OFP Remarks is carried as printed (wrapped lines joined by one space, the final full stop
+ * dropped, nothing else from the paragraph); R2a it has a category — REQUIRED (an instruction to contact or call
+ * Dispatch) or SUGGESTION (contact only if there are questions); R2b both categories printed → only the REQUIRED
+ * sentence is kept; R2c several of one category → only the first printed; R2e a sentence telling the crew NOT to
+ * contact or call Dispatch is ignored (no category, no row, counts for neither R2b nor R2c); R3 no such sentence → null;
+ * R4 dispatchContact = { category, remark } (no label, text or company); R5 "Contact Dispatch" inside a NOTAM body
+ * is not a Dispatch remark. Its INFO finding is reworded to match. Every other output is byte-identical to v1.1.0.
+ * Not built into index.html: rules/ofp-flightkeys-next until the integration PR (D90, D96).
  *
  * v1.1.0 (step 5f, module PR A; Exec answers O-169 … O-181, 22 Nov; D115,
  * D116, D88) extracts, and never interprets (D88: the shared advisory-rules
@@ -8957,7 +8969,7 @@ return API;
 
 const RULESET_TYPE     = 'ofp';
 const OFP_FORMAT       = 'flightkeys';
-const RULESET_VERSION  = '1.1.0';
+const RULESET_VERSION  = '1.1.1';
 const SCHEMA_VERSION   = 2;
 // Contract v2.0 (ADR-005 Appendix A + B) plus the extension fields of the
 // Appendix B addenda: specialQualification, swa (Exec SME answers 13 Nov,
@@ -8966,7 +8978,7 @@ const SCHEMA_VERSION   = 2;
 // notamItems, notamsRaw (D64), briefing (SME-1) and weatherRaw (D65) (contract 2.3, addendum 3);
 // the top-level extensions firNotams, firRaw (D64, O-41), natMessages (O-43), hazards (O-45)
 // and dispatchContact (O-46) (contract 2.4, addendum 4); the top-level extension volcanicAsh (O-169)
-// and dispatchContact.company / .remark (O-175) (contract 2.5, addendum 5).
+// and dispatchContact.company / .remark (O-175) (contract 2.5, addendum 5); v1.1.1: dispatchContact = { remark } only (DEF-013).
 // Adding fields is a minor contract version (ADR-005 §2.4).
 const CONTRACT_VERSION = '2.5';
 const RULESET_SOURCE   = 'FlightKeys OFP issued by Atlas Air / Polar Air Cargo dispatch (release, ICAO FPL and briefing package); field map SPRINT-OFP-FlightKeysMigration v1.1; ICAO Doc 4444 App 2/3 through icao-fpl';
@@ -9472,7 +9484,7 @@ function parseFlightKeys(input, options) {
   _readPending(ctx);
   _readBriefing(ctx);      // § 7 (v0.3.0): airportData weather / notams, card order
   _readCompany(ctx);       // § 7b (v0.4.0): companyNotams[] (§A.7)
-  _readDispatchContact(ctx); // § 7b (v0.4.0 O-46; v1.1.0 O-175): dispatchContact
+  _readDispatchContact(ctx); // § 7b (v0.4.0 O-46; v1.1.0 O-175; v1.1.1 DEF-013): dispatchContact
   _readCurfews(ctx);       // § 7b (v0.4.0): airportData curfew (row 46; O-33 … O-37)
   _readOpsNotes(ctx);      // § 7b (v0.4.0): airportData opsNotes (row 47; O-38, O-39)
   _readFirs(ctx);          // § 7b (v0.4.0): enrouteNotams, firNotams[], firRaw[] (row 49; O-40, O-41)
@@ -11117,15 +11129,6 @@ function _readBriefing(ctx) {
 // NAT track message, which FlightKeys prints on its own text pages (no footer,
 // one column; § 7 _readSections finds them the same way).
 
-// O-46 (Exec, 19 Nov): the Dispatch contact lines stay in the Company NOTAM text
-// exactly as printed — the short line after the P0110 text and, in L20–L23, the
-// long line inside it — and give the package-level dispatchContact: the short form
-// REQUIRED, the long form IF QUESTIONS; both printed → REQUIRED; neither → null.
-// Each form is one whole printed line (trimmed), as printed (case kept).
-const DISPATCH_CONTACT = Object.freeze({
-  REQUIRED:       /^Contact Dispatch for a preflight briefing\.$/,
-  'IF QUESTIONS': /^Contact Dispatch for a preflight briefing if you have any questions\.$/,
-});
 // §A.7: a Company key that names no location (O-40: "PUBS- is not an airport").
 const COMPANY_NON_LOCATION_KEYS = Object.freeze(['PUBS']);
 
@@ -11245,43 +11248,93 @@ function _readCompany(ctx) {
   add('INFO', 'companyNotams', `${recs.length} Company NOTAMs read (${n('HSCN')} High Severity, ${n('COMPANY')} Company), as printed`);
 }
 
-// O-46 (v0.4.0), O-175 (v1.1.0): dispatchContact, read after the Company NOTAMs and from the OFP Remarks,
-// also when no briefing document was read (pasted text: the remark is still printed in the release).
+// DEF-013 (v1.1.1; Exec rulings R1–R5, R2a–R2e, R4 as amended, 23 Nov): dispatchContact =
+// { category, remark } — the Dispatch sentence of the OFP Remarks, as printed, with its category, or null.
+// Read from ext.ofpRemarks only (R1): the cover-page notice and the Company NOTAM sentences are never read
+// here, and a NOTAM body is not an OFP remark (R5).
+//   - a remark record is its lines joined by one space (wrapped lines), cut into sentences at
+//     ". ", "! " or "? " followed by an upper-case letter (so "ext. 12" and "e.g. next" do not cut a sentence);
+//   - a sentence is a Dispatch sentence when it has the words "contact dispatch" or "call dispatch" (any case);
+//     "contact or call Dispatch" / "call or contact Dispatch" are one instruction;
+//   - R2e a sentence telling the crew NOT to contact or call Dispatch is not a Dispatch remark: it is ignored — no
+//     category, no row, and it counts for neither R2b nor R2c ("Do not contact Dispatch", "Do not contact or call
+//     Dispatch", "Crews are not to contact Dispatch", "Do not attempt to contact Dispatch", "No need to contact
+//     Dispatch", "Never call Dispatch", "Contact Dispatch is not required", "Dispatch contact not required").
+//     _dispatchIsNegative() reads the words before the instruction (the prefix), whatever words sit between the
+//     negation and "Dispatch":
+//       1. the prefix ENDS in a negation followed only by filler words (to, attempt, try, need, have, be, required,
+//          allowed, …): "do not", "are not to", "do not attempt to", "no need to", "never";
+//       2. or the sentence BEGINS with an imperative negation (do not / don't / never / must not / should not,
+//          with or without "please"), with any words after it: "Do not, under any circumstances, call Dispatch";
+//       3. or a negation stands in the last clause of the prefix (the words after the last comma, semicolon,
+//          colon or dash), with no condition word (if, when, unless, once, in case, whether, until, after,
+//          before, because, since, while, where, as soon as) before it;
+//       4. or "not required / necessary / needed" follows the instruction, or the sentence reads
+//          "Dispatch contact [is] not / no longer required / necessary / needed".
+//     A negation that belongs to a CONDITION is not the instruction's: "If LATT message is not received, contact
+//     Dispatch", "Contact Dispatch if the TAF does not cover ETA" and "If no release is received, call Dispatch"
+//     are REQUIRED Dispatch sentences. So are the idioms "Do not hesitate / forget / fail / neglect / delay …
+//     to contact Dispatch" (a double negative: contact Dispatch);
+//   - R2a category: SUGGESTION when the sentence is about questions ("… with questions", "… if you have any
+//     questions" — the word question or questions); every other Dispatch sentence is REQUIRED (an instruction
+//     to contact or call Dispatch, "Contact Dispatch before departure"; the module never reads a condition
+//     other than questions as a suggestion);
+//   - R2b both categories printed → only the first REQUIRED sentence is kept; R2c two or more of one category
+//     → only the first printed is kept; so one sentence is kept, never several (R2d);
+//   - R2d the kept sentence is as printed: the final full stop dropped, the case and every other character kept;
+//   - none → dispatchContact null, no row (R3). R4: { category, remark }, no other key.
+const DISPATCH_SENTENCE = /\b(?:contact|call)\s+dispatch\b/i;
+const DISPATCH_QUESTIONS = /\bquestions?\b/i;
+// the instruction: "contact Dispatch", "call Dispatch", "contact or call Dispatch", "call and contact Dispatch"
+const DISPATCH_INSTRUCTION = /\b(?:contact|call)(?:\s*(?:,|\/|\bor\b|\band\b)\s*(?:to\s+)?(?:contact|call))*\s+dispatch\b/i;
+// 1. a negation token, then only filler words, at the end of the prefix
+const DISPATCH_NEG_TOKEN  = String.raw`\bnot\b|\b[a-z]+n['’]t\b|\bcannot\b|\bnever\b|\bno\s+need\b|\bno\s+requirement\b|\bno\s+obligation\b|\bno\s+longer\b|\bunnecessary\b`;
+const DISPATCH_NEG_FILLER = String.raw`to|attempt|attempts|attempting|try|trying|need|needed|have|has|be|being|required|necessary|allowed|permitted|supposed|expected|obliged|asked|advised|instructed|ever|longer|please|also|then|further|again|really|actually|just|simply|any|unnecessarily`;
+const DISPATCH_NEG_STRICT = new RegExp(`(?:${DISPATCH_NEG_TOKEN})(?:\\s+(?:${DISPATCH_NEG_FILLER}))*\\s*$`, 'i');
+// 2. the sentence begins with an imperative negation
+const DISPATCH_NEG_START = /^\s*(?:please\s+)?(?:do\s*not|don['’]t|never|must\s*not|mustn['’]t|should\s*not|shouldn['’]t)\b/i;
+// 3. a negation anywhere in the last clause of the prefix, not after a condition word
+const DISPATCH_NEG_LOOSE = /\bnot\b|n['’]t\b|\bnever\b|\bcannot\b|\bno\s+(?:need|requirement|obligation)\b/i;
+const DISPATCH_CONDITION = /\b(?:if|when|whenever|unless|once|in\s+case|whether|until|after|before|because|since|while|where|as\s+soon\s+as)\b/i;
+// "do not hesitate / forget / fail / neglect / delay to contact Dispatch": a double negative, contact Dispatch
+const DISPATCH_NEG_IDIOM = /\b(?:hesitate|hesitating|forget|fail|neglect|delay)\b/i;
+// 4. after the instruction, or without it
+const DISPATCH_NEG_AFTER = Object.freeze([
+  /\b(?:contact|call)\s+dispatch\b[^.!?]*?\b(?:(?:is|are)\s+)?not\s+(?:required|necessary|needed)\b/i,
+  /\bdispatch\s+contact\s+(?:(?:is|are)\s+)?(?:not|no\s+longer)\s+(?:required|necessary|needed)\b/i,
+]);
+function _dispatchIsNegative(t) {
+  if (DISPATCH_NEG_AFTER.some(re => re.test(t))) return true;
+  const m = DISPATCH_INSTRUCTION.exec(t);
+  if (!m) return false;
+  const prefix = t.slice(0, m.index);
+  if (DISPATCH_NEG_IDIOM.test(prefix)) return false;
+  if (DISPATCH_NEG_STRICT.test(prefix)) return true;
+  if (DISPATCH_NEG_START.test(prefix)) return true;
+  const last = prefix.split(/[,;:]|\s[-–—]\s/).pop();
+  const n = last.search(DISPATCH_NEG_LOOSE);
+  return n >= 0 && !DISPATCH_CONDITION.test(last.slice(0, n));
+}
+function _dispatchSentences(text) {
+  return String(text).replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .filter(t => DISPATCH_SENTENCE.test(t) || DISPATCH_NEG_AFTER.some(re => re.test(t))).map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
+}
 function _readDispatchContact(ctx) {
   const { add, ext } = ctx;
-  const recs = ctx.company || [];
-  // O-46: dispatchContact { label, text } from the Dispatch contact line(s) printed in
-  // the Company NOTAMs (HSCN and Company): REQUIRED wins over IF QUESTIONS; none → null.
-  const found = {};
-  for (const r of recs) for (const t of r.text.split('\n').map(x => x.trim())) {
-    for (const [label, re] of Object.entries(DISPATCH_CONTACT)) {
-      if (!re.test(t)) continue;
-      if (!found[label]) found[label] = { text: t, at: [] };
-      found[label].at.push(`${r.id || '(no ID)'} ${r.origin}`);
+  const found = [];
+  let ignored = 0;
+  for (const r of ext.ofpRemarks) {
+    for (const t of _dispatchSentences(r.text)) {
+      if (_dispatchIsNegative(t)) { ignored++; continue; }    // R2e: not a Dispatch remark
+      found.push({ category: DISPATCH_QUESTIONS.test(t) ? 'SUGGESTION' : 'REQUIRED', remark: t, at: `PDF p${r.page} line ${r.line}` });
     }
   }
-  const label = found.REQUIRED ? 'REQUIRED' : found['IF QUESTIONS'] ? 'IF QUESTIONS' : null;
-  // v1.1.0 (O-175, O-183, D131 as amended; Exec 22 Nov): every Contact Dispatch text the package prints is
-  // carried as printed, so the crew can see whether the contact is compulsory:
-  //   company = the Company NOTAM Dispatch contact line(s) — each printed form once, in printed order (the
-  //             HSCN and Company copies of one line are one text);
-  //   remark  = every OFP Remarks record that says "Contact Dispatch" (any case, across its line breaks),
-  //             every line, in printed order (all variants);
-  //   text    = all of them, the Company line(s) first; nothing printed → dispatchContact null.
-  // The label stays the internal short-form / long-form flag (REQUIRED / IF QUESTIONS; null when no Company
-  // line), for the open state only (O-181), never crew text.
-  const rmk = ext.ofpRemarks.filter(r => DISPATCH_CONTACT_REMARK.test(r.text.replace(/\n/g, ' ')));
-  const forms = Object.keys(found);   // printed order of the first copy of each form
-  const company = forms.length ? forms.map(k => found[k].text).join('\n') : null;
-  const remark = rmk.length ? rmk.map(r => r.text).join('\n') : null;
-  ext.dispatchContact = company || remark ? { label, text: [company, remark].filter(Boolean).join('\n'), company, remark } : null;
-  const co = forms.length ? `Company NOTAM line(s): ${forms.map(k => `${k === 'REQUIRED' ? 'short' : 'long'} form (${found[k].at.join(', ')})`).join(', ')}` : 'no Company NOTAM line';
-  const rm = rmk.length ? `OFP Remarks: ${rmk.length} remark(s), PDF p${rmk.map(r => `${r.page} line ${r.line}`).join(', p')}` : 'no Contact Dispatch remark in the OFP Remarks';
-  if (ext.dispatchContact) add('INFO', 'dispatchContact', `Dispatch contact as printed: ${co}; ${rm}`);
-  else add('INFO', 'dispatchContact', 'no Contact Dispatch remark in the OFP Remarks and no Dispatch contact line in the Company NOTAMs: dispatchContact null');
+  const kept = found.find(f => f.category === 'REQUIRED') || found[0] || null;   // R2b, R2c: the first REQUIRED, else the first
+  ext.dispatchContact = kept ? { category: kept.category, remark: kept.remark } : null;
+  const neg = ignored ? ` (${ignored} negative sentence(s) ignored)` : '';
+  if (kept) add('INFO', 'dispatchContact', `Dispatch contact as printed in the OFP Remarks: ${kept.category}, ${kept.at}; ${found.length} Dispatch sentence(s) read, 1 kept${neg}`);
+  else add('INFO', 'dispatchContact', `no sentence about contacting Dispatch in the OFP Remarks${neg}: dispatchContact null`);
 }
-// O-175: an OFP remark that is a Dispatch contact message (the words "Contact Dispatch", any case).
-const DISPATCH_CONTACT_REMARK = /\bcontact\s+dispatch\b/i;
 
 // An item's text lines after its SUBJECT row (the item's own text, §A.7).
 const _companyBody = r => (r._subjectRow >= 0 ? r.text.split('\n').slice(r._subjectRow + 1) : r.text.split('\n'));
@@ -13977,11 +14030,14 @@ function _crewChips(n, crew, withSen) {
 }
 const _ofpPilotCrew = result => (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH');
 
-// D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none. Step 5f display
-// (O-175, O-181): an internal flag only (the OFP Remarks group's open state), never shown to the crew.
+// DEF-013 (Exec rulings): the Dispatch contact category the parser gives, REQUIRED / SUGGESTION (FlightKeys,
+// ofp-flightkeys v1.1.1: dispatchContact = { category, remark } or null); NavBlue none. Saved with the flight as
+// the category only (the remark is a printed text, not saved, D107): it decides the OFP Remarks group's open state
+// when the remark is not at hand. The app does not read the module's older label / text.
+const _OFP_DISPATCH_CATEGORIES = ['REQUIRED', 'SUGGESTION'];
 function _ofpDispatchContact(result) {
   const d = result.dispatchContact;
-  return d && (d.label === 'REQUIRED' || d.label === 'IF QUESTIONS') ? { label: d.label } : null;
+  return d && _OFP_DISPATCH_CATEGORIES.includes(d.category) ? { category: d.category } : null;
 }
 // D85: every NAT track message, parsed once here with the NAT ruleset; the parsed track is
 // kept, never the message text. The message the parser chose keeps its natTrack (filed track
@@ -14061,20 +14117,23 @@ function _ofpVolcanicOpen(adv) {
 }
 
 // ── Step 5f display: the printed texts of the OFP Remarks group that are not saved (D107) ──
-// dispatch: every Contact Dispatch text as printed (O-175, O-183: dispatchContact.text, the Company NOTAM
-// line(s) first, then the OFP remark; none printed → null, no row). raim: the RAIM attention records
+// dispatch: the Dispatch contact remark exactly as the parser gives it (DEF-013: dispatchContact.remark, the
+// sentence of the OFP Remarks as printed; none → null, no row), dispatchCategory its category (REQUIRED /
+// SUGGESTION; REQUIRED opens the group, D123). raim: the RAIM attention records
 // (O-171, D115: none when a PASSED form is printed), the remark as printed, except a remark the group
 // shows already (an O-127 record or a security message of the same text, QA F-01: it keeps its category).
 // Built at import, re-derived from the stored PDF when a flight is opened (_ofpRederive).
 function _ofpRemarkTexts(result, adv) {
   const d = result.dispatchContact;
-  const dispatch = d && typeof d.text === 'string' && d.text.trim() ? d.text : null;
+  const hasRemark = !!d && _OFP_DISPATCH_CATEGORIES.includes(d.category) && typeof d.remark === 'string' && !!d.remark.trim();
+  const dispatch = hasRemark ? d.remark : null;
+  const dispatchCategory = hasRemark ? d.category : null;
   const shown = new Set((Array.isArray(result.ofpRemarks) ? result.ofpRemarks : [])
     .filter(r => r && (_OFP_REMARKS_SHOWN.includes(r.category) || r.category === 'security') && r.text).map(r => String(r.text))
     .concat((Array.isArray(result.securityMessages) ? result.securityMessages : []).map(m => String((m && m.text) || ''))));
   const att = adv && adv.raim && Array.isArray(adv.raim.attention) ? adv.raim.attention : [];
   const raim = att.map(a => String((a && a.text) || '')).filter(t => t && !shown.has(t));
-  return { dispatch, raim };
+  return { dispatch, dispatchCategory, raim };
 }
 
 const _OFP_REMARKS_SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];   // O-127
@@ -14415,26 +14474,25 @@ function _remarkText(text) {
   return `<span class="notes-sub-body">${String(text).split('\n').map(esc).join('<br>')}</span>`;
 }
 // ── OFP Remarks group (FlightKeys; O-152 / O-153: shown in NOTES, directly below DDG) ──
-// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (DEF-013: one short
-// label/value row, the value the dispatchContact label, REQUIRED / IF QUESTIONS; a remark printed but no label →
-// "Review OFP"; nothing printed → no row; the printed Contact Dispatch text is not shown), the O-127 records (PCF, extra fuel,
-// route, ADHOC penalty: as printed), the RAIM attention records (O-171, D115: as printed), then, last, the OFP Remarks
-// security message(s) (D45, O-110: as printed, line breaks kept; Exec O-185 option b). None of these → no group. DEF-014 (Exec rulings): each record and each
-// Security message is NOTES text (span.notes-sub-body; Security under a span.notes-sub-header), as the permit lines;
+// One collapsed group (the existing .notam-group). Its body: the Dispatch contact row (DEF-013, Exec rulings: one
+// label/value row, the value the Dispatch remark exactly as the parser gives it (_ofpTexts.dispatch); no dispatchContact
+// → no row; a flight whose stored PDF is missing, the remark not at hand → "Review OFP Remarks"), then the O-127 records
+// (PCF, extra fuel, route, ADHOC penalty: as printed), the RAIM attention records (O-171, D115: as printed), then, last,
+// the OFP Remarks security message(s) (D45, O-110: as printed, line breaks kept; Exec DEF-014 option b). None of these → no
+// group. DEF-014 (Exec rulings): each record and each Security message is NOTES text (span.notes-sub-body; Security under a span.notes-sub-header), as the permit lines;
 // no status ball, no monospace. The spans are inline, so a body that follows a body gets a <br> first. The RAIM
 // texts are in _ofpTexts (never saved, D107). O-184: where the flight's flag says a RAIM record was there and
 // it cannot be rebuilt (no stored PDF, pasted text), the existing RAW-missing line takes its place; never silent.
-// O-164 / O-181: the group starts open when it holds a Security message or the Dispatch contact flag is
-// the short form (REQUIRED); O-179: also on a positive VA remark or a RAIM attention record
+// O-164 / D123: the group starts open when it holds a Security message or the Dispatch contact category is
+// REQUIRED (SUGGESTION does not open it); O-179: also on a positive VA remark or a RAIM attention record
 // (S.ofpRemarksOpen); otherwise collapsed. The crew can collapse and expand it either way.
 function renderOfpRemarksGroup() {
   let rows = '';
   const _tx = _ofpTexts || {};
-  const _dispLabel = S.dispatchContact && (S.dispatchContact.label === 'REQUIRED' || S.dispatchContact.label === 'IF QUESTIONS')
-    ? S.dispatchContact.label : '';
-  // Exec ruling (before merge): a Contact Dispatch remark printed (its text now, or its saved flag) but no label → "Review OFP".
-  const _dispRemarkPrinted = (typeof _tx.dispatch === 'string' && !!_tx.dispatch.trim()) || S.dispatchPrinted === true;
-  const _dispValue = _dispLabel || (_dispRemarkPrinted ? 'Review OFP' : '');
+  // DEF-013: the remark exactly as the parser gives it; null → no row. The remark is re-read from the stored PDF
+  // (D107, not saved): until then no row; a flagged flight whose PDF cannot be read says "Review OFP Remarks".
+  const _dispText = typeof _tx.dispatch === 'string' && _tx.dispatch.trim() ? _tx.dispatch : '';
+  const _dispValue = _dispText || (_tx.missing === true && _dispatchFlagged() ? 'Review OFP Remarks' : '');
   if (_dispValue) {
     rows += `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${esc(_dispValue)}</span></div>`;
   }
@@ -14447,11 +14505,14 @@ function renderOfpRemarksGroup() {
   _ofpRem.forEach(r => _addBody(_remarkText(r.text)));
   _raim.forEach(t => _addBody(_remarkText(t)));
   if (_raimGone) _addBody(_remarkText(_RAW_MISSING));
-  // Exec ruling (O-185, option b): the Security message(s) are the LAST items of the group, after every entry. The header is a block, so it starts its own line.
+  // Exec ruling (DEF-014, option b): the Security message(s) are the LAST items of the group, after every entry. The header is a block, so it starts its own line.
   (Array.isArray(S.securityMessages) ? S.securityMessages : []).forEach(m => {
     if (m) { body += `<span class="notes-sub-header">Security</span>`; _afterBody = false; _addBody(_remarkText(m)); }
   });
-  const open = !!(S.dispatchContact && S.dispatchContact.label === 'REQUIRED') || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean))
+  // The category: the one just read (_tx.dispatchCategory), else the saved one; a flight saved under 1.10.0 has none
+  // saved, so its group is not opened by the Dispatch contact until its PDF is read again.
+  const _dispCategory = _tx.dispatchCategory || (S.dispatchContact && S.dispatchContact.category) || '';
+  const open = _dispCategory === 'REQUIRED' || (Array.isArray(S.securityMessages) && S.securityMessages.some(Boolean))
     || S.ofpRemarksOpen === true;
   return body ? `<div class="notam-groups">${renderRawGroup('OFP Remarks', body, open)}</div>` : '';
 }

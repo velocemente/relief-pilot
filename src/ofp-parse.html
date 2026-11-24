@@ -113,11 +113,14 @@ function _crewChips(n, crew, withSen) {
 }
 const _ofpPilotCrew = result => (result.crewMembers || []).filter(c => c && c.role !== 'JS' && c.role !== 'DH');
 
-// D72: the Dispatch contact label REQUIRED / IF QUESTIONS (FlightKeys); NavBlue none. Step 5f display
-// (O-175, O-181): an internal flag only (the OFP Remarks group's open state), never shown to the crew.
+// DEF-013 (Exec rulings): the Dispatch contact category the parser gives, REQUIRED / SUGGESTION (FlightKeys,
+// ofp-flightkeys v1.1.1: dispatchContact = { category, remark } or null); NavBlue none. Saved with the flight as
+// the category only (the remark is a printed text, not saved, D107): it decides the OFP Remarks group's open state
+// when the remark is not at hand. The app does not read the module's older label / text.
+const _OFP_DISPATCH_CATEGORIES = ['REQUIRED', 'SUGGESTION'];
 function _ofpDispatchContact(result) {
   const d = result.dispatchContact;
-  return d && (d.label === 'REQUIRED' || d.label === 'IF QUESTIONS') ? { label: d.label } : null;
+  return d && _OFP_DISPATCH_CATEGORIES.includes(d.category) ? { category: d.category } : null;
 }
 // D85: every NAT track message, parsed once here with the NAT ruleset; the parsed track is
 // kept, never the message text. The message the parser chose keeps its natTrack (filed track
@@ -197,20 +200,23 @@ function _ofpVolcanicOpen(adv) {
 }
 
 // ── Step 5f display: the printed texts of the OFP Remarks group that are not saved (D107) ──
-// dispatch: every Contact Dispatch text as printed (O-175, O-183: dispatchContact.text, the Company NOTAM
-// line(s) first, then the OFP remark; none printed → null, no row). raim: the RAIM attention records
+// dispatch: the Dispatch contact remark exactly as the parser gives it (DEF-013: dispatchContact.remark, the
+// sentence of the OFP Remarks as printed; none → null, no row), dispatchCategory its category (REQUIRED /
+// SUGGESTION; REQUIRED opens the group, D123). raim: the RAIM attention records
 // (O-171, D115: none when a PASSED form is printed), the remark as printed, except a remark the group
 // shows already (an O-127 record or a security message of the same text, QA F-01: it keeps its category).
 // Built at import, re-derived from the stored PDF when a flight is opened (_ofpRederive).
 function _ofpRemarkTexts(result, adv) {
   const d = result.dispatchContact;
-  const dispatch = d && typeof d.text === 'string' && d.text.trim() ? d.text : null;
+  const hasRemark = !!d && _OFP_DISPATCH_CATEGORIES.includes(d.category) && typeof d.remark === 'string' && !!d.remark.trim();
+  const dispatch = hasRemark ? d.remark : null;
+  const dispatchCategory = hasRemark ? d.category : null;
   const shown = new Set((Array.isArray(result.ofpRemarks) ? result.ofpRemarks : [])
     .filter(r => r && (_OFP_REMARKS_SHOWN.includes(r.category) || r.category === 'security') && r.text).map(r => String(r.text))
     .concat((Array.isArray(result.securityMessages) ? result.securityMessages : []).map(m => String((m && m.text) || ''))));
   const att = adv && adv.raim && Array.isArray(adv.raim.attention) ? adv.raim.attention : [];
   const raim = att.map(a => String((a && a.text) || '')).filter(t => t && !shown.has(t));
-  return { dispatch, raim };
+  return { dispatch, dispatchCategory, raim };
 }
 
 const _OFP_REMARKS_SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];   // O-127

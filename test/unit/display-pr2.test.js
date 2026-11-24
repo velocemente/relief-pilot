@@ -273,20 +273,23 @@ fixtureTest('TC-177-004 D71/O-131: 3 FIR-keyed Company items, each in its own "C
 fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, extra fuel 3, route 5, ADHOC penalty 6; nothing else', async () => {
   const SHOWN = ['pcf', 'extraFuel', 'route', 'adhocPenalty'];
   const per = {}, hidden = {};
-  let pk = 0;
+  let pk = 0, noGroup = 0;
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), r = parsed(imp);
     const h = imp.app.renderPreflightPhase();
     const g = groups(h).filter(x => x.label === 'OFP Remarks');
     const want = r.ofpRemarks.filter(x => SHOWN.includes(x.category));
-    // O-152: the group also holds the Dispatch contact row, which every FlightKeys package has: one group on all 26,
-    // its printed records (DEF-014: standard remark items) are the same text as before
-    assert.equal(g.length, 1, `${fx.id}: one group (the Dispatch contact row is always in it)`);
-    // O-164 / O-181: open with a Security message or a REQUIRED Dispatch contact; O-179 (step 5f): or a positive VA
-    // remark / a RAIM attention record; otherwise collapsed
-    assert.equal(g[0].hidden, !((imp.S.securityMessages || []).some(Boolean) || imp.S.dispatchContact.label === 'REQUIRED' || ADV.evaluateAdvisories(plain(r)).openOfpRemarks), `${fx.id}: open / collapsed by O-164, O-179`);
-    assert.deepEqual(remItems(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
+    // O-152 / DEF-013: the group holds the Dispatch contact row (23 of the 26 packages: the remark; the other 3 none), the
+    // Security messages and the records (DEF-014: standard remark items, the same text as before): one group when any
+    // of them is there, none when none is (the one package with no row and nothing else)
+    const inGroup = !!r.dispatchContact || want.length > 0 || (imp.S.securityMessages || []).some(Boolean);
+    assert.equal(g.length, inGroup ? 1 : 0, `${fx.id}: the group is there when it has a row, a Security message or a record`);
     r.ofpRemarks.filter(x => !SHOWN.includes(x.category)).forEach(x => { hidden[x.category] = (hidden[x.category] || 0) + 1; });
+    if (!g.length) { noGroup++; continue; }
+    // O-164 / D123: open with a Security message or a REQUIRED Dispatch contact (SUGGESTION does not open it); O-179 (step 5f):
+    // or a positive VA remark / a RAIM attention record; otherwise collapsed
+    assert.equal(g[0].hidden, !((imp.S.securityMessages || []).some(Boolean) || (r.dispatchContact && r.dispatchContact.category === 'REQUIRED') || ADV.evaluateAdvisories(plain(r)).openOfpRemarks), `${fx.id}: open / collapsed by O-164, O-179`);
+    assert.deepEqual(remItems(g[0].body), plain(want.map(x => x.text)), `${fx.id}: the records as printed, in release order`);
     if (!want.length) continue;
     pk++;
     want.forEach(x => { per[x.category] = (per[x.category] || 0) + 1; });
@@ -299,7 +302,8 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
   }
   assert.deepEqual(per, { pcf: 17, extraFuel: 3, route: 5, adhocPenalty: 6 });
   assert.equal(Object.values(hidden).reduce((a, b) => a + b, 0), 292 - 31, 'every other record stays out');
-  assert.equal(pk, 21, 'packages with the group');
+  assert.equal(pk, 21, 'packages with records in the group');
+  assert.equal(noGroup, 1, 'DEF-013: the one package with no Dispatch row, no Security message and no record has no group');
   // NEGATIVE: NavBlue none; a flight saved before (no S.ofpRemarks) none
   for (const fx of nbFixtures()) assert.ok(!labels((await imported(fx)).app.renderPreflightPhase()).includes('OFP Remarks'), fx.id);
   const imp = await importFixture(fkBy(/KCVG-KSEA/), FIX);
@@ -307,9 +311,9 @@ fixtureTest('TC-177-027 O-127: "OFP Remarks" on the Preflight card — PCF 17, e
   run(imp.app, 'delete S.ofpRemarks');
   assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'O-152: the Dispatch contact row alone keeps the group');
   run(imp.app, 'delete S.dispatchContact; delete S.securityMessages');
-  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'Exec ruling: the printed Dispatch contact text alone (no label) keeps the group, with "Review OFP"');
-  imp.app._setOfpTexts(null);
-  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'the saved flag alone (text not rebuilt) still says "Review OFP"');
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'DEF-013: the remark alone keeps the group (what is saved is not read for it)');
+  imp.app._setOfpTexts({ missing: true });
+  assert.ok(labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'the saved flag alone (the stored PDF missing, remark not rebuilt) still says "Review OFP Remarks"');
   run(imp.app, 'delete S.dispatchPrinted');
   assert.ok(!labels(imp.app.renderPreflightPhase()).includes('OFP Remarks'), 'nothing to show: no group');
 });
@@ -808,8 +812,8 @@ test('TC-177-041 labels are 1.10.0 (release); no rule module or module text chan
   const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'rules', 'manifest.json'), 'utf8'));
   // Step 5f: the declared *-next keys (not built in, D90) are not this PR's modules
   assert.deepEqual(Object.fromEntries(Object.entries(man).filter(([k]) => !NOT_BUILT_IN.includes(k)).map(([k, v]) => [k, v.version])),
-    { 'notam-rules': '1.14.0', 'ofp-navblue': '2.0.1', 'aircraft-profile': '1.0.0', 'icao-fpl': '1.0.0', 'ofp-flightkeys': '1.1.0', 'nat-rules': '1.2.0', 'advisory-rules': '1.0.0' });
-  // step 5f display: the module PR bytes, moved unchanged
-  assert.equal(man['ofp-flightkeys'].sha256, 'd2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9');
+    { 'notam-rules': '1.14.0', 'ofp-navblue': '2.0.1', 'aircraft-profile': '1.0.0', 'icao-fpl': '1.0.0', 'ofp-flightkeys': '1.1.1', 'nat-rules': '1.2.0', 'advisory-rules': '1.0.0' });
+  // DEF-013 integration: the module PR bytes (#81), moved unchanged
+  assert.equal(man['ofp-flightkeys'].sha256, 'dbe3ee963ed003fd462ea1cdaabcb8188ca98adfd4229c3f7ebb28dd05e1415c');
   assert.equal(man['advisory-rules'].sha256, '8373fb54866a19fbedd7f0547d237046987146e24f9e821cb03863a7f523ebff');
 });

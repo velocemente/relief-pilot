@@ -4,14 +4,14 @@
  * Each test has a positive and a negative check. Fixture tests assert counts, codes, ICAOs and labels only; no crew
  * name, employee number or fixture text is printed or asserted. The synthetic input is test/synthetic/ (invented).
  *
- *   (Step 5f display, O-175: the Dispatch contact row shows the printed Contact Dispatch text(s), held outside the save
- *   (_ofpTexts, D107); the synthetic cases set that text with the flag; TC-182 has the step 5f cases.)
+ *   (DEF-013, Exec rulings: the Dispatch contact row shows the remark exactly as the parser gives it, held outside the save
+ *   (_ofpTexts, D107); the synthetic cases set that text and the saved category; TC-182 has the saved-flight cases.)
  *   TC-179-010  O-152 / O-153  the Dispatch contact row and the Security message(s) are in the OFP Remarks group, which
  *               sits directly below the DDG subsection of the Preflight card's NOTES; content unchanged; NEGATIVE: not
  *               on the Departure subcard any more; no content → no group; escaped
- *   TC-179-012  O-164  the OFP Remarks group starts OPEN when it holds a Security message or a Dispatch contact labelled
- *               REQUIRED, otherwise collapsed; the crew can collapse and expand it; an old save (none of the fields)
- *               has no group; NEGATIVE: IF QUESTIONS alone, records alone → collapsed
+ *   TC-179-012  O-164 / D123  the OFP Remarks group starts OPEN when it holds a Security message or a Dispatch contact of
+ *               category REQUIRED, otherwise collapsed; the crew can collapse and expand it; an old save (none of the
+ *               fields) has no group; NEGATIVE: SUGGESTION alone, records alone → collapsed
  *   TC-179-020  O-154  the OFP Alerts callout is in NOTES under the airport status (above DDG); red until tapped, stored
  *               per flight, survives a reload, a re-import starts red again, no list → no title (synthetic D79 input)
  *   TC-179-030  O-155  Company Remarks is collapsed by default and opens by the crew: the group pattern of the runway
@@ -107,15 +107,16 @@ function parseDom(html) {
 const ROW_D = l => `<div class="data-row"><span class="data-label">Dispatch contact</span><span class="data-value">${l}</span></div>`;
 const ROW_S = t => `<span class="notes-sub-header">Security</span><span class="notes-sub-body">${t}</span>`;   // DEF-014: NOTES text
 const GROUP_HDR = '<div class="notam-groups"><div class="notam-group"><div class="notam-group-hdr" onclick="toggleNotamGroup(this)"><span class="notam-group-label">OFP Remarks</span>';
-// DEF-013: the row's value is the label (REQUIRED / IF QUESTIONS); the printed Contact Dispatch text (synthetic here) is never shown.
+// DEF-013 (Exec rulings): the row's value is the remark exactly as the parser gives it (synthetic here); the saved category
+// (REQUIRED / SUGGESTION) only decides the open state.
 const DTXT = 'SYNTHETIC CONTACT DISPATCH LINE';
 const escH = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const REMARK = t => `<span class="notes-sub-body">${t}</span>`;   // DEF-014: NOTES text
-const dispatch = (app, dc, text = DTXT) => { app.S.dispatchContact = dc; app._setOfpTexts(dc ? { dispatch: text, raim: [] } : null); };
+const dispatch = (app, dc, text = DTXT) => { app.S.dispatchContact = dc; app._setOfpTexts(dc ? { dispatch: text, dispatchCategory: dc.category, raim: [] } : null); };
 
 test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows are in the OFP Remarks group, directly below DDG; content unchanged; none on the Departure subcard', () => {
   const app = loadApp();
-  dispatch(app, { label: 'REQUIRED' });
+  dispatch(app, { category: 'REQUIRED' });
   app.S.securityMessages = ['SYNTHETIC SECURITY LINE 1\nSYNTHETIC <LINE> 2'];
   app.S.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC PCF REMARK' }];
   let h = app.renderPreflightPhase();
@@ -126,15 +127,15 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   const g = h.slice(h.indexOf(GROUP_HDR));
   // content unchanged: the two row markups as before, then the printed records; the group is open (O-164: Security + REQUIRED)
   const body = g.slice(g.indexOf('<div class="notam-group-body"'), g.indexOf('<span class="notes-sub-header">Notes</span>'));
-  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D('REQUIRED') + '</div>' + REMARK('SYNTHETIC PCF REMARK') + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2')), 'Dispatch, the records, then Security last (O-185 option b; line breaks kept, escaped)');
+  assert.ok(body.startsWith('<div class="notam-group-body"><div class="data-table data-table-lg">' + ROW_D(DTXT) + '</div>' + REMARK('SYNTHETIC PCF REMARK') + ROW_S('SYNTHETIC SECURITY LINE 1<br>SYNTHETIC &lt;LINE&gt; 2')), 'Dispatch, the records, then Security last (O-185 option b; line breaks kept, escaped)');
   // DEF-014 (Exec rulings): NOTES text, no status ball, no monospace row; NEGATIVE: not the rejected remark item nor a data row
   assert.ok(!/notam-dot|notam-item/.test(body), 'no status ball, no remark item');
-  assert.ok(!/data-value">SYNTHETIC/.test(body) && !h.includes('data-label">Security<'), 'the Security message is not a data row');
+  assert.ok(!/data-value">SYNTHETIC SECURITY/.test(body) && !h.includes('data-label">Security<'), 'the Security message is not a data row');
   // the inline bodies never run together: a body that follows a body is separated by <br>; a header starts its own line
   app.S.securityMessages = ['SYNTHETIC SEC A', 'SYNTHETIC SEC B'];
   app.S.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC R1' }, { category: 'extraFuel', text: 'SYNTHETIC R2\nSYNTHETIC R2 LINE 2' }];
   const _b = app.renderPreflightPhase();
-  assert.ok(_b.includes(ROW_D('REQUIRED') + '</div>' + REMARK('SYNTHETIC R1') + '<br>' + REMARK('SYNTHETIC R2<br>SYNTHETIC R2 LINE 2') + ROW_S('SYNTHETIC SEC A') + ROW_S('SYNTHETIC SEC B')), 'order kept; every entry on its own line; Security last');
+  assert.ok(_b.includes(ROW_D(DTXT) + '</div>' + REMARK('SYNTHETIC R1') + '<br>' + REMARK('SYNTHETIC R2<br>SYNTHETIC R2 LINE 2') + ROW_S('SYNTHETIC SEC A') + ROW_S('SYNTHETIC SEC B')), 'order kept; every entry on its own line; Security last');
   assert.ok(_b.indexOf('SYNTHETIC R2 LINE 2') < _b.indexOf('notes-sub-header">Security<'), 'NEGATIVE: no Security message before an entry');
   // "last" covers the RAIM record and the RAW-missing line too
   app._setOfpTexts({ dispatch: DTXT, raim: ['SYNTHETIC RAIM RECORD'] });
@@ -167,46 +168,50 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   app.S.securityMessages = []; app.S.ofpRemarks = [];
   h = app.renderPreflightPhase();
   assert.ok(!h.includes('OFP Remarks') && !h.includes('Dispatch contact'), 'nothing to show: no group');
-  // DEF-013: a value that is not a label shows no row, and the printed text is never shown; DEF-014: a remark is escaped, line by line
-  dispatch(app, { label: '<b>' }, '<b>\nLINE 2');
-  assert.ok(app.renderPreflightPhase().includes(ROW_D('Review OFP')) && !app.renderPreflightPhase().includes('LINE 2') && !app.renderPreflightPhase().includes('<b>'), 'not a label: "Review OFP", no printed text');
+  // DEF-013: the remark is shown as given, escaped (esc()); DEF-014: a record is escaped, line by line
+  dispatch(app, { category: 'SUGGESTION' }, '<b>\nLINE 2');
+  assert.ok(app.renderPreflightPhase().includes(ROW_D('&lt;b&gt;\nLINE 2')) && !app.renderPreflightPhase().includes('<b>'), 'the remark, escaped');
   dispatch(app, null); app.S.ofpRemarks = [{ text: '<b>\nLINE 2' }];
   assert.ok(app.renderPreflightPhase().includes(REMARK('&lt;b&gt;<br>LINE 2')), 'esc() on every line of a remark');
   app.S.ofpRemarks = [];
   // other phases do not show the group
-  dispatch(app, { label: 'REQUIRED' });
+  dispatch(app, { category: 'REQUIRED' });
   assert.ok(!/OFP Remarks/.test(app.renderEnroutePhase()) && !/Dispatch contact/.test(app.renderEnroutePhase()));
 });
 
 fixtureTest('TC-179-011 O-152 / O-153: the 26 FlightKeys packages: the Dispatch row and every Security message in the OFP Remarks group below DDG; NavBlue: no group', async () => {
-  let withSecurity = 0, openN = 0;
+  let withSecurity = 0, openN = 0, noGroup = 0;
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), h = imp.app.renderPreflightPhase();
     const at = h.indexOf(GROUP_HDR);
+    const rem = imp.app._getOfpTexts().dispatch, sec = (imp.S.securityMessages || []).filter(Boolean);
+    // DEF-013: the group is there when it has the Dispatch row (the remark), a Security message or a record
+    assert.equal(at >= 0, !!rem || sec.length > 0 || (imp.S.ofpRemarks || []).length > 0, `${fx.id}: the group is there when it has something to show`);
+    if (at < 0) { assert.ok(!h.includes('Dispatch contact'), `${fx.id}: no row, no group`); noGroup++; continue; }
     assert.ok(at > h.indexOf('>DDG</span>'), `${fx.id}: the group is below DDG`);
     const end = h.indexOf('</div></div></div>', at);   // the group's own end: body, group, groups
     const g = h.slice(at, end < 0 ? h.length : end + 6);
-    assert.ok(g.includes(ROW_D(imp.S.dispatchContact.label)), `${fx.id}: Dispatch contact in the group (DEF-013: the label, one short row)`);
-    assert.ok(!g.includes(escH(imp.app._getOfpTexts().dispatch.split('\n')[0])), `${fx.id}: NEGATIVE: not the printed text`);
-    const sec = (imp.S.securityMessages || []).filter(Boolean);
+    if (rem) assert.ok(g.includes(ROW_D(escH(rem))), `${fx.id}: Dispatch contact in the group (DEF-013: the remark as given, one row)`);
+    else assert.ok(!g.includes('Dispatch contact'), `${fx.id}: NEGATIVE: no remark, no row`);
     assert.equal(g.split('notes-sub-header">Security<').length - 1, sec.length, `${fx.id}: every Security message in the group`);
     assert.equal(h.split('notes-sub-header">Security<').length - 1, sec.length, `${fx.id}: none elsewhere on the card`);
     if (sec.length) withSecurity++;
-    // O-164 / O-181: open when a Security message or REQUIRED; O-179 (step 5f): or the advisory flag; else collapsed
-    const open = sec.length > 0 || imp.S.dispatchContact.label === 'REQUIRED' || imp.S.ofpRemarksOpen === true;
+    // O-164 / D123: open when a Security message or the category REQUIRED (SUGGESTION does not open it); O-179 (step 5f): or the advisory flag; else collapsed
+    const open = sec.length > 0 || (!!imp.S.dispatchContact && imp.S.dispatchContact.category === 'REQUIRED') || imp.S.ofpRemarksOpen === true;
     assert.equal(g.includes('<div class="notam-group-body" hidden>'), !open, `${fx.id}: ${open ? 'open' : 'collapsed'} (O-164)`);
     assert.equal(g.includes('<svg class="notam-chev open"'), open, `${fx.id}: the chevron follows`);
     openN += open ? 1 : 0;
     const dep = h.slice(h.indexOf('<div class="subcard-header">Departure</div>'), h.indexOf('OFP Fuel &amp; Weight Summary'));
     assert.ok(!dep.includes('Dispatch contact') && !dep.includes('notes-sub-header">Security<'), `${fx.id}: not on the Departure subcard`);
   }
-  console.log(`TC-179-011: ${fkFixtures().length} FlightKeys packages, ${withSecurity} with a Security message, ${openN} open, ${fkFixtures().length - openN} collapsed`);
+  console.log(`TC-179-011: ${fkFixtures().length} FlightKeys packages, ${withSecurity} with a Security message, ${openN} open, ${fkFixtures().length - openN - noGroup} collapsed, ${noGroup} without a group`);
+  assert.equal(noGroup, 1, 'DEF-013: one package has nothing to show: no group');
   assert.ok(withSecurity > 0, 'the positive case is in the data');
   assert.ok(openN > 0 && openN < fkFixtures().length, 'both cases are in the data: open and collapsed');
   for (const fx of nbFixtures()) assert.ok(!(await imported(fx)).app.renderPreflightPhase().includes('OFP Remarks'), `${fx.id}: NavBlue none`);
 });
 
-test('TC-179-012 O-164 (synthetic): the OFP Remarks group opens by default with a Security message or a REQUIRED Dispatch contact, else collapsed; the crew can collapse and expand; an old save', () => {
+test('TC-179-012 O-164 / D123 (synthetic): the OFP Remarks group opens by default with a Security message or a REQUIRED Dispatch contact (SUGGESTION does not), else collapsed; the crew can collapse and expand; an old save', () => {
   const app = loadApp();
   const state = () => {
     const h = app.renderPreflightPhase(), at = h.indexOf(GROUP_HDR);
@@ -217,24 +222,24 @@ test('TC-179-012 O-164 (synthetic): the OFP Remarks group opens by default with 
   };
   const set = (dc, sec, rem) => { dispatch(app, dc); app.S.securityMessages = sec; app.S.ofpRemarks = rem; return state(); };
   // POSITIVE: REQUIRED alone, a Security message alone, both: open, the chevron open
-  for (const [dc, sec] of [[{ label: 'REQUIRED' }, []], [null, ['SYNTHETIC SECURITY']], [{ label: 'IF QUESTIONS' }, ['SYNTHETIC SECURITY']], [{ label: 'REQUIRED' }, ['SYNTHETIC SECURITY']]]) {
+  for (const [dc, sec] of [[{ category: 'REQUIRED' }, []], [null, ['SYNTHETIC SECURITY']], [{ category: 'SUGGESTION' }, ['SYNTHETIC SECURITY']], [{ category: 'REQUIRED' }, ['SYNTHETIC SECURITY']]]) {
     const st = set(dc, sec, [{ text: 'SYNTHETIC REMARK' }]);
     assert.deepEqual([st.open, st.chevOpen], [true, true], JSON.stringify([dc, sec]));
   }
-  // NEGATIVE: IF QUESTIONS alone, the records alone, empty Security entries: collapsed
-  for (const [dc, sec, rem] of [[{ label: 'IF QUESTIONS' }, [], []], [{ label: 'IF QUESTIONS' }, ['', null], [{ text: 'SYNTHETIC REMARK' }]], [null, [], [{ text: 'SYNTHETIC REMARK' }]], [{ label: 'required' }, [], []]]) {
+  // NEGATIVE: SUGGESTION alone (the row is there, the group collapsed), the records alone, empty Security entries, a category that is not REQUIRED: collapsed
+  for (const [dc, sec, rem] of [[{ category: 'SUGGESTION' }, [], []], [{ category: 'SUGGESTION' }, ['', null], [{ text: 'SYNTHETIC REMARK' }]], [null, [], [{ text: 'SYNTHETIC REMARK' }]], [{ category: 'required' }, [], []]]) {
     const st = set(dc, sec, rem);
-    // a value that is not a label (lower case) leaves nothing to show: no group, which is also not open
+    // no group at all is also not open
     assert.deepEqual(st ? [st.open, st.chevOpen] : [false, false], [false, false], JSON.stringify([dc, sec, rem]));
   }
   // the crew can collapse an open group and expand a collapsed one (the existing handler)
-  let st = set({ label: 'REQUIRED' }, [], []);
+  let st = set({ category: 'REQUIRED' }, [], []);
   assert.equal(st.open, true);
   app.sandbox.toggleNotamGroup(st.hdr);
   assert.ok(st.body.hasAttribute('hidden') && !st.hdr.querySelector('.notam-chev').classList.contains('open'), 'collapsed by the crew');
   app.sandbox.toggleNotamGroup(st.hdr);
   assert.ok(!st.body.hasAttribute('hidden') && st.hdr.querySelector('.notam-chev').classList.contains('open'), 'expanded again');
-  st = set({ label: 'IF QUESTIONS' }, [], []);
+  st = set({ category: 'SUGGESTION' }, [], []);
   app.sandbox.toggleNotamGroup(st.hdr);
   assert.ok(!st.body.hasAttribute('hidden') && st.hdr.querySelector('.notam-chev').classList.contains('open'), 'a collapsed group opens by the crew');
   // an old save: none of the fields → no group, nothing breaks; records only (a save with ofpRemarks) → collapsed
@@ -543,15 +548,17 @@ fixtureTest('TC-179-070 O-166 rule 6: a departure-airport CAT II/III restriction
 });
 
 // ══ DEF-011..014 FlightKeys Preflight card = the NavBlue layout ═════════════════════════════════════
-fixtureTest('DEF-013 / DEF-014: the OFP Remarks group on the 26 FlightKeys packages holds no RAW block or monospace box, the Dispatch row is one short label row, one NOTES heading, no empty card', async () => {
+fixtureTest('DEF-013 / DEF-014: the OFP Remarks group on the 26 FlightKeys packages holds no RAW block or monospace box, the Dispatch row is one label/value row, one NOTES heading, no empty card', async () => {
   for (const fx of fkFixtures()) {
     const imp = await imported(fx), h = imp.app.renderPreflightPhase();
     const at = h.indexOf(GROUP_HDR), end = h.indexOf('<span class="notes-sub-header">', at);
+    if (at < 0) { assert.ok(!imp.app._getOfpTexts().dispatch, `${fx.id}: no group only without a remark`); continue; }
     const g = h.slice(at, end < 0 ? h.length : end + 6);
     assert.ok(!g.includes('<pre') && !g.includes('notam-raw-text'), `${fx.id}: DEF-014: no RAW block in the group`);
     const rows = g.match(/<span class="data-label">Dispatch contact<\/span><span class="data-value">([^<]*)<\/span>/g) || [];
-    assert.equal(rows.length, 1, `${fx.id}: DEF-013: one Dispatch contact row`);
-    assert.ok(/data-value">(REQUIRED|IF QUESTIONS)</.test(rows[0]), `${fx.id}: DEF-013: its value is the label`);
+    const rem = imp.app._getOfpTexts().dispatch;
+    assert.equal(rows.length, rem ? 1 : 0, `${fx.id}: DEF-013: one Dispatch contact row, or none without a remark`);
+    if (rem) assert.ok(rows[0].endsWith(`data-value">${escH(rem)}</span>`) && !/data-value">(REQUIRED|IF QUESTIONS|SUGGESTION)</.test(rows[0]), `${fx.id}: DEF-013: its value is the remark, not a label`);
     assert.equal(h.split('class="notes-section-title"').length - 1, 1, `${fx.id}: DEF-012: one NOTES heading`);
     assert.ok(!/<div class="subcard-body">\s*<\/div>/.test(h) && !/<div class="subcard">\s*<\/div>/.test(h), `${fx.id}: DEF-011: no empty card`);
   }
@@ -563,28 +570,43 @@ fixtureTest('DEF-013 / DEF-014: the OFP Remarks group on the 26 FlightKeys packa
   }
 });
 
-// ══ Exec ruling before merge: a Contact Dispatch remark printed but no label → "Review OFP" ════════════════
-test('Review OFP (synthetic): a printed Contact Dispatch remark with no label shows the row "Dispatch contact | Review OFP"; NEGATIVE: nothing printed → no row; a label wins', () => {
+// ══ DEF-013 Exec rulings: the row, "Review OFP Remarks", the open state ════════════════════════════════════
+test('DEF-013 rulings (synthetic): the row is the remark as given; no dispatchContact → no row; remark not at hand → "Review OFP Remarks", group not opened by it; REQUIRED opens, SUGGESTION does not', () => {
   const app = loadApp();
   const row = () => { const m = app.renderPreflightPhase().match(/<span class="data-label">Dispatch contact<\/span><span class="data-value">([^<]*)<\/span>/); return m ? m[1] : null; };
-  // POSITIVE: the remark text is printed (held in memory), no label → the safe-side row; the group exists, closed (the open state is unchanged)
-  dispatch(app, null); app._setOfpTexts({ dispatch: 'SYNTHETIC CONTACT DISPATCH LINE', raim: [] });
-  assert.equal(row(), 'Review OFP');
-  assert.ok(app.renderPreflightPhase().includes(GROUP_HDR) && app.renderPreflightPhase().includes('<div class="notam-group-body" hidden>'), 'the group, collapsed');
-  assert.ok(!app.renderPreflightPhase().includes('SYNTHETIC CONTACT DISPATCH LINE'), 'the printed text is not shown');
-  // POSITIVE: a reopened flight whose remark cannot be rebuilt (no stored PDF) but whose flag says it was printed
-  app._setOfpTexts(null); app.S.dispatchPrinted = true;
-  assert.equal(row(), 'Review OFP', 'the saved flag counts as printed');
-  // NEGATIVE: nothing printed (no text, no flag, no label) → no row, no group
-  app.S.dispatchPrinted = undefined; dispatch(app, null);
+  const closed = () => app.renderPreflightPhase().includes('<div class="notam-group-body" hidden>');
+  // ruling 2 POSITIVE: the remark exactly as given, in the group, collapsed for SUGGESTION
+  dispatch(app, { category: 'SUGGESTION' });
+  assert.equal(row(), DTXT);
+  assert.ok(app.renderPreflightPhase().includes(GROUP_HDR) && closed(), 'the group, collapsed (ruling 3: SUGGESTION does not open it)');
+  // ruling 3 POSITIVE: REQUIRED opens the group
+  dispatch(app, { category: 'REQUIRED' });
+  assert.equal(row(), DTXT);
+  assert.equal(closed(), false, 'REQUIRED: open');
+  // ruling 1 NEGATIVE: no dispatchContact → no row, no group
+  dispatch(app, null); app._setOfpTexts({ dispatch: null, dispatchCategory: null, raim: [] });
   assert.equal(row(), null);
   assert.ok(!app.renderPreflightPhase().includes('OFP Remarks'));
-  // NEGATIVE: an empty or blank printed text is not a remark → no row
-  for (const t of ['', '  \n ']) { app._setOfpTexts({ dispatch: t, raim: [] }); assert.equal(row(), null, JSON.stringify(t)); }
-  // NEGATIVE: a label wins over "Review OFP", and REQUIRED still opens the group
-  for (const [l, open] of [['REQUIRED', true], ['IF QUESTIONS', false]]) {
-    dispatch(app, { label: l }); app._setOfpTexts({ dispatch: 'SYNTHETIC CONTACT DISPATCH LINE', raim: [] });
-    assert.equal(row(), l, 'the label, not "Review OFP"');
-    assert.equal(app.renderPreflightPhase().includes('<div class="notam-group-body" hidden>'), !open, `${l}: open state as before`);
-  }
+  // NEGATIVE: an empty or blank remark is not a remark → no row
+  for (const t of ['', '  \n ']) { app._setOfpTexts({ dispatch: t, dispatchCategory: 'SUGGESTION', raim: [] }); assert.equal(row(), null, JSON.stringify(t)); }
+  // ruling 5 POSITIVE: a reopened flight whose stored PDF is missing (remark cannot be rebuilt), flagged (the saved dispatchContact, or dispatchPrinted)
+  app._setOfpTexts({ missing: true }); app.S.dispatchContact = { label: 'REQUIRED' };   // a save of 1.10.0: the old shape, never read
+  assert.equal(row(), 'Review OFP Remarks');
+  assert.equal(closed(), true, 'ruling 5: the group is not opened by Dispatch (a 1.10.0 label is not read)');
+  app.S.dispatchContact = null; app.S.dispatchPrinted = true;
+  assert.equal(row(), 'Review OFP Remarks', 'the saved flag counts as printed');
+  // ruling 5 NEGATIVE: not flagged → no row; the remark not yet re-read (no texts at all) → no row, never the fallback
+  app.S.dispatchPrinted = undefined;
+  assert.equal(row(), null);
+  app.S.dispatchPrinted = true; app._setOfpTexts(null);
+  assert.equal(row(), null, 'not yet re-read: no row (no flash of the fallback)');
+  // the category saved with the flight opens the group when the remark is not at hand (new shape, REQUIRED); SUGGESTION does not
+  app.S.dispatchPrinted = undefined;
+  app._setOfpTexts({ missing: true }); app.S.dispatchContact = { category: 'REQUIRED' };
+  assert.equal(closed(), false);
+  app.S.dispatchContact = { category: 'SUGGESTION' };
+  assert.equal(closed(), true);
+  // NEGATIVE: a 1.10.0 label is not read for the open state, either
+  app.S.dispatchContact = { label: 'REQUIRED' }; app._setOfpTexts({ dispatch: DTXT, dispatchCategory: null, raim: [] });
+  assert.equal(closed(), true, 'the old shape does not open the group');
 });

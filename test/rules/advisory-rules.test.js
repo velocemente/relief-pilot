@@ -62,7 +62,8 @@ const MANIFEST = JSON.parse(fs.readFileSync(path.join(RULES, 'manifest.json'), '
 const FILE     = path.join(RULES, MANIFEST['advisory-rules'].file);
 const SRC      = fs.readFileSync(FILE, 'utf8');
 const adv      = require(FILE);
-const fk       = require(path.join(RULES, MANIFEST['ofp-flightkeys'].file));   // v1.1.0 (module PR A; built in, step 5f display)
+const fk       = require(path.join(RULES, MANIFEST['ofp-flightkeys'].file));   // v1.1.1 (built in, DEF-013 integration; v1.1.0 at step 5f display)
+const fk110    = require(path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.1.0.js'));   // v1.1.0, frozen: the parser the pinned results were made with
 const OPTS     = {
   icaoFpl:         require(path.join(RULES, MANIFEST['icao-fpl'].file)),
   aircraftProfile: require(path.join(RULES, MANIFEST['aircraft-profile'].file)),
@@ -90,10 +91,10 @@ test('TC-181-001 identity: v1.0.0 under advisory-rules (was advisory-rules-next)
   assert.equal(e.sha256, '8373fb54866a19fbedd7f0547d237046987146e24f9e821cb03863a7f523ebff', 'the bytes of the module PR (#78) = the Drive master, moved unchanged');
   assert.deepEqual(fs.readdirSync(path.join(RULES, 'advisory-rules')).filter(f => f.endsWith('.js')), ['advisory-rules-v1.0.0.js']);
   assert.ok(!fs.existsSync(path.join(RULES, 'advisory-rules-next')), 'no rules/advisory-rules-next');
-  assert.deepEqual(NOT_BUILT_IN, ['ofp-flightkeys-next'], 'DEF-013 module PR: the one declared *-next key (D96)');
+  assert.deepEqual(NOT_BUILT_IN, [], 'DEF-013 integration: no *-next key declared');
   assert.deepEqual(Object.keys(MANIFEST).filter(k => !/-next$/.test(k)).slice(-2), ['nat-rules', 'advisory-rules']);
   const pinned = {
-    'ofp-flightkeys':   ['1.1.0',  'd2e1d7a17eea2badec40c599cd2ee5d459e9172e0b54b76b841fb6fad0691ff9'],
+    'ofp-flightkeys':   ['1.1.1',  'dbe3ee963ed003fd462ea1cdaabcb8188ca98adfd4229c3f7ebb28dd05e1415c'],
     'ofp-navblue':      ['2.0.1',  'f7dd7b28f2c61555a1cdfd9a21d601bd6c10ddc0af3d3df890d53541079c6025'],
     'nat-rules':        ['1.2.0',  'a0ed2a31a344680424e96fd31d3046ac8cd65244e58cebd553fe5021fa2ca80d'],
     'notam-rules':      ['1.14.0', '139ce1691574a440a2c371296aea82985bfe26904d77114fa81969c8e86621cb'],
@@ -185,7 +186,8 @@ function pk() {
   _p = readManifest(FIX).fixtures.filter(f => f.format === 'flightkeys').map(fx => {
     const text = fs.readFileSync(path.join(FIX, fx.files.text), 'utf8'), items = JSON.parse(fs.readFileSync(path.join(FIX, fx.files.items), 'utf8'));
     const r = fk.parseFlightKeys(fk.inputFromExtractor(text, items), OPTS);
-    return { fx, lbl: LBL[fx.id], r, e: adv.evaluateAdvisories(r) };
+    const r110 = fk110.parseFlightKeys(fk110.inputFromExtractor(text, items), OPTS);
+    return { fx, lbl: LBL[fx.id], r, e: adv.evaluateAdvisories(r), e110: adv.evaluateAdvisories(r110) };
   }).sort((a, b) => a.lbl.localeCompare(b.lbl));
   return _p;
 }
@@ -240,14 +242,16 @@ fixtureTest('TC-181-011 the 26: 24 volcanic FIR items in 10 packages; L06 "no as
   assert.deepEqual(l15.hazardFirs, ['WAAF']);
 });
 
-fixtureTest('TC-181-015 pinned results on all 26 (expected/advisory-rules-v1.0.0/results.json), made with this module and ofp-flightkeys v1.1.0', () => {
+fixtureTest('TC-181-015 pinned results on all 26 (expected/advisory-rules-v1.0.0/results.json), made with this module and ofp-flightkeys v1.1.0 (frozen); with the built-in v1.1.1 the results are the same', () => {
   const pin = JSON.parse(fs.readFileSync(path.join(FIX, EXPECTED_FILE), 'utf8'));
   assert.deepEqual(pin.module, { version: '1.0.0', sha256: MANIFEST['advisory-rules'].sha256 });
-  assert.deepEqual(pin.parser, { version: '1.1.0', sha256: MANIFEST['ofp-flightkeys'].sha256 });
+  assert.deepEqual(pin.parser, { version: '1.1.0', sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, 'test', 'oracle', 'ofp-flightkeys-v1.1.0.js'))).digest('hex') });
   assert.deepEqual(Object.keys(pin.packages).sort(), pk().map(p => p.fx.id).sort());
   for (const p of pk()) {
     assert.equal(pin.packages[p.fx.id].label, p.lbl);
-    assert.deepEqual(JSON.parse(JSON.stringify(p.e)), pin.packages[p.fx.id].result, `${p.lbl}: result`);
+    assert.deepEqual(JSON.parse(JSON.stringify(p.e110)), pin.packages[p.fx.id].result, `${p.lbl}: result`);
+    // DEF-013 integration: v1.1.1 changes the Dispatch contact only; no advisory result depends on it
+    assert.deepEqual(JSON.parse(JSON.stringify(p.e)), pin.packages[p.fx.id].result, `${p.lbl}: result with ofp-flightkeys v1.1.1`);
   }
 });
 
