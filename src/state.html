@@ -170,6 +170,20 @@ function switchFlightTab(tab, render = true) {
   _saveResumeView();
 }
 
+// Scroll position that puts the top of a page just below the sticky bookmark-pill row
+// of the OFP viewer. All inputs are CSS px read at tap time: the viewer's own scrollTop,
+// the viewer's and the page's top edge on screen (their difference does not depend on the
+// current scroll), the height of the pill row, the furthest the viewer can scroll now, and
+// whether every page has been added. null = no position yet, the caller waits for the next
+// page: the page is not on screen (targetTop null), or it is the newest page and the pages
+// added so far do not reach far enough, so the browser would stop the scroll short.
+function _ofpPillScrollTop(scrollTop, containerTop, targetTop, barH, maxScroll, complete) {
+  if (typeof targetTop !== 'number' || !isFinite(targetTop)) return null;
+  const top = Math.max(0, scrollTop + (targetTop - containerTop) - (barH > 0 ? barH : 0));
+  if (top > maxScroll && !complete) return null;
+  return top;
+}
+
 // Populate the OFP viewer panel (was openOFPView)
 function loadOFPPanel() {
   const container = document.getElementById('ofpViewerContainer');
@@ -192,6 +206,19 @@ function loadOFPPanel() {
         const total = pdf.numPages;
         if (counter) counter.textContent = `${total} pages`;
         const dpr = window.devicePixelRatio || 1;
+
+        // Bookmark pill taps: the page the crew asked for, kept until it can be shown from its top.
+        let pendingPage = null, pagesAdded = 0;
+        const scrollToPage = (n) => {
+          const target = container.querySelector('[data-page="' + n + '"]');
+          const bar    = container.querySelector('.pb-bookmark-pills');
+          const top = _ofpPillScrollTop(container.scrollTop, container.getBoundingClientRect().top,
+            target ? target.getBoundingClientRect().top : null, bar ? bar.offsetHeight : 0,
+            container.scrollHeight - container.clientHeight, pagesAdded >= total);
+          if (top === null) return false;
+          container.scrollTo({ top: top, behavior: 'smooth' });
+          return true;
+        };
 
         // ── PDF Bookmark Subcards (S-OFP-01) ──────────────────────────
         // Atlas/Polar OFPs nest section bookmarks under a root entry:
@@ -246,17 +273,9 @@ function loadOFPPanel() {
               btn.textContent = pill.label;
               btn.style.cssText = 'flex-shrink:0;padding:5px 12px;border-radius:14px;border:1.5px solid var(--tint);background:transparent;color:var(--tint);font-size:12px;font-weight:600;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;font-family:inherit';
               btn.addEventListener('click', function() {
-                var target = container.querySelector('[data-page="' + pill.pageNum + '"]');
-                if (!target) return;
-                // Scroll the container directly — offsetTop is relative to offsetParent
-                // Walk up to accumulate offset if offsetParent !== container
-                var scrollY = 0;
-                var el = target;
-                while (el && el !== container) {
-                  scrollY += el.offsetTop;
-                  el = el.offsetParent;
-                }
-                container.scrollTo({ top: Math.max(0, scrollY - 52), behavior: 'smooth' });
+                // The page may not be drawn yet: the scroll then runs when renderPage adds it.
+                // A later tap replaces an earlier one that is still waiting.
+                pendingPage = scrollToPage(pill.pageNum) ? null : pill.pageNum;
                 // Highlight active pill
                 row.querySelectorAll('button').forEach(function(b) {
                   b.style.background = 'transparent';
@@ -289,6 +308,8 @@ function loadOFPPanel() {
             lbl.style.cssText = 'position:absolute;bottom:8px;right:10px;font-size:11px;font-family:var(--font-mono);color:rgba(120,120,128,0.9);pointer-events:none;background:var(--sys-bg2);padding:2px 6px;border-radius:4px;';
             wrap.appendChild(lbl);
             container.appendChild(wrap);
+            pagesAdded = n;
+            if (pendingPage !== null && scrollToPage(pendingPage)) pendingPage = null;
             pg.render({canvasContext: canvas.getContext('2d'), viewport: vp});
             if (n < total) renderPage(n + 1);
           });

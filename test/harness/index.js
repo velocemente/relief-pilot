@@ -37,7 +37,9 @@ const EXPOSED = ['_ofpRulesetParse', '_splitNotams', 'evalNotams', 'xNW_standalo
                  'renderInflightRestModule', 'toggleCrewMember', 'addManualCrew', 'addBulkCrew', 'renderEnroutePhase',
                  // Step 5f display (TC-182): the advisory rules call, the OFP Remarks group texts (not saved, D107;
                  // read / set with _getOfpTexts / _setOfpTexts), the Enroute RAW groups (O-180), the saved-flight reload.
-                 '_ofpAdvisories', '_ofpRemarkTexts', 'renderOfpRemarksGroup', 'renderEnrouteRaw', '_ofpRederive'];
+                 '_ofpAdvisories', '_ofpRemarkTexts', 'renderOfpRemarksGroup', 'renderEnrouteRaw', '_ofpRederive',
+                 // DEF-024: where a bookmark pill tap scrolls the OFP viewer (the arithmetic only).
+                 '_ofpPillScrollTop'];
 // The NOTAM functions the standalone module (rules/notam-rules) provides. index.html builds the
 // module in (global NotamRules) and binds only evalNotams and _splitNotams as app names; for a
 // name the app does not bind, the harness reads the module's export from the same script.
