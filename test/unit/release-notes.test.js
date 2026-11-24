@@ -3,7 +3,8 @@
  * TC-178-030 — step 5e-3 release: the 1.10.0 section of RELEASE_NOTES.md (newest first, on top) is crew language. No internal
  * reference (D-, O-, SME-, CS-, package or step numbers), no crew name or number. (Before the release these notes were a
  * draft file; the draft is gone and the tests read RELEASE_NOTES.md.)
- * TC-178-031: the sections and exactly seven known limits as agreed; the section is the newest and the labels say 1.10.0.
+ * TC-178-031: 1.11.0 release: the 1.11.0 section is the newest, with its sections and its own known limits (nine: four new, five
+ *             carried word for word); the 1.10.0 section is byte-identical to main's (SHA-256); the labels say 1.11.0.
  * TC-178-033: the notes carry no forward-looking promise (a Planned heading, "coming soon", "future release", "will be shown").
  * TC-178-034: the Exec's wording of the release (window, hidden obstacle height, type headings, unclear cases, display as built).
  */
@@ -11,12 +12,16 @@ const test   = require('node:test');
 const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
+const crypto = require('crypto');
 
 const ROOT  = path.resolve(__dirname, '..', '..');
 const ALL   = fs.readFileSync(path.join(ROOT, 'RELEASE_NOTES.md'), 'utf8');
 // the 1.10.0 section: from its heading to the next release heading
 const START = ALL.indexOf('# PilotBrief 1.10.0 Release Notes');
 const NOTES = START < 0 ? '' : ALL.slice(START).split(/\n(?=# PilotBrief )/)[0];
+// the 1.11.0 section: from its heading to the next release heading
+const START11 = ALL.indexOf('# PilotBrief 1.11.0 Release Notes');
+const NOTES11 = START11 < 0 ? '' : ALL.slice(START11).split(/\n(?=# PilotBrief )/)[0];
 
 test('TC-178-030 release notes: no internal reference (D-, O-, SME-, CS-, package or step numbers)', () => {
   assert.ok(NOTES.length > 0, 'the 1.10.0 section exists in RELEASE_NOTES.md');
@@ -25,24 +30,42 @@ test('TC-178-030 release notes: no internal reference (D-, O-, SME-, CS-, packag
   assert.deepEqual(bad, []);
 });
 
-test('TC-178-031 release notes: sections and known limits as agreed, no planned items; newest section; labels 1.10.0', () => {
-  for (const h of ['## What\'s New', '## NOTAMs', '## FlightKeys', '## Display', '## Saved Flights', '## Known Limits'])
-    assert.ok(NOTES.includes(h), h);
-  const limits = NOTES.split('## Known Limits')[1].split('\n').filter(l => l.startsWith('- '));
-  assert.equal(limits.length, 7);
-  assert.ok(!/^#+\s*planned\b/im.test(NOTES), 'no Planned heading (Exec)');
-  assert.ok(!/coming soon|future release|will be shown/i.test(NOTES), 'no forward-looking promise (Exec)');
-  assert.ok(/^# PilotBrief 1\.10\.0 Release Notes/.test(NOTES) && !/DRAFT/.test(NOTES), 'a release section, not a draft');
-  // newest first: 1.10.0 is the first heading of the file, the previous release follows it
-  assert.equal(ALL.indexOf('# PilotBrief '), START);
-  assert.equal(START, 0);
+test('TC-178-031 release notes: 1.11.0 section newest, its sections and limits; the 1.10.0 section unchanged; no planned items; labels 1.11.0', () => {
+  assert.ok(NOTES11.length > 0, 'the 1.11.0 section exists in RELEASE_NOTES.md');
+  for (const h of ['## What\'s New', '## Known Limits'])
+    assert.ok(NOTES11.includes(h), h);
+  const limits = NOTES11.split('## Known Limits')[1].split('\n').filter(l => l.startsWith('- '));
+  assert.equal(limits.length, 9);
+  // the five 1.10.0 limits that are still true, carried word for word (the volcanic ash / RAIM limit and the Dispatch REQUIRED limit are fixed in this release)
+  const CARRIED = [
+    '- Obstacle NOTAMs cited in the Takeoff and Landing Report are hidden like other obstacle NOTAMs when they affect no procedure - check the report\'s NOTAM list.',
+    '- NOTAMs printed with the year after the time are flagged "DATE NOT READABLE \u2013 CHECK NOTAM" although they are valid.',
+    '- Pasted FlightKeys text has no briefing NOTAMs or weather; a warning shows on the Preflight card.',
+    '- If the stored PDF is missing, the OFP tab is empty after a reload.',
+    '- En-route obstacle NOTAMs (MEA / MOCA) are treated inconsistently.',
+  ];
+  assert.deepEqual(limits.slice(4), CARRIED);
+  assert.ok(!/volcanic ash advisories are not shown/i.test(NOTES11) && !/can show REQUIRED/.test(NOTES11), 'the two fixed limits are not carried');
+  assert.ok(!/^#+\s*planned\b/im.test(NOTES11), 'no Planned heading (Exec)');
+  assert.ok(!/coming soon|future release|will be shown/i.test(NOTES11), 'no forward-looking promise (Exec)');
+  // crew language: no internal reference (decision, open item, defect, finding, PR or package numbers)
+  const bad = NOTES11.split('\n').map((l, i) => [i + 1, l]).filter(([, l]) =>
+    /\b(?:D|O|SME|CS|DEF|SEC|PR)-?\d+[a-z]?\b/.test(l) || /\b(?:package|step|sub-package)\s+\d/i.test(l) || /\b5[efg](?:-\d)?\b/.test(l));
+  assert.deepEqual(bad, []);
+  assert.ok(/^# PilotBrief 1\.11\.0 Release Notes/.test(NOTES11) && !/DRAFT/.test(NOTES11), 'a release section, not a draft');
+  // newest first: 1.11.0 is the first heading of the file, the 1.10.0 section follows it
+  assert.equal(ALL.indexOf('# PilotBrief '), START11);
+  assert.equal(START11, 0);
+  assert.ok(START > START11, '1.10.0 is kept, below');
+  // the 1.10.0 section is main\'s, byte for byte (SHA-256 of the section as it stood on main at e984505)
+  assert.equal(crypto.createHash('sha256').update(NOTES).digest('hex'), '23eec51d60a7e00ad1b3eb6979c2d8b08c1b3b28ba2b1080485e4cef6c18c1c1');
   assert.ok(ALL.indexOf('# PilotBrief 1.9.9-hf6 Release Notes') > START, 'the previous release is kept, below');
   // the draft file is gone
   assert.ok(!fs.existsSync(path.join(ROOT, 'docs', 'release', '1.10.0-draft.md')), 'the draft file is deleted');
-  // the three labels say 1.10.0 (TC-176-090 pins the exact lines)
-  assert.match(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'), /const APP_VERSION = '1\.10\.0';/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
+  // the three labels say 1.11.0 (TC-176-090 pins the exact lines)
+  assert.match(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'), /const APP_VERSION = '1\.11\.0';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.11\.0';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.11.0');
 });
 
 test('TC-178-032 the scan bites: an internal reference in the text is found', () => {

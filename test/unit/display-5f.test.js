@@ -53,7 +53,7 @@
  *   TC-182-050  D118: the NavBlue screens (30 packages, 406 screens, raw markup) byte-identical to main
  *               (test/unit/data/display-5f-navblue-screens.json, made from main baf3063); NavBlue has no OFP
  *               Remarks group, no volcanic flag, no new S key
- *   TC-182-060  labels stay 1.10.0 (D91); no *-next key; rules/ holds only the manifest's modules
+ *   TC-182-060  labels are 1.11.0 (release); no *-next key; rules/ holds only the manifest's modules
  *   TC-182-090  fixtures missing → the fixture tests FAIL, never skip
  *
  * Synthetic packages are built by test/lib/fk-synth.js and labelled SYNTHETIC (D87; invented identifiers). Fixture
@@ -645,10 +645,10 @@ fixtureTest('TC-182-050 D118: the NavBlue screens (30 packages, 406 screens, raw
 
 // ══ TC-182-060 / 090 ═════════════════════════════════════════════════════════════════════════════
 
-test('TC-182-060 labels stay 1.10.0 (D91); no *-next key; rules/ holds only the manifest\'s modules', () => {
-  assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
+test('TC-182-060 labels are 1.11.0 (release); no *-next key; rules/ holds only the manifest\'s modules', () => {
+  assert.match(HTML, /const APP_VERSION = '1\.11\.0';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.11\.0';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.11.0');
   assert.deepEqual(NOT_BUILT_IN, [], 'DEF-013 integration: no *-next key declared (D96)');
   assert.deepEqual(Object.keys(MANIFEST).filter(k => /-next$/.test(k)), [], 'no *-next key');
   assert.deepEqual(fs.readdirSync(RULES).filter(d => /-next$/.test(d)), [], 'no *-next folder');

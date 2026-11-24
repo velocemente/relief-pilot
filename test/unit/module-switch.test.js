@@ -48,7 +48,7 @@
  *   TC-174-050  the app-path golden covers the 26 FlightKeys packages (snapshots-app, 56 fixtures)
  *   TC-174-051  type-heading trap closed on the app path: parser v1.0.0 + NOTAM v1.14.0 — a trailing type
  *               heading hides nothing (5c QA F2, O-12)
- *   TC-174-060  release labels: APP_VERSION, CACHE_NAME and manifest.json are 1.10.0
+ *   TC-174-060  release labels: APP_VERSION, CACHE_NAME and manifest.json are 1.11.0
  *   TC-174-090  fixtures missing → the fixture tests FAIL, never skip
  *
  * Synthetic packages are labelled "synthetic" (invented identifiers). Fixture tests assert counts, codes, IDs and
@@ -827,12 +827,12 @@ fixtureTest('TC-174-051 type-heading trap closed on the app path: parser v1.0.0 
 
 // ══ TC-174-060 / 090 ═════════════════════════════════════════════════════════════
 
-test('TC-174-060 release labels (1.10.0 release): APP_VERSION, CACHE_NAME and manifest.json are 1.10.0', () => {
-  assert.match(HTML, /const APP_VERSION = '1\.10\.0';/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.10\.0';/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.10.0');
+test('TC-174-060 release labels (1.11.0 release): APP_VERSION, CACHE_NAME and manifest.json are 1.11.0', () => {
+  assert.match(HTML, /const APP_VERSION = '1\.11\.0';/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), /const CACHE_NAME\s*=\s*'pb-v1\.11\.0';/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, '1.11.0');
   // NEGATIVE: a bumped version would be caught
-  assert.doesNotMatch(HTML.replace("'1.10.0'", "'1.10.1'"), /const APP_VERSION = '1\.10\.0';/);
+  assert.doesNotMatch(HTML.replace("'1.11.0'", "'1.11.1'"), /const APP_VERSION = '1\.11\.0';/);
 });
 
 test('TC-174-090 fixtures missing → the fixture tests FAIL, never skip', () => {
