@@ -764,21 +764,6 @@ fixtureTest('TC-177-034 esc() on every RAW and remark text (synthetic markup)', 
 // ══ TC-177-040 / 041 NavBlue unchanged, labels ═══════════════════════════════════
 
 const sha16 = s => crypto.createHash('sha256').update(String(s)).digest('hex').slice(0, 16);
-// main's Company Remarks markup (before O-155) from the new one: the class, the toggle, the chevron and the body's hidden
-// attribute are the only differences.
-function opsNoteAsMain(h) {
-  if (!h) return h;
-  const CHEV = '<svg class="notam-chev" viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6.5 6L1 13"/></svg>';
-  const OLD_CHEV = '<svg class="cell-chevron" viewBox="0 0 9 14"\n             aria-hidden="true">\n          <path d="M1 1l6.5 6L1 13"/>\n        </svg>';
-  const steps = [
-    ['<div class="apt-ops-note"\n', '<div class="apt-ops-note collapsed"\n'],
-    ['onclick="toggleNotamGroup(this)"\n           role="button">', 'onclick="this.parentElement.classList.toggle(\'collapsed\')"\n           role="button" aria-expanded="false">'],
-    [CHEV, OLD_CHEV],
-    ['<div class="notam-group-body" hidden>', '<div class="notam-group-body">'],
-  ];
-  return steps.reduce((t, [n, o]) => { assert.ok(t.includes(n), 'markup step present: ' + n.slice(0, 40)); return t.replace(n, () => o); }, h);
-}
-
 fixtureTest('TC-177-040 NavBlue screens (30) byte-identical to main; OFP Alerts unchanged (D92)', async () => {
   for (const fx of nbFixtures()) {
     const imp = await imported(fx), app = imp.app;
@@ -786,10 +771,10 @@ fixtureTest('TC-177-040 NavBlue screens (30) byte-identical to main; OFP Alerts 
     assert.ok(want, fx.id);
     const got = { pre: sha16(app.renderPreflightPhase()), enr: sha16(app.renderEnroutePhase()), des: sha16(run(app, 'renderDescentPhase()')), notes: sha16(run(app, 'renderNotesSection()')) };
     for (const a of app.getAllAirports()) {
-      // O-155 (step 5e-3): Company Remarks is a collapsed group now; its markup is mapped back to main's (opsNoteAsMain) so
-      // this hash still shows that nothing else on the card changed. The new markup itself is TC-179-030.
+      // DEF-017: the Company Remarks subsection is left out of this hash (its display is the DEF-017 change, TC-186-*);
+      // the hash shows that nothing else on the card changed.
       got['card:' + a.icao] = sha16(run(app, `(function(){const d=airportData[${J(a.icao)}]||{notams:'',weather:''};const a=getAllAirports().find(x=>x.icao===${J(a.icao)});return renderAptIssues(evalAirport(a.icao,a.eta,d.notams,d.weather,a.wxWindow,a.role,S.acftType))})()`)
-        + opsNoteAsMain(run(app, `renderAptOpsNotes(${J(a.icao)})`)) + run(app, `renderAptRaw(${J(a.icao)})`));
+        + run(app, `renderAptRaw(${J(a.icao)})`));
       run(app, `S.descentAirport=${J(a.icao)}`);
       got['desc:' + a.icao] = sha16(run(app, 'renderDescentAirportSummary()'));
     }
