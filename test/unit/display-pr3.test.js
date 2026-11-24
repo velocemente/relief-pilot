@@ -136,6 +136,16 @@ test('TC-179-010 O-152 / O-153 (synthetic): Dispatch contact and Security rows a
   const _b = app.renderPreflightPhase();
   assert.ok(_b.includes(ROW_D('REQUIRED') + '</div>' + REMARK('SYNTHETIC R1') + '<br>' + REMARK('SYNTHETIC R2<br>SYNTHETIC R2 LINE 2') + ROW_S('SYNTHETIC SEC A') + ROW_S('SYNTHETIC SEC B')), 'order kept; every entry on its own line; Security last');
   assert.ok(_b.indexOf('SYNTHETIC R2 LINE 2') < _b.indexOf('notes-sub-header">Security<'), 'NEGATIVE: no Security message before an entry');
+  // "last" covers the RAIM record and the RAW-missing line too
+  app._setOfpTexts({ dispatch: DTXT, raim: ['SYNTHETIC RAIM RECORD'] });
+  const _r = app.renderPreflightPhase();
+  assert.ok(_r.includes(REMARK('SYNTHETIC RAIM RECORD') + ROW_S('SYNTHETIC SEC A')), 'RAIM record, then Security');
+  assert.ok(_r.indexOf('SYNTHETIC RAIM RECORD') < _r.indexOf('notes-sub-header">Security<'), 'NEGATIVE: Security not before the RAIM record');
+  app._setOfpTexts({ dispatch: DTXT, raim: [] });
+  app.S.raimAttention = true;
+  const _m = app.renderPreflightPhase();
+  assert.ok(_m.includes(REMARK('RAW not available \u2013 re-import the package') + ROW_S('SYNTHETIC SEC A')), 'RAW-missing line, then Security');
+  app.S.raimAttention = false;
   app.S.securityMessages = ['SYNTHETIC SECURITY LINE 1\nSYNTHETIC <LINE> 2'];
   app.S.ofpRemarks = [{ category: 'pcf', text: 'SYNTHETIC PCF REMARK' }];
   // NEGATIVE: nothing of it on the Departure subcard any more
