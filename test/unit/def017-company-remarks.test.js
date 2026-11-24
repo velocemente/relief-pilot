@@ -16,7 +16,8 @@
  *   TC-186-040  R5  an approach restriction / authorization, or a runway restriction / authorization (take-off, landing,
  *                   arrival, departure use of a runway), keeps today's markup (yellow ball, its text, not joined);
  *                   NEGATIVE: the words MINIMUM, VOR are not approach words; a runway named without a restriction,
- *                   a restriction naming no runway, stay blue
+ *                   a restriction naming no take-off / landing, stay blue; a take-off / landing curfew naming no runway
+ *                   (NOT ALLOWED / NOT PERMITTED, also split over two lines) applies to all runways: yellow
  *   TC-186-050  all 56 fixtures: every screen except the Company Remarks subsection is as main (hashes in
  *                   data/*-screens.json); ETOPS items, R5 rows, headers counted by airport
  *
@@ -174,9 +175,29 @@ test('TC-186-040 R5 (runway): a restriction / authorization of the take-off, lan
   assert.deepEqual(rows(card('RWY 30 NOT AVAILABLE FOR TAKEOFF.\nSYNTHETIC OTHER LINE')).map(r => r.dot), ['y', 'b'], 'a sentence that ended: the next line is blue');
   // NEGATIVE: a runway named without a restriction, a restriction naming no runway
   for (const t of ['IF ASSIGNED RWY 18L, PLEASE UTILIZE SYNTHETIC FOR DATA', 'PGUA RWY 06R NOTAM', 'IF PERFORMANCE ALLOWS, CONSIDER RWY 08R/26L HOWEVER,', 'DEP: NO REQUIREMENT TO REDUCE PAYLOAD TO FORCE SHORT RWY',
-    'NOT PERMITTED TO PARK AT THE SYNTHETIC GATE', 'TWY K CLOSED', 'TAKEOFF AND LANDING IS NOT ALLOWED BETWEEN 17:00 AND 07:00 UTC']) {
+    'NOT PERMITTED TO PARK AT THE SYNTHETIC GATE', 'TWY K CLOSED', 'SYNTHETIC LANDING WEIGHT MUST BE CHECKED', 'PLAN TAKEOFF WITH SYNTHETIC FLAPS', 'LANDING ANTICIPATED, NOT A PROBLEM']) {
     assert.deepEqual(rows(card(t)), [{ dot: 'b', text: t }], t);
   }
+});
+
+test('TC-186-040 R5 (curfew): a take-off / landing restriction for a time window that names no runway applies to all runways and keeps the alert ball', () => {
+  // one line, and the phrase split over two printed lines ("NOT" | "ALLOWED"): both lines yellow, each continuation carried, not joined
+  assert.deepEqual(rows(card('FOR SYNTHETIC AIRCRAFT, TAKEOFF AND LANDING IS NOT ALLOWED BETWEEN\n22:00 AND 06:00 UTC (21:00 AND 05:00 LOCAL)\nSUBJECT: XXXX-NEXT')), [
+    { dot: 'y', text: 'FOR SYNTHETIC AIRCRAFT, TAKEOFF AND LANDING IS NOT ALLOWED BETWEEN' }, { dot: 'y', text: '22:00 AND 06:00 UTC (21:00 AND 05:00 LOCAL)' },
+    { dot: 'b', text: 'SUBJECT: XXXX-NEXT' }]);
+  assert.deepEqual(rows(card('FOR ALL SYNTHETIC AIRCRAFT, TAKEOFF AND LANDING IS NOT\nALLOWED BETWEEN 17:00 AND 07:00 UTC (16:00 AND 06:00 LOCAL)\nSUBJECT: XXXX-NEXT')), [
+    { dot: 'y', text: 'FOR ALL SYNTHETIC AIRCRAFT, TAKEOFF AND LANDING IS NOT' }, { dot: 'y', text: 'ALLOWED BETWEEN 17:00 AND 07:00 UTC (16:00 AND 06:00 LOCAL)' },
+    { dot: 'b', text: 'SUBJECT: XXXX-NEXT' }], 'a split phrase; a SUBJECT line after it is not carried into');
+  for (const t of ['SYNTHETIC LANDING IS NOT PERMITTED AFTER 22:00', 'NIGHT TAKE-OFF NOT ALLOWED']) {
+    assert.deepEqual(rows(card(t)), [{ dot: 'y', text: t }], t);
+    assert.deepEqual(rows(card('- ' + t)).map(r => r.dot), ['y'], 'a "- " line keeps its ball');
+    assert.ok(card(null, [{ text: t }]).includes(MAIN_ROW(t)), 'a remark row too');
+  }
+  // NEGATIVE: "NOT" at the end of a line without "ALLOWED" / "PERMITTED" after it (a landing-authority note), no take-off / landing word, no restriction
+  assert.deepEqual(rows(card('SYNTHETIC LANDING AUTHORITY NOTAM IS NOT\nAPPLICABLE FOR SYNTHETIC FLIGHTS')), [
+    { dot: 'b', text: 'SYNTHETIC LANDING AUTHORITY NOTAM IS NOT' }, { dot: 'b', text: 'APPLICABLE FOR SYNTHETIC FLIGHTS' }]);
+  assert.deepEqual(rows(card('SYNTHETIC FUEL IS NOT\nALLOWED TO BE TANKERED')).map(r => r.dot), ['b', 'b'], 'no take-off / landing word');
+  assert.deepEqual(rows(card('SYNTHETIC TAKEOFF AND LANDING LIGHTS ARE ON\nSYNTHETIC OTHER LINE')).map(r => r.dot), ['b', 'b'], 'take-off / landing words alone are not a restriction');
 });
 
 // ══ TC-186-050 the 56 fixtures ═════════════════════════════════════════════════════
@@ -218,8 +239,8 @@ fixtureTest('TC-186-050 every screen except the Company Remarks subsection is as
   assert.equal(etopsItems, 17, 'every "<ICAO>-ETOPS" item on a card is one of them');
   assert.deepEqual(noCard.sort(), ['CYXY', 'PAJN', 'RJBB'], 'the other 3 of the 20 ETOPS items are for airports with no card: shown nowhere, as on main');
   const tally = {}; yellow.forEach(i => { tally[i] = (tally[i] || 0) + 1; });
-  assert.deepEqual(tally, { KCVG: 1, KWRI: 3, LEZG: 3, LLBG: 4, NFFN: 3, PAFA: 1, ZHCC: 5 },
-    'R5, rows by airport: the CAT II/III row; the runway restriction of KWRI (3 lines); LEZG (2 remark rows + 1 line); LLBG (2 lines, 2 packages); NFFN (take-off, landing, circling); the RNAV-only line; the ZHCC runway closures (5 lines) — nothing else keeps a yellow ball');
+  assert.deepEqual(tally, { EHAM: 4, KCVG: 1, KWRI: 3, LEZG: 3, LLBG: 4, NFFN: 3, PAFA: 1, ZHCC: 5 },
+    'R5, rows by airport: the CAT II/III row; the runway restriction of KWRI (3 lines); LEZG (2 remark rows + 1 line); LLBG (2 lines, 2 packages); NFFN (take-off, landing, circling); the RNAV-only line; the ZHCC runway closures (5 lines); the EHAM take-off and landing curfew (2 pairs) — nothing else keeps a yellow ball');
   // NEGATIVE: a changed screen is caught
   const fx = fkFixtures()[0], { app } = await importFixture(fx, FIX);
   run(app, 'S.stabTrim = "1.5/2.5"');

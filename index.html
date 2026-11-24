@@ -17037,13 +17037,19 @@ const _ETOPS_HEADING_RE = /^ETOPS (?:ALTERNATE|AIRPORT) INFORMATION/;
 //   a runway word (RWY, RWYS, RUNWAY, RWY28) together with a restriction / authorization word (NOT PERMITTED /
 //   APPROVED / AUTHORIZED / AVAILABLE / ALLOWED, PROHIBITED, CLOSED, CLSD, CLOSURE, AUTHORIZED, APPROVED,
 //   PERMITTED, REQUIRED, RESTRICTION, RESTRICTED, UNAVAILABLE).
+//   a take-off / landing word (TAKEOFF, TAKE-OFF, LANDING) together with NOT ALLOWED / NOT PERMITTED, naming no runway
+//   (a curfew or time window: it applies to all runways); "NOT" at the end of a line and "ALLOWED" at the start of the
+//   next plain line count as NOT ALLOWED.
 // The CAT II/III restriction rows are recognised by their source, S.catIiIiiRestrictions. A plain line that follows
 // a recognised plain line which does not end the sentence (. ! ? :) keeps the alert ball too (a restriction printed
 // on two lines); the lines are not joined.
 const _APPROACH_REMARK_RE = /\b(?:APPROACH(?:ES)?|APCH|CAT\s?(?:I{1,3}|2|3)|ILS|RNAV|RNP|LPV|GLS|CIRCLING|MINIMA|AUTOLAND)\b/i;
 const _RUNWAY_WORD_RE = /\b(?:RWYS?|RUNWAYS?)\b|\bRWY\d/i;
 const _RUNWAY_RESTRICT_RE = /\bNOT\s+(?:PERMITTED|APPROVED|AUTHORI[ZS]ED|AVAILABLE|ALLOWED)\b|\b(?:PROHIBITED|CLOSED|CLSD|CLOSURES?|AUTHORI[ZS]ED|APPROVED|PERMITTED|REQUIRED|RESTRICTIONS?|RESTRICTED|UNAVAILABLE)\b/i;
-const _isAlertRemark = text => _APPROACH_REMARK_RE.test(text) || (_RUNWAY_WORD_RE.test(text) && _RUNWAY_RESTRICT_RE.test(text));
+const _TAKEOFF_LANDING_RE = /\b(?:TAKE-?OFF|LANDING)\b/i;
+const _NOT_ALLOWED_RE = /\bNOT\s+(?:ALLOWED|PERMITTED)\b/i;
+const _isAlertRemark = text => _APPROACH_REMARK_RE.test(text) || (_RUNWAY_WORD_RE.test(text) && _RUNWAY_RESTRICT_RE.test(text))
+  || (_TAKEOFF_LANDING_RE.test(text) && _NOT_ALLOWED_RE.test(text));
 
 // The Company Remarks body lines as display entries. One entry = one printed remark line (DEF-017):
 //   { kind: 'etops' }                    R2: the Suitable Airport line.
@@ -17119,10 +17125,13 @@ function renderAptOpsNotes(icao) {
   };
   let carry = false;   // the previous plain line is a recognised line that does not end its sentence
   const bodyRows = remarkRows.map(r => rowHtml(r.text, r.approach === true)).join('') + entries
-    .map(e => {
+    .map((e, i, all) => {
       if (e.kind === 'etops') { carry = false; return _opsNoteRow('b', esc(_SUITABLE_APT_LINE)); }
       const text = e.parts.join(' ');
-      const alert = _isAlertRemark(text) || (carry && e.kind === 'plain' && !/^(?:SUBJECT:|[*\-_=\s]+$)/.test(text));
+      // "... LANDING IS NOT" + "ALLOWED BETWEEN ...": the phrase is split over two printed lines
+      const next = all[i + 1], nextText = next && next.kind === 'plain' ? next.parts[0] : '';
+      const split = e.kind === 'plain' && _TAKEOFF_LANDING_RE.test(text) && /\bNOT\s*$/i.test(text) && /^(?:ALLOWED|PERMITTED)\b/i.test(nextText);
+      const alert = _isAlertRemark(text) || split || (carry && e.kind === 'plain' && !/^(?:SUBJECT:|[*\-_=\s]+$)/.test(text));
       carry = alert && e.kind === 'plain' && !/[.!?:]$/.test(text) && !/^(?:SUBJECT:|[*\-_=\s]+$)/.test(text);
       if (alert) return e.parts.map(l => _opsNoteRow('y', esc(l))).join('');
       return _opsNoteRow(e.kind === 'dash' ? '' : 'b', esc(text));
