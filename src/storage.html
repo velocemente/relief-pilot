@@ -70,6 +70,7 @@ function clearOFPPanel() {
   // Wipe the OFP viewer so the next loadOFPPanel() call renders fresh content.
   // Must be called whenever a new flight is loaded or a new PDF is imported.
   _pdfDocProxy = null;
+  _ofpViewSeq++;
   const c = document.getElementById('ofpViewerContainer');
   if (c) c.innerHTML = '';
   const ctr = document.getElementById('ofpPageCounter');

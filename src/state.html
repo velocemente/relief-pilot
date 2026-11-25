@@ -60,6 +60,7 @@ function push(screenId) {
   if (screenId === 'screen-flights') renderFlightList();
   if (screenId === 'screen-flight') {
     // Clear OFP panel so loadOFPPanel re-renders for the new flight
+    _ofpViewSeq++;
     const ofpC = document.getElementById('ofpViewerContainer');
     if (ofpC) ofpC.innerHTML = '';
     const ofpCtr = document.getElementById('ofpPageCounter');
@@ -185,6 +186,11 @@ function _ofpPillScrollTop(scrollTop, containerTop, targetTop, barH, maxScroll, 
   return top;
 }
 
+// Which render owns the OFP viewer. A render takes the next number when it starts; every place that
+// wipes the viewer (clearOFPPanel, push('screen-flight'), a new render) moves it on. A bookmark tap
+// that is still waiting for its page is applied only while its render's number is the current one.
+let _ofpViewSeq = 0;
+
 // Populate the OFP viewer panel (was openOFPView)
 function loadOFPPanel() {
   const container = document.getElementById('ofpViewerContainer');
@@ -194,6 +200,7 @@ function loadOFPPanel() {
   // A stale "Loading…" placeholder, error message, or raw-text fallback must
   // not block a fresh render — so check for an actual <canvas>, not just any child.
   if (container.querySelector('canvas')) return;
+  const renderSeq = ++_ofpViewSeq;
   container.innerHTML = '';
   if (counter) counter.textContent = '';
 
@@ -310,7 +317,11 @@ function loadOFPPanel() {
             wrap.appendChild(lbl);
             container.appendChild(wrap);
             pagesAdded = n;
-            if (pendingPage !== null && scrollToPage(pendingPage)) pendingPage = null;
+            if (pendingPage !== null) {
+              // A wipe or a new render since this one began: the tap belongs to a viewer that is gone.
+              if (renderSeq !== _ofpViewSeq) pendingPage = null;
+              else if (scrollToPage(pendingPage)) pendingPage = null;
+            }
             pg.render({canvasContext: canvas.getContext('2d'), viewport: vp});
             if (n < total) renderPage(n + 1);
           });
