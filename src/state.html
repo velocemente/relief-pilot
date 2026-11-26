@@ -187,8 +187,9 @@ function _ofpPillScrollTop(scrollTop, containerTop, targetTop, barH, maxScroll, 
 }
 
 // Which render owns the OFP viewer. A render takes the next number when it starts; every place that
-// wipes the viewer (clearOFPPanel, push('screen-flight'), a new render) moves it on. A bookmark tap
-// that is still waiting for its page is applied only while its render's number is the current one.
+// wipes the viewer (clearOFPPanel, push('screen-flight'), a new render) moves it on. Each later step of
+// a render (pdf.js load, the document, the outline, each page, a bookmark tap) first checks that its
+// number is still the current one, and otherwise writes nothing and requests no further page.
 let _ofpViewSeq = 0;
 
 // Populate the OFP viewer panel (was openOFPView)
@@ -201,14 +202,19 @@ function loadOFPPanel() {
   // not block a fresh render — so check for an actual <canvas>, not just any child.
   if (container.querySelector('canvas')) return;
   const renderSeq = ++_ofpViewSeq;
+  const owns = () => renderSeq === _ofpViewSeq;
+  // The PDF and its text as they are when this render starts: a later step never reads the globals.
+  const pdfBuf = pdfArrayBuffer, rawText = pdfRawText;
   container.innerHTML = '';
   if (counter) counter.textContent = '';
 
-  if (pdfArrayBuffer) {
+  if (pdfBuf) {
     _pdfDocProxy = null;
     container.innerHTML = '<div style="color:var(--label2);text-align:center;padding:32px;font-size:15px">Loading PDF…</div>';
     loadPdfJs().then(() => {
-      pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise.then(pdf => {
+      if (!owns()) return;
+      pdfjsLib.getDocument({data: new Uint8Array(pdfBuf.slice(0))}).promise.then(pdf => {
+        if (!owns()) return;
         _pdfDocProxy = pdf;
         container.innerHTML = '';
         const total = pdf.numPages;
@@ -239,6 +245,7 @@ function loadOFPPanel() {
           { re: /Maps|Charts|Company\s*Docs/i,label: 'CHARTS' },
         ];
         pdf.getOutline().then(function(outline) {
+          if (!owns()) return;
           if (!outline || !outline.length) return;
           // Flatten: collect items from root and all top-level children
           var items = [];
@@ -261,6 +268,7 @@ function loadOFPPanel() {
             }).catch(function() { return null; });
           });
           Promise.all(pending).then(function(resolved) {
+            if (!owns()) return;
             var pills = [];
             resolved.forEach(function(r) {
               if (!r) return;
@@ -281,6 +289,7 @@ function loadOFPPanel() {
               btn.textContent = pill.label;
               btn.style.cssText = 'flex-shrink:0;padding:5px 12px;border-radius:14px;border:1.5px solid var(--tint);background:transparent;color:var(--tint);font-size:12px;font-weight:600;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;font-family:inherit';
               btn.addEventListener('click', function() {
+                if (!owns()) return;
                 // The page may not be drawn yet: the scroll then runs when renderPage adds it.
                 // A later tap replaces an earlier one that is still waiting.
                 pendingPage = scrollToPage(pill.pageNum) ? null : pill.pageNum;
@@ -300,6 +309,7 @@ function loadOFPPanel() {
 
         const renderPage = (n) => {
           pdf.getPage(n).then(pg => {
+            if (!owns()) return;   // superseded: no page is added and no further page is requested
             const viewerW = container.clientWidth || (window.innerWidth - 32);
             const vp0 = pg.getViewport({scale: 1});
             const vp  = pg.getViewport({scale: (viewerW / vp0.width) * dpr});
@@ -328,18 +338,20 @@ function loadOFPPanel() {
         };
         // Defer one animation frame so the panel (display:flex applied by
         // switchFlightTab) has been laid out and container.clientWidth is valid
-        requestAnimationFrame(() => renderPage(1));
+        requestAnimationFrame(() => { if (owns()) renderPage(1); });
       }).catch(err => {
+        if (!owns()) return;
         _pdfDocProxy = null;
         if (counter) counter.textContent = '';
         container.innerHTML = `<div class="ofp-raw" style="color:var(--sys-red);padding:var(--sp4)">PDF render error: ${esc(err.message)}</div>`;
       });
     }).catch(() => {
+      if (!owns()) return;
       container.innerHTML = '';
       if (counter) counter.textContent = '';
       const pre = document.createElement('div');
       pre.className = 'ofp-raw';
-      pre.textContent = pdfRawText || 'No OFP imported yet.';
+      pre.textContent = rawText || 'No OFP imported yet.';
       container.appendChild(pre);
     });
   } else {
@@ -347,7 +359,7 @@ function loadOFPPanel() {
     if (counter) counter.textContent = '';
     const pre = document.createElement('div');
     pre.className = 'ofp-raw';
-    pre.textContent = pdfRawText || 'No OFP imported yet.';
+    pre.textContent = rawText || 'No OFP imported yet.';
     container.appendChild(pre);
   }
 }

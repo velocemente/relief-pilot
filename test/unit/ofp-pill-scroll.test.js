@@ -184,26 +184,28 @@ test('F-1 positive: a second loadOFPPanel that returns early (canvas present) do
   assert.deepEqual(r.container.scrolls, [TAP_TOP]);
 });
 
+// DEF-TBD-1a-1 (Sprint 1v PR-1): a superseded render now adds nothing at all, so the preconditions of
+// these six are inverted on purpose: the old render's pages (and its row) are no longer added after the
+// reset, and there is still no scroll. A stronger test than before, not a weaker one.
 for (const [name, reset] of Object.entries(RESETS)) {
   test(`F-1 negative: tap waiting, then ${name}: the old render's tap does not scroll`, async () => {
     const r = await rig();
     await r.open(); await r.outline();
     r.tap();
     reset(r.app); await flush();
-    await r.draw(TOTAL, 0);                           // the old render keeps adding its pages
-    assert.ok(r.container.querySelector('[data-page="3"]'), 'the target page was added after the reset');
+    await r.draw(TOTAL, 0);                           // the old render's pages come back after the reset
+    assert.equal(r.container.querySelector('[data-page="3"]'), null, 'the old render added no page after the reset');
     assert.deepEqual(r.container.scrolls, []);
   });
 
-  test(`F-1 negative: ${name} before the old render's pill row exists, tap on that row afterwards: no scroll`, async () => {
+  test(`F-1 negative: ${name} before the old render's pill row exists: no row, no page, no scroll`, async () => {
     const r = await rig();
     await r.open();                                   // outline held: no pill row yet
     reset(r.app); await flush();
-    await r.outline(0);                               // the row now lands in the wiped viewer
-    assert.ok(r.container.querySelector('.pb-bookmark-pills'), 'the old render\'s row is in the viewer');
-    r.tap();
+    await r.outline(0);                               // the old render's outline comes back after the reset
+    assert.equal(r.container.querySelector('.pb-bookmark-pills'), null, 'the old render\'s row is not inserted (so there is nothing to tap)');
     await r.draw(TOTAL, 0);
-    assert.ok(r.container.querySelector('[data-page="3"]'), 'the target page was added after the reset');
+    assert.equal(r.container.querySelector('[data-page="3"]'), null, 'the old render added no page after the reset');
     assert.deepEqual(r.container.scrolls, []);
   });
 }
