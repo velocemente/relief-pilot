@@ -149,6 +149,9 @@ function loadFlight(entry) {
 // processPDF() reads it (_pdfReadText) and, for a FlightKeys flight (S.rawIndex), parsed again for the
 // RAW views and (step 5f display, D107) the OFP Remarks group's Dispatch contact and RAIM texts only:
 // nothing else in S or airportData is changed. The screens are redrawn when done.
+// _loadSeq: who owns the open flight's globals. loadFlight(), processPDF() (first step, before any wait) and a
+// non-empty importManual() each take the next number; every later step of a restore, a re-read or an import
+// first checks that its number is still the current one, and otherwise writes nothing (DEF-TBD-1v-3, DEF-TBD-1w-1).
 let _loadSeq = 0;
 function _ofpRederive(buf, seq) {
   return loadPdfJs()

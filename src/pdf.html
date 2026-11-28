@@ -156,29 +156,41 @@ async function _pdfReadText(pdf) {
   return { fullText, pages };
 }
 
+// DEF-TBD-1v-3 / DEF-TBD-1w-1: an import owns the open flight (_loadSeq) from its first step, before any
+// wait. A flight opened (loadFlight) or another import started meanwhile overtakes it: it then writes
+// nothing more (no bytes, viewer wipe, text, toast, parse, save or screen change) and says nothing.
 async function processPDF(file) {
+  const seq = ++_loadSeq;
   resetStateForNewFlight();
   showToast('info', `Loading ${file.name}…`);
   try {
     await loadPdfJs();
+    if (seq !== _loadSeq) return;
     const ab = await file.arrayBuffer();
+    if (seq !== _loadSeq) return;
     pdfArrayBuffer = ab;   // keep as ArrayBuffer — slice a fresh Uint8Array each time so pdf.js can't transfer/neuter the master
     clearOFPPanel();       // wipe any previously rendered canvas pages before new PDF is loaded
     const pdf = await pdfjsLib.getDocument({data: new Uint8Array(pdfArrayBuffer.slice(0))}).promise;
+    if (seq !== _loadSeq) return;
 
     const { fullText, pages } = await _pdfReadText(pdf);
+    if (seq !== _loadSeq) return;
 
     pdfRawText = fullText;
     pdfPages = pages;
     showToast('ok', `✓ Loaded ${pdf.numPages} pages — parsing OFP…`);
     // D89: a refused package (parseOFP() false) leaves the crew on the import screen.
-    setTimeout(() => { if (parseOFP() !== false) push('screen-flight'); }, 400);
-  } catch(err) { showToast('err', 'Error: ' + err.message); }
+    setTimeout(() => {
+      if (seq !== _loadSeq) return;
+      if (parseOFP() !== false) push('screen-flight');
+    }, 400);
+  } catch(err) { if (seq === _loadSeq) showToast('err', 'Error: ' + err.message); }
 }
 
 function importManual() {
   const txt = document.getElementById('manualText').value.trim();
   if (!txt) { showToast('err', 'Please paste OFP text first.'); return; }
+  ++_loadSeq;   // DEF-TBD-1v-3: the previous flight's late restore and re-read write nothing into this one
   resetStateForNewFlight();
   pdfRawText = txt;
   pdfArrayBuffer = null;  // no PDF binary available for manual paste
