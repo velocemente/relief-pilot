@@ -179,6 +179,11 @@ const paste = (r, text) => { r.el.manualText.value = text; r.app.importManual();
 async function importDone(r, id) { importPdf(r, id); await settle(); r.fire(); await settle(); }
 
 // The open flight's globals, as plain data.
+// Everything an import sets: all of S, airportData, the timeline (rule 6: every field, safety-critical ones included).
+const whole = r => JSON.parse(r.run('JSON.stringify({ S, airportData, tl: _tl, flightDateISO: window._flightDateISO })'));
+// Each saved entry in full (number, date, state, airport data, timeline), its id and save time left out, and its stored PDF.
+const savedFull = r => JSON.parse(JSON.stringify(r.app.getFlights())).map(f => { const { id, at, ...rest } = f; return { ...rest, pdf: pkgOf(r.idb.store.get(id)) }; })
+  .sort((a, b) => a.fltNum.localeCompare(b.fltNum));
 const open = r => JSON.parse(r.run(`JSON.stringify({ flt: S.fltNum, block: S.blockFuel, note: S.userNotes,
   text: pdfRawText, rawOFP: S.rawOFP, pages: pdfPages, bytes: __pkgOf(pdfArrayBuffer), rawIndex: S.rawIndex || null,
   rawViews: _rawViews, ofpTexts: _ofpTexts, top: _navStack[_navStack.length - 1], seq: _loadSeq })`));
@@ -209,12 +214,18 @@ const A_SAVED = { flt: FLT.A, block: '122.5', note: NOTE, pdf: 'A' };
 // The reference: each package imported alone in a fresh session, nothing overtaking it.
 const REF = {};
 async function ref(id) {
-  if (!REF[id]) { const r = makeApp(); await importDone(r, id); REF[id] = { open: open(r), saved: saved(r) }; }
+  if (!REF[id]) { const r = makeApp(); await importDone(r, id); REF[id] = { open: open(r), whole: whole(r), saved: saved(r), savedFull: savedFull(r) }; }
   return REF[id];
 }
-const same = (o, refOpen, msg) => {
+// The open flight exactly as when the package is imported alone in a fresh session: the globals above, and (with
+// the session) all of S, airportData, the timeline and the package's saved entry in full.
+const same = (o, refOpen, msg, r, id) => {
   const pick = x => ({ flt: x.flt, block: x.block, text: x.text, rawOFP: x.rawOFP, pages: x.pages, bytes: x.bytes, rawIndex: x.rawIndex, rawViews: x.rawViews, ofpTexts: x.ofpTexts });
   assert.deepEqual(pick(o), pick(refOpen), msg);
+  if (r) {
+    assert.deepEqual(whole(r), REF[id].whole, (msg || '') + ': all of S, airportData and the timeline');
+    assert.deepEqual(savedFull(r).find(f => f.fltNum === FLT[id]), REF[id].savedFull[0], (msg || '') + ': the saved entry in full');
+  }
 };
 
 // ══ T1 tap A, paste B; A's re-read resolves after ═══════════════════════════════════════════════════
@@ -253,7 +264,7 @@ test('T2 negative: tap A, import B, A\'s re-read lands inside the 400 ms: B is p
   r.gates.release('text:A'); await settle();   // inside the 400 ms
   r.fire(); await settle();
   const o = open(r);
-  same(o, (await ref('B')).open, 'the open flight is B exactly as when imported alone');
+  same(o, (await ref('B')).open, 'the open flight is B exactly as when imported alone', r, 'B');
   assert.equal(o.top, 'screen-flight');
   assert.deepEqual(saved(r), [A_SAVED, { flt: FLT.B, block: '133.3', note: '', pdf: 'B' }]);
 });
@@ -261,7 +272,7 @@ test('T2 positive: import B with no tap: parsed and saved (as on main)', async (
   const r = await withA();
   await importDone(r, 'B');
   const o = open(r);
-  same(o, (await ref('B')).open);
+  same(o, (await ref('B')).open, undefined, r, 'B');
   assert.equal(o.top, 'screen-flight');
   assert.deepEqual(saved(r), [A_SAVED, { flt: FLT.B, block: '133.3', note: '', pdf: 'B' }]);
 });
@@ -277,7 +288,7 @@ test('T3 negative: tap A, import B, A\'s re-read lands after the parse: B\'s tex
   r.gates.release('text:A'); await settle();
   const after = open(r);
   assert.deepEqual(after, before);
-  same(after, (await ref('B')).open);
+  same(after, (await ref('B')).open, undefined, r, 'B');
   assert.deepEqual(saved(r), [A_SAVED, { flt: FLT.B, block: '133.3', note: '', pdf: 'B' }]);
 });
 
@@ -290,7 +301,7 @@ test('T4 negative (PDF): A\'s restore lands after B\'s bytes: B keeps and stores
   r.gates.release('idb:A'); await settle();
   assert.equal(open(r).bytes, 'B');
   r.fire(); await settle();
-  same(open(r), (await ref('B')).open);
+  same(open(r), (await ref('B')).open, undefined, r, 'B');
   assert.deepEqual(saved(r), [A_SAVED, { flt: FLT.B, block: '133.3', note: '', pdf: 'B' }]);
 });
 test('T4 negative (paste): A\'s restore lands after paste B: B holds no PDF; after an edit B has no stored PDF', async () => {
@@ -449,7 +460,7 @@ for (const gate of ['bytes:B', 'doc:B', 'text:B', 'timer']) {
     r.gates.release('text:C'); await settle();
     r.fire(); await settle();
     const o = open(r);
-    same(o, (await ref('C')).open, 'the open flight is C exactly as when imported alone');
+    same(o, (await ref('C')).open, 'the open flight is C exactly as when imported alone', r, 'C');
     assert.equal(o.top, 'screen-flight');
     assert.deepEqual(saved(r), [A_SAVED, { flt: FLT.C, block: '155.5', note: '', pdf: 'C' }]);
   });
@@ -485,7 +496,7 @@ test('T9 negative: resume A at start, its re-read held; B arrives through proces
   assert.equal(r.pending(), 1);
   r.gates.release('text:A'); await settle();   // inside the 400 ms
   r.fire(); await settle();
-  same(open(r), (await ref('B')).open);
+  same(open(r), (await ref('B')).open, undefined, r, 'B');
   assert.deepEqual(saved(r), [A_SAVED, { flt: FLT.B, block: '133.3', note: '', pdf: 'B' }]);
 });
 test('T9 positive: resume alone: A reopened with its note, text and PDF (unchanged)', async () => {
@@ -537,7 +548,7 @@ test('L1: during an import, Back, tab switches, the resume key, toast timers and
   assert.equal(open(r).seq, seq, 'the sequence did not move');
   r.gates.release('text:B'); await settle();
   r.fire(); await settle();
-  same(open(r), (await ref('B')).open);
+  same(open(r), (await ref('B')).open, undefined, r, 'B');
   assert.deepEqual(saved(r), [A_SAVED, { flt: FLT.B, block: '133.3', note: '', pdf: 'B' }]);
 });
 test('L2: each import moves the sequence once, at its start; its parse (accepted, refused, unrecognised) or a failed read moves it no further', async () => {
@@ -613,3 +624,18 @@ for (const [y, how] of [['MIX', 'refused'], ['JUNK', 'unrecognised'], ['C', 'rea
     assert.equal(over.pending, 0);
   });
 }
+
+// One drop on the import screen's drop zone runs both drop handlers (the zone's and the document's, F-27): two
+// imports of the same file back to back. The first is overtaken by the second; the file is read, parsed and saved once.
+test('L6: the same PDF imported twice back to back (one drop on the drop zone): parsed once, saved once with its PDF, as when alone', async () => {
+  const r = await withA();
+  r.app.push('screen-import');
+  importPdf(r, 'B'); importPdf(r, 'B'); await settle();
+  assert.equal(r.gates.n('doc:B'), 1, 'B\'s document opened once');
+  assert.equal(r.pending(), 1, 'one parse timer');
+  const parses = r.calls.parse;
+  r.fire(); await settle();
+  assert.equal(r.calls.parse, parses + 1, 'parsed once');
+  same(open(r), (await ref('B')).open, 'as when alone', r, 'B');
+  assert.deepEqual(saved(r), [A_SAVED, { flt: FLT.B, block: '133.3', note: '', pdf: 'B' }]);
+});
