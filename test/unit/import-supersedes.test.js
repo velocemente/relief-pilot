@@ -587,3 +587,29 @@ test('L4: a refused import after a saved flight A was opened still overtakes A\'
   assert.equal(o.rawOFP, '');
   assert.deepEqual(saved(r), [A_SAVED]);
 });
+// An import still reading is overtaken by any non-empty import started meanwhile, also one that is then
+// refused (D89), opens an empty flight (F-18) or fails: the first then writes nothing and says nothing, and the
+// second ends exactly as when alone (Objectives 1-2: the number is taken at the start, before the outcome is known).
+for (const [y, how] of [['MIX', 'refused'], ['JUNK', 'unrecognised'], ['C', 'read fails']]) {
+  test(`L5 (${how}): import B reading, then an import that is ${how}: B writes nothing more and is not saved; the second ends as when alone`, async () => {
+    const run = async withB => {
+      const r = await withA();
+      r.app.push('screen-import');
+      if (withB) { r.gates.hold('text:B'); importPdf(r, 'B'); await settle(); }
+      if (how === 'read fails') r.gates.hold('doc:C');
+      const toasts = r.calls.toast.length;
+      importPdf(r, y); await settle();
+      if (how === 'read fails') { r.gates.fail('doc:C'); await settle(); }
+      if (withB) { r.gates.release('text:B'); await settle(); }
+      r.fire(); await settle();
+      return { o: open(r), saved: saved(r), toasts: r.calls.toast.slice(toasts), pending: r.pending() };
+    };
+    const alone = await run(false), over = await run(true);
+    const { seq: _a, ...a } = alone.o, { seq: _b, ...b } = over.o;
+    assert.deepEqual(b, a, 'the open flight and screen as when the second import is alone');
+    assert.deepEqual(over.saved, alone.saved, 'storage as when alone: B not saved');
+    assert.deepEqual(over.saved, [A_SAVED]);
+    assert.deepEqual(over.toasts, alone.toasts, 'only the second import\'s own toasts');
+    assert.equal(over.pending, 0);
+  });
+}
